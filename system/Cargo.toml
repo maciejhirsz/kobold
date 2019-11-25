@@ -1,0 +1,17 @@
+[package]
+name = "system"
+version = "0.1.0"
+authors = ["Maciej Hirsz <maciej.hirsz@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# yew = "0.10"
+wee_alloc = "0.4.5"
+stdweb = "0.4"
+lazy_static = "1.4.0"
+system_macro = { path = "../system_macro" }
+
+[profile.release]
+lto = true
