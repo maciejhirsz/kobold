@@ -1,5 +1,5 @@
 use stdweb::{js, Value, Reference};
-use system_macro::component;
+use sketch_macro::sketch;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -12,7 +12,7 @@ impl Node {
     }
 }
 
-fn mount<R: Rendered>(rendered: &R) {
+fn mount<T: Rendered>(rendered: &T) {
     js! {
         document.body.appendChild(@{ rendered.root().js() })
     }
@@ -29,11 +29,35 @@ trait Rendered {
     fn root(&self) -> &Node;
 }
 
-component! {
+trait Renderable {
+    fn render(&self) -> Node;
+
+    fn update(&self, with: &Node);
+}
+
+impl Renderable for str {
+    fn render(&self) -> Node {
+        to_node(js! {
+            return document.createTextNode(@{ self });
+        })
+    }
+
+    fn update(&self, with: &Node) {
+        js! { @(no_return)
+            @{ with.js() }.textContent = @{ self };
+        }
+    }
+}
+
+sketch! {
     Test(name: &str) {
         <h1 style="text-decoration: underline; color: red;">"Hello "{ name }"!"</h1>
 
-        <p>"This is some schoeny paragraph!"</p>
+        <ul>
+            <li>"First"</li>
+            <li>"Second"</li>
+            <li>"Third"</li>
+        </ul>
     }
 }
 

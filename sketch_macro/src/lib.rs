@@ -45,7 +45,7 @@ impl Parser {
 }
 
 #[proc_macro]
-pub fn component(input: TokenStream) -> TokenStream {
+pub fn sketch(input: TokenStream) -> TokenStream {
     let mut parser = Parser::new(input);
 
     let name = parser.ident();
@@ -96,9 +96,7 @@ pub fn component(input: TokenStream) -> TokenStream {
             }
 
             pub fn update(&self, #args) {
-                stdweb::js! { @(no_return)
-                    #update
-                }
+                #update
             }
         }
     }).into();

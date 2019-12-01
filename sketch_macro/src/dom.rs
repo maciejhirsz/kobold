@@ -31,9 +31,7 @@ impl Generate for Node {
                 }
             },
             Node::Expression(expr) => {
-                quote! {
-                    document.createTextNode(@{ #expr })
-                }
+                gen.add_field(expr)
             },
             Node::Fragment(nodes) => {
                 let el = gen.var();
@@ -44,15 +42,6 @@ impl Generate for Node {
 
                 append(gen, el, nodes)
             },
-        }
-    }
-
-    fn computed(&self, el: &QuoteTokens) -> Option<QuoteTokens> {
-        match self {
-            Node::Element(_) | Node::Text(_) | Node::Fragment(_) => None,
-            Node::Expression(expr) => Some(quote! {
-                #el.textContent = @{ #expr };
-            }),
         }
     }
 }

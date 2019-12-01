@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use proc_macro::{TokenStream, TokenTree, Delimiter, Span};
 use proc_macro::token_stream::IntoIter as TokenIter;
 use quote::{quote, quote_spanned};
@@ -5,21 +6,12 @@ use crate::dom::{Node, Element};
 
 #[derive(Debug)]
 pub struct ParseError {
-    msg: String,
-    span: Span,
+    msg: Cow<'static, str>,
     tt: Option<TokenTree>,
 }
 
 impl ParseError {
-    pub fn new<S: Into<String>>(msg: S, span: Span) -> Self {
-        ParseError {
-            msg: msg.into(),
-            span,
-            tt: None
-        }
-    }
-
-    pub fn from_tt<S: Into<String>>(msg: S, tt: Option<TokenTree>) -> Self {
+    pub fn new<S: Into<Cow<'static, str>>>(msg: S, tt: Option<TokenTree>) -> Self {
         let mut error = ParseError::from(tt);
 
         error.msg = msg.into();
@@ -28,7 +20,8 @@ impl ParseError {
 
     pub fn tokenize(self) -> TokenStream {
         let msg = self.msg;
-        (quote_spanned! { self.span.into() =>
+        let span = self.tt.as_ref().map(|tt| tt.span()).unwrap_or_else(|| Span::call_site()).into();
+        (quote_spanned! { span =>
             fn _parse_error() {
                 compile_error!(#msg)
             }
@@ -38,11 +31,8 @@ impl ParseError {
 
 impl From<Option<TokenTree>> for ParseError {
     fn from(tt: Option<TokenTree>) -> Self {
-        let span = tt.as_ref().map(|tt| tt.span()).unwrap_or_else(|| Span::call_site());
-
         ParseError {
             msg: "Unexpected token".into(),
-            span,
             tt,
         }
     }
@@ -94,7 +84,7 @@ fn parse_node(iter: &mut TokenIter) -> Result<Node, ParseError> {
 
             Ok(Node::Text(tokens))
         },
-        tt => Err(ParseError::from_tt("Expected an element, {expression}, or a string literal", tt)),
+        tt => Err(ParseError::new("Expected an element, {expression}, or a string literal", tt)),
     }
 }
 
@@ -131,7 +121,7 @@ fn parse_element(iter: &mut TokenIter) -> Result<Element, ParseError> {
             Some(TokenTree::Punct(punct)) if punct.as_char() == '>' => {
                 break;
             },
-            tt => return Err(ParseError::from_tt("Expected identifier, /, or >", tt))
+            tt => return Err(ParseError::new("Expected identifier, /, or >", tt))
         }
     }
 
@@ -146,12 +136,12 @@ fn parse_element(iter: &mut TokenIter) -> Result<Element, ParseError> {
         }
     }
 
-    let (closing, closing_span) = expect_ident(iter.next())?;
+    let (closing, tt) = expect_ident(iter.next())?;
 
     if closing != element.tag {
         return Err(ParseError::new(
             format!("Expected a closing tag for {}, but got {} instead", element.tag, closing),
-            closing_span,
+            Some(tt),
         ));
     }
 
@@ -163,13 +153,13 @@ fn parse_element(iter: &mut TokenIter) -> Result<Element, ParseError> {
 fn expect_punct(tt: Option<TokenTree>, expect: char) -> Result<(), ParseError> {
     match tt {
         Some(TokenTree::Punct(punct)) if punct.as_char() == expect => Ok(()),
-        tt => Err(ParseError::from_tt(format!("Expected {}", expect), tt)),
+        tt => Err(ParseError::new(format!("Expected {}", expect), tt)),
     }
 }
 
-fn expect_ident(tt: Option<TokenTree>) -> Result<(String, Span), ParseError> {
+fn expect_ident(tt: Option<TokenTree>) -> Result<(String, TokenTree), ParseError> {
     match tt {
-        Some(TokenTree::Ident(ident)) => Ok((ident.to_string(), ident.span())),
-        tt => Err(ParseError::from_tt("Expected identifier", tt)),
+        Some(TokenTree::Ident(ident)) => Ok((ident.to_string(), TokenTree::Ident(ident))),
+        tt => Err(ParseError::new("Expected identifier", tt)),
     }
 }
