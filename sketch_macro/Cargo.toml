@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 syn = "1.0"
+fnv = "1.0.7"
 quote = "1.0"
 proc-macro2 = "1.0"
 

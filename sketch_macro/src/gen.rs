@@ -123,7 +123,14 @@ impl Generator {
     }
 
     pub fn render_js(&mut self, root: &str) -> (QuoteTokens, QuoteTokens) {
-        let fn_name = format!("render{}", self.args.len());
+        use std::hash::Hasher;
+        let mut hasher = fnv::FnvHasher::default();
+
+        hasher.write(self.render.as_bytes());
+
+        let hash = hasher.finish();
+
+        let fn_name = format!("__transient_render_{}", hash);
 
         let js = format!("export function {}({}){{{}return {};}}", fn_name, self.args, self.render, root);
         let args = &self.args_tokens;

@@ -1,6 +1,12 @@
-// use std::any::Any;
 use beef::Cow;
 use web_sys::Document;
+use wasm_bindgen::prelude::*;
+
+pub fn document() -> Document {
+    let window = web_sys::window().expect("no window exists");
+    window.document().expect("window should have a document")
+}
+
 
 pub use web_sys::Node;
 pub use sketch_macro::html;
@@ -63,11 +69,6 @@ impl Mountable for RenderedText {
     }
 }
 
-pub fn document() -> Document {
-    let window = web_sys::window().expect("no window exists");
-    window.document().expect("window should have a document")
-}
-
 impl Html for &'static str {
     type Rendered = RenderedText;
 
@@ -99,11 +100,21 @@ impl Html for std::borrow::Cow<'static, str> {
     }
 }
 
+#[wasm_bindgen(inline_js = "export function __sketch_text_node(t) { return document.createTextNode(t) }")]
+extern "C" {
+    fn __sketch_text_node(t: &str) -> Node;
+}
+
+#[wasm_bindgen(inline_js = "export function __sketch_update_text(n,t) { n.textContent = t; }")]
+extern "C" {
+    fn __sketch_update_text(node: &Node, t: &str);
+}
+
 impl Html for Cow<'static, str> {
     type Rendered = RenderedText;
 
     fn render(self) -> Self::Rendered {
-        let node = document().create_text_node(&self).into();
+        let node = __sketch_text_node(self.as_ref());
 
         RenderedText {
             text: self,
@@ -138,7 +149,7 @@ impl Update<std::borrow::Cow<'static, str>> for RenderedText {
 impl Update<Cow<'static, str>> for RenderedText {
     fn update(&mut self, new: Cow<'static, str>) {
         if self.text != new {
-            self.node.set_text_content(Some(&new));
+            __sketch_update_text(&self.node, new.as_ref());
             self.text = new;
         }
     }

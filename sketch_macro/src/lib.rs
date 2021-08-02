@@ -81,11 +81,7 @@ pub fn html(body: TokenStream) -> TokenStream {
                     #(
                         let #field_names = self.#field_names.render();
                     )*
-                    let node = unsafe {
-                        #js_fn_name(#(
-                            #field_names.node()
-                        ),*)
-                    };
+                    let node = #js_fn_name(#(#field_names.node()),*);
 
                     TransientRendered {
                         #(#field_names,)*
@@ -113,6 +109,8 @@ pub fn html(body: TokenStream) -> TokenStream {
             }
         }
     }).into();
+
+    // panic!("{}", tokens);
 
     tokens
 }

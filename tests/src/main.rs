@@ -4,21 +4,21 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
 fn main() {
-    // fn header(name: &'static str) -> impl Html {
-    //     html! {
-    //         <h1>"Hello "{ name }"!"</h1>
-    //     }
-    // }
+    fn header(name: &'static str) -> impl Html {
+        html! {
+            <h1>"Hello "{ name }"!"</h1>
+        }
+    }
 
     fn hello(name: &'static str, n: u64) -> impl Html {
-        // let hello = header(name);
+        let hello = header(name);
 
-        let hellos = (0..(n % 5) + 5).map(|n| html! { <p>{ n }</p> });
+        let numbers = (0..(n % 5) + 5).map(|n| html! { <p>{ n }</p> });
 
         html! {
             <div>
-                <h1>"Hello "{ name }"!"</h1>
-                { for hellos }
+                { hello }
+                { for numbers }
                 <p>{ n }" × 2 = "{ n * 2 }</p>
             </div>
         }
