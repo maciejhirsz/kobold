@@ -88,10 +88,26 @@ impl Parser {
                 let (_, typ) = self.types_factory.next();
                 let (_, name) = self.names_factory.next();
 
+                let mut iterator = false;
+                let mut expr = TokenStream::new();
+
+                let mut iter = group.stream().into_iter();
+
+                match iter.next() {
+                    Some(TokenTree::Ident(ref ident)) if ident.to_string() == "for" => {
+                        iterator = true;
+                    },
+                    Some(tt) => expr.extend([tt]),
+                    None => (),
+                }
+
+                expr.extend(iter);
+
                 self.fields.push(Field {
+                    iterator,
                     typ,
                     name,
-                    expr: group.stream().into(),
+                    expr: expr.into(),
                 });
 
                 Ok(Node::Expression)

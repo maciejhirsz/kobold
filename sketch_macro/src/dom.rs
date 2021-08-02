@@ -6,6 +6,7 @@ pub use parser::Parser;
 
 #[derive(Debug)]
 pub struct Field {
+    pub iterator: bool,
     pub typ: QuoteTokens,
     pub name: QuoteTokens,
     pub expr: QuoteTokens,

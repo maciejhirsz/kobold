@@ -24,6 +24,38 @@ pub fn html(body: TokenStream) -> TokenStream {
 
     let generics = parser.fields.iter().map(|field| &field.typ).collect::<Vec<_>>();
     let generics = &generics;
+
+    let generic_bounds = parser.fields.iter().map(|field| {
+        let typ = &field.typ;
+
+        if field.iterator {
+            quote! { #typ: IntoIterator, <#typ as IntoIterator>::Item: Html, Vec<<#typ as IntoIterator>::Item>: Html, }
+        } else {
+            quote! { #typ: Html, }
+        }
+    });
+
+    let update_bounds = parser.fields.iter().map(|field| {
+        let typ = &field.typ;
+
+        if field.iterator {
+            quote! { #typ: IntoIterator, <#typ as IntoIterator>::Item: Html, }
+        } else {
+            quote! { #typ: Html, }
+        }
+    });
+
+    let rendered_types = parser.fields.iter().map(|field| {
+        let typ = &field.typ;
+
+        if field.iterator {
+            quote! { <Vec<<#typ as IntoIterator>::Item> as Html>::Rendered }
+        } else {
+            quote! { <#typ as Html>::Rendered }
+        }
+    }).collect::<Vec<_>>();
+    let rendered_types = &rendered_types;
+
     let field_names = parser.fields.iter().map(|field| &field.name).collect::<Vec<_>>();
     let field_names = &field_names;
 
@@ -44,8 +76,21 @@ pub fn html(body: TokenStream) -> TokenStream {
         quote! {
             #name: #expr,
         }
-    }).collect::<Vec<_>>();
-    let field_declr = &field_declr;
+    });
+
+    let field_renders = parser.fields.iter().map(|field| {
+        let name = &field.name;
+
+        if field.iterator {
+            quote! {
+                let #name = self.#name.into_iter().collect::<Vec<_>>().render();
+            }
+        } else {
+            quote! {
+                let #name = self.#name.render();
+            }
+        }
+    });
 
     let mut generator = Generator::new();
 
@@ -68,13 +113,14 @@ pub fn html(body: TokenStream) -> TokenStream {
                 node: Node,
             }
 
-            impl<#(#generics: Html),*> Html for TransientHtml<#(#generics),*> {
-                type Rendered = TransientRendered<#(<#generics as Html>::Rendered),*>;
+            impl<#(#generics),*> Html for TransientHtml<#(#generics),*>
+            where
+                #(#generic_bounds)*
+            {
+                type Rendered = TransientRendered<#(#rendered_types),*>;
 
                 fn render(self) -> Self::Rendered {
-                    #(
-                        let #field_names = self.#field_names.render();
-                    )*
+                    #(#field_renders)*
                     let node = unsafe {
                         #js_fn_name(#(
                             #field_names.node()
@@ -94,7 +140,10 @@ pub fn html(body: TokenStream) -> TokenStream {
                 }
             }
 
-            impl<#(#generics: Html),*> Update<TransientHtml<#(#generics),*>> for TransientRendered<#(<#generics as Html>::Rendered),*> {
+            impl<#(#generics),*> Update<TransientHtml<#(#generics),*>> for TransientRendered<#(#rendered_types),*>
+            where
+                #(#update_bounds)*
+            {
                 fn update(&mut self, new: TransientHtml<#(#generics),*>) {
                     #(
                         self.#field_names.update(new.#field_names);

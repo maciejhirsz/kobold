@@ -16,7 +16,7 @@ pub trait Html: Sized {
     fn render(self) -> Self::Rendered;
 }
 
-pub trait Update<H: Html> {
+pub trait Update<H> {
     fn update(&mut self, new: H);
 }
 
@@ -186,3 +186,90 @@ macro_rules! impl_render_display {
 }
 
 impl_render_display!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64);
+
+pub struct RenderedList<T> {
+    list: Vec<T>,
+    node: Node,
+}
+
+impl<T> Mountable for RenderedList<T> {
+    fn node(&self) -> &Node {
+        &self.node
+    }
+}
+
+impl<T> Update<T> for <Vec<T::Item> as Html>::Rendered
+where
+    T: IntoIterator,
+    <T as IntoIterator>::Item: Html,
+{
+    fn update(&mut self, new: T) {
+        let mut new = new.into_iter();
+        let mut updated = 0;
+
+        for (old, new) in self.list.iter_mut().zip(&mut new) {
+            old.update(new);
+            updated += 1;
+        }
+
+        if self.list.len() > updated {
+            for old in self.list.drain(updated..) {
+                old.unmount(&self.node);
+            }
+        } else {
+            for new in new {
+                let rendered = new.render();
+
+                rendered.mount(&self.node);
+
+                self.list.push(rendered);
+            }
+        }
+    }
+}
+
+impl<H: Html> Html for Vec<H> {
+    type Rendered = RenderedList<H::Rendered>;
+
+    fn render(self) -> Self::Rendered {
+        let mut list: Vec<H::Rendered> = Vec::with_capacity(self.len());
+
+        let node = document().create_element("div").unwrap().into();
+
+        for item in self {
+            let rendered = item.render();
+
+            rendered.mount(&node);
+
+            list.push(rendered);
+        }
+
+        RenderedList {
+            list,
+            node,
+        }
+    }
+}
+
+impl<H: Html, const N: usize> Html for [H; N] {
+    type Rendered = RenderedList<H::Rendered>;
+
+    fn render(self) -> Self::Rendered {
+        let mut list: Vec<H::Rendered> = Vec::with_capacity(self.len());
+
+        let node = document().create_element("div").unwrap().into();
+
+        for item in self {
+            let rendered = item.render();
+
+            rendered.mount(&node);
+
+            list.push(rendered);
+        }
+
+        RenderedList {
+            list,
+            node,
+        }
+    }
+}
