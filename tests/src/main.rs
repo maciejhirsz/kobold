@@ -27,10 +27,9 @@ fn main() {
     let a = Closure::wrap(Box::new(move || {
         i += 1;
 
-        let name = match (i / 10) % 2 {
-            0 => "Bob",
-            _ => "Alice",
-        };
+        static NAMES: &[&str] = &["Bob", "Alice", "Maciej", "World"];
+
+        let name = NAMES[(i as usize / 10) % NAMES.len()];
 
         rendered.update(hello(name, i));
     }) as Box<dyn FnMut()>);
