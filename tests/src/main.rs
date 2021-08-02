@@ -1,4 +1,4 @@
-use sketch::{html, document, Html, Node, Mountable, Update, IterWrapper};
+use sketch::{html, document, Html, Node, Mountable, Update};
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
