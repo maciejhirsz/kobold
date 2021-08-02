@@ -71,26 +71,31 @@ pub fn document() -> Document {
 impl Html for &'static str {
     type Rendered = RenderedText;
 
+    #[inline]
     fn render(self) -> Self::Rendered {
-        let node = document().create_text_node(&self).into();
-
-        RenderedText {
-            text: Cow::borrowed(self),
-            node,
-        }
+        Cow::borrowed(self).render()
     }
 }
 
 impl Html for String {
     type Rendered = RenderedText;
 
+    #[inline]
     fn render(self) -> Self::Rendered {
-        let node = document().create_text_node(&self).into();
+        let text: Cow<'static, str> = Cow::owned(self);
 
-        RenderedText {
-            text: Cow::owned(self),
-            node,
-        }
+        text.render()
+    }
+}
+
+impl Html for std::borrow::Cow<'static, str> {
+    type Rendered = RenderedText;
+
+    #[inline]
+    fn render(self) -> Self::Rendered {
+        let text: Cow<'static, str> = self.into();
+
+        text.render()
     }
 }
 
@@ -107,41 +112,26 @@ impl Html for Cow<'static, str> {
     }
 }
 
-impl Html for std::borrow::Cow<'static, str> {
-    type Rendered = RenderedText;
-
-    fn render(self) -> Self::Rendered {
-        let node = document().create_text_node(&self).into();
-
-        RenderedText {
-            text: self.into(),
-            node,
-        }
-    }
-}
-
-impl Html for bool {
-    type Rendered = RenderedText;
-
-    fn render(self) -> Self::Rendered {
-        let text = match self {
-            true => "true",
-            false => "false",
-        };
-
-        text.render()
-    }
-}
-
 impl Update<&'static str> for RenderedText {
+    #[inline]
     fn update(&mut self, new: &'static str) {
         self.update(Cow::borrowed(new));
     }
 }
 
 impl Update<String> for RenderedText {
+    #[inline]
     fn update(&mut self, new: String) {
         self.update(Cow::owned(new));
+    }
+}
+
+impl Update<std::borrow::Cow<'static, str>> for RenderedText {
+    #[inline]
+    fn update(&mut self, new: std::borrow::Cow<'static, str>) {
+        let new: Cow<'static, str> = new.into();
+
+        self.update(new);
     }
 }
 
@@ -154,22 +144,24 @@ impl Update<Cow<'static, str>> for RenderedText {
     }
 }
 
-impl Update<std::borrow::Cow<'static, str>> for RenderedText {
-    fn update(&mut self, new: std::borrow::Cow<'static, str>) {
-        let new: Cow<'static, str> = new.into();
+fn bool_to_str(b: bool) -> &'static str {
+    match b {
+        true => "true",
+        false => "false",
+    }
+}
 
-        self.update(new);
+impl Html for bool {
+    type Rendered = RenderedText;
+
+    fn render(self) -> Self::Rendered {
+        bool_to_str(self).render()
     }
 }
 
 impl Update<bool> for RenderedText {
     fn update(&mut self, new: bool) {
-        let text = match new {
-            true => "true",
-            false => "false",
-        };
-
-        self.update(text);
+        self.update(bool_to_str(new));
     }
 }
 

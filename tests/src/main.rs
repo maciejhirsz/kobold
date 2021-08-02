@@ -4,10 +4,18 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
 fn main() {
-    fn hello(foo: &'static str, n: u64) -> impl Html {
+    fn header(name: &'static str) -> impl Html {
+        html! {
+            <h1>"Hello "{ name }"!"</h1>
+        }
+    }
+
+    fn hello(name: &'static str, n: u64) -> impl Html {
+        let hello = header(name);
+
         html! {
             <div>
-                <h1>"Hello "{ foo }"!"</h1>
+                { hello }
                 <p>{ n }" × 2 = "{ n * 2 }</p>
             </div>
         }

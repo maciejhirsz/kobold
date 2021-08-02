@@ -50,7 +50,7 @@ pub fn html(body: TokenStream) -> TokenStream {
     let mut generator = Generator::new();
 
     let root = generator.generate(&dom).unwrap();
-    let render = generator.render_js(&root);
+    let (js_fn_name, render) = generator.render_js(&root);
 
     let tokens: TokenStream = (quote! {
         {
@@ -68,10 +68,7 @@ pub fn html(body: TokenStream) -> TokenStream {
                 node: Node,
             }
 
-            impl<#(#generics),*> Html for TransientHtml<#(#generics),*>
-            where
-                #(#generics: Html,)*
-            {
+            impl<#(#generics: Html),*> Html for TransientHtml<#(#generics),*> {
                 type Rendered = TransientRendered<#(<#generics as Html>::Rendered),*>;
 
                 fn render(self) -> Self::Rendered {
@@ -79,7 +76,7 @@ pub fn html(body: TokenStream) -> TokenStream {
                         let #field_names = self.#field_names.render();
                     )*
                     let node = unsafe {
-                        render(#(
+                        #js_fn_name(#(
                             #field_names.node()
                         ),*)
                     };
@@ -97,10 +94,7 @@ pub fn html(body: TokenStream) -> TokenStream {
                 }
             }
 
-            impl<#(#generics),*> Update<TransientHtml<#(#generics),*>> for TransientRendered<#(<#generics as Html>::Rendered),*>
-            where
-                #(#generics: Html,)*
-            {
+            impl<#(#generics: Html),*> Update<TransientHtml<#(#generics),*>> for TransientRendered<#(<#generics as Html>::Rendered),*> {
                 fn update(&mut self, new: TransientHtml<#(#generics),*>) {
                     #(
                         self.#field_names.update(new.#field_names);

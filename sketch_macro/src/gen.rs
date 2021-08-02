@@ -122,16 +122,21 @@ impl Generator {
         Ok(())
     }
 
-    pub fn render_js(&mut self, root: &str) -> QuoteTokens {
-        let js = format!("export function render({}){{{}return {};}}", self.args, self.render, root);
+    pub fn render_js(&mut self, root: &str) -> (QuoteTokens, QuoteTokens) {
+        let fn_name = format!("render{}", self.args.len());
+
+        let js = format!("export function {}({}){{{}return {};}}", fn_name, self.args, self.render, root);
         let args = &self.args_tokens;
 
-        quote! {
+        let fn_name = Ident::new(&fn_name, Span::call_site());
+        let fn_name: QuoteTokens = TokenStream::from(TokenTree::Ident(fn_name)).into();
+
+        (fn_name.clone(), quote! {
             #[wasm_bindgen(inline_js = #js)]
             extern "C" {
-                fn render(#(#args: &Node),*) -> Node;
+                fn #fn_name(#(#args: &Node),*) -> Node;
             }
-        }
+        })
     }
 
     fn next_el(&mut self) -> String {
