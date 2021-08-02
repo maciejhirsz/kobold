@@ -1,97 +1,142 @@
+use std::fmt::{self, Write};
 use proc_macro::{TokenStream, TokenTree, Ident, Span};
 use proc_macro2::TokenStream as QuoteTokens;
 use quote::quote;
+use crate::dom::Node;
 
-struct IdentFactory {
+#[derive(Debug)]
+pub enum Infallible {}
+
+impl From<fmt::Error> for Infallible {
+    fn from(err: fmt::Error) -> Infallible {
+        panic!("{}", err)
+    }
+}
+
+pub struct IdentFactory {
     prefix: char,
     current: usize,
 }
 
 impl IdentFactory {
-    fn new(prefix: char) -> Self {
+    pub fn new(prefix: char) -> Self {
         Self {
             prefix,
             current: 0,
         }
     }
 
-    fn next(&mut self) -> QuoteTokens {
-        let ident = format!("{}{}", self.prefix, self.current);
-        let ident = Ident::new(&ident, Span::call_site());
+    pub fn next(&mut self) -> (String, QuoteTokens) {
+        let string = format!("{}{}", self.prefix, self.current);
+        let ident = Ident::new(&string, Span::call_site());
 
         self.current += 1;
 
-        TokenStream::from(TokenTree::Ident(ident)).into()
+        (string, TokenStream::from(TokenTree::Ident(ident)).into())
     }
 }
 
 pub struct Generator {
-    prerender: QuoteTokens,
-    render: QuoteTokens,
-    update: QuoteTokens,
-    var_factory: IdentFactory,
-    field_factory: IdentFactory,
-    fields: Vec<QuoteTokens>,
+    var_count: usize,
+    arg_factory: IdentFactory,
+    pub render: String,
+    pub update: String,
+    args: String,
+    args_tokens: Vec<QuoteTokens>,
 }
 
 impl Generator {
     pub fn new() -> Self {
         Generator {
-            prerender: QuoteTokens::new(),
-            render: QuoteTokens::new(),
-            update: QuoteTokens::new(),
-            var_factory: IdentFactory::new('e'),
-            field_factory: IdentFactory::new('f'),
-            fields: Vec::new(),
+            var_count: 0,
+            arg_factory: IdentFactory::new('a'),
+            render: String::new(),
+            update: String::new(),
+            args: String::new(),
+            args_tokens: Vec::new(),
         }
     }
 
-    pub fn var(&mut self) -> QuoteTokens {
-        self.var_factory.next()
+    pub fn generate(&mut self, dom: &Node) -> Result<String, Infallible> {
+        match dom {
+            Node::Text(text) => {
+                let e = self.next_el();
+
+                write!(&mut self.render, "const {}=document.createTextNode({})", e, text)?;
+
+                Ok(e)
+            }
+            Node::Element(el) => {
+                let e = self.next_el();
+
+                write!(&mut self.render, "const {}=document.createElement({:?});", e, el.tag)?;
+
+                self.append(&e, &el.children)?;
+
+                Ok(e)
+            },
+            Node::Fragment(children) => {
+                let e = self.next_el();
+
+                write!(&mut self.render, "const {}=document.createDocumentFragment();", e)?;
+
+                self.append(&e, children)?;
+
+                Ok(e)
+            }
+            Node::Expression => {
+                let (arg, token) = self.arg_factory.next();
+
+                if !self.args.is_empty() {
+                    self.args.push(',');
+                }
+                self.args.push_str(&arg);
+                self.args_tokens.push(token);
+
+                Ok(arg)
+            }
+        }
     }
 
-    pub fn extend(&mut self, tokens: QuoteTokens) {
-        self.render.extend(tokens);
+    pub fn append(&mut self, el: &str, children: &[Node]) -> Result<(), Infallible> {
+        let mut append = String::new();
+
+        if let Some((first, rest)) = children.split_first() {
+            match first {
+                Node::Text(text) => append.push_str(text),
+                node => append.push_str(&self.generate(node)?),
+            }
+
+            for child in rest {
+                append.push(',');
+
+                match child {
+                    Node::Text(text) => append.push_str(text),
+                    node => append.push_str(&self.generate(node)?),
+                }
+            }
+        }
+
+        write!(&mut self.render, "{}.append({});", el, append)?;
+
+        Ok(())
     }
 
-    pub fn add_field(&mut self, expr: &QuoteTokens) -> QuoteTokens {
-        let field = self.field_factory.next();
-        let node = quote!{
-            @{ #field.js() }
-        };
+    pub fn render_js(&mut self, root: &str) -> QuoteTokens {
+        let js = format!("export function render({}){{{}return {};}}", self.args, self.render, root);
+        let args = &self.args_tokens;
 
-        self.prerender.extend(quote! {
-            let #field = { #expr }.render();
-        });
-
-        self.update.extend(quote! {
-            { #expr }.update(&self.#field);
-        });
-
-        self.fields.push(field);
-
-        node
+        quote! {
+            #[wasm_bindgen(inline_js = #js)]
+            extern "C" {
+                fn render(#(#args: &Node),*) -> Node;
+            }
+        }
     }
 
-    pub fn add<G: Generate>(&mut self, item: G) -> QuoteTokens {
-        item.generate(self)
-    }
-
-    pub fn tokens(&self) -> (&QuoteTokens, &QuoteTokens, &QuoteTokens) {
-        (&self.prerender, &self.render, &self.update)
-    }
-
-    pub fn fields(&self) -> &[QuoteTokens] {
-        &self.fields
-    }
-}
-
-pub trait Generate {
-    fn generate(&self, gen: &mut Generator) -> QuoteTokens;
-}
-
-impl<'a, T: Generate> Generate for &'a T {
-    fn generate(&self, gen: &mut Generator) -> QuoteTokens {
-        (**self).generate(gen)
+    fn next_el(&mut self) -> String {
+        let e = format!("e{}", self.var_count);
+        self.var_count += 1;
+        e
     }
 }

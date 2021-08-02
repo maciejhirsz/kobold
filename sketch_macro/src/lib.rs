@@ -3,100 +3,113 @@
 
 extern crate proc_macro;
 
-use proc_macro::{TokenStream, TokenTree, Delimiter};
-use proc_macro2::TokenStream as QuoteTokens;
+use proc_macro::TokenStream;
 use quote::quote;
 
 mod dom;
 mod gen;
 
-use gen::{Generator, Generate};
-
-struct Parser {
-    tokens: std::iter::Peekable<proc_macro::token_stream::IntoIter>,
-}
-
-impl Parser {
-    fn new(tokens: TokenStream) -> Self {
-        Self {
-            tokens: tokens.into_iter().peekable()
-        }
-    }
-
-    fn ident(&mut self) -> syn::Ident {
-        syn::parse(self.next("identifier").into()).unwrap()
-    }
-
-    fn group(&mut self, expected: Delimiter) -> TokenStream {
-        match self.next("(") {
-            TokenTree::Group(group) if group.delimiter() == expected => {
-                group.stream()
-            },
-            tt => panic!("Expected (, got {}", tt)
-        }
-    }
-
-    fn next<D: std::fmt::Display>(&mut self, expected: D) -> TokenTree {
-        match self.tokens.next() {
-            Some(tt) => tt,
-            None => panic!("Unexpected end of token stream, expected {}", expected),
-        }
-    }
-}
+use gen::Generator;
 
 #[proc_macro]
-pub fn sketch(input: TokenStream) -> TokenStream {
-    let mut parser = Parser::new(input);
+pub fn html(body: TokenStream) -> TokenStream {
+    let mut parser = dom::Parser::new();
 
-    let name = parser.ident();
-    let args = QuoteTokens::from(parser.group(Delimiter::Parenthesis));
-    let body = parser.group(Delimiter::Brace);
-
-    let dom = match dom::parse(body) {
+    let dom = match parser.parse(body) {
         Ok(dom) => dom,
         Err(err) => return err.tokenize(),
     };
 
     // panic!("{:#?}", dom);
 
+    let generics = parser.fields.iter().map(|field| &field.typ).collect::<Vec<_>>();
+    let generics = &generics;
+    let field_names = parser.fields.iter().map(|field| &field.name).collect::<Vec<_>>();
+    let field_names = &field_names;
+
+    let field_defs = parser.fields.iter().map(|field| {
+        let typ = &field.typ;
+        let name = &field.name;
+
+        quote! {
+            #name: #typ,
+        }
+    }).collect::<Vec<_>>();
+    let field_defs = &field_defs;
+
+    let field_declr = parser.fields.iter().map(|field| {
+        let expr = &field.expr;
+        let name = &field.name;
+
+        quote! {
+            #name: #expr,
+        }
+    }).collect::<Vec<_>>();
+    let field_declr = &field_declr;
+
     let mut generator = Generator::new();
 
-    let root = dom.generate(&mut generator);
-    let (prerender, render, update) = generator.tokens();
-    let fields = generator.fields();
+    let root = generator.generate(&dom).unwrap();
+    let render = generator.render_js(&root);
 
     let tokens: TokenStream = (quote! {
-        struct #name {
-            root: Node,
-            #(
-                #fields: Node,
-            )*
-        }
+        {
+            use ::sketch::{Html, Update, Mountable, Node};
+            use ::sketch::reexport::wasm_bindgen::{self, prelude::wasm_bindgen};
 
-        impl Rendered for #name {
-            fn root(&self) -> &Node {
-                &self.root
+            #render
+
+            struct TransientHtml<#(#generics),*> {
+                #(#field_defs)*
             }
-        }
 
-        impl #name {
-            pub fn render(#args) -> Self {
-                #prerender
+            struct TransientRendered<#(#generics),*> {
+                #(#field_defs)*
+                node: Node,
+            }
 
-                #name {
-                    root: to_node(stdweb::js! {
-                        #render
+            impl<#(#generics),*> Html for TransientHtml<#(#generics),*>
+            where
+                #(#generics: Html,)*
+            {
+                type Rendered = TransientRendered<#(<#generics as Html>::Rendered),*>;
 
-                        return #root;
-                    }),
+                fn render(self) -> Self::Rendered {
                     #(
-                        #fields,
+                        let #field_names = self.#field_names.render();
+                    )*
+                    let node = unsafe {
+                        render(#(
+                            #field_names.node()
+                        ),*)
+                    };
+
+                    TransientRendered {
+                        #(#field_names,)*
+                        node,
+                    }
+                }
+            }
+
+            impl<#(#generics),*> Mountable for TransientRendered<#(#generics),*> {
+                fn node(&self) -> &Node {
+                    &self.node
+                }
+            }
+
+            impl<#(#generics),*> Update<TransientHtml<#(#generics),*>> for TransientRendered<#(<#generics as Html>::Rendered),*>
+            where
+                #(#generics: Html,)*
+            {
+                fn update(&mut self, new: TransientHtml<#(#generics),*>) {
+                    #(
+                        self.#field_names.update(new.#field_names);
                     )*
                 }
             }
 
-            pub fn update(&self, #args) {
-                #update
+            TransientHtml {
+                #(#field_declr)*
             }
         }
     }).into();

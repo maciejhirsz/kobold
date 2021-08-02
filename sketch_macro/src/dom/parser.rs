@@ -1,8 +1,9 @@
 use std::borrow::Cow;
 use proc_macro::{TokenStream, TokenTree, Delimiter, Span};
 use proc_macro::token_stream::IntoIter as TokenIter;
-use quote::{quote, quote_spanned};
-use crate::dom::{Node, Element};
+use quote::quote_spanned;
+use crate::dom::{Node, Element, Field};
+use crate::gen::IdentFactory;
 
 #[derive(Debug)]
 pub struct ParseError {
@@ -38,116 +39,149 @@ impl From<Option<TokenTree>> for ParseError {
     }
 }
 
-pub fn parse(tokens: TokenStream) -> Result<Node, ParseError> {
-    let mut iter = tokens.into_iter();
+pub struct Parser {
+    types_factory: IdentFactory,
+    names_factory: IdentFactory,
+    pub fields: Vec<Field>,
+}
 
-    let node = parse_node(&mut iter)?;
+impl Parser {
+    pub fn new() -> Self {
+        Parser {
+            types_factory: IdentFactory::new('A'),
+            names_factory: IdentFactory::new('a'),
+            fields: Vec::new(),
+        }
+    }
 
-    // Convert to fragment if necessary
-    match parse_node(&mut iter) {
-        Ok(second) => {
-            let mut fragment = vec![node, second];
+    pub fn parse(&mut self, tokens: TokenStream) -> Result<Node, ParseError> {
+        let mut iter = tokens.into_iter();
 
-            loop {
-                match parse_node(&mut iter) {
-                    Ok(node) => fragment.push(node),
-                    Err(err) if err.tt.is_none() => break,
-                    err => return err,
+        let node = self.parse_node(&mut iter)?;
+
+        // Convert to fragment if necessary
+        match self.parse_node(&mut iter) {
+            Ok(second) => {
+                let mut fragment = vec![node, second];
+
+                loop {
+                    match self.parse_node(&mut iter) {
+                        Ok(node) => fragment.push(node),
+                        Err(err) if err.tt.is_none() => break,
+                        err => return err,
+                    }
                 }
-            }
 
-            Ok(Node::Fragment(fragment))
-        },
-        Err(err) if err.tt.is_none() => Ok(node),
-        err => err,
+                Ok(Node::Fragment(fragment))
+            },
+            Err(err) if err.tt.is_none() => Ok(node),
+            err => err,
+        }
     }
-}
 
-fn parse_node(iter: &mut TokenIter) -> Result<Node, ParseError> {
-    match iter.next() {
-        Some(TokenTree::Punct(punct)) if punct.as_char() == '<' => {
-            Ok(Node::Element(parse_element(iter)?))
-        },
-        Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
-            Ok(Node::Expression(group.stream().into()))
-        },
-        Some(TokenTree::Literal(lit)) => {
-            let stringified = lit.to_string();
-
-            let mut chars = stringified.chars();
-
-            let tokens = match chars.next() {
-                // Take the string verbatim
-                Some('"') | Some('\'') => TokenStream::from(TokenTree::Literal(lit)).into(),
-                _ => quote!(#stringified),
-            };
-
-            Ok(Node::Text(tokens))
-        },
-        tt => Err(ParseError::new("Expected an element, {expression}, or a string literal", tt)),
-    }
-}
-
-fn parse_element(iter: &mut TokenIter) -> Result<Element, ParseError> {
-    let (tag, _) = expect_ident(iter.next())?;
-
-    let mut element = Element {
-        tag,
-        props: Vec::new(),
-        children: Vec::new(),
-    };
-
-    // Props loop
-    loop {
+    fn parse_node(&mut self, iter: &mut TokenIter) -> Result<Node, ParseError> {
         match iter.next() {
-            Some(TokenTree::Ident(key)) => {
-                let key = key.to_string();
-
-                expect_punct(iter.next(), '=')?;
-
-                match iter.next() {
-                    Some(value) => {
-                        element.props.push((key, TokenStream::from(value).into()));
-                    },
-                    tt => return Err(tt.into()),
-                }
+            Some(TokenTree::Punct(punct)) if punct.as_char() == '<' => {
+                Ok(Node::Element(self.parse_element(iter)?))
             },
-            Some(TokenTree::Punct(punct)) if punct.as_char() == '/' => {
-                expect_punct(iter.next(), '>')?;
+            Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
+                let (_, typ) = self.types_factory.next();
+                let (_, name) = self.names_factory.next();
 
-                // Self-closing tag, no need to parse further
-                return Ok(element);
+                self.fields.push(Field {
+                    typ,
+                    name,
+                    expr: group.stream().into(),
+                });
+
+                Ok(Node::Expression)
             },
-            Some(TokenTree::Punct(punct)) if punct.as_char() == '>' => {
-                break;
+            Some(TokenTree::Literal(lit)) => {
+                let stringified = lit.to_string();
+
+                let mut chars = stringified.chars();
+
+                let text = match chars.next() {
+                    // Take the string verbatim
+                    Some('"') | Some('\'') => stringified,
+                    _ => {
+                        let mut quoted = String::with_capacity(stringified.len() + 2);
+
+                        quoted.push('"');
+                        quoted.push_str(&stringified);
+                        quoted.push('"');
+
+                        quoted
+                    }
+                };
+
+                Ok(Node::Text(text))
             },
-            tt => return Err(ParseError::new("Expected identifier, /, or >", tt))
+            tt => Err(ParseError::new("Expected an element, {expression}, or a string literal", tt)),
         }
     }
 
-    // Children loop
-    loop {
-        match parse_node(iter) {
-            Ok(child) => element.children.push(child),
-            Err(err) => match err.tt {
-                Some(TokenTree::Punct(punct)) if punct.as_char() == '/' => break,
-                _ => return Err(err),
-            },
+    fn parse_element(&mut self, iter: &mut TokenIter) -> Result<Element, ParseError> {
+        let (tag, _) = expect_ident(iter.next())?;
+
+        let mut element = Element {
+            tag,
+            props: Vec::new(),
+            children: Vec::new(),
+        };
+
+        // Props loop
+        loop {
+            match iter.next() {
+                Some(TokenTree::Ident(key)) => {
+                    let key = key.to_string();
+
+                    expect_punct(iter.next(), '=')?;
+
+                    match iter.next() {
+                        Some(value) => {
+                            element.props.push((key, TokenStream::from(value).into()));
+                        },
+                        tt => return Err(tt.into()),
+                    }
+                },
+                Some(TokenTree::Punct(punct)) if punct.as_char() == '/' => {
+                    expect_punct(iter.next(), '>')?;
+
+                    // Self-closing tag, no need to parse further
+                    return Ok(element);
+                },
+                Some(TokenTree::Punct(punct)) if punct.as_char() == '>' => {
+                    break;
+                },
+                tt => return Err(ParseError::new("Expected identifier, /, or >", tt))
+            }
         }
+
+        // Children loop
+        loop {
+            match self.parse_node(iter) {
+                Ok(child) => element.children.push(child),
+                Err(err) => match err.tt {
+                    Some(TokenTree::Punct(punct)) if punct.as_char() == '/' => break,
+                    _ => return Err(err),
+                },
+            }
+        }
+
+        let (closing, tt) = expect_ident(iter.next())?;
+
+        if closing != element.tag {
+            return Err(ParseError::new(
+                format!("Expected a closing tag for {}, but got {} instead", element.tag, closing),
+                Some(tt),
+            ));
+        }
+
+        expect_punct(iter.next(), '>')?;
+
+        Ok(element)
     }
-
-    let (closing, tt) = expect_ident(iter.next())?;
-
-    if closing != element.tag {
-        return Err(ParseError::new(
-            format!("Expected a closing tag for {}, but got {} instead", element.tag, closing),
-            Some(tt),
-        ));
-    }
-
-    expect_punct(iter.next(), '>')?;
-
-    Ok(element)
 }
 
 fn expect_punct(tt: Option<TokenTree>, expect: char) -> Result<(), ParseError> {
