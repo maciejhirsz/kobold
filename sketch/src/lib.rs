@@ -187,6 +187,8 @@ macro_rules! impl_render_display {
 
 impl_render_display!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64);
 
+pub struct IterWrapper<T>(pub T);
+
 pub struct RenderedList<T> {
     list: Vec<T>,
     node: Node,
@@ -203,8 +205,19 @@ where
     T: IntoIterator,
     <T as IntoIterator>::Item: Html,
 {
+    #[inline]
     fn update(&mut self, new: T) {
-        let mut new = new.into_iter();
+        self.update(IterWrapper(new))
+    }
+}
+
+impl<T> Update<IterWrapper<T>> for RenderedList<<<T as IntoIterator>::Item as Html>::Rendered>
+where
+    T: IntoIterator,
+    <T as IntoIterator>::Item: Html,
+{
+    fn update(&mut self, new: IterWrapper<T>) {
+        let mut new = new.0.into_iter();
         let mut updated = 0;
 
         for (old, new) in self.list.iter_mut().zip(&mut new) {
@@ -224,6 +237,34 @@ where
 
                 self.list.push(rendered);
             }
+        }
+    }
+}
+
+impl<T> Html for IterWrapper<T>
+where
+    T: IntoIterator,
+    <T as IntoIterator>::Item: Html,
+{
+    type Rendered = RenderedList<<T::Item as Html>::Rendered>;
+
+    fn render(self) -> Self::Rendered {
+        let iter = self.0.into_iter();
+        let mut list: Vec<<<T as IntoIterator>::Item as Html>::Rendered> = Vec::with_capacity(iter.size_hint().0);
+
+        let node = document().create_element("div").unwrap().into();
+
+        for item in iter {
+            let rendered = item.render();
+
+            rendered.mount(&node);
+
+            list.push(rendered);
+        }
+
+        RenderedList {
+            list,
+            node,
         }
     }
 }
