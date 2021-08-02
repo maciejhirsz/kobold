@@ -6,6 +6,7 @@ pub struct IterWrapper<T>(pub T);
 
 pub struct RenderedList<T> {
     list: Vec<T>,
+    visible: usize,
     node: Node,
 }
 
@@ -35,22 +36,31 @@ where
         let mut new = new.0.into_iter();
         let mut updated = 0;
 
-        for (old, new) in self.list.iter_mut().zip(&mut new) {
+        for (old, new) in self.list[..self.visible].iter_mut().zip(&mut new) {
             old.update(new);
             updated += 1;
         }
 
-        if self.list.len() > updated {
-            for old in self.list.drain(updated..) {
+        if self.visible > updated {
+            for old in self.list[updated..].iter() {
                 old.unmount(&self.node);
             }
+            self.visible = updated;
         } else {
+            for (old, new) in self.list[updated..].iter_mut().zip(&mut new) {
+                old.update(new);
+                old.mount(&self.node);
+
+                self.visible += 1;
+            }
+
             for new in new {
                 let rendered = new.render();
 
                 rendered.mount(&self.node);
 
                 self.list.push(rendered);
+                self.visible += 1;
             }
         }
     }
@@ -77,8 +87,11 @@ where
             list.push(rendered);
         }
 
+        let visible = list.len();
+
         RenderedList {
             list,
+            visible,
             node,
         }
     }
@@ -87,45 +100,17 @@ where
 impl<H: Html> Html for Vec<H> {
     type Rendered = RenderedList<H::Rendered>;
 
+    #[inline]
     fn render(self) -> Self::Rendered {
-        let mut list: Vec<H::Rendered> = Vec::with_capacity(self.len());
-
-        let node = util::__sketch_create_el("div");
-
-        for item in self {
-            let rendered = item.render();
-
-            rendered.mount(&node);
-
-            list.push(rendered);
-        }
-
-        RenderedList {
-            list,
-            node,
-        }
+        IterWrapper(self).render()
     }
 }
 
 impl<H: Html, const N: usize> Html for [H; N] {
     type Rendered = RenderedList<H::Rendered>;
 
+    #[inline]
     fn render(self) -> Self::Rendered {
-        let mut list: Vec<H::Rendered> = Vec::with_capacity(self.len());
-
-        let node = util::__sketch_create_el("div");
-
-        for item in self {
-            let rendered = item.render();
-
-            rendered.mount(&node);
-
-            list.push(rendered);
-        }
-
-        RenderedList {
-            list,
-            node,
-        }
+        IterWrapper(self).render()
     }
 }

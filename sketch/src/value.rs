@@ -2,10 +2,6 @@ use crate::traits::{Html, Mountable, Update};
 use crate::util;
 use web_sys::Node;
 
-fn bool_to_str(b: bool) -> &'static str {
-    if b { "true" } else { "false" }
-}
-
 pub struct RenderedValue<T> {
 	value: T,
 	buf: String,
@@ -16,6 +12,10 @@ impl<T> Mountable for RenderedValue<T> {
 	fn node(&self) -> &Node {
 		&self.node
 	}
+}
+
+fn bool_to_str(b: bool) -> &'static str {
+    if b { "true" } else { "false" }
 }
 
 impl Html for bool {

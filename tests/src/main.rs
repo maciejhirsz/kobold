@@ -13,13 +13,13 @@ fn main() {
     fn hello(name: &'static str, n: u64) -> impl Html {
         let hello = header(name);
 
-        let numbers = (0..(n % 5) + 5).map(|n| html! { <p>{ n }</p> });
+        let numbers = (0..(n % 5) + 6).map(|n| html! { <p>{ n }</p> });
 
         html! {
             <div>
                 { hello }
+                <p>{ n }" + 2 = "{ n + 2 }</p>
                 { for numbers }
-                <p>{ n }" × 2 = "{ n * 2 }</p>
             </div>
         }
     }

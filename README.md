@@ -1,3 +1,19 @@
 # sketch
 
-PoC code for [this tweet](https://twitter.com/MaciejHirsz/status/1201092330335481856).
+Temporary name, very much WIP.
+
+To see it in action:
+
+```
+cargo install trunk wasm-bindgen-cli
+
+rustup target add wasm32-unknown-unknown
+
+cd tests
+trunk serve
+```
+
+### License
+
+This is free software, and is released under the terms of the GNU General Public
+License version 3. See [LICENSE](LICENSE).
