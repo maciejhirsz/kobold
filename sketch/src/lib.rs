@@ -1,12 +1,9 @@
 use beef::Cow;
-use web_sys::Document;
 use wasm_bindgen::prelude::*;
 
-pub fn document() -> Document {
-    let window = web_sys::window().expect("no window exists");
-    window.document().expect("window should have a document")
-}
+mod traits;
 
+pub use traits::{Html, Mountable, Update};
 
 pub use web_sys::Node;
 pub use sketch_macro::html;
@@ -16,33 +13,11 @@ pub mod reexport {
     pub use wasm_bindgen;
 }
 
-pub trait Html: Sized {
-    type Rendered: Update<Self> + Mountable;
-
-    fn render(self) -> Self::Rendered;
-}
-
-pub trait Update<H> {
-    fn update(&mut self, new: H);
-}
-
-pub trait Mountable {
-    fn node(&self) -> &Node;
-
-    fn mount(&self, parent: &Node) {
-        parent.append_child(&self.node()).unwrap();
-    }
-
-    fn unmount(&self, parent: &Node) {
-        parent.remove_child(&self.node()).unwrap();
-    }
-}
-
 impl Html for () {
     type Rendered = EmptyNode;
 
     fn render(self) -> EmptyNode {
-        EmptyNode(document().create_text_node("").into())
+        EmptyNode(__sketch_text_node(""))
     }
 }
 
@@ -100,14 +75,13 @@ impl Html for std::borrow::Cow<'static, str> {
     }
 }
 
-#[wasm_bindgen(inline_js = "export function __sketch_text_node(t) { return document.createTextNode(t) }")]
+#[wasm_bindgen(module = "/js/util.js")]
 extern "C" {
     fn __sketch_text_node(t: &str) -> Node;
-}
 
-#[wasm_bindgen(inline_js = "export function __sketch_update_text(n,t) { n.textContent = t; }")]
-extern "C" {
     fn __sketch_update_text(node: &Node, t: &str);
+
+    fn __sketch_create_el(tag: &str) -> Node;
 }
 
 impl Html for Cow<'static, str> {
@@ -263,7 +237,7 @@ where
         let iter = self.0.into_iter();
         let mut list: Vec<<<T as IntoIterator>::Item as Html>::Rendered> = Vec::with_capacity(iter.size_hint().0);
 
-        let node = document().create_element("div").unwrap().into();
+        let node = __sketch_create_el("div");
 
         for item in iter {
             let rendered = item.render();
@@ -286,7 +260,7 @@ impl<H: Html> Html for Vec<H> {
     fn render(self) -> Self::Rendered {
         let mut list: Vec<H::Rendered> = Vec::with_capacity(self.len());
 
-        let node = document().create_element("div").unwrap().into();
+        let node = __sketch_create_el("div");
 
         for item in self {
             let rendered = item.render();
@@ -309,7 +283,7 @@ impl<H: Html, const N: usize> Html for [H; N] {
     fn render(self) -> Self::Rendered {
         let mut list: Vec<H::Rendered> = Vec::with_capacity(self.len());
 
-        let node = document().create_element("div").unwrap().into();
+        let node = __sketch_create_el("div");
 
         for item in self {
             let rendered = item.render();

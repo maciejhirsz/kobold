@@ -1,4 +1,4 @@
-use sketch::{html, document, Html, Node, Mountable, Update};
+use sketch::{html, Html, Node, Mountable, Update};
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -28,12 +28,13 @@ fn main() {
 
     let mut rendered = bob.render();
 
-    let body = document().body().expect("document should have a body");
+    let window = sketch::reexport::web_sys::window().expect("should have a window in this context");
+    let document = window.document().expect("window should have a document");
+    let body = document.body().expect("document should have a body");
     let body: &Node = body.as_ref();
 
     body.append_child(&rendered.node()).unwrap();
 
-    let window = sketch::reexport::web_sys::window().expect("should have a window in this context");
     let mut i = 2;
     let a = Closure::wrap(Box::new(move || {
         i += 1;
