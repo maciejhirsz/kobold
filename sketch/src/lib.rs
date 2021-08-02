@@ -32,6 +32,26 @@ pub trait Mountable {
     }
 }
 
+impl Html for () {
+    type Rendered = EmptyNode;
+
+    fn render(self) -> EmptyNode {
+        EmptyNode(document().create_text_node("").into())
+    }
+}
+
+pub struct EmptyNode(Node);
+
+impl Mountable for EmptyNode {
+    fn node(&self) -> &Node {
+        &self.0
+    }
+}
+
+impl Update<()> for EmptyNode {
+    fn update(&mut self, _: ()) {}
+}
+
 pub struct RenderedText {
     text: Cow<'static, str>,
     node: Node,
