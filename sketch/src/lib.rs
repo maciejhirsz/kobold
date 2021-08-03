@@ -3,6 +3,7 @@ mod text;
 mod util;
 mod value;
 
+pub mod attribute;
 pub mod internals;
 pub mod traits;
 

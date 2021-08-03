@@ -139,13 +139,24 @@ impl Parser {
 
                     Ok(Node::Expression)
                 } else {
+                    for attr in el.attributes.iter() {
+                        if let AttributeValue::Expression(tokens) = &attr.value {
+                            let name = &attr.name;
+                            let expr = quote! {
+                                ::sketch::attribute::Attribute::new(#name, #tokens)
+                            };
+
+                            let (_, typ) = self.types_factory.next();
+                            let (_, name) = self.names_factory.next();
+
+                            self.fields.push(Field { typ, name, expr });
+                        }
+                    }
+
                     Ok(Node::Element(el))
                 }
             }
             Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
-                let (_, typ) = self.types_factory.next();
-                let (_, name) = self.names_factory.next();
-
                 let mut iter = group.stream().into_iter();
 
                 let expr = match iter.next() {
@@ -162,6 +173,9 @@ impl Parser {
                         .into(),
                     None => quote! {},
                 };
+
+                let (_, typ) = self.types_factory.next();
+                let (_, name) = self.names_factory.next();
 
                 self.fields.push(Field { typ, name, expr });
 

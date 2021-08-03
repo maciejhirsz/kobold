@@ -78,6 +78,8 @@ impl Generator {
 
                 js!("const {}=document.createElement({:?});", e, el.tag);
 
+                self.append(&e, &el.children)?;
+
                 for attr in el.attributes.iter() {
                     match &attr.value {
                         AttributeValue::Text(value) => match attr.name.as_ref() {
@@ -91,11 +93,13 @@ impl Generator {
                                 js!("{}.setAttribute({:?}, {});", e, attr.name, value)
                             }
                         },
-                        AttributeValue::Expression(_) => unimplemented!(),
+                        AttributeValue::Expression(_) => {
+                            let arg = self.next_arg();
+
+                            js!("{}.setAttributeNode({});", e, arg);
+                        }
                     }
                 }
-
-                self.append(&e, &el.children)?;
 
                 Ok(e)
             }
@@ -112,17 +116,7 @@ impl Generator {
 
                 Ok(e)
             }
-            Node::Expression => {
-                let (arg, token) = self.arg_factory.next();
-
-                if !self.args.is_empty() {
-                    self.args.push(',');
-                }
-                self.args.push_str(&arg);
-                self.args_tokens.push(token);
-
-                Ok(arg)
-            }
+            Node::Expression => Ok(self.next_arg()),
         }
     }
 
@@ -184,5 +178,17 @@ impl Generator {
         let e = format!("e{}", self.var_count);
         self.var_count += 1;
         e
+    }
+
+    fn next_arg(&mut self) -> String {
+        let (arg, token) = self.arg_factory.next();
+
+        if !self.args.is_empty() {
+            self.args.push(',');
+        }
+        self.args.push_str(&arg);
+        self.args_tokens.push(token);
+
+        arg
     }
 }

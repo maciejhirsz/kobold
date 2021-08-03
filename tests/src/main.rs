@@ -34,10 +34,19 @@ fn main() {
     fn hello(name: &'static str, n: u64) -> impl Html {
         let numbers = (0..(n % 5) + 6).map(|n| html! { <p>{ n }</p> });
 
+        let color_base = n * 8;
+        let (r, g, b) = (
+            (color_base % 256) as u8,
+            ((color_base + 85) % 256) as u8,
+            ((color_base + 171) % 256) as u8,
+        );
+
+        let style = format!("color: #{:02x}{:02x}{:02x}", r, g, b);
+
         html! {
             <div>
                 <Greeter {name} />
-                <p style="color: #f00">{ n }" + 2 = "{ n + 2 }</p>
+                <p {style}><strong>{ n }" + 2 = "{ n + 2 }</strong></p>
                 { for numbers }
             </div>
         }
