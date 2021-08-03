@@ -29,7 +29,10 @@ pub trait Component: Sized {
 
     fn create(props: Self::Properties) -> Self;
 
-    fn update(&mut self, new: Self::Properties) -> ShouldRender;
+    fn update(&mut self, new: Self::Properties) -> ShouldRender {
+        *self = Self::create(new);
+        true
+    }
 }
 
 // pub trait StatelessComponent {}

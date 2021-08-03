@@ -1,11 +1,10 @@
 use sketch::prelude::*;
-use sketch::{html, internals, Node};
+use sketch::{html, Node};
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
 fn main() {
-    #[derive(Default)]
     struct Greeter {
         name: &'static str,
     }
@@ -17,10 +16,11 @@ fn main() {
             props
         }
 
-        fn update(&mut self, props: Self::Properties) -> ShouldRender {
-            *self = props;
-            true
-        }
+        // fn update(&mut self, props: Self::Properties) -> ShouldRender {
+        //     self.name = props.name;
+
+        //     matches!(self.name, "Alice" | "Bob")
+        // }
     }
 
     impl Greeter {
@@ -36,19 +36,7 @@ fn main() {
 
         html! {
             <div>
-                // <Greeter name={ name } />
-                {
-                    internals::WrappedProperties::<Greeter, _, _>::new(
-                        {
-                            type Properties = <Greeter as Component>::Properties;
-
-                            Properties {
-                                name: name,
-                            }
-                        },
-                        Greeter::render,
-                    )
-                }
+                <Greeter {name} />
                 <p style="color: #f00">{ n }" + 2 = "{ n + 2 }</p>
                 { for numbers }
             </div>

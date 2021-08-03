@@ -1,4 +1,4 @@
-use crate::dom::{Attribute, Node};
+use crate::dom::{AttributeValue, Node};
 use proc_macro::{Ident, Span, TokenStream, TokenTree};
 use proc_macro2::TokenStream as QuoteTokens;
 use quote::quote;
@@ -78,20 +78,20 @@ impl Generator {
 
                 js!("const {}=document.createElement({:?});", e, el.tag);
 
-                for (name, value) in el.attributes.iter() {
-                    match value {
-                        Attribute::Text(value) => match name.as_ref() {
+                for attr in el.attributes.iter() {
+                    match &attr.value {
+                        AttributeValue::Text(value) => match attr.name.as_ref() {
                             "class" => {
                                 js!("{}.className = {};", e, value);
                             }
                             "style" | "id" => {
-                                js!("{}.{} = {};", e, name, value);
+                                js!("{}.{} = {};", e, attr.name, value);
                             }
                             _ => {
-                                js!("{}.setAttribute({:?}, {});", e, name, value)
+                                js!("{}.setAttribute({:?}, {});", e, attr.name, value)
                             }
                         },
-                        Attribute::Expression(_) => unimplemented!(),
+                        AttributeValue::Expression(_) => unimplemented!(),
                     }
                 }
 

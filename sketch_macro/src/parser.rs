@@ -1,8 +1,9 @@
-use crate::dom::{Attribute, Element, Field, Node};
+use crate::dom::{Attribute, AttributeValue, Element, Field, Node};
 use crate::gen::IdentFactory;
 use proc_macro::token_stream::IntoIter as TokenIter;
-use proc_macro::{Delimiter, Literal, Span, TokenStream, TokenTree};
-use quote::quote_spanned;
+use proc_macro::{Ident, Delimiter, Literal, Span, TokenStream, TokenTree};
+use proc_macro2::TokenStream as QuoteTokens;
+use quote::{quote, quote_spanned};
 use std::borrow::Cow;
 
 #[derive(Debug)]
@@ -88,12 +89,59 @@ impl Parser {
     fn parse_node(&mut self, iter: &mut TokenIter) -> Result<Node, ParseError> {
         match iter.next() {
             Some(TokenTree::Punct(punct)) if punct.as_char() == '<' => {
-                let (tag, _) = expect_ident(iter.next())?;
+                let (tag, tag_ident) = expect_ident(iter.next())?;
 
                 let el = self.parse_element(tag, iter)?;
 
                 if el.is_component() {
-                    unimplemented!()
+                    let tag = into_quote(tag_ident);
+
+                    let props = if el.attributes.is_empty() {
+                        quote! { Properties }
+                    } else {
+                        let props = el
+                            .attributes
+                            .into_iter()
+                            .map(|attr| {
+                                let name = into_quote(attr.ident);
+                                let value = match attr.value {
+                                    AttributeValue::Text(text) => quote! { #text },
+                                    AttributeValue::Expression(expr) => expr,
+                                };
+
+                                quote! { #name: #value, }
+                            })
+                            .collect::<QuoteTokens>();
+
+                        quote! {
+                            Properties {
+                                #props
+                            }
+                        }
+                    };
+
+                    let expr = quote! {
+                        ::sketch::internals::WrappedProperties::<#tag, _, _>::new(
+                            {
+                                type Properties = <#tag as ::sketch::Component>::Properties;
+
+                                #props
+                            },
+                            #tag::render,
+                        )
+                    };
+
+                    let (_, typ) = self.types_factory.next();
+                    let (_, name) = self.names_factory.next();
+
+                    self.fields.push(Field {
+                        iterator: false,
+                        typ,
+                        name,
+                        expr,
+                    });
+
+                    Ok(Node::Expression)
                 } else {
                     Ok(Node::Element(el))
                 }
@@ -144,15 +192,19 @@ impl Parser {
         // Props loop
         loop {
             match iter.next() {
-                Some(TokenTree::Ident(key)) => {
-                    let name = key.to_string();
+                Some(TokenTree::Ident(ident)) => {
+                    let name = ident.to_string();
 
                     expect_punct(iter.next(), '=')?;
 
                     let value = match iter.next() {
-                        Some(TokenTree::Literal(lit)) => Attribute::Text(literal_to_string(lit)),
+                        Some(TokenTree::Literal(lit)) => {
+                            AttributeValue::Text(literal_to_string(lit))
+                        }
                         Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
-                            Attribute::Expression(TokenStream::from(TokenTree::Group(group)).into())
+                            AttributeValue::Expression(
+                                group.stream().into(),
+                            )
                         }
                         Some(tt) => {
                             return Err(ParseError::new(
@@ -163,12 +215,24 @@ impl Parser {
                         None => {
                             return Err(ParseError::new(
                                 "Missing attribute value",
-                                Some(TokenTree::Ident(key)),
+                                Some(TokenTree::Ident(ident)),
                             ))
                         }
                     };
 
-                    element.attributes.push((name, value));
+                    element.attributes.push(Attribute { name, ident, value });
+                }
+                Some(TokenTree::Group(group)) => {
+                    let mut iter = group.stream().into_iter();
+
+                    let (name, ident) = expect_ident(iter.next())?;
+                    expect_end(iter.next(), "Shorthand attributes can only contain a single variable name")?;
+
+                    element.attributes.push(Attribute {
+                        name,
+                        ident: ident.clone(),
+                        value: AttributeValue::Expression(into_quote(ident)),
+                    });
                 }
                 Some(TokenTree::Punct(punct)) if punct.as_char() == '/' => {
                     expect_punct(iter.next(), '>')?;
@@ -202,7 +266,7 @@ impl Parser {
                     "Expected a closing tag for {}, but got {} instead",
                     element.tag, closing
                 ),
-                Some(tt),
+                Some(TokenTree::Ident(tt)),
             ));
         }
 
@@ -229,6 +293,17 @@ fn literal_to_string(lit: Literal) -> String {
     }
 }
 
+fn into_quote(tt: impl Into<TokenTree>) -> QuoteTokens {
+    TokenStream::from(tt.into()).into()
+}
+
+fn expect_end(tt: Option<TokenTree>, err: &'static str) -> Result<(), ParseError> {
+    match tt {
+        None => Ok(()),
+        tt => Err(ParseError::new(err, tt)),
+    }
+}
+
 fn expect_punct(tt: Option<TokenTree>, expect: char) -> Result<(), ParseError> {
     match tt {
         Some(TokenTree::Punct(punct)) if punct.as_char() == expect => Ok(()),
@@ -236,9 +311,9 @@ fn expect_punct(tt: Option<TokenTree>, expect: char) -> Result<(), ParseError> {
     }
 }
 
-fn expect_ident(tt: Option<TokenTree>) -> Result<(String, TokenTree), ParseError> {
+fn expect_ident(tt: Option<TokenTree>) -> Result<(String, Ident), ParseError> {
     match tt {
-        Some(TokenTree::Ident(ident)) => Ok((ident.to_string(), TokenTree::Ident(ident))),
+        Some(TokenTree::Ident(ident)) => Ok((ident.to_string(), ident)),
         tt => Err(ParseError::new("Expected identifier", tt)),
     }
 }

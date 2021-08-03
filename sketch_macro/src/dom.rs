@@ -1,3 +1,4 @@
+use proc_macro::Ident;
 use proc_macro2::TokenStream as QuoteTokens;
 
 #[derive(Debug)]
@@ -19,7 +20,7 @@ pub enum Node {
 #[derive(Debug)]
 pub struct Element {
     pub tag: String,
-    pub attributes: Vec<(String, Attribute)>,
+    pub attributes: Vec<Attribute>,
     pub children: Vec<Node>,
 }
 
@@ -30,7 +31,14 @@ impl Element {
 }
 
 #[derive(Debug)]
-pub enum Attribute {
+pub struct Attribute {
+    pub name: String,
+    pub ident: Ident,
+    pub value: AttributeValue,
+}
+
+#[derive(Debug)]
+pub enum AttributeValue {
     Text(String),
     Expression(QuoteTokens),
 }
