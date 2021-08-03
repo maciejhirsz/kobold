@@ -19,6 +19,12 @@ pub enum Node {
 #[derive(Debug)]
 pub struct Element {
     pub tag: String,
-    pub props: Vec<(String, QuoteTokens)>,
+    pub attributes: Vec<(String, Attribute)>,
     pub children: Vec<Node>,
+}
+
+#[derive(Debug)]
+pub enum Attribute {
+    Text(String),
+    Expression(QuoteTokens),
 }

@@ -1,7 +1,7 @@
-use crate::dom::{Element, Field, Node};
+use crate::dom::{Attribute, Element, Field, Node};
 use crate::gen::IdentFactory;
 use proc_macro::token_stream::IntoIter as TokenIter;
-use proc_macro::{Delimiter, Span, TokenStream, TokenTree};
+use proc_macro::{Delimiter, Literal, Span, TokenStream, TokenTree};
 use quote::quote_spanned;
 use std::borrow::Cow;
 
@@ -118,29 +118,9 @@ impl Parser {
 
                 Ok(Node::Expression)
             }
-            Some(TokenTree::Literal(lit)) => {
-                let stringified = lit.to_string();
-
-                let mut chars = stringified.chars();
-
-                let text = match chars.next() {
-                    // Take the string verbatim
-                    Some('"') | Some('\'') => stringified,
-                    _ => {
-                        let mut quoted = String::with_capacity(stringified.len() + 2);
-
-                        quoted.push('"');
-                        quoted.push_str(&stringified);
-                        quoted.push('"');
-
-                        quoted
-                    }
-                };
-
-                Ok(Node::Text(text))
-            }
+            Some(TokenTree::Literal(lit)) => Ok(Node::Text(literal_to_string(lit))),
             tt => Err(ParseError::new(
-                "Expected an element, {expression}, or a string literal",
+                "Expected an element, a literal value, or an {expression}",
                 tt,
             )),
         }
@@ -151,7 +131,7 @@ impl Parser {
 
         let mut element = Element {
             tag,
-            props: Vec::new(),
+            attributes: Vec::new(),
             children: Vec::new(),
         };
 
@@ -159,16 +139,30 @@ impl Parser {
         loop {
             match iter.next() {
                 Some(TokenTree::Ident(key)) => {
-                    let key = key.to_string();
+                    let name = key.to_string();
 
                     expect_punct(iter.next(), '=')?;
 
-                    match iter.next() {
-                        Some(value) => {
-                            element.props.push((key, TokenStream::from(value).into()));
+                    let value = match iter.next() {
+                        Some(TokenTree::Literal(lit)) => Attribute::Text(literal_to_string(lit)),
+                        Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
+                            Attribute::Expression(TokenStream::from(TokenTree::Group(group)).into())
                         }
-                        tt => return Err(tt.into()),
-                    }
+                        Some(tt) => {
+                            return Err(ParseError::new(
+                                "Expected a literal value, or an {expession}",
+                                Some(tt),
+                            ));
+                        }
+                        None => {
+                            return Err(ParseError::new(
+                                "Missing attribute value",
+                                Some(TokenTree::Ident(key)),
+                            ))
+                        }
+                    };
+
+                    element.attributes.push((name, value));
                 }
                 Some(TokenTree::Punct(punct)) if punct.as_char() == '/' => {
                     expect_punct(iter.next(), '>')?;
@@ -209,6 +203,23 @@ impl Parser {
         expect_punct(iter.next(), '>')?;
 
         Ok(element)
+    }
+}
+
+fn literal_to_string(lit: Literal) -> String {
+    const QUOTE: &str = "\"";
+
+    let stringified = lit.to_string();
+
+    match stringified.chars().next() {
+        // Take the string verbatim
+        Some('"' | '\'') => stringified,
+        _ => {
+            let mut buf = String::with_capacity(stringified.len() + QUOTE.len() * 2);
+
+            buf.extend([QUOTE, &stringified, QUOTE]);
+            buf
+        }
     }
 }
 

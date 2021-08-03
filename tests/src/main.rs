@@ -6,7 +6,7 @@ use wasm_bindgen::JsCast;
 fn main() {
     fn header(name: &'static str) -> impl Html {
         html! {
-            <h1>"Hello "{ name }"!"</h1>
+            <h1 class="header">"Hello "{ name }"!"</h1>
         }
     }
 

@@ -23,6 +23,8 @@ pub fn html(body: TokenStream) -> TokenStream {
         Err(err) => return err.tokenize(),
     };
 
+    // panic!("{:#?}", dom);
+
     let fields = &parser.fields;
 
     let generics = fields.iter().map(|field| &field.typ).collect::<Vec<_>>();

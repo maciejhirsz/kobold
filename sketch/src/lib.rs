@@ -20,7 +20,7 @@ impl Html for () {
     type Rendered = EmptyNode;
 
     fn render(self) -> EmptyNode {
-        EmptyNode(util::__sketch_text_node(""))
+        EmptyNode(util::__sketch_empty_node())
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::dom::Node;
+use crate::dom::{Attribute, Node};
 use proc_macro::{Ident, Span, TokenStream, TokenTree};
 use proc_macro2::TokenStream as QuoteTokens;
 use quote::quote;
@@ -70,11 +70,30 @@ impl Generator {
             Node::Element(el) => {
                 let e = self.next_el();
 
-                write!(
-                    &mut self.render,
-                    "const {}=document.createElement({:?});",
-                    e, el.tag
-                )?;
+                macro_rules! js {
+                    ($($t:tt)*) => {
+                        write!(&mut self.render, $($t)*)?
+                    };
+                }
+
+                js!("const {}=document.createElement({:?});", e, el.tag);
+
+                for (name, value) in el.attributes.iter() {
+                    match value {
+                        Attribute::Text(value) => match name.as_ref() {
+                            "class" => {
+                                js!("{}.className = {};", e, value);
+                            }
+                            "style" | "id" => {
+                                js!("{}.{} = {};", e, name, value);
+                            }
+                            _ => {
+                                js!("{}.setAttribute({:?}, {});", e, name, value)
+                            }
+                        },
+                        Attribute::Expression(_) => unimplemented!(),
+                    }
+                }
 
                 self.append(&e, &el.children)?;
 
