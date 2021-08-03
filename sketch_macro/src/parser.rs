@@ -1,7 +1,7 @@
 use crate::dom::{Attribute, AttributeValue, Element, Field, Node};
 use crate::gen::IdentFactory;
 use proc_macro::token_stream::IntoIter as TokenIter;
-use proc_macro::{Ident, Delimiter, Literal, Span, TokenStream, TokenTree};
+use proc_macro::{Delimiter, Ident, Literal, Span, TokenStream, TokenTree};
 use proc_macro2::TokenStream as QuoteTokens;
 use quote::{quote, quote_spanned};
 use std::borrow::Cow;
@@ -28,6 +28,7 @@ impl ParseError {
             .map(|tt| tt.span())
             .unwrap_or_else(Span::call_site)
             .into();
+
         (quote_spanned! { span =>
             fn _parse_error() {
                 compile_error!(#msg)
@@ -134,12 +135,7 @@ impl Parser {
                     let (_, typ) = self.types_factory.next();
                     let (_, name) = self.names_factory.next();
 
-                    self.fields.push(Field {
-                        iterator: false,
-                        typ,
-                        name,
-                        expr,
-                    });
+                    self.fields.push(Field { typ, name, expr });
 
                     Ok(Node::Expression)
                 } else {
@@ -150,27 +146,24 @@ impl Parser {
                 let (_, typ) = self.types_factory.next();
                 let (_, name) = self.names_factory.next();
 
-                let mut iterator = false;
-                let mut expr = TokenStream::new();
-
                 let mut iter = group.stream().into_iter();
 
-                match iter.next() {
+                let expr = match iter.next() {
                     Some(TokenTree::Ident(ref ident)) if ident.to_string() == "for" => {
-                        iterator = true;
+                        let tokens: QuoteTokens = iter.collect::<TokenStream>().into();
+
+                        quote! {
+                            ::sketch::IterWrapper(#tokens)
+                        }
                     }
-                    Some(tt) => expr.extend([tt]),
-                    None => (),
-                }
+                    Some(tt) => IntoIterator::into_iter([tt])
+                        .chain(iter)
+                        .collect::<TokenStream>()
+                        .into(),
+                    None => quote! {},
+                };
 
-                expr.extend(iter);
-
-                self.fields.push(Field {
-                    iterator,
-                    typ,
-                    name,
-                    expr: expr.into(),
-                });
+                self.fields.push(Field { typ, name, expr });
 
                 Ok(Node::Expression)
             }
@@ -202,9 +195,7 @@ impl Parser {
                             AttributeValue::Text(literal_to_string(lit))
                         }
                         Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
-                            AttributeValue::Expression(
-                                group.stream().into(),
-                            )
+                            AttributeValue::Expression(group.stream().into())
                         }
                         Some(tt) => {
                             return Err(ParseError::new(
@@ -226,7 +217,10 @@ impl Parser {
                     let mut iter = group.stream().into_iter();
 
                     let (name, ident) = expect_ident(iter.next())?;
-                    expect_end(iter.next(), "Shorthand attributes can only contain a single variable name")?;
+                    expect_end(
+                        iter.next(),
+                        "Shorthand attributes can only contain a single variable name",
+                    )?;
 
                     element.attributes.push(Attribute {
                         name,

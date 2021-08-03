@@ -3,7 +3,7 @@ use proc_macro2::TokenStream as QuoteTokens;
 
 #[derive(Debug)]
 pub struct Field {
-    pub iterator: bool,
+    // pub iterator: bool,
     pub typ: QuoteTokens,
     pub name: QuoteTokens,
     pub expr: QuoteTokens,

@@ -5,6 +5,7 @@
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
+use proc_macro2::TokenStream as QuoteTokens;
 use quote::quote;
 
 mod dom;
@@ -43,23 +44,20 @@ pub fn html(body: TokenStream) -> TokenStream {
                 #name: #typ,
             }
         })
-        .collect::<Vec<_>>();
+        .collect::<QuoteTokens>();
     let field_defs = &field_defs;
 
-    let field_declr = fields.iter().map(|field| {
-        let expr = &field.expr;
-        let name = &field.name;
+    let field_declr = fields
+        .iter()
+        .map(|field| {
+            let expr = &field.expr;
+            let name = &field.name;
 
-        if field.iterator {
-            quote! {
-                #name: IterWrapper(#expr),
-            }
-        } else {
             quote! {
                 #name: #expr,
             }
-        }
-    });
+        })
+        .collect::<QuoteTokens>();
 
     let mut generator = Generator::new();
 
@@ -74,11 +72,11 @@ pub fn html(body: TokenStream) -> TokenStream {
             #render
 
             struct TransientHtml<#(#generics),*> {
-                #(#field_defs)*
+                #field_defs
             }
 
             struct TransientRendered<#(#generics),*> {
-                #(#field_defs)*
+                #field_defs
                 node: Node,
             }
 
@@ -113,7 +111,7 @@ pub fn html(body: TokenStream) -> TokenStream {
             }
 
             TransientHtml {
-                #(#field_declr)*
+                #field_declr
             }
         }
     }).into();
