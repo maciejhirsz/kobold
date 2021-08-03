@@ -1,9 +1,9 @@
-use std::borrow::Cow;
-use proc_macro::{TokenStream, TokenTree, Delimiter, Span};
-use proc_macro::token_stream::IntoIter as TokenIter;
-use quote::quote_spanned;
-use crate::dom::{Node, Element, Field};
+use crate::dom::{Element, Field, Node};
 use crate::gen::IdentFactory;
+use proc_macro::token_stream::IntoIter as TokenIter;
+use proc_macro::{Delimiter, Span, TokenStream, TokenTree};
+use quote::quote_spanned;
+use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct ParseError {
@@ -21,12 +21,18 @@ impl ParseError {
 
     pub fn tokenize(self) -> TokenStream {
         let msg = self.msg;
-        let span = self.tt.as_ref().map(|tt| tt.span()).unwrap_or_else(|| Span::call_site()).into();
+        let span = self
+            .tt
+            .as_ref()
+            .map(|tt| tt.span())
+            .unwrap_or_else(Span::call_site)
+            .into();
         (quote_spanned! { span =>
             fn _parse_error() {
                 compile_error!(#msg)
             }
-        }).into()
+        })
+        .into()
     }
 }
 
@@ -73,7 +79,7 @@ impl Parser {
                 }
 
                 Ok(Node::Fragment(fragment))
-            },
+            }
             Err(err) if err.tt.is_none() => Ok(node),
             err => err,
         }
@@ -83,7 +89,7 @@ impl Parser {
         match iter.next() {
             Some(TokenTree::Punct(punct)) if punct.as_char() == '<' => {
                 Ok(Node::Element(self.parse_element(iter)?))
-            },
+            }
             Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
                 let (_, typ) = self.types_factory.next();
                 let (_, name) = self.names_factory.next();
@@ -96,7 +102,7 @@ impl Parser {
                 match iter.next() {
                     Some(TokenTree::Ident(ref ident)) if ident.to_string() == "for" => {
                         iterator = true;
-                    },
+                    }
                     Some(tt) => expr.extend([tt]),
                     None => (),
                 }
@@ -111,7 +117,7 @@ impl Parser {
                 });
 
                 Ok(Node::Expression)
-            },
+            }
             Some(TokenTree::Literal(lit)) => {
                 let stringified = lit.to_string();
 
@@ -132,8 +138,11 @@ impl Parser {
                 };
 
                 Ok(Node::Text(text))
-            },
-            tt => Err(ParseError::new("Expected an element, {expression}, or a string literal", tt)),
+            }
+            tt => Err(ParseError::new(
+                "Expected an element, {expression}, or a string literal",
+                tt,
+            )),
         }
     }
 
@@ -157,20 +166,20 @@ impl Parser {
                     match iter.next() {
                         Some(value) => {
                             element.props.push((key, TokenStream::from(value).into()));
-                        },
+                        }
                         tt => return Err(tt.into()),
                     }
-                },
+                }
                 Some(TokenTree::Punct(punct)) if punct.as_char() == '/' => {
                     expect_punct(iter.next(), '>')?;
 
                     // Self-closing tag, no need to parse further
                     return Ok(element);
-                },
+                }
                 Some(TokenTree::Punct(punct)) if punct.as_char() == '>' => {
                     break;
-                },
-                tt => return Err(ParseError::new("Expected identifier, /, or >", tt))
+                }
+                tt => return Err(ParseError::new("Expected identifier, /, or >", tt)),
             }
         }
 
@@ -189,7 +198,10 @@ impl Parser {
 
         if closing != element.tag {
             return Err(ParseError::new(
-                format!("Expected a closing tag for {}, but got {} instead", element.tag, closing),
+                format!(
+                    "Expected a closing tag for {}, but got {} instead",
+                    element.tag, closing
+                ),
                 Some(tt),
             ));
         }

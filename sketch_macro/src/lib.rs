@@ -1,5 +1,6 @@
 // The `quote!` macro requires deep recursion.
 #![recursion_limit = "196"]
+#![warn(clippy::all, clippy::cast_possible_truncation, clippy::unused_self)]
 
 extern crate proc_macro;
 
@@ -8,37 +9,42 @@ use quote::quote;
 
 mod dom;
 mod gen;
+mod parser;
 
 use gen::Generator;
+use parser::Parser;
 
 #[proc_macro]
 pub fn html(body: TokenStream) -> TokenStream {
-    let mut parser = dom::Parser::new();
+    let mut parser = Parser::new();
 
     let dom = match parser.parse(body) {
         Ok(dom) => dom,
         Err(err) => return err.tokenize(),
     };
 
-    // panic!("{:#?}", dom);
+    let fields = &parser.fields;
 
-    let generics = parser.fields.iter().map(|field| &field.typ).collect::<Vec<_>>();
+    let generics = fields.iter().map(|field| &field.typ).collect::<Vec<_>>();
     let generics = &generics;
 
-    let field_names = parser.fields.iter().map(|field| &field.name).collect::<Vec<_>>();
+    let field_names = fields.iter().map(|field| &field.name).collect::<Vec<_>>();
     let field_names = &field_names;
 
-    let field_defs = parser.fields.iter().map(|field| {
-        let typ = &field.typ;
-        let name = &field.name;
+    let field_defs = fields
+        .iter()
+        .map(|field| {
+            let typ = &field.typ;
+            let name = &field.name;
 
-        quote! {
-            #name: #typ,
-        }
-    }).collect::<Vec<_>>();
+            quote! {
+                #name: #typ,
+            }
+        })
+        .collect::<Vec<_>>();
     let field_defs = &field_defs;
 
-    let field_declr = parser.fields.iter().map(|field| {
+    let field_declr = fields.iter().map(|field| {
         let expr = &field.expr;
         let name = &field.name;
 

@@ -18,7 +18,7 @@ fn main() {
         html! {
             <div>
                 { hello }
-                <p>{ n }" + 2 = "{ n + 2 }</p>
+                <p style="color: #f00">{ n }" + 2 = "{ n + 2 }</p>
                 { for numbers }
             </div>
         }

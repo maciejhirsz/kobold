@@ -1,8 +1,8 @@
-use std::fmt::{self, Write};
-use proc_macro::{TokenStream, TokenTree, Ident, Span};
+use crate::dom::Node;
+use proc_macro::{Ident, Span, TokenStream, TokenTree};
 use proc_macro2::TokenStream as QuoteTokens;
 use quote::quote;
-use crate::dom::Node;
+use std::fmt::{self, Write};
 
 #[derive(Debug)]
 pub enum Infallible {}
@@ -20,10 +20,7 @@ pub struct IdentFactory {
 
 impl IdentFactory {
     pub fn new(prefix: char) -> Self {
-        Self {
-            prefix,
-            current: 0,
-        }
+        Self { prefix, current: 0 }
     }
 
     pub fn next(&mut self) -> (String, QuoteTokens) {
@@ -62,23 +59,35 @@ impl Generator {
             Node::Text(text) => {
                 let e = self.next_el();
 
-                write!(&mut self.render, "const {}=document.createTextNode({})", e, text)?;
+                write!(
+                    &mut self.render,
+                    "const {}=document.createTextNode({})",
+                    e, text
+                )?;
 
                 Ok(e)
             }
             Node::Element(el) => {
                 let e = self.next_el();
 
-                write!(&mut self.render, "const {}=document.createElement({:?});", e, el.tag)?;
+                write!(
+                    &mut self.render,
+                    "const {}=document.createElement({:?});",
+                    e, el.tag
+                )?;
 
                 self.append(&e, &el.children)?;
 
                 Ok(e)
-            },
+            }
             Node::Fragment(children) => {
                 let e = self.next_el();
 
-                write!(&mut self.render, "const {}=document.createDocumentFragment();", e)?;
+                write!(
+                    &mut self.render,
+                    "const {}=document.createDocumentFragment();",
+                    e
+                )?;
 
                 self.append(&e, children)?;
 
@@ -132,18 +141,24 @@ impl Generator {
 
         let fn_name = format!("__transient_render_{}", hash);
 
-        let js = format!("export function {}({}){{{}return {};}}", fn_name, self.args, self.render, root);
+        let js = format!(
+            "export function {}({}){{{}return {};}}",
+            fn_name, self.args, self.render, root
+        );
         let args = &self.args_tokens;
 
         let fn_name = Ident::new(&fn_name, Span::call_site());
         let fn_name: QuoteTokens = TokenStream::from(TokenTree::Ident(fn_name)).into();
 
-        (fn_name.clone(), quote! {
-            #[wasm_bindgen(inline_js = #js)]
-            extern "C" {
-                fn #fn_name(#(#args: &Node),*) -> Node;
-            }
-        })
+        (
+            fn_name.clone(),
+            quote! {
+                #[wasm_bindgen(inline_js = #js)]
+                extern "C" {
+                    fn #fn_name(#(#args: &Node),*) -> Node;
+                }
+            },
+        )
     }
 
     fn next_el(&mut self) -> String {
