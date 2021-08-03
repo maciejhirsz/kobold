@@ -75,7 +75,8 @@ where
 
     fn render(self) -> Self::Rendered {
         let iter = self.0.into_iter();
-        let mut list: Vec<<<T as IntoIterator>::Item as Html>::Rendered> = Vec::with_capacity(iter.size_hint().0);
+        let mut list: Vec<<<T as IntoIterator>::Item as Html>::Rendered> =
+            Vec::with_capacity(iter.size_hint().0);
 
         let node = util::__sketch_create_el("div");
 

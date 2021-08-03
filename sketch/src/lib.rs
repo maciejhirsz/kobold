@@ -1,19 +1,19 @@
-mod traits;
-mod text;
-mod util;
 mod list;
+mod text;
+mod traits;
+mod util;
 mod value;
 
+pub use list::{IterWrapper, RenderedList};
+pub use text::RenderedText;
 pub use traits::{Html, Mountable, Update};
-pub use text::{RenderedText};
-pub use list::{RenderedList, IterWrapper};
 
-pub use web_sys::Node;
 pub use sketch_macro::html;
+pub use web_sys::Node;
 
 pub mod reexport {
-    pub use web_sys;
     pub use wasm_bindgen;
+    pub use web_sys;
 }
 
 impl Html for () {

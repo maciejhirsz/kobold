@@ -1,7 +1,7 @@
-use beef::Cow;
-use web_sys::Node;
 use crate::traits::{Html, Mountable, Update};
 use crate::util;
+use beef::Cow;
+use web_sys::Node;
 
 pub struct RenderedText {
     text: Cow<'static, str>,
@@ -50,10 +50,7 @@ impl Html for Cow<'static, str> {
     fn render(self) -> Self::Rendered {
         let node = util::__sketch_text_node(self.as_ref());
 
-        RenderedText {
-            text: self,
-            node,
-        }
+        RenderedText { text: self, node }
     }
 }
 

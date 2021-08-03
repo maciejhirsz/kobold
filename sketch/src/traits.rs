@@ -14,10 +14,10 @@ pub trait Mountable {
     fn node(&self) -> &Node;
 
     fn mount(&self, parent: &Node) {
-        parent.append_child(&self.node()).unwrap();
+        parent.append_child(self.node()).unwrap();
     }
 
     fn unmount(&self, parent: &Node) {
-        parent.remove_child(&self.node()).unwrap();
+        parent.remove_child(self.node()).unwrap();
     }
 }
