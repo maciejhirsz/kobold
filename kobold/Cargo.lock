@@ -62,6 +62,8 @@ dependencies = [
 [[package]]
 name = "kobold_macros"
 version = "0.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2568a623f087c16127fc810ace03f5d83e06f97840dd861247e437fe1b77eae6"
 dependencies = [
  "fnv",
  "proc-macro2",

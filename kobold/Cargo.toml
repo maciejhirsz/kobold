@@ -12,7 +12,7 @@ description = "WIP frontend framework"
 
 [dependencies]
 beef = "0.5.1"
-kobold_macros = { path = "../kobold_macros" }
+kobold_macros = "0.0"
 wasm-bindgen = "0.2.74"
 itoa = "0.4.7"
 dtoa = "0.4.8"
