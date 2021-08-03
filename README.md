@@ -1,6 +1,6 @@
-# sketch
+# kobold
 
-Temporary name, very much WIP.
+Very much WIP.
 
 To see it in action:
 

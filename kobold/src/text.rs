@@ -48,7 +48,7 @@ impl Html for Cow<'static, str> {
     type Rendered = RenderedText;
 
     fn render(self) -> Self::Rendered {
-        let node = util::__sketch_text_node(self.as_ref());
+        let node = util::__kobold_text_node(self.as_ref());
 
         RenderedText { text: self, node }
     }
@@ -80,7 +80,7 @@ impl Update<std::borrow::Cow<'static, str>> for RenderedText {
 impl Update<Cow<'static, str>> for RenderedText {
     fn update(&mut self, new: Cow<'static, str>) {
         if self.text != new {
-            util::__sketch_update_text(&self.node, new.as_ref());
+            util::__kobold_update_text(&self.node, new.as_ref());
             self.text = new;
         }
     }

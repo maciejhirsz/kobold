@@ -26,7 +26,7 @@ impl Html for bool {
     type Rendered = RenderedValue<bool>;
 
     fn render(self) -> Self::Rendered {
-        let node = util::__sketch_text_node(bool_to_str(self));
+        let node = util::__kobold_text_node(bool_to_str(self));
 
         RenderedValue { value: self, node }
     }
@@ -37,7 +37,7 @@ impl Update<bool> for RenderedValue<bool> {
         if self.value != new {
             self.value = new;
 
-            util::__sketch_update_text(&self.node, bool_to_str(self.value));
+            util::__kobold_update_text(&self.node, bool_to_str(self.value));
         }
     }
 }
@@ -52,7 +52,7 @@ macro_rules! impl_int {
                     let mut buf = [0_u8; 20];
 
                     let n = itoa::write(&mut buf[..], self).unwrap_or_else(|_| 0);
-                    let node = util::__sketch_text_node(unsafe {
+                    let node = util::__kobold_text_node(unsafe {
                         str::from_utf8_unchecked(&buf[..n])
                     });
 
@@ -72,7 +72,7 @@ macro_rules! impl_int {
 
                         let n = itoa::write(&mut buf[..], new).unwrap_or_else(|_| 0);
 
-                        util::__sketch_update_text(&self.node, unsafe {
+                        util::__kobold_update_text(&self.node, unsafe {
                             str::from_utf8_unchecked(&buf[..n])
                         });
                     }
@@ -92,7 +92,7 @@ macro_rules! impl_float {
                     let mut buf = [0_u8; 20];
 
                     let n = dtoa::write(&mut buf[..], self).unwrap_or_else(|_| 0);
-                    let node = util::__sketch_text_node(unsafe {
+                    let node = util::__kobold_text_node(unsafe {
                         str::from_utf8_unchecked(&buf[..n])
                     });
 
@@ -112,7 +112,7 @@ macro_rules! impl_float {
 
                         let n = dtoa::write(&mut buf[..], new).unwrap_or_else(|_| 0);
 
-                        util::__sketch_update_text(&self.node, unsafe {
+                        util::__kobold_update_text(&self.node, unsafe {
                             str::from_utf8_unchecked(&buf[..n])
                         });
                     }
@@ -130,7 +130,7 @@ macro_rules! impl_value {
 
                 fn render(self) -> Self::Rendered {
                     let buf = self.to_string();
-                    let node = util::__sketch_text_node(&buf);
+                    let node = util::__kobold_text_node(&buf);
 
                     RenderedValue {
                         value: self,
@@ -146,7 +146,7 @@ macro_rules! impl_value {
 
                         let buf = new.to_string();
 
-                        util::__sketch_update_text(&self.node, &buf);
+                        util::__kobold_update_text(&self.node, &buf);
                     }
                 }
             }

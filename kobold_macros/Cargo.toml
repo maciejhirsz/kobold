@@ -1,8 +1,10 @@
 [package]
-name = "sketch_macro"
-version = "0.1.0"
-authors = ["Maciej Hirsz <maciej.hirsz@gmail.com>"]
+name = "kobold_macros"
+version = "0.0.0"
+authors = ["Maciej Hirsz <hello@maciej.codes>"]
 edition = "2018"
+license = "GPL-3.0"
+readme = "../README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

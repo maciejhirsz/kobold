@@ -48,6 +48,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "kobold"
+version = "0.0.0"
+dependencies = [
+ "beef",
+ "dtoa",
+ "itoa",
+ "kobold_macros",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "kobold_macros"
+version = "0.0.0"
+dependencies = [
+ "fnv",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -81,28 +103,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sketch"
-version = "0.1.0"
-dependencies = [
- "beef",
- "dtoa",
- "itoa",
- "sketch_macro",
- "wasm-bindgen",
- "web-sys",
-]
-
-[[package]]
-name = "sketch_macro"
-version = "0.1.0"
-dependencies = [
- "fnv",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "syn"
 version = "1.0.74"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -117,7 +117,7 @@ dependencies = [
 name = "tests"
 version = "0.1.0"
 dependencies = [
- "sketch",
+ "kobold",
  "wasm-bindgen",
 ]
 

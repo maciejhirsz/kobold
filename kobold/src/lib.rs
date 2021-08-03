@@ -14,10 +14,10 @@ pub use text::RenderedText;
 pub use traits::{Component, Html, Mountable, Update};
 
 pub mod prelude {
-    pub use super::{Component, Html, Mountable, ShouldRender, Update};
+    pub use super::{html, Component, Html, Mountable, ShouldRender, Update};
 }
 
-pub use sketch_macro::html;
+pub use kobold_macros::html;
 pub use web_sys::Node;
 
 pub mod reexport {
@@ -34,7 +34,7 @@ mod empty {
         type Rendered = EmptyNode;
 
         fn render(self) -> EmptyNode {
-            EmptyNode(util::__sketch_empty_node())
+            EmptyNode(util::__kobold_empty_node())
         }
     }
 

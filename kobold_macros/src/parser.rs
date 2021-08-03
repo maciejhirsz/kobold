@@ -122,9 +122,9 @@ impl Parser {
                     };
 
                     let expr = quote! {
-                        ::sketch::internals::WrappedProperties::<#tag, _, _>::new(
+                        ::kobold::internals::WrappedProperties::<#tag, _, _>::new(
                             {
-                                type Properties = <#tag as ::sketch::Component>::Properties;
+                                type Properties = <#tag as ::kobold::Component>::Properties;
 
                                 #props
                             },
@@ -143,7 +143,7 @@ impl Parser {
                         if let AttributeValue::Expression(tokens) = &attr.value {
                             let name = &attr.name;
                             let expr = quote! {
-                                ::sketch::attribute::Attribute::new(#name, #tokens)
+                                ::kobold::attribute::Attribute::new(#name, #tokens)
                             };
 
                             let (_, typ) = self.types_factory.next();
@@ -164,7 +164,7 @@ impl Parser {
                         let tokens: QuoteTokens = iter.collect::<TokenStream>().into();
 
                         quote! {
-                            ::sketch::IterWrapper(#tokens)
+                            ::kobold::IterWrapper(#tokens)
                         }
                     }
                     Some(tt) => IntoIterator::into_iter([tt])

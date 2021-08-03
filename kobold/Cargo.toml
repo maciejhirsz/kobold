@@ -1,14 +1,16 @@
 [package]
-name = "sketch"
-version = "0.1.0"
-authors = ["Maciej Hirsz <maciej.hirsz@gmail.com>"]
+name = "kobold"
+version = "0.0.0"
+authors = ["Maciej Hirsz <hello@maciej.codes>"]
 edition = "2018"
+license = "GPL-3.0"
+readme = "../README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 beef = "0.5.1"
-sketch_macro = { path = "../sketch_macro" }
+kobold_macros = { path = "../kobold_macros" }
 wasm-bindgen = "0.2.74"
 itoa = "0.4.7"
 dtoa = "0.4.8"

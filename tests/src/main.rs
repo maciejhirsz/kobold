@@ -1,5 +1,5 @@
-use sketch::prelude::*;
-use sketch::{html, Node};
+use kobold::prelude::*;
+use kobold::Node;
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -56,7 +56,7 @@ fn main() {
 
     let mut rendered = bob.render();
 
-    let window = sketch::reexport::web_sys::window().expect("should have a window in this context");
+    let window = kobold::reexport::web_sys::window().expect("should have a window in this context");
     let document = window.document().expect("window should have a document");
     let body = document.body().expect("document should have a body");
     let body: &Node = body.as_ref();

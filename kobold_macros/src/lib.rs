@@ -66,8 +66,8 @@ pub fn html(body: TokenStream) -> TokenStream {
 
     let tokens: TokenStream = (quote! {
         {
-            use ::sketch::{Html, Update, Mountable, Node, IterWrapper};
-            use ::sketch::reexport::wasm_bindgen::{self, prelude::wasm_bindgen};
+            use ::kobold::{Html, Update, Mountable, Node, IterWrapper};
+            use ::kobold::reexport::wasm_bindgen::{self, prelude::wasm_bindgen};
 
             #render
 

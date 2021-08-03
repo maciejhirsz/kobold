@@ -20,7 +20,7 @@ where
     type Rendered = RenderedAttribute<V>;
 
     fn render(self) -> Self::Rendered {
-        let node = util::__sketch_create_attr(self.name, self.value.as_ref());
+        let node = util::__kobold_create_attr(self.name, self.value.as_ref());
 
         RenderedAttribute {
             value: self.value,
@@ -56,7 +56,7 @@ macro_rules! create_named_attrs {
             fn update(&mut self, new: $name<V>) {
                 if self.value != new.0 {
                     self.value = new.0;
-                    util::__sketch_update_attr(self.node(), self.value.as_ref());
+                    util::__kobold_update_attr(self.node(), self.value.as_ref());
                 }
             }
         }
@@ -64,8 +64,8 @@ macro_rules! create_named_attrs {
 }
 
 create_named_attrs! {
-    Class => __sketch_create_attr_class,
-    Style => __sketch_create_attr_style,
+    Class => __kobold_create_attr_class,
+    Style => __kobold_create_attr_style,
 }
 
 pub struct RenderedAttribute<V> {
@@ -86,7 +86,7 @@ where
     fn update(&mut self, new: Attribute<V>) {
         if self.value != new.value {
             self.value = new.value;
-            util::__sketch_update_attr(self.node(), self.value.as_ref());
+            util::__kobold_update_attr(self.node(), self.value.as_ref());
         }
     }
 }
