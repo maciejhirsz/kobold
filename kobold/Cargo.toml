@@ -5,6 +5,8 @@ authors = ["Maciej Hirsz <hello@maciej.codes>"]
 edition = "2018"
 license = "GPL-3.0"
 readme = "../README.md"
+description = "WIP frontend framework"
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
