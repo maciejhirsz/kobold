@@ -23,6 +23,12 @@ pub struct Element {
     pub children: Vec<Node>,
 }
 
+impl Element {
+    pub fn is_component(&self) -> bool {
+        !self.tag.chars().next().unwrap().is_ascii_lowercase()
+    }
+}
+
 #[derive(Debug)]
 pub enum Attribute {
     Text(String),

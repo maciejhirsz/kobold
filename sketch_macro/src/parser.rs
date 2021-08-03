@@ -88,7 +88,15 @@ impl Parser {
     fn parse_node(&mut self, iter: &mut TokenIter) -> Result<Node, ParseError> {
         match iter.next() {
             Some(TokenTree::Punct(punct)) if punct.as_char() == '<' => {
-                Ok(Node::Element(self.parse_element(iter)?))
+                let (tag, _) = expect_ident(iter.next())?;
+
+                let el = self.parse_element(tag, iter)?;
+
+                if el.is_component() {
+                    unimplemented!()
+                } else {
+                    Ok(Node::Element(el))
+                }
             }
             Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
                 let (_, typ) = self.types_factory.next();
@@ -126,9 +134,7 @@ impl Parser {
         }
     }
 
-    fn parse_element(&mut self, iter: &mut TokenIter) -> Result<Element, ParseError> {
-        let (tag, _) = expect_ident(iter.next())?;
-
+    fn parse_element(&mut self, tag: String, iter: &mut TokenIter) -> Result<Element, ParseError> {
         let mut element = Element {
             tag,
             attributes: Vec::new(),

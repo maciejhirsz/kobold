@@ -1,5 +1,7 @@
 use web_sys::Node;
 
+pub type ShouldRender = bool;
+
 pub trait Html: Sized {
     type Rendered: Update<Self> + Mountable;
 
@@ -21,3 +23,28 @@ pub trait Mountable {
         parent.remove_child(self.node()).unwrap();
     }
 }
+
+pub trait Component: Sized {
+    type Properties;
+
+    fn create(props: Self::Properties) -> Self;
+
+    fn update(&mut self, new: Self::Properties) -> ShouldRender;
+}
+
+// pub trait StatelessComponent {}
+
+// impl<T: StatelessComponent> Component for T {
+//     type Properties = Self;
+
+//     #[inline]
+//     fn create(props: Self::Properties) -> Self {
+//         props
+//     }
+
+//     #[inline]
+//     fn update(&mut self, new: Self::Properties) -> ShouldRender {
+//         *self = Self::create(new);
+//         true
+//     }
+// }
