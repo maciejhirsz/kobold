@@ -24,7 +24,7 @@ pub fn html(body: TokenStream) -> TokenStream {
         Err(err) => return err.tokenize(),
     };
 
-    // panic!("{:#?}", dom);
+    // panic!("{:#?}\n\n{:#?}", dom, parser.fields);
 
     let fields = &parser.fields;
 

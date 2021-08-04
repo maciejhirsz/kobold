@@ -2,6 +2,8 @@ use crate::traits::{Html, Mountable, Update};
 use crate::util;
 use web_sys::Node;
 
+pub use crate::callback::Callback;
+
 pub struct Attribute<V> {
     name: &'static str,
     value: V,

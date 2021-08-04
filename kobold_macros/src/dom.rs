@@ -1,11 +1,38 @@
+use std::fmt::{self, Display, Debug};
 use proc_macro::Ident;
 use proc_macro2::TokenStream as QuoteTokens;
 
-#[derive(Debug)]
 pub struct Field {
+    pub kind: FieldKind,
     pub typ: QuoteTokens,
     pub name: QuoteTokens,
     pub expr: QuoteTokens,
+}
+
+impl Debug for Field {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Foo")
+            .field("kind", &self.kind)
+            .field("typ", &DisplayDebug(&self.typ))
+            .field("name", &DisplayDebug(&self.name))
+            .field("expr", &DisplayDebug(&self.expr))
+            .finish()
+    }
+}
+
+struct DisplayDebug<T>(T);
+
+impl<T: Display> Debug for DisplayDebug<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+#[derive(Debug)]
+pub enum FieldKind {
+    Html,
+    Attr,
+    Callback,
 }
 
 #[derive(Debug)]

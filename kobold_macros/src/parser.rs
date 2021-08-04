@@ -1,4 +1,4 @@
-use crate::dom::{Attribute, AttributeValue, Element, Field, Node};
+use crate::dom::{Attribute, AttributeValue, Element, Field, FieldKind, Node};
 
 use arrayvec::ArrayString;
 use beef::Cow;
@@ -132,7 +132,7 @@ impl Parser {
                         )
                     };
 
-                    self.new_field(expr);
+                    self.new_field(FieldKind::Html, expr);
 
                     Ok(Node::Expression)
                 } else {
@@ -140,10 +140,11 @@ impl Parser {
                         if let AttributeValue::Expression(tokens) = &attr.value {
                             let attr_name = attr.name.as_str();
 
-                            let constructor = match attr_name {
-                                "style" => Some(quote! { Style }),
-                                "class" => Some(quote! { Class }),
-                                _ => None,
+                            let (kind, constructor) = match attr_name {
+                                "style" => (FieldKind::Attr, Some(quote! { Style })),
+                                "class" => (FieldKind::Attr, Some(quote! { Class })),
+                                n if n.starts_with("on") => (FieldKind::Callback, Some(quote! { Callback::new })),
+                                _ => (FieldKind::Attr, None),
                             };
 
                             let expr = match constructor {
@@ -155,7 +156,7 @@ impl Parser {
                                 },
                             };
 
-                            self.new_field(expr);
+                            self.new_field(kind, expr);
                         }
                     }
 
@@ -180,7 +181,7 @@ impl Parser {
                     None => quote! {},
                 };
 
-                self.new_field(expr);
+                self.new_field(FieldKind::Html, expr);
 
                 Ok(Node::Expression)
             }
@@ -286,7 +287,7 @@ impl Parser {
         Ok(element)
     }
 
-    fn new_field(&mut self, expr: QuoteTokens) {
+    fn new_field(&mut self, kind: FieldKind, expr: QuoteTokens) {
         const LETTERS: usize = 26;
 
         // This gives us up to 456976 unique identifiers, should be enough :)
@@ -311,7 +312,7 @@ impl Parser {
 
         let name = into_quote(Ident::new(&buf, Span::call_site()));
 
-        self.fields.push(Field { typ, name, expr });
+        self.fields.push(Field { kind, typ, name, expr });
     }
 }
 

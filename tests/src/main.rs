@@ -35,18 +35,21 @@ fn main() {
         let numbers = (0..(n % 5) + 6).map(|n| html! { <p>{ n }</p> });
 
         let color_base = n * 8;
-        let (r, g, b) = (
+        let rgb = u32::from_be_bytes([
+            0,
             (color_base % 256) as u8,
             ((color_base + 85) % 256) as u8,
             ((color_base + 171) % 256) as u8,
-        );
+        ]);
 
-        let style = format!("color: #{:02x}{:02x}{:02x}", r, g, b);
+        let style = format!("color: #{:06x}", rgb);
 
         html! {
             <div>
                 <Greeter {name} />
-                <p {style}><strong>{ n }" + 2 = "{ n + 2 }</strong></p>
+                <p {style}>
+                    <strong onclick={|| panic!("callback executed")}>{ n }" + 2 = "{ n + 2 }</strong>
+                </p>
                 { for numbers }
             </div>
         }
