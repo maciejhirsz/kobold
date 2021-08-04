@@ -16,11 +16,11 @@ fn main() {
             props
         }
 
-        // fn update(&mut self, props: Self::Properties) -> ShouldRender {
-        //     self.name = props.name;
+        fn update(&mut self, props: Self::Properties) -> ShouldRender {
+            self.name = props.name;
 
-        //     matches!(self.name, "Alice" | "Bob")
-        // }
+            true
+        }
     }
 
     impl Greeter {

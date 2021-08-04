@@ -31,10 +31,11 @@ pub trait Component: Sized {
 
     fn create(props: Self::Properties) -> Self;
 
-    fn update(&mut self, new: Self::Properties) -> ShouldRender {
-        *self = Self::create(new);
-        true
-    }
+    fn update(&mut self, new: Self::Properties) -> ShouldRender;
+}
+
+pub trait HandleMessage<Message>: Component {
+    fn handle(&mut self, message: Message);
 }
 
 // pub trait StatelessComponent {}

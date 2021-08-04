@@ -1,4 +1,5 @@
 mod callback;
+mod context;
 mod list;
 mod text;
 mod util;
@@ -10,12 +11,15 @@ pub mod traits;
 
 pub type ShouldRender = bool;
 
+pub use context::Context;
 pub use list::{IterWrapper, RenderedList};
 pub use text::RenderedText;
-pub use traits::{Component, Html, Mountable, Update};
+pub use traits::{Component, HandleMessage, Html, Mountable, Update};
 
 pub mod prelude {
-    pub use super::{html, Component, Html, Mountable, ShouldRender, Update};
+    pub use super::{
+        html, Component, Context, HandleMessage, Html, Mountable, ShouldRender, Update,
+    };
 }
 
 pub use kobold_macros::html;
