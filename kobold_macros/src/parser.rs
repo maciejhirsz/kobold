@@ -140,9 +140,21 @@ impl Parser {
                 } else {
                     for attr in el.attributes.iter() {
                         if let AttributeValue::Expression(tokens) = &attr.value {
-                            let name = &attr.name;
-                            let expr = quote! {
-                                ::kobold::attribute::Attribute::new(#name, #tokens)
+                            let attr_name = attr.name.as_str();
+
+                            let constructor = match attr_name {
+                                "style" => Some(quote! { Style }),
+                                "class" => Some(quote! { Class }),
+                                _ => None,
+                            };
+
+                            let expr = match constructor {
+                                Some(constructor) => quote! {
+                                    ::kobold::attribute::#constructor(#tokens)
+                                },
+                                None => quote! {
+                                    ::kobold::attribute::Attribute::new(#attr_name, #tokens)
+                                },
                             };
 
                             let (typ, name) = self.next_field();
