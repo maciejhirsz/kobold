@@ -1,4 +1,6 @@
-use crate::dom::{AttributeValue, Node};
+use crate::dom::{AttributeValue, Field, Node};
+
+use arrayvec::ArrayString;
 use proc_macro::{Ident, Span, TokenStream, TokenTree};
 use proc_macro2::TokenStream as QuoteTokens;
 use quote::quote;
@@ -13,40 +15,23 @@ impl From<fmt::Error> for Infallible {
     }
 }
 
-pub struct IdentFactory {
-    prefix: char,
-    current: usize,
-}
-
-impl IdentFactory {
-    pub fn new(prefix: char) -> Self {
-        Self { prefix, current: 0 }
-    }
-
-    pub fn next(&mut self) -> (String, QuoteTokens) {
-        let string = format!("{}{}", self.prefix, self.current);
-        let ident = Ident::new(&string, Span::call_site());
-
-        self.current += 1;
-
-        (string, TokenStream::from(TokenTree::Ident(ident)).into())
-    }
-}
-
-pub struct Generator {
+pub struct Generator<'a, I> {
+    fields: I,
     var_count: usize,
-    arg_factory: IdentFactory,
     pub render: String,
     pub update: String,
     args: String,
-    args_tokens: Vec<QuoteTokens>,
+    args_tokens: Vec<&'a QuoteTokens>,
 }
 
-impl Generator {
-    pub fn new() -> Self {
+impl<'a, I> Generator<'a, I>
+where
+    I: Iterator<Item = &'a Field> + 'a,
+{
+    pub fn new(fields: I) -> Self {
         Generator {
+            fields,
             var_count: 0,
-            arg_factory: IdentFactory::new('a'),
             render: String::new(),
             update: String::new(),
             args: String::new(),
@@ -145,14 +130,21 @@ impl Generator {
     }
 
     pub fn render_js(&mut self, root: &str) -> (QuoteTokens, QuoteTokens) {
+        const FN_PREFIX: &str = "__transient_";
+        const FN_BUF_LEN: usize = FN_PREFIX.len() + 16;
+
         use std::hash::Hasher;
         let mut hasher = fnv::FnvHasher::default();
 
         hasher.write(self.render.as_bytes());
 
         let hash = hasher.finish();
+        let mut fn_name = ArrayString::<FN_BUF_LEN>::new();
 
-        let fn_name = format!("__transient_render_{}", hash);
+        fn_name.push_str(FN_PREFIX);
+
+        write!(&mut fn_name, "{:x}", hash)
+            .expect("transient function name buffer is too small, this is a bug, please report it");
 
         let js = format!(
             "export function {}({}){{{}return {};}}",
@@ -181,7 +173,13 @@ impl Generator {
     }
 
     fn next_arg(&mut self) -> String {
-        let (arg, token) = self.arg_factory.next();
+        let field = self
+            .fields
+            .next()
+            .expect("Trying to generate more arguments in JS than fields in Rust");
+
+        let token = &field.name;
+        let arg = token.to_string();
 
         if !self.args.is_empty() {
             self.args.push(',');

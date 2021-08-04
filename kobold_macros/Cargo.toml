@@ -10,7 +10,8 @@ description = "Macros for the kobold framework"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-syn = "1.0"
+beef = "0.5.1"
+arrayvec = "0.7.1"
 fnv = "1.0.7"
 quote = "1.0"
 proc-macro2 = "1.0"

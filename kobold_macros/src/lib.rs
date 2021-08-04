@@ -59,14 +59,14 @@ pub fn html(body: TokenStream) -> TokenStream {
         })
         .collect::<QuoteTokens>();
 
-    let mut generator = Generator::new();
+    let mut generator = Generator::new(fields.iter());
 
     let root = generator.generate(&dom).unwrap();
     let (js_fn_name, render) = generator.render_js(&root);
 
     let tokens: TokenStream = (quote! {
         {
-            use ::kobold::{Html, Update, Mountable, Node, IterWrapper};
+            use ::kobold::{Html, Node};
             use ::kobold::reexport::wasm_bindgen::{self, prelude::wasm_bindgen};
 
             #render
@@ -96,13 +96,13 @@ pub fn html(body: TokenStream) -> TokenStream {
                 }
             }
 
-            impl<#(#generics),*> Mountable for TransientRendered<#(#generics),*> {
+            impl<#(#generics),*> ::kobold::Mountable for TransientRendered<#(#generics),*> {
                 fn node(&self) -> &Node {
                     &self.node
                 }
             }
 
-            impl<#(#generics: Html),*> Update<TransientHtml<#(#generics),*>> for TransientRendered<#(<#generics as Html>::Rendered),*> {
+            impl<#(#generics: Html),*> ::kobold::Update<TransientHtml<#(#generics),*>> for TransientRendered<#(<#generics as Html>::Rendered),*> {
                 fn update(&mut self, new: TransientHtml<#(#generics),*>) {
                     #(
                         self.#field_names.update(new.#field_names);

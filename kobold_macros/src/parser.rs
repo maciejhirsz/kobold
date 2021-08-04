@@ -1,10 +1,12 @@
 use crate::dom::{Attribute, AttributeValue, Element, Field, Node};
-use crate::gen::IdentFactory;
+
+use arrayvec::ArrayString;
+use beef::Cow;
 use proc_macro::token_stream::IntoIter as TokenIter;
 use proc_macro::{Delimiter, Ident, Literal, Span, TokenStream, TokenTree};
 use proc_macro2::TokenStream as QuoteTokens;
 use quote::{quote, quote_spanned};
-use std::borrow::Cow;
+use std::convert::TryFrom;
 
 #[derive(Debug)]
 pub struct ParseError {
@@ -21,7 +23,7 @@ impl ParseError {
     }
 
     pub fn tokenize(self) -> TokenStream {
-        let msg = self.msg;
+        let msg = self.msg.as_ref();
         let span = self
             .tt
             .as_ref()
@@ -48,16 +50,14 @@ impl From<Option<TokenTree>> for ParseError {
 }
 
 pub struct Parser {
-    types_factory: IdentFactory,
-    names_factory: IdentFactory,
+    vars: usize,
     pub fields: Vec<Field>,
 }
 
 impl Parser {
     pub fn new() -> Self {
         Parser {
-            types_factory: IdentFactory::new('A'),
-            names_factory: IdentFactory::new('a'),
+            vars: 0,
             fields: Vec::new(),
         }
     }
@@ -132,8 +132,7 @@ impl Parser {
                         )
                     };
 
-                    let (_, typ) = self.types_factory.next();
-                    let (_, name) = self.names_factory.next();
+                    let (typ, name) = self.next_field();
 
                     self.fields.push(Field { typ, name, expr });
 
@@ -146,8 +145,7 @@ impl Parser {
                                 ::kobold::attribute::Attribute::new(#name, #tokens)
                             };
 
-                            let (_, typ) = self.types_factory.next();
-                            let (_, name) = self.names_factory.next();
+                            let (typ, name) = self.next_field();
 
                             self.fields.push(Field { typ, name, expr });
                         }
@@ -174,8 +172,7 @@ impl Parser {
                     None => quote! {},
                 };
 
-                let (_, typ) = self.types_factory.next();
-                let (_, name) = self.names_factory.next();
+                let (typ, name) = self.next_field();
 
                 self.fields.push(Field { typ, name, expr });
 
@@ -281,6 +278,34 @@ impl Parser {
         expect_punct(iter.next(), '>')?;
 
         Ok(element)
+    }
+
+    fn next_field(&mut self) -> (QuoteTokens, QuoteTokens) {
+        const LETTERS: usize = 26;
+
+        // This gives us up to 456976 unique identifiers, should be enough :)
+        let mut buf = ArrayString::<4>::new();
+        let mut n = self.vars;
+
+        self.vars += 1;
+
+        loop {
+            buf.push((u8::try_from(n % LETTERS).unwrap() + b'A') as char);
+
+            n /= LETTERS;
+
+            if n == 0 {
+                break;
+            }
+        }
+
+        let typ = into_quote(Ident::new(&buf, Span::call_site()));
+
+        buf.make_ascii_lowercase();
+
+        let name = into_quote(Ident::new(&buf, Span::call_site()));
+
+        (typ, name)
     }
 }
 
