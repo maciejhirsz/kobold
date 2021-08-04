@@ -143,7 +143,9 @@ impl Parser {
                             let (kind, constructor) = match attr_name {
                                 "style" => (FieldKind::Attr, Some(quote! { Style })),
                                 "class" => (FieldKind::Attr, Some(quote! { Class })),
-                                n if n.starts_with("on") => (FieldKind::Callback, Some(quote! { Callback::new })),
+                                n if n.starts_with("on") && n.len() > 2 => {
+                                    (FieldKind::Callback(n[2..].into()), Some(quote! { Callback }))
+                                },
                                 _ => (FieldKind::Attr, None),
                             };
 

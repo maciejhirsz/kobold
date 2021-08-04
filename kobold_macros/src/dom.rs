@@ -32,7 +32,7 @@ impl<T: Display> Debug for DisplayDebug<T> {
 pub enum FieldKind {
     Html,
     Attr,
-    Callback,
+    Callback(String),
 }
 
 #[derive(Debug)]

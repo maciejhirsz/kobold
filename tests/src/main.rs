@@ -2,7 +2,7 @@ use kobold::prelude::*;
 use kobold::Node;
 
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{JsCast, JsValue};
 
 fn main() {
     struct Greeter {
@@ -44,12 +44,18 @@ fn main() {
 
         let style = format!("color: #{:06x}", rgb);
 
+        let onclick = move || {
+            let log = format!("Clicked while n = {}", n);
+            let log = JsValue::from_str(&log);
+
+            web_sys::console::log_1(&log);
+        };
+
         html! {
             <div>
                 <Greeter {name} />
                 <p {style}>
-                    // <strong onclick={|| panic!("callback executed")}>{ n }" + 2 = "{ n + 2 }</strong>
-                    <strong>{ n }" + 2 = "{ n + 2 }</strong>
+                    <strong {onclick}>{ n }" + 2 = "{ n + 2 }</strong>
                 </p>
                 { for numbers }
             </div>

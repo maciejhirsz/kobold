@@ -1,4 +1,4 @@
-use crate::dom::{AttributeValue, Field, Node};
+use crate::dom::{AttributeValue, Field, FieldKind, Node};
 
 use arrayvec::ArrayString;
 use proc_macro::{Ident, Span, TokenStream, TokenTree};
@@ -69,19 +69,31 @@ where
                     match &attr.value {
                         AttributeValue::Text(value) => match attr.name.as_ref() {
                             "class" => {
-                                js!("{}.className = {};", e, value);
+                                js!("{}.className={};", e, value);
                             }
                             "style" | "id" => {
-                                js!("{}.{} = {};", e, attr.name, value);
+                                js!("{}.{}={};", e, attr.name, value);
                             }
                             _ => {
-                                js!("{}.setAttribute({:?}, {});", e, attr.name, value)
+                                js!("{}.setAttribute({:?},{});", e, attr.name, value)
                             }
                         },
                         AttributeValue::Expression(_) => {
-                            let arg = self.next_arg();
+                            let (arg, field) = self.next_arg();
 
-                            js!("{}.setAttributeNode({});", e, arg);
+                            match &field.kind {
+                                FieldKind::Attr => {
+                                    js!("{}.setAttributeNode({});", e, arg);
+                                }
+                                FieldKind::Callback(action) => {
+                                    let action = action.clone();
+                                    js!("{}.addEventListener({:?},{});", e, action, arg);
+                                }
+                                FieldKind::Html => {
+                                    panic!("HTML node in element attributes!")
+                                }
+                            }
+
                         }
                     }
                 }
@@ -101,7 +113,7 @@ where
 
                 Ok(e)
             }
-            Node::Expression => Ok(self.next_arg()),
+            Node::Expression => Ok(self.next_arg().0),
         }
     }
 
@@ -172,7 +184,7 @@ where
         e
     }
 
-    fn next_arg(&mut self) -> String {
+    fn next_arg(&mut self) -> (String, &Field) {
         let field = self
             .fields
             .next()
@@ -187,6 +199,6 @@ where
         self.args.push_str(&arg);
         self.args_tokens.push(token);
 
-        arg
+        (arg, field)
     }
 }

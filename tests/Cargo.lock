@@ -138,6 +138,7 @@ version = "0.1.0"
 dependencies = [
  "kobold",
  "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
