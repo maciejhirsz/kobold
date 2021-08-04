@@ -132,9 +132,7 @@ impl Parser {
                         )
                     };
 
-                    let (typ, name) = self.next_field();
-
-                    self.fields.push(Field { typ, name, expr });
+                    self.new_field(expr);
 
                     Ok(Node::Expression)
                 } else {
@@ -157,9 +155,7 @@ impl Parser {
                                 },
                             };
 
-                            let (typ, name) = self.next_field();
-
-                            self.fields.push(Field { typ, name, expr });
+                            self.new_field(expr);
                         }
                     }
 
@@ -184,9 +180,7 @@ impl Parser {
                     None => quote! {},
                 };
 
-                let (typ, name) = self.next_field();
-
-                self.fields.push(Field { typ, name, expr });
+                self.new_field(expr);
 
                 Ok(Node::Expression)
             }
@@ -292,7 +286,7 @@ impl Parser {
         Ok(element)
     }
 
-    fn next_field(&mut self) -> (QuoteTokens, QuoteTokens) {
+    fn new_field(&mut self, expr: QuoteTokens) {
         const LETTERS: usize = 26;
 
         // This gives us up to 456976 unique identifiers, should be enough :)
@@ -317,7 +311,7 @@ impl Parser {
 
         let name = into_quote(Ident::new(&buf, Span::call_site()));
 
-        (typ, name)
+        self.fields.push(Field { typ, name, expr });
     }
 }
 
