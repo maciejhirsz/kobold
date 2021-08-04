@@ -24,7 +24,7 @@ where
 
 impl<F> Html for Callback<F>
 where
-    F: FnMut() + 'static,
+    F: FnMut(&Event) + 'static,
 {
     type Rendered = BoundCallback<F>;
 
@@ -32,7 +32,7 @@ where
         let fun = Rc::new(RefCell::new(self.0));
         let inner = fun.clone();
 
-        let closure = make_closure(move |_event| inner.borrow_mut()());
+        let closure = make_closure(move |event| inner.borrow_mut()(event));
         let closure = Closure::wrap(closure);
 
         BoundCallback { fun, closure }

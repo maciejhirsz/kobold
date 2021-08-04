@@ -44,11 +44,11 @@ fn main() {
 
         let style = format!("color: #{:06x}", rgb);
 
-        let onclick = move || {
+        let onclick = move |event: &web_sys::Event| {
             let log = format!("Clicked while n = {}", n);
             let log = JsValue::from_str(&log);
 
-            web_sys::console::log_1(&log);
+            web_sys::console::log_2(&log, event.as_ref());
         };
 
         html! {
