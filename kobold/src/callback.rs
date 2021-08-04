@@ -1,14 +1,11 @@
+use crate::traits::{Html, Mountable, Update};
 use std::cell::RefCell;
 use std::rc::Rc;
-
-use js_sys::Function;
 use wasm_bindgen::closure::Closure;
-use wasm_bindgen::JsCast;
+use wasm_bindgen::JsValue;
 use web_sys::Event;
 
-pub struct Callback<F> {
-    fun: F,
-}
+pub struct Callback<F>(pub F);
 
 pub struct BoundCallback<F> {
     fun: Rc<RefCell<F>>,
@@ -25,12 +22,14 @@ where
     Box::new(fun)
 }
 
-impl<F> Callback<F>
+impl<F> Html for Callback<F>
 where
     F: FnMut() + 'static,
 {
-    pub fn bind(self) -> BoundCallback<F> {
-        let fun = Rc::new(RefCell::new(self.fun));
+    type Rendered = BoundCallback<F>;
+
+    fn render(self) -> Self::Rendered {
+        let fun = Rc::new(RefCell::new(self.0));
         let inner = fun.clone();
 
         let closure = make_closure(move |_event| inner.borrow_mut()());
@@ -40,18 +39,14 @@ where
     }
 }
 
-impl<F> BoundCallback<F> {
-    pub fn update(&self, new: F) {
-        self.fun.replace(new);
-    }
-
-    pub fn function(&self) -> &Function {
-        self.closure.as_ref().unchecked_ref()
+impl<F> Update<Callback<F>> for BoundCallback<F> {
+    fn update(&mut self, new: Callback<F>) {
+        self.fun.replace(new.0);
     }
 }
 
-impl<F> Callback<F> {
-    pub fn new(fun: F) -> Self {
-        Callback { fun }
+impl<F> Mountable for BoundCallback<F> {
+    fn js(&self) -> &JsValue {
+        self.closure.as_ref()
     }
 }

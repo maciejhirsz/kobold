@@ -1,5 +1,6 @@
 use crate::traits::{Html, Mountable, Update};
 use crate::util;
+use wasm_bindgen::JsValue;
 use web_sys::Node;
 
 pub use crate::callback::Callback;
@@ -58,7 +59,7 @@ macro_rules! create_named_attrs {
             fn update(&mut self, new: $name<V>) {
                 if self.value != new.0 {
                     self.value = new.0;
-                    util::__kobold_update_attr(self.node(), self.value.as_ref());
+                    util::__kobold_update_attr(&self.node, self.value.as_ref());
                 }
             }
         }
@@ -76,7 +77,7 @@ pub struct RenderedAttribute<V> {
 }
 
 impl<V> Mountable for RenderedAttribute<V> {
-    fn node(&self) -> &Node {
+    fn js(&self) -> &JsValue {
         &self.node
     }
 }
@@ -88,7 +89,7 @@ where
     fn update(&mut self, new: Attribute<V>) {
         if self.value != new.value {
             self.value = new.value;
-            util::__kobold_update_attr(self.node(), self.value.as_ref());
+            util::__kobold_update_attr(&self.node, self.value.as_ref());
         }
     }
 }

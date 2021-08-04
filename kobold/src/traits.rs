@@ -1,3 +1,5 @@
+use crate::util;
+use wasm_bindgen::JsValue;
 use web_sys::Node;
 
 pub type ShouldRender = bool;
@@ -13,14 +15,14 @@ pub trait Update<H> {
 }
 
 pub trait Mountable {
-    fn node(&self) -> &Node;
+    fn js(&self) -> &JsValue;
 
     fn mount(&self, parent: &Node) {
-        parent.append_child(self.node()).unwrap();
+        util::__kobold_mount(parent, self.js());
     }
 
     fn unmount(&self, parent: &Node) {
-        parent.remove_child(self.node()).unwrap();
+        util::__kobold_unmount(parent, self.js());
     }
 }
 

@@ -1,6 +1,7 @@
 use crate::traits::{Html, Mountable, Update};
 use crate::util;
 use std::str;
+use wasm_bindgen::JsValue;
 use web_sys::Node;
 
 pub struct RenderedValue<T> {
@@ -9,7 +10,7 @@ pub struct RenderedValue<T> {
 }
 
 impl<T> Mountable for RenderedValue<T> {
-    fn node(&self) -> &Node {
+    fn js(&self) -> &JsValue {
         &self.node
     }
 }

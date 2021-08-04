@@ -48,7 +48,8 @@ fn main() {
             <div>
                 <Greeter {name} />
                 <p {style}>
-                    <strong onclick={|| panic!("callback executed")}>{ n }" + 2 = "{ n + 2 }</strong>
+                    // <strong onclick={|| panic!("callback executed")}>{ n }" + 2 = "{ n + 2 }</strong>
+                    <strong>{ n }" + 2 = "{ n + 2 }</strong>
                 </p>
                 { for numbers }
             </div>
@@ -64,7 +65,7 @@ fn main() {
     let body = document.body().expect("document should have a body");
     let body: &Node = body.as_ref();
 
-    body.append_child(&rendered.node()).unwrap();
+    body.append_child(unsafe { std::mem::transmute(rendered.js()) }).unwrap();
 
     let mut i = 2;
     let a = Closure::wrap(Box::new(move || {

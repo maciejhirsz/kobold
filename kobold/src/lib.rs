@@ -19,6 +19,7 @@ pub mod prelude {
 }
 
 pub use kobold_macros::html;
+pub use wasm_bindgen::JsValue;
 pub use web_sys::Node;
 
 pub mod reexport {
@@ -42,7 +43,7 @@ mod empty {
     pub struct EmptyNode(Node);
 
     impl Mountable for EmptyNode {
-        fn node(&self) -> &Node {
+        fn js(&self) -> &wasm_bindgen::JsValue {
             &self.0
         }
     }

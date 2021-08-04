@@ -160,7 +160,7 @@ where
             quote! {
                 #[wasm_bindgen(inline_js = #js)]
                 extern "C" {
-                    fn #fn_name(#(#args: &Node),*) -> Node;
+                    fn #fn_name(#(#args: &JsValue),*) -> Node;
                 }
             },
         )

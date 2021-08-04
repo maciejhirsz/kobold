@@ -1,6 +1,7 @@
 use crate::traits::{Html, Mountable, Update};
 use crate::util;
 use beef::Cow;
+use wasm_bindgen::JsValue;
 use web_sys::Node;
 
 pub struct RenderedText {
@@ -9,7 +10,7 @@ pub struct RenderedText {
 }
 
 impl Mountable for RenderedText {
-    fn node(&self) -> &Node {
+    fn js(&self) -> &JsValue {
         &self.node
     }
 }

@@ -66,7 +66,7 @@ pub fn html(body: TokenStream) -> TokenStream {
 
     let tokens: TokenStream = (quote! {
         {
-            use ::kobold::{Html, Node};
+            use ::kobold::{Html, Node, JsValue};
             use ::kobold::reexport::wasm_bindgen::{self, prelude::wasm_bindgen};
 
             #render
@@ -87,7 +87,7 @@ pub fn html(body: TokenStream) -> TokenStream {
                     #(
                         let #field_names = self.#field_names.render();
                     )*
-                    let node = #js_fn_name(#(#field_names.node()),*);
+                    let node = #js_fn_name(#(#field_names.js()),*);
 
                     TransientRendered {
                         #(#field_names,)*
@@ -97,7 +97,7 @@ pub fn html(body: TokenStream) -> TokenStream {
             }
 
             impl<#(#generics),*> ::kobold::Mountable for TransientRendered<#(#generics),*> {
-                fn node(&self) -> &Node {
+                fn js(&self) -> &JsValue {
                     &self.node
                 }
             }

@@ -1,5 +1,6 @@
 use crate::traits::{Html, Mountable, Update};
 use crate::util;
+use wasm_bindgen::JsValue;
 use web_sys::Node;
 
 pub struct IterWrapper<T>(pub T);
@@ -11,7 +12,7 @@ pub struct RenderedList<T> {
 }
 
 impl<T> Mountable for RenderedList<T> {
-    fn node(&self) -> &Node {
+    fn js(&self) -> &JsValue {
         &self.node
     }
 }

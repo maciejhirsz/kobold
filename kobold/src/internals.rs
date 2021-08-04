@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use web_sys::Node;
+use wasm_bindgen::JsValue;
 
 /// Wrapper containing proprs needed to build a component `T`, and its render method `R`.
 pub struct WrappedProperties<T, R, H>
@@ -59,8 +59,8 @@ where
     T: Component,
     H: Html,
 {
-    fn node(&self) -> &Node {
-        self.rendered.node()
+    fn js(&self) -> &JsValue {
+        self.rendered.js()
     }
 }
 

@@ -1,3 +1,5 @@
+export function __kobold_mount(n,c) { n.appendChild(c); }
+export function __kobold_unmount(n,c) { n.removeChild(c); }
 export function __kobold_empty_node() { return document.createTextNode(""); }
 export function __kobold_text_node(t) { return document.createTextNode(t); }
 export function __kobold_update_text(n,t) { n.textContent = t; }
