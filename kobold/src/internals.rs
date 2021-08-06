@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use crate::context::Context;
 use wasm_bindgen::JsValue;
 
 /// Wrapper containing proprs needed to build a component `T`, and its render method `R`.
@@ -30,7 +31,7 @@ where
     T: Component,
     H: Html,
 {
-    component: T,
+    component: Context<T>,
     rendered: H::Rendered,
 }
 
@@ -44,8 +45,12 @@ where
 
     #[inline]
     fn render(self) -> Self::Rendered {
+        let context = Context::new_uninit();
+
         let component = T::create(self.props);
         let rendered = (self.render)(&component).render();
+
+        let component = context.init(component);
 
         RenderedComponent {
             component,
@@ -72,8 +77,10 @@ where
 {
     #[inline]
     fn update(&mut self, new: WrappedProperties<T, R, H>) {
-        if self.component.update(new.props) {
-            self.rendered.update((new.render)(&self.component));
+        let component = &mut *self.component.borrow();
+
+        if component.update(new.props) {
+            self.rendered.update((new.render)(component));
         }
     }
 }

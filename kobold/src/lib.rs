@@ -11,14 +11,14 @@ pub mod traits;
 
 pub type ShouldRender = bool;
 
-pub use context::Context;
+pub use context::Link;
 pub use list::{IterWrapper, RenderedList};
 pub use text::RenderedText;
 pub use traits::{Component, HandleMessage, Html, Mountable, Update};
 
 pub mod prelude {
     pub use super::{
-        html, Component, Context, HandleMessage, Html, Mountable, ShouldRender, Update,
+        html, Component, Link, HandleMessage, Html, Mountable, ShouldRender, Update,
     };
 }
 
