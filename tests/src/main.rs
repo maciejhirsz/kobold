@@ -12,7 +12,7 @@ fn main() {
     impl Component for Greeter {
         type Properties = Self;
 
-        fn create(props: Self::Properties) -> Self {
+        fn create(props: Self::Properties, _: Link<Self>) -> Self {
             props
         }
 

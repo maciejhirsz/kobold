@@ -1,3 +1,4 @@
+use crate::scope::Link;
 use crate::util;
 use wasm_bindgen::JsValue;
 use web_sys::Node;
@@ -29,14 +30,14 @@ pub trait Mountable {
 pub trait Component: Sized {
     type Properties;
 
-    fn create(props: Self::Properties) -> Self;
+    fn create(props: Self::Properties, link: Link<Self>) -> Self;
 
     fn update(&mut self, new: Self::Properties) -> ShouldRender;
 }
 
-pub trait HandleMessage<Message>: Component {
-    fn handle(&mut self, message: Message);
-}
+// pub trait HandleMessage<Message>: Component {
+//     fn handle(&mut self, message: Message);
+// }
 
 // pub trait StatelessComponent {}
 

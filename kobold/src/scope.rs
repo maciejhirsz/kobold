@@ -1,7 +1,7 @@
-use crate::traits::{Component, HandleMessage};
-use std::cell::{UnsafeCell, Cell};
-use std::ptr::NonNull;
+// use crate::traits::{Component, HandleMessage};
+use std::cell::{Cell, UnsafeCell};
 use std::ops::{Deref, DerefMut};
+use std::ptr::NonNull;
 // use web_sys::Event;
 
 #[derive(Clone, Copy)]
@@ -33,7 +33,7 @@ pub struct Link<T> {
 }
 
 #[repr(transparent)]
-pub(crate) struct Context<T> {
+pub(crate) struct Scope<T> {
     ptr: NonNull<ContextInner<T>>,
 }
 
@@ -59,7 +59,7 @@ impl<T> DerefMut for Ref<'_, T> {
     }
 }
 
-impl<T> Context<T> {
+impl<T> Scope<T> {
     pub fn new_uninit() -> UninitContext<T> {
         let ptr = Box::into_raw(Box::new(ContextInner {
             links: Cell::new(0),
@@ -67,7 +67,7 @@ impl<T> Context<T> {
         }));
 
         UninitContext {
-            ptr: unsafe { NonNull::new_unchecked(ptr) }
+            ptr: unsafe { NonNull::new_unchecked(ptr) },
         }
     }
 
@@ -77,32 +77,32 @@ impl<T> Context<T> {
         debug_assert!(matches!(&inner.guarded, Guarded::Data(_)));
 
         match &inner.guarded {
-            Guarded::Data(data) => {
-                match data.guard.get() {
-                    Guard::Ready => {
-                        data.guard.set(Guard::Borrowed);
-                        Ref(data)
-                    },
-                    _ => todo!("Error handling"),
+            Guarded::Data(data) => match data.guard.get() {
+                Guard::Ready => {
+                    data.guard.set(Guard::Borrowed);
+                    Ref(data)
                 }
+                _ => todo!("Error handling"),
             },
             _ => unsafe {
-                // `Context` can only be construted with `Init` variant,
-                // and it only changes to `Dropped` when `Context` is dropped.
+                // `Scope` can only be construted with `Init` variant,
+                // and it only changes to `Dropped` when `Scope` is dropped.
                 std::hint::unreachable_unchecked();
-            }
+            },
         }
     }
 }
 
 impl<T> UninitContext<T> {
-    pub fn as_link(&self) -> &Link<T> {
-        let link = self as *const UninitContext<T> as *const Link<T>;
+    pub fn make_link(&self) -> Link<T> {
+        let inner = unsafe { self.ptr.as_ref() };
 
-        unsafe { &*link }
+        inner.links.set(inner.links.get() + 1);
+
+        Link { ptr: self.ptr }
     }
 
-    pub fn init(mut self, data: T) -> Context<T> {
+    pub fn init(mut self, data: T) -> Scope<T> {
         let inner = unsafe { self.ptr.as_mut() };
 
         inner.guarded = Guarded::Data(Data {
@@ -110,9 +110,7 @@ impl<T> UninitContext<T> {
             data: UnsafeCell::new(data),
         });
 
-        Context {
-            ptr: self.ptr
-        }
+        Scope { ptr: self.ptr }
     }
 }
 
@@ -123,9 +121,7 @@ impl<T> Clone for Link<T> {
         let count = inner.links.get();
         inner.links.set(count + 1);
 
-        Link {
-            ptr: self.ptr
-        }
+        Link { ptr: self.ptr }
     }
 }
 
@@ -139,22 +135,24 @@ impl<T> Drop for Link<T> {
             // This link is now the unique pointer
             (1, Guarded::Dropped) => {
                 drop(unsafe { Box::from_raw(self.ptr.as_ptr()) });
-            },
+            }
             _ => {
                 inner.links.set(count - 1);
-            } 
+            }
         }
     }
 }
 
-impl<T> Drop for Context<T> {
+impl<T> Drop for Scope<T> {
     fn drop(&mut self) {
         let count = unsafe { self.ptr.as_ref().links.get() };
 
         if count == 0 {
             drop(unsafe { Box::from_raw(self.ptr.as_ptr()) });
         } else {
-            unsafe { self.ptr.as_mut().guarded = Guarded::Dropped; }
+            unsafe {
+                self.ptr.as_mut().guarded = Guarded::Dropped;
+            }
         }
     }
 }
@@ -176,27 +174,23 @@ impl<T> Drop for Ref<'_, T> {
 //     }
 // }
 
-
-
-
-
-// pub struct Context<Component> {
+// pub struct Scope<Component> {
 //     component: Rc<RefCell<Option<Component>>>,
 // }
 
-// impl<Component> Clone for Context<Component> {
+// impl<Component> Clone for Scope<Component> {
 //     fn clone(&self) -> Self {
-//         Context {
+//         Scope {
 //             component: self.component.clone(),
 //         }
 //     }
 // }
 
-// impl<Comp: Component> Context<Comp> {
+// impl<Comp: Component> Scope<Comp> {
 //     pub(crate) fn new(component: Comp) -> Self {
 //         let component = Rc::new(RefCell::new(Some(component)));
 
-//         Context { component }
+//         Scope { component }
 //     }
 
 //     pub fn with(&self, f: impl FnOnce(&mut Comp)) {

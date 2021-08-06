@@ -1,6 +1,6 @@
 mod callback;
-mod context;
 mod list;
+mod scope;
 mod text;
 mod util;
 mod value;
@@ -11,15 +11,13 @@ pub mod traits;
 
 pub type ShouldRender = bool;
 
-pub use context::Link;
-pub use list::{IterWrapper, BuiltList};
+pub use list::{BuiltList, IterWrapper};
+pub use scope::Link;
 pub use text::BuiltText;
-pub use traits::{Component, HandleMessage, Html, Mountable, Update};
+pub use traits::{Component, Html, Mountable, Update};
 
 pub mod prelude {
-    pub use super::{
-        html, Component, Link, HandleMessage, Html, Mountable, ShouldRender, Update,
-    };
+    pub use super::{html, Component, Html, Link, Mountable, ShouldRender, Update};
 }
 
 pub use kobold_macros::html;

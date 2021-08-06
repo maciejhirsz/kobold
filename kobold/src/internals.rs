@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use crate::context::Context;
+use crate::scope::Scope;
 use wasm_bindgen::JsValue;
 
 /// Wrapper containing proprs needed to build a component `T`, and its render method `R`.
@@ -31,7 +31,7 @@ where
     T: Component,
     H: Html,
 {
-    component: Context<T>,
+    component: Scope<T>,
     built: H::Built,
 }
 
@@ -45,17 +45,15 @@ where
 
     #[inline]
     fn build(self) -> Self::Built {
-        let context = Context::new_uninit();
+        let scope = Scope::new_uninit();
+        let link = scope.make_link();
 
-        let component = T::create(self.props);
+        let component = T::create(self.props, link);
         let built = (self.render)(&component).build();
 
-        let component = context.init(component);
+        let component = scope.init(component);
 
-        BuiltComponent {
-            component,
-            built,
-        }
+        BuiltComponent { component, built }
     }
 }
 
@@ -105,7 +103,7 @@ mod tests {
         impl Component for TestComponent {
             type Properties = u8;
 
-            fn create(n: u8) -> Self {
+            fn create(n: u8, _: Link<Self>) -> Self {
                 Self { n }
             }
 
