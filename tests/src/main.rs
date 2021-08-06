@@ -64,14 +64,14 @@ fn main() {
 
     let bob = hello("Bob", 2);
 
-    let mut rendered = bob.render();
+    let mut built = bob.build();
 
     let window = kobold::reexport::web_sys::window().expect("should have a window in this context");
     let document = window.document().expect("window should have a document");
     let body = document.body().expect("document should have a body");
     let body: &Node = body.as_ref();
 
-    body.append_child(unsafe { std::mem::transmute(rendered.js()) }).unwrap();
+    body.append_child(unsafe { std::mem::transmute(built.js()) }).unwrap();
 
     let mut i = 2;
     let a = Closure::wrap(Box::new(move || {
@@ -81,7 +81,7 @@ fn main() {
 
         let name = NAMES[(i as usize / 10) % NAMES.len()];
 
-        rendered.update(hello(name, i));
+        built.update(hello(name, i));
     }) as Box<dyn FnMut()>);
 
     window

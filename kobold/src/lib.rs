@@ -12,8 +12,8 @@ pub mod traits;
 pub type ShouldRender = bool;
 
 pub use context::Link;
-pub use list::{IterWrapper, RenderedList};
-pub use text::RenderedText;
+pub use list::{IterWrapper, BuiltList};
+pub use text::BuiltText;
 pub use traits::{Component, HandleMessage, Html, Mountable, Update};
 
 pub mod prelude {
@@ -37,9 +37,9 @@ mod empty {
     use web_sys::Node;
 
     impl Html for () {
-        type Rendered = EmptyNode;
+        type Built = EmptyNode;
 
-        fn render(self) -> EmptyNode {
+        fn build(self) -> EmptyNode {
             EmptyNode(util::__kobold_empty_node())
         }
     }

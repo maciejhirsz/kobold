@@ -26,9 +26,9 @@ impl<F> Html for Callback<F>
 where
     F: FnMut(&Event) + 'static,
 {
-    type Rendered = BoundCallback<F>;
+    type Built = BoundCallback<F>;
 
-    fn render(self) -> Self::Rendered {
+    fn build(self) -> Self::Built {
         let fun = Rc::new(RefCell::new(self.0));
         let inner = fun.clone();
 

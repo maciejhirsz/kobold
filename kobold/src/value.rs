@@ -4,12 +4,12 @@ use std::str;
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
-pub struct RenderedValue<T> {
+pub struct BuiltValue<T> {
     value: T,
     node: Node,
 }
 
-impl<T> Mountable for RenderedValue<T> {
+impl<T> Mountable for BuiltValue<T> {
     fn js(&self) -> &JsValue {
         &self.node
     }
@@ -24,16 +24,16 @@ fn bool_to_str(b: bool) -> &'static str {
 }
 
 impl Html for bool {
-    type Rendered = RenderedValue<bool>;
+    type Built = BuiltValue<bool>;
 
-    fn render(self) -> Self::Rendered {
+    fn build(self) -> Self::Built {
         let node = util::__kobold_text_node(bool_to_str(self));
 
-        RenderedValue { value: self, node }
+        BuiltValue { value: self, node }
     }
 }
 
-impl Update<bool> for RenderedValue<bool> {
+impl Update<bool> for BuiltValue<bool> {
     fn update(&mut self, new: bool) {
         if self.value != new {
             self.value = new;
@@ -47,9 +47,9 @@ macro_rules! impl_int {
     ($($t:ty),*) => {
         $(
             impl Html for $t {
-                type Rendered = RenderedValue<$t>;
+                type Built = BuiltValue<$t>;
 
-                fn render(self) -> Self::Rendered {
+                fn build(self) -> Self::Built {
                     let mut buf = [0_u8; 20];
 
                     let n = itoa::write(&mut buf[..], self).unwrap_or_else(|_| 0);
@@ -57,14 +57,14 @@ macro_rules! impl_int {
                         str::from_utf8_unchecked(&buf[..n])
                     });
 
-                    RenderedValue {
+                    BuiltValue {
                         value: self,
                         node,
                     }
                 }
             }
 
-            impl Update<$t> for RenderedValue<$t> {
+            impl Update<$t> for BuiltValue<$t> {
                 fn update(&mut self, new: $t) {
                     if self.value != new {
                         self.value = new;
@@ -87,9 +87,9 @@ macro_rules! impl_float {
     ($($t:ty),*) => {
         $(
             impl Html for $t {
-                type Rendered = RenderedValue<$t>;
+                type Built = BuiltValue<$t>;
 
-                fn render(self) -> Self::Rendered {
+                fn build(self) -> Self::Built {
                     let mut buf = [0_u8; 20];
 
                     let n = dtoa::write(&mut buf[..], self).unwrap_or_else(|_| 0);
@@ -97,14 +97,14 @@ macro_rules! impl_float {
                         str::from_utf8_unchecked(&buf[..n])
                     });
 
-                    RenderedValue {
+                    BuiltValue {
                         value: self,
                         node,
                     }
                 }
             }
 
-            impl Update<$t> for RenderedValue<$t> {
+            impl Update<$t> for BuiltValue<$t> {
                 fn update(&mut self, new: $t) {
                     if (self.value - new).abs() > <$t>::EPSILON {
                         self.value = new;
@@ -127,20 +127,20 @@ macro_rules! impl_value {
     ($($t:ty),*) => {
         $(
             impl Html for $t {
-                type Rendered = RenderedValue<$t>;
+                type Built = BuiltValue<$t>;
 
-                fn render(self) -> Self::Rendered {
+                fn build(self) -> Self::Built {
                     let buf = self.to_string();
                     let node = util::__kobold_text_node(&buf);
 
-                    RenderedValue {
+                    BuiltValue {
                         value: self,
                         node,
                     }
                 }
             }
 
-            impl Update<$t> for RenderedValue<$t> {
+            impl Update<$t> for BuiltValue<$t> {
                 fn update(&mut self, new: $t) {
                     if self.value != new {
                         self.value = new;

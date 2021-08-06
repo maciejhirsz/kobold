@@ -5,9 +5,9 @@ use web_sys::Node;
 pub type ShouldRender = bool;
 
 pub trait Html: Sized {
-    type Rendered: Update<Self> + Mountable;
+    type Built: Update<Self> + Mountable;
 
-    fn render(self) -> Self::Rendered;
+    fn build(self) -> Self::Built;
 }
 
 pub trait Update<H> {

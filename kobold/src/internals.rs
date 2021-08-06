@@ -26,13 +26,13 @@ where
     }
 }
 
-pub struct RenderedComponent<T, H>
+pub struct BuiltComponent<T, H>
 where
     T: Component,
     H: Html,
 {
     component: Context<T>,
-    rendered: H::Rendered,
+    built: H::Built,
 }
 
 impl<T, R, H> Html for WrappedProperties<T, R, H>
@@ -41,35 +41,35 @@ where
     R: Fn(&T) -> H,
     H: Html,
 {
-    type Rendered = RenderedComponent<T, H>;
+    type Built = BuiltComponent<T, H>;
 
     #[inline]
-    fn render(self) -> Self::Rendered {
+    fn build(self) -> Self::Built {
         let context = Context::new_uninit();
 
         let component = T::create(self.props);
-        let rendered = (self.render)(&component).render();
+        let built = (self.render)(&component).build();
 
         let component = context.init(component);
 
-        RenderedComponent {
+        BuiltComponent {
             component,
-            rendered,
+            built,
         }
     }
 }
 
-impl<T, H> Mountable for RenderedComponent<T, H>
+impl<T, H> Mountable for BuiltComponent<T, H>
 where
     T: Component,
     H: Html,
 {
     fn js(&self) -> &JsValue {
-        self.rendered.js()
+        self.built.js()
     }
 }
 
-impl<T, R, H> Update<WrappedProperties<T, R, H>> for RenderedComponent<T, H>
+impl<T, R, H> Update<WrappedProperties<T, R, H>> for BuiltComponent<T, H>
 where
     T: Component,
     R: Fn(&T) -> H,
@@ -80,7 +80,7 @@ where
         let component = &mut *self.component.borrow();
 
         if component.update(new.props) {
-            self.rendered.update((new.render)(component));
+            self.built.update((new.render)(component));
         }
     }
 }
