@@ -4,13 +4,12 @@ use std::cell::{Cell, UnsafeCell};
 use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
 use std::fmt::{self, Debug};
-use std::mem::MaybeUninit;
 // use web_sys::Event;
 
 #[derive(Clone, Copy)]
 enum Guard {
     /// Scope contains uninitialized data, this should only
-    /// be set inside `UninitContext<T>`.
+    /// be set inside `UninitScope<T>`.
     Uninit,
     /// Data is initialized and there are no active borrows to it.
     Ready,
@@ -21,31 +20,26 @@ enum Guard {
     DropRequested,
 }
 
-struct ScopeInner<T> {
-    data: UnsafeCell<T>,
+struct ScopeInner<T: ?Sized> {
     guard: Cell<Guard>,
     links: Cell<u32>,
+    data: UnsafeCell<T>,
 }
 
 #[repr(transparent)]
-pub struct Link<T> {
+pub struct Weak<T: ?Sized> {
     ptr: NonNull<ScopeInner<T>>,
 }
 
-impl<T: Debug> Debug for Link<T> {
+impl<T: Debug> Debug for Weak<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str("Link")
+        f.write_str("Weak")
     }
 }
 
 #[repr(transparent)]
-pub(crate) struct Scope<T> {
+pub(crate) struct Scope<T: ?Sized> {
     ptr: NonNull<ScopeInner<T>>,
-}
-
-#[repr(transparent)]
-pub(crate) struct UninitContext<T> {
-    ptr: NonNull<ScopeInner<MaybeUninit<T>>>,
 }
 
 pub struct Ref<'a, T>(&'a ScopeInner<T>);
@@ -69,12 +63,19 @@ impl<T> DerefMut for Ref<'_, T> {
     }
 }
 
+/// Helper for alloc to make sure the pointer to `T` is using the same
+/// `T` as the `Layout` that was used to make the allocation.
+unsafe fn alloc<T>() -> *mut T {
+    use std::alloc::{alloc, Layout};
+
+    alloc(Layout::new::<T>()) as *mut T
+}
+
 impl<T> Scope<T> {
-    pub fn new_uninit() -> UninitContext<T> {
-        use std::alloc::{alloc, Layout};
+    pub fn new_uninit() -> Scope<T> {
 
         let ptr = unsafe {
-            let ptr = alloc(Layout::new::<ScopeInner<MaybeUninit<T>>>()) as *mut ScopeInner<MaybeUninit<T>>;
+            let ptr = alloc::<ScopeInner<T>>();
 
             (*ptr).links = Cell::new(0);
             (*ptr).guard = Cell::new(Guard::Uninit);
@@ -82,7 +83,7 @@ impl<T> Scope<T> {
             ptr
         };
 
-        UninitContext {
+        Scope {
             ptr: unsafe { NonNull::new_unchecked(ptr) },
         }
     }
@@ -100,15 +101,13 @@ impl<T> Scope<T> {
             _ => panic!(),
         }
     }
-}
 
-impl<T> UninitContext<T> {
-    pub fn make_link(&self) -> Link<T> {
+    pub fn new_weak(&self) -> Weak<T> {
         let inner = unsafe { self.ptr.as_ref() };
 
         inner.links.set(inner.links.get() + 1);
 
-        Link { ptr: self.ptr.cast() }
+        Weak { ptr: self.ptr }
     }
 
     pub fn init(mut self, data: T) -> Scope<T> {
@@ -119,28 +118,28 @@ impl<T> UninitContext<T> {
         {
             let data_ptr = inner.data.get();
 
-            unsafe { *data_ptr = MaybeUninit::new(data); }
+            unsafe { data_ptr.write(data); }
         }
         inner.guard.set(Guard::Ready);
 
         Scope {
-            ptr: self.ptr.cast(),
+            ptr: self.ptr,
         }
     }
 }
 
-impl<T> Clone for Link<T> {
+impl<T> Clone for Weak<T> {
     fn clone(&self) -> Self {
         let inner = unsafe { self.ptr.as_ref() };
 
         let count = inner.links.get();
         inner.links.set(count + 1);
 
-        Link { ptr: self.ptr }
+        Weak { ptr: self.ptr }
     }
 }
 
-impl<T> Drop for Link<T> {
+impl<T: ?Sized> Drop for Weak<T> {
     fn drop(&mut self) {
         let inner = unsafe { self.ptr.as_ref() };
 
@@ -156,7 +155,7 @@ impl<T> Drop for Link<T> {
     }
 }
 
-impl<T> Drop for Scope<T> {
+impl<T: ?Sized> Drop for Scope<T> {
     fn drop(&mut self) {
         let inner = unsafe { self.ptr.as_ref() };
 
@@ -178,7 +177,7 @@ impl<T> Drop for Ref<'_, T> {
     }
 }
 
-impl<T> Link<T> {
+impl<T> Weak<T> {
     pub fn borrow(&self) -> Option<Ref<T>> {
         let inner = unsafe { self.ptr.as_ref() };
 
@@ -194,7 +193,7 @@ impl<T> Link<T> {
     }
 }
 
-// impl<T> Link<T> {
+// impl<T> Weak<T> {
 //     fn new() -> Self {
 //         Box::into_raw(Box::new(ScopeInner {
 //             links: Cell::new(0),

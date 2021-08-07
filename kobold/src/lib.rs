@@ -12,9 +12,9 @@ pub mod traits;
 pub type ShouldRender = bool;
 
 pub use list::{BuiltList, IterWrapper};
-pub use scope::Link;
 pub use text::BuiltText;
 pub use traits::{Component, Html, Mountable, Update};
+pub use internals::Link;
 
 pub mod prelude {
     pub use super::{html, Component, Html, Link, Mountable, ShouldRender, Update};

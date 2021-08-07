@@ -10,7 +10,6 @@ fn main() {
     struct Greeter {
         name: &'static str,
         buf: String,
-        link: Link<Self>
     }
 
     struct GreeterProps {
@@ -20,11 +19,10 @@ fn main() {
     impl Component for Greeter {
         type Properties = GreeterProps;
 
-        fn create(props: Self::Properties, link: Link<Self>) -> Self {
+        fn create(props: Self::Properties) -> Self {
             Self {
                 name: props.name,
                 buf: "Click me!".into(),
-                link,
             }
         }
 
@@ -36,19 +34,19 @@ fn main() {
     }
 
     impl Greeter {
-        fn render(&self) -> impl Html {
-            let link = self.link.clone();
+        fn render(&self, _: Link<Self>) -> impl Html {
+            // let link = self.link.clone();
 
-            let onclick = move |_: &Event| {
-                if let Some(mut this) = link.borrow() {
-                    let buf = format!("Clicked! {:?}", &*this);
+            // let onclick = move |_: &Event| {
+            //     if let Some(mut this) = link.borrow() {
+            //         let buf = format!("Clicked! {:?}", &*this);
 
-                    this.buf = buf;
-                }
-            };
+            //         this.buf = buf;
+            //     }
+            // };
 
             html! {
-                <div {onclick}>
+                <div>
                     <h1 class="Greeter">"Hello "{ self.name }"!"</h1>
                     <pre><code>
                         { self.buf.clone() }
