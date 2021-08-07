@@ -142,7 +142,7 @@ impl<T: ?Sized> Clone for Weak<T> {
 }
 
 impl<T> Weak<T> {
-    /// Why do I have to do this?!
+    /// Make generic when CoerceUnized is stabilized: https://github.com/rust-lang/rust/issues/27732
     pub(crate) fn coerce<C: Component>(self) -> Weak<dyn MessageHandler<Component = C>>
     where
         T: MessageHandler<Component = C> + 'static,
