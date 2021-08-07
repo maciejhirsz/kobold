@@ -1,10 +1,11 @@
 use crate::util;
+use crate::Link;
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
 pub type ShouldRender = bool;
 
-pub trait Html: Sized {
+pub trait Html: Sized + 'static {
     type Built: Update<Self> + Mountable;
 
     fn build(self) -> Self::Built;
@@ -26,15 +27,24 @@ pub trait Mountable {
     }
 }
 
-pub trait Component: Sized {
+pub trait Component: Sized + 'static {
     type Properties;
+
+    type Message;
 
     fn create(props: Self::Properties) -> Self;
 
     fn update(&mut self, new: Self::Properties) -> ShouldRender;
+
+    fn handle(&mut self, _msg: Self::Message) -> ShouldRender {
+        false
+    }
 }
 
-pub(crate) trait MessageHandler<T: Component> {
+pub(crate) trait MessageHandler: 'static {
+    type Component: Component;
+
+    fn handle(&mut self, msg: <Self::Component as Component>::Message, link: Link<Self::Component>);
 }
 
 // pub trait HandleMessage<Message>: Component {

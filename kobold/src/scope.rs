@@ -1,9 +1,10 @@
 // use crate::traits::{Component, HandleMessage};
 // use crate::traits::{Html, Update};
+use crate::traits::{Component, MessageHandler};
 use std::cell::{Cell, UnsafeCell};
+use std::fmt::{self, Debug};
 use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
-use std::fmt::{self, Debug};
 // use web_sys::Event;
 
 #[derive(Clone, Copy)]
@@ -31,7 +32,7 @@ pub struct Weak<T: ?Sized> {
     ptr: NonNull<ScopeInner<T>>,
 }
 
-impl<T: Debug> Debug for Weak<T> {
+impl<T: Debug + ?Sized> Debug for Weak<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str("Weak")
     }
@@ -42,24 +43,20 @@ pub(crate) struct Scope<T: ?Sized> {
     ptr: NonNull<ScopeInner<T>>,
 }
 
-pub struct Ref<'a, T>(&'a ScopeInner<T>);
+pub struct Ref<'a, T: ?Sized>(&'a ScopeInner<T>);
 
-impl<T> Deref for Ref<'_, T> {
+impl<T: ?Sized> Deref for Ref<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
-        unsafe { 
-            &*self.0.data.get()
-        }
+        unsafe { &*self.0.data.get() }
     }
 }
 
-impl<T> DerefMut for Ref<'_, T> {
+impl<T: ?Sized> DerefMut for Ref<'_, T> {
     // type Target = T
     fn deref_mut(&mut self) -> &mut T {
-        unsafe { 
-            &mut *self.0.data.get()
-        }
+        unsafe { &mut *self.0.data.get() }
     }
 }
 
@@ -73,7 +70,6 @@ unsafe fn alloc<T>() -> *mut T {
 
 impl<T> Scope<T> {
     pub fn new_uninit() -> Scope<T> {
-
         let ptr = unsafe {
             let ptr = alloc::<ScopeInner<T>>();
 
@@ -88,6 +84,25 @@ impl<T> Scope<T> {
         }
     }
 
+    pub fn init(mut self, data: T) -> Scope<T> {
+        let inner = unsafe { self.ptr.as_mut() };
+
+        debug_assert!(matches!(inner.guard.get(), Guard::Uninit));
+
+        {
+            let data_ptr = inner.data.get();
+
+            unsafe {
+                data_ptr.write(data);
+            }
+        }
+        inner.guard.set(Guard::Ready);
+
+        Scope { ptr: self.ptr }
+    }
+}
+
+impl<T: ?Sized> Scope<T> {
     pub fn borrow(&self) -> Ref<T> {
         let inner = unsafe { self.ptr.as_ref() };
 
@@ -97,7 +112,7 @@ impl<T> Scope<T> {
             Guard::Ready => {
                 inner.guard.set(Guard::Borrowed);
                 Ref(inner)
-            },
+            }
             _ => panic!(),
         }
     }
@@ -110,31 +125,28 @@ impl<T> Scope<T> {
         Weak { ptr: self.ptr }
     }
 
-    pub fn init(mut self, data: T) -> Scope<T> {
-        let inner = unsafe { self.ptr.as_mut() };
-
-        debug_assert!(matches!(inner.guard.get(), Guard::Uninit));
-
-        {
-            let data_ptr = inner.data.get();
-
-            unsafe { data_ptr.write(data); }
-        }
-        inner.guard.set(Guard::Ready);
-
-        Scope {
-            ptr: self.ptr,
-        }
+    pub fn as_weak(&self) -> &Weak<T> {
+        unsafe { &*(self as *const Scope<T> as *const Weak<T>) }
     }
 }
 
-impl<T> Clone for Weak<T> {
+impl<T: ?Sized> Clone for Weak<T> {
     fn clone(&self) -> Self {
         let inner = unsafe { self.ptr.as_ref() };
 
         let count = inner.links.get();
         inner.links.set(count + 1);
 
+        Weak { ptr: self.ptr }
+    }
+}
+
+impl<T> Weak<T> {
+    /// Why do I have to do this?!
+    pub(crate) fn coerce<C: Component>(self) -> Weak<dyn MessageHandler<Component = C>>
+    where
+        T: MessageHandler<Component = C> + 'static,
+    {
         Weak { ptr: self.ptr }
     }
 }
@@ -169,7 +181,7 @@ impl<T: ?Sized> Drop for Scope<T> {
     }
 }
 
-impl<T> Drop for Ref<'_, T> {
+impl<T: ?Sized> Drop for Ref<'_, T> {
     fn drop(&mut self) {
         debug_assert!(matches!(self.0.guard.get(), Guard::Borrowed));
 
@@ -177,7 +189,7 @@ impl<T> Drop for Ref<'_, T> {
     }
 }
 
-impl<T> Weak<T> {
+impl<T: ?Sized> Weak<T> {
     pub fn borrow(&self) -> Option<Ref<T>> {
         let inner = unsafe { self.ptr.as_ref() };
 

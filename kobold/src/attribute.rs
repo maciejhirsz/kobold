@@ -18,7 +18,7 @@ impl<V> Attribute<V> {
 
 impl<V> Html for Attribute<V>
 where
-    V: AsRef<str> + PartialEq,
+    V: AsRef<str> + PartialEq + 'static,
 {
     type Built = BuiltAttribute<V>;
 
@@ -38,7 +38,7 @@ macro_rules! create_named_attrs {
 
         impl<V> Html for $name<V>
         where
-            V: AsRef<str> + PartialEq,
+            V: AsRef<str> + PartialEq + 'static,
         {
             type Built = BuiltAttribute<V>;
 

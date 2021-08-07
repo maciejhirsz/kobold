@@ -19,6 +19,8 @@ fn main() {
     impl Component for Greeter {
         type Properties = GreeterProps;
 
+        type Message = ();
+
         fn create(props: Self::Properties) -> Self {
             Self {
                 name: props.name,
