@@ -1,14 +1,15 @@
 // use crate::traits::{Component, HandleMessage};
+use crate::traits::{Html, Update};
 use std::cell::{Cell, UnsafeCell};
 use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
+use std::fmt::{self, Debug};
 // use web_sys::Event;
 
 #[derive(Clone, Copy)]
 enum Guard {
     Ready,
     Borrowed,
-    Dropped,
 }
 
 enum Guarded<T> {
@@ -30,6 +31,12 @@ struct ContextInner<T> {
 #[repr(transparent)]
 pub struct Link<T> {
     ptr: NonNull<ContextInner<T>>,
+}
+
+impl<T: Debug> Debug for Link<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("Link")
+    }
 }
 
 #[repr(transparent)]
@@ -162,6 +169,25 @@ impl<T> Drop for Ref<'_, T> {
         debug_assert!(matches!(self.0.guard.get(), Guard::Borrowed));
 
         self.0.guard.set(Guard::Ready);
+    }
+}
+
+impl<T> Link<T> {
+    pub fn borrow(&self) -> Option<Ref<T>> {
+        let inner = unsafe { self.ptr.as_ref() };
+
+        debug_assert!(matches!(&inner.guarded, Guarded::Data(_)));
+
+        match &inner.guarded {
+            Guarded::Data(data) => match data.guard.get() {
+                Guard::Ready => {
+                    data.guard.set(Guard::Borrowed);
+                    Some(Ref(data))
+                }
+                _ => None,
+            },
+            _ => None,
+        }
     }
 }
 

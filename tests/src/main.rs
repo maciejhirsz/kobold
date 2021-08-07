@@ -1,3 +1,4 @@
+use web_sys::Event;
 use kobold::prelude::*;
 use kobold::Node;
 
@@ -5,15 +6,26 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::{JsCast, JsValue};
 
 fn main() {
+    #[derive(Debug)]
     struct Greeter {
+        name: &'static str,
+        buf: String,
+        link: Link<Self>
+    }
+
+    struct GreeterProps {
         name: &'static str,
     }
 
     impl Component for Greeter {
-        type Properties = Self;
+        type Properties = GreeterProps;
 
-        fn create(props: Self::Properties, _: Link<Self>) -> Self {
-            props
+        fn create(props: Self::Properties, link: Link<Self>) -> Self {
+            Self {
+                name: props.name,
+                buf: "Click me!".into(),
+                link,
+            }
         }
 
         fn update(&mut self, props: Self::Properties) -> ShouldRender {
@@ -25,8 +37,23 @@ fn main() {
 
     impl Greeter {
         fn render(&self) -> impl Html {
+            let link = self.link.clone();
+
+            let onclick = move |_: &Event| {
+                if let Some(mut this) = link.borrow() {
+                    let buf = format!("Clicked! {:?}", &*this);
+
+                    this.buf = buf;
+                }
+            };
+
             html! {
-                <h1 class="Greeter">"Hello "{ self.name }"!"</h1>
+                <div {onclick}>
+                    <h1 class="Greeter">"Hello "{ self.name }"!"</h1>
+                    <pre><code>
+                        { self.buf.clone() }
+                    </code></pre>
+                </div>
             }
         }
     }
