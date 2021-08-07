@@ -1,36 +1,35 @@
 // use crate::traits::{Component, HandleMessage};
-use crate::traits::{Html, Update};
+// use crate::traits::{Html, Update};
 use std::cell::{Cell, UnsafeCell};
 use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
 use std::fmt::{self, Debug};
+use std::mem::MaybeUninit;
 // use web_sys::Event;
 
 #[derive(Clone, Copy)]
 enum Guard {
-    Ready,
-    Borrowed,
-}
-
-enum Guarded<T> {
+    /// Scope contains uninitialized data, this should only
+    /// be set inside `UninitContext<T>`.
     Uninit,
-    Data(Data<T>),
-    Dropped,
+    /// Data is initialized and there are no active borrows to it.
+    Ready,
+    /// Data is initialized and there is an active borrow to it.
+    Borrowed,
+    /// Data is initialized, there _might_ be an active borrow to it,
+    /// but it's been requested to drop.
+    DropRequested,
 }
 
-struct Data<T> {
-    guard: Cell<Guard>,
+struct ScopeInner<T> {
     data: UnsafeCell<T>,
-}
-
-struct ContextInner<T> {
-    links: Cell<usize>,
-    guarded: Guarded<T>,
+    guard: Cell<Guard>,
+    links: Cell<u32>,
 }
 
 #[repr(transparent)]
 pub struct Link<T> {
-    ptr: NonNull<ContextInner<T>>,
+    ptr: NonNull<ScopeInner<T>>,
 }
 
 impl<T: Debug> Debug for Link<T> {
@@ -41,37 +40,47 @@ impl<T: Debug> Debug for Link<T> {
 
 #[repr(transparent)]
 pub(crate) struct Scope<T> {
-    ptr: NonNull<ContextInner<T>>,
+    ptr: NonNull<ScopeInner<T>>,
 }
 
 #[repr(transparent)]
 pub(crate) struct UninitContext<T> {
-    ptr: NonNull<ContextInner<T>>,
+    ptr: NonNull<ScopeInner<MaybeUninit<T>>>,
 }
 
-pub struct Ref<'a, T>(&'a Data<T>);
+pub struct Ref<'a, T>(&'a ScopeInner<T>);
 
 impl<T> Deref for Ref<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
-        unsafe { &*self.0.data.get() }
+        unsafe { 
+            &*self.0.data.get()
+        }
     }
 }
 
 impl<T> DerefMut for Ref<'_, T> {
     // type Target = T
     fn deref_mut(&mut self) -> &mut T {
-        unsafe { &mut *self.0.data.get() }
+        unsafe { 
+            &mut *self.0.data.get()
+        }
     }
 }
 
 impl<T> Scope<T> {
     pub fn new_uninit() -> UninitContext<T> {
-        let ptr = Box::into_raw(Box::new(ContextInner {
-            links: Cell::new(0),
-            guarded: Guarded::Uninit,
-        }));
+        use std::alloc::{alloc, Layout};
+
+        let ptr = unsafe {
+            let ptr = alloc(Layout::new::<ScopeInner<MaybeUninit<T>>>()) as *mut ScopeInner<MaybeUninit<T>>;
+
+            (*ptr).links = Cell::new(0);
+            (*ptr).guard = Cell::new(Guard::Uninit);
+
+            ptr
+        };
 
         UninitContext {
             ptr: unsafe { NonNull::new_unchecked(ptr) },
@@ -81,21 +90,14 @@ impl<T> Scope<T> {
     pub fn borrow(&self) -> Ref<T> {
         let inner = unsafe { self.ptr.as_ref() };
 
-        debug_assert!(matches!(&inner.guarded, Guarded::Data(_)));
+        debug_assert!(matches!(&inner.guard.get(), Guard::Ready));
 
-        match &inner.guarded {
-            Guarded::Data(data) => match data.guard.get() {
-                Guard::Ready => {
-                    data.guard.set(Guard::Borrowed);
-                    Ref(data)
-                }
-                _ => todo!("Error handling"),
+        match inner.guard.get() {
+            Guard::Ready => {
+                inner.guard.set(Guard::Borrowed);
+                Ref(inner)
             },
-            _ => unsafe {
-                // `Scope` can only be construted with `Init` variant,
-                // and it only changes to `Dropped` when `Scope` is dropped.
-                std::hint::unreachable_unchecked();
-            },
+            _ => panic!(),
         }
     }
 }
@@ -106,18 +108,24 @@ impl<T> UninitContext<T> {
 
         inner.links.set(inner.links.get() + 1);
 
-        Link { ptr: self.ptr }
+        Link { ptr: self.ptr.cast() }
     }
 
     pub fn init(mut self, data: T) -> Scope<T> {
         let inner = unsafe { self.ptr.as_mut() };
 
-        inner.guarded = Guarded::Data(Data {
-            guard: Cell::new(Guard::Ready),
-            data: UnsafeCell::new(data),
-        });
+        debug_assert!(matches!(inner.guard.get(), Guard::Uninit));
 
-        Scope { ptr: self.ptr }
+        {
+            let data_ptr = inner.data.get();
+
+            unsafe { *data_ptr = MaybeUninit::new(data); }
+        }
+        inner.guard.set(Guard::Ready);
+
+        Scope {
+            ptr: self.ptr.cast(),
+        }
     }
 }
 
@@ -136,15 +144,13 @@ impl<T> Drop for Link<T> {
     fn drop(&mut self) {
         let inner = unsafe { self.ptr.as_ref() };
 
-        let count = inner.links.get();
-
-        match (count, &inner.guarded) {
+        match (inner.links.get(), inner.guard.get()) {
             // This link is now the unique pointer
-            (1, Guarded::Dropped) => {
+            (1, Guard::DropRequested) => {
                 drop(unsafe { Box::from_raw(self.ptr.as_ptr()) });
             }
-            _ => {
-                inner.links.set(count - 1);
+            (n, _) => {
+                inner.links.set(n - 1);
             }
         }
     }
@@ -152,14 +158,14 @@ impl<T> Drop for Link<T> {
 
 impl<T> Drop for Scope<T> {
     fn drop(&mut self) {
-        let count = unsafe { self.ptr.as_ref().links.get() };
+        let inner = unsafe { self.ptr.as_ref() };
 
-        if count == 0 {
+        if inner.links.get() == 0 {
+            debug_assert!(matches!(inner.guard.get(), Guard::Ready));
+
             drop(unsafe { Box::from_raw(self.ptr.as_ptr()) });
         } else {
-            unsafe {
-                self.ptr.as_mut().guarded = Guarded::Dropped;
-            }
+            inner.guard.set(Guard::DropRequested);
         }
     }
 }
@@ -176,16 +182,13 @@ impl<T> Link<T> {
     pub fn borrow(&self) -> Option<Ref<T>> {
         let inner = unsafe { self.ptr.as_ref() };
 
-        debug_assert!(matches!(&inner.guarded, Guarded::Data(_)));
+        debug_assert!(!matches!(inner.guard.get(), Guard::Uninit));
 
-        match &inner.guarded {
-            Guarded::Data(data) => match data.guard.get() {
-                Guard::Ready => {
-                    data.guard.set(Guard::Borrowed);
-                    Some(Ref(data))
-                }
-                _ => None,
-            },
+        match inner.guard.get() {
+            Guard::Ready => {
+                inner.guard.set(Guard::Borrowed);
+                Some(Ref(inner))
+            }
             _ => None,
         }
     }
@@ -193,7 +196,7 @@ impl<T> Link<T> {
 
 // impl<T> Link<T> {
 //     fn new() -> Self {
-//         Box::into_raw(Box::new(ContextInner {
+//         Box::into_raw(Box::new(ScopeInner {
 //             links: Cell::new(0),
 //             data: Guarded::Uninit,
 //         }))
