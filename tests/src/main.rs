@@ -1,4 +1,3 @@
-use web_sys::Event;
 use kobold::prelude::*;
 use kobold::Node;
 
@@ -12,6 +11,7 @@ fn main() {
     struct Greeter {
         name: &'static str,
         count: i32,
+        link: Link<Self>,
     }
 
     struct GreeterProps {
@@ -28,10 +28,11 @@ fn main() {
 
         type Message = Msg;
 
-        fn create(props: Self::Properties) -> Self {
+        fn create(props: Self::Properties, link: Link<Self>) -> Self {
             Self {
                 name: props.name,
                 count: 0,
+                link,
             }
         }
 
@@ -52,9 +53,9 @@ fn main() {
     }
 
     impl Greeter {
-        fn render(&self, link: Link<Self>) -> impl Html {
-            let inc = link.bind(|_| Msg::Increment);
-            let dec = link.bind(|_| Msg::Decrement);
+        fn render(&self) -> impl Html {
+            let inc = self.link.bind(|_| Msg::Increment);
+            let dec = self.link.bind(|_| Msg::Decrement);
 
             html! {
                 <div>

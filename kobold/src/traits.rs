@@ -32,7 +32,7 @@ pub trait Component: Sized + 'static {
 
     type Message;
 
-    fn create(props: Self::Properties) -> Self;
+    fn create(props: Self::Properties, link: Link<Self>) -> Self;
 
     fn update(&mut self, new: Self::Properties) -> ShouldRender;
 
@@ -40,9 +40,9 @@ pub trait Component: Sized + 'static {
 }
 
 pub(crate) trait MessageHandler: 'static {
-    type Component: Component;
+    type Message;
 
-    fn handle(&mut self, msg: <Self::Component as Component>::Message, link: Link<Self::Component>);
+    fn handle(&mut self, msg: Self::Message);
 }
 
 // pub trait HandleMessage<Message>: Component {

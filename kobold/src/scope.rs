@@ -1,11 +1,9 @@
-// use crate::traits::{Component, HandleMessage};
-// use crate::traits::{Html, Update};
-use crate::traits::{Component, MessageHandler};
+use crate::traits::MessageHandler;
 use std::cell::{Cell, UnsafeCell};
 use std::fmt::{self, Debug};
+use std::mem::ManuallyDrop;
 use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
-use std::mem::ManuallyDrop;
 // use web_sys::Event;
 
 #[derive(Clone, Copy, Debug)]
@@ -138,9 +136,9 @@ impl<T: ?Sized> Clone for Weak<T> {
 
 impl<T> Weak<T> {
     /// Make generic when CoerceUnized is stabilized: https://github.com/rust-lang/rust/issues/27732
-    pub(crate) fn coerce<C: Component>(self) -> Weak<dyn MessageHandler<Component = C>>
+    pub(crate) fn coerce<M>(self) -> Weak<dyn MessageHandler<Message = M>>
     where
-        T: MessageHandler<Component = C> + 'static,
+        T: MessageHandler<Message = M> + 'static,
     {
         let this = ManuallyDrop::new(self);
 

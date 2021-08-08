@@ -1,4 +1,5 @@
 mod callback;
+mod link;
 mod list;
 mod scope;
 mod text;
@@ -11,7 +12,7 @@ pub mod traits;
 
 pub type ShouldRender = bool;
 
-pub use internals::Link;
+pub use link::Link;
 pub use list::{BuiltList, IterWrapper};
 pub use text::BuiltText;
 pub use traits::{Component, Html, Mountable, Update};
