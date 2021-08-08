@@ -75,34 +75,34 @@ pub fn html(body: TokenStream) -> TokenStream {
                 #field_defs
             }
 
-            struct TransientRendered<#(#generics),*> {
+            struct TransientBuilt<#(#generics),*> {
                 #field_defs
                 node: Node,
             }
 
             impl<#(#generics: Html),*> Html for TransientHtml<#(#generics),*> {
-                type Rendered = TransientRendered<#(<#generics as Html>::Rendered),*>;
+                type Built = TransientBuilt<#(<#generics as Html>::Built),*>;
 
-                fn render(self) -> Self::Rendered {
+                fn build(self) -> Self::Built {
                     #(
-                        let #field_names = self.#field_names.render();
+                        let #field_names = self.#field_names.build();
                     )*
                     let node = #js_fn_name(#(#field_names.js()),*);
 
-                    TransientRendered {
+                    TransientBuilt {
                         #(#field_names,)*
                         node,
                     }
                 }
             }
 
-            impl<#(#generics),*> ::kobold::Mountable for TransientRendered<#(#generics),*> {
+            impl<#(#generics),*> ::kobold::Mountable for TransientBuilt<#(#generics),*> {
                 fn js(&self) -> &JsValue {
                     &self.node
                 }
             }
 
-            impl<#(#generics: Html),*> ::kobold::Update<TransientHtml<#(#generics),*>> for TransientRendered<#(<#generics as Html>::Rendered),*> {
+            impl<#(#generics: Html),*> ::kobold::Update<TransientHtml<#(#generics),*>> for TransientBuilt<#(<#generics as Html>::Built),*> {
                 fn update(&mut self, new: TransientHtml<#(#generics),*>) {
                     #(
                         self.#field_names.update(new.#field_names);

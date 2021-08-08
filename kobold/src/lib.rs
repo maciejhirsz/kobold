@@ -1,5 +1,6 @@
 mod callback;
 mod list;
+mod scope;
 mod text;
 mod util;
 mod value;
@@ -10,12 +11,13 @@ pub mod traits;
 
 pub type ShouldRender = bool;
 
-pub use list::{IterWrapper, RenderedList};
-pub use text::RenderedText;
+pub use internals::Link;
+pub use list::{BuiltList, IterWrapper};
+pub use text::BuiltText;
 pub use traits::{Component, Html, Mountable, Update};
 
 pub mod prelude {
-    pub use super::{html, Component, Html, Mountable, ShouldRender, Update};
+    pub use super::{html, Component, Html, Link, Mountable, ShouldRender, Update};
 }
 
 pub use kobold_macros::html;
@@ -33,9 +35,9 @@ mod empty {
     use web_sys::Node;
 
     impl Html for () {
-        type Rendered = EmptyNode;
+        type Built = EmptyNode;
 
-        fn render(self) -> EmptyNode {
+        fn build(self) -> EmptyNode {
             EmptyNode(util::__kobold_empty_node())
         }
     }

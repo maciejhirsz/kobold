@@ -18,14 +18,14 @@ impl<V> Attribute<V> {
 
 impl<V> Html for Attribute<V>
 where
-    V: AsRef<str> + PartialEq,
+    V: AsRef<str> + PartialEq + 'static,
 {
-    type Rendered = RenderedAttribute<V>;
+    type Built = BuiltAttribute<V>;
 
-    fn render(self) -> Self::Rendered {
+    fn build(self) -> Self::Built {
         let node = util::__kobold_create_attr(self.name, self.value.as_ref());
 
-        RenderedAttribute {
+        BuiltAttribute {
             value: self.value,
             node,
         }
@@ -38,21 +38,21 @@ macro_rules! create_named_attrs {
 
         impl<V> Html for $name<V>
         where
-            V: AsRef<str> + PartialEq,
+            V: AsRef<str> + PartialEq + 'static,
         {
-            type Rendered = RenderedAttribute<V>;
+            type Built = BuiltAttribute<V>;
 
-            fn render(self) -> Self::Rendered {
+            fn build(self) -> Self::Built {
                 let node = util::$fun(self.0.as_ref());
 
-                RenderedAttribute {
+                BuiltAttribute {
                     value: self.0,
                     node,
                 }
             }
         }
 
-        impl<V> Update<$name<V>> for RenderedAttribute<V>
+        impl<V> Update<$name<V>> for BuiltAttribute<V>
         where
             V: AsRef<str> + PartialEq,
         {
@@ -71,18 +71,18 @@ create_named_attrs! {
     Style => __kobold_create_attr_style,
 }
 
-pub struct RenderedAttribute<V> {
+pub struct BuiltAttribute<V> {
     value: V,
     node: Node,
 }
 
-impl<V> Mountable for RenderedAttribute<V> {
+impl<V> Mountable for BuiltAttribute<V> {
     fn js(&self) -> &JsValue {
         &self.node
     }
 }
 
-impl<V> Update<Attribute<V>> for RenderedAttribute<V>
+impl<V> Update<Attribute<V>> for BuiltAttribute<V>
 where
     V: AsRef<str> + PartialEq,
 {

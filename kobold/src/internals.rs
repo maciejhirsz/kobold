@@ -1,79 +1,156 @@
-use crate::prelude::*;
+use crate::scope::{Scope, Weak};
+use crate::traits::{Component, Html, MessageHandler, Mountable, Update};
+use std::marker::PhantomData;
 use wasm_bindgen::JsValue;
+use web_sys::Event;
 
 /// Wrapper containing proprs needed to build a component `T`, and its render method `R`.
 pub struct WrappedProperties<T, R, H>
 where
     T: Component,
-    R: Fn(&T) -> H,
+    R: Fn(&T, Link<T>) -> H + 'static,
 {
     props: T::Properties,
     /// Once returning `impl T` from trait methods is stable we can put the
     /// `render` method directly on the `Component` trait. Until then this
     /// solution is zero-cost since `R` is 0-sized.
     render: R,
+
+    _phantom: PhantomData<H>,
 }
 
 impl<T, R, H> WrappedProperties<T, R, H>
 where
     T: Component,
-    R: Fn(&T) -> H,
+    R: Fn(&T, Link<T>) -> H + 'static,
 {
     #[inline]
     pub fn new(props: T::Properties, render: R) -> Self {
-        WrappedProperties { props, render }
+        WrappedProperties {
+            props,
+            render,
+            _phantom: PhantomData,
+        }
     }
 }
 
-pub struct RenderedComponent<T, H>
+pub struct BuiltComponent<T, R, H>
 where
     T: Component,
+    R: Fn(&T, Link<T>) -> H + 'static,
+    H: Html,
+{
+    scope: Scope<ScopedComponent<T, R, H>>,
+    node: JsValue,
+}
+
+pub struct ScopedComponent<T, R, H>
+where
+    T: Component,
+    R: Fn(&T, Link<T>) -> H + 'static,
     H: Html,
 {
     component: T,
-    rendered: H::Rendered,
+    render: R,
+    built: H::Built,
 }
 
 impl<T, R, H> Html for WrappedProperties<T, R, H>
 where
     T: Component,
-    R: Fn(&T) -> H,
+    R: Fn(&T, Link<T>) -> H + 'static,
     H: Html,
 {
-    type Rendered = RenderedComponent<T, H>;
+    type Built = BuiltComponent<T, R, H>;
 
     #[inline]
-    fn render(self) -> Self::Rendered {
-        let component = T::create(self.props);
-        let rendered = (self.render)(&component).render();
+    fn build(self) -> Self::Built {
+        let mut scope = Scope::new_uninit();
 
-        RenderedComponent {
+        let render = self.render;
+        let component = T::create(self.props);
+        let built = render(&component, Link::new(scope.new_weak())).build();
+        let node = built.js().clone();
+
+        scope.init(ScopedComponent {
             component,
-            rendered,
+            render,
+            built,
+        });
+
+        BuiltComponent { scope, node }
+    }
+}
+
+impl<T, R, H> MessageHandler for ScopedComponent<T, R, H>
+where
+    T: Component,
+    R: Fn(&T, Link<T>) -> H + 'static,
+    H: Html,
+{
+    type Component = T;
+
+    fn handle(&mut self, message: <Self::Component as Component>::Message, link: Link<T>) {
+        if self.component.handle(message) {
+            self.built.update((self.render)(&self.component, link))
         }
     }
 }
 
-impl<T, H> Mountable for RenderedComponent<T, H>
+pub struct Link<T: Component + ?Sized>(Weak<dyn MessageHandler<Component = T>>);
+
+impl<T> Clone for Link<T>
 where
-    T: Component,
-    H: Html,
+    T: Component + ?Sized,
 {
-    fn js(&self) -> &JsValue {
-        self.rendered.js()
+    fn clone(&self) -> Self {
+        Link(self.0.clone())
     }
 }
 
-impl<T, R, H> Update<WrappedProperties<T, R, H>> for RenderedComponent<T, H>
+impl<T: Component> Link<T> {
+    fn new(handler: Weak<impl MessageHandler<Component = T>>) -> Self {
+        Link(handler.coerce())
+    }
+
+    pub fn bind(&self, mut f: impl FnMut(&Event) -> T::Message) -> impl FnMut(&Event) {
+        let link = self.clone();
+
+        move |event| {
+            let message = f(event);
+            if let Some(mut handler) = link.0.borrow() {
+                let link = link.clone();
+
+                handler.handle(message, link);
+            }
+        }
+    }
+}
+
+impl<T, R, H> Mountable for BuiltComponent<T, R, H>
 where
     T: Component,
-    R: Fn(&T) -> H,
+    R: Fn(&T, Link<T>) -> H + 'static,
+    H: Html,
+{
+    fn js(&self) -> &JsValue {
+        &self.node
+    }
+}
+
+impl<T, R, H> Update<WrappedProperties<T, R, H>> for BuiltComponent<T, R, H>
+where
+    T: Component,
+    R: Fn(&T, Link<T>) -> H + 'static,
     H: Html,
 {
     #[inline]
     fn update(&mut self, new: WrappedProperties<T, R, H>) {
-        if self.component.update(new.props) {
-            self.rendered.update((new.render)(&self.component));
+        let mut this = self.scope.borrow();
+
+        if this.component.update(new.props) {
+            let rendered = (new.render)(&this.component, Link::new(self.scope.new_weak()));
+            this.built.update(rendered);
         }
     }
 }
@@ -81,6 +158,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ShouldRender;
     use std::mem;
 
     #[test]
@@ -90,13 +168,15 @@ mod tests {
         }
 
         impl TestComponent {
-            fn render(&self) -> impl Html {
+            fn render(&self, _: Link<Self>) -> impl Html {
                 self.n
             }
         }
 
         impl Component for TestComponent {
             type Properties = u8;
+
+            type Message = ();
 
             fn create(n: u8) -> Self {
                 Self { n }
@@ -105,6 +185,10 @@ mod tests {
             fn update(&mut self, new: u8) -> ShouldRender {
                 self.n = new;
                 true
+            }
+
+            fn handle(&mut self, _: ()) -> ShouldRender {
+                false
             }
         }
 

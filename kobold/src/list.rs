@@ -5,19 +5,19 @@ use web_sys::Node;
 
 pub struct IterWrapper<T>(pub T);
 
-pub struct RenderedList<T> {
+pub struct BuiltList<T> {
     list: Vec<T>,
     visible: usize,
     node: Node,
 }
 
-impl<T> Mountable for RenderedList<T> {
+impl<T> Mountable for BuiltList<T> {
     fn js(&self) -> &JsValue {
         &self.node
     }
 }
 
-impl<T> Update<T> for <Vec<T::Item> as Html>::Rendered
+impl<T> Update<T> for <Vec<T::Item> as Html>::Built
 where
     T: IntoIterator,
     <T as IntoIterator>::Item: Html,
@@ -28,7 +28,7 @@ where
     }
 }
 
-impl<T> Update<IterWrapper<T>> for RenderedList<<<T as IntoIterator>::Item as Html>::Rendered>
+impl<T> Update<IterWrapper<T>> for BuiltList<<<T as IntoIterator>::Item as Html>::Built>
 where
     T: IntoIterator,
     <T as IntoIterator>::Item: Html,
@@ -56,11 +56,11 @@ where
             }
 
             for new in new {
-                let rendered = new.render();
+                let built = new.build();
 
-                rendered.mount(&self.node);
+                built.mount(&self.node);
 
-                self.list.push(rendered);
+                self.list.push(built);
                 self.visible += 1;
             }
         }
@@ -69,28 +69,28 @@ where
 
 impl<T> Html for IterWrapper<T>
 where
-    T: IntoIterator,
+    T: IntoIterator + 'static,
     <T as IntoIterator>::Item: Html,
 {
-    type Rendered = RenderedList<<T::Item as Html>::Rendered>;
+    type Built = BuiltList<<T::Item as Html>::Built>;
 
-    fn render(self) -> Self::Rendered {
+    fn build(self) -> Self::Built {
         let iter = self.0.into_iter();
         let node = util::__kobold_create_div();
 
         let list: Vec<_> = iter
             .map(|item| {
-                let rendered = item.render();
+                let built = item.build();
 
-                rendered.mount(&node);
+                built.mount(&node);
 
-                rendered
+                built
             })
             .collect();
 
         let visible = list.len();
 
-        RenderedList {
+        BuiltList {
             list,
             visible,
             node,
@@ -99,19 +99,19 @@ where
 }
 
 impl<H: Html> Html for Vec<H> {
-    type Rendered = RenderedList<H::Rendered>;
+    type Built = BuiltList<H::Built>;
 
     #[inline]
-    fn render(self) -> Self::Rendered {
-        IterWrapper(self).render()
+    fn build(self) -> Self::Built {
+        IterWrapper(self).build()
     }
 }
 
 impl<H: Html, const N: usize> Html for [H; N] {
-    type Rendered = RenderedList<H::Rendered>;
+    type Built = BuiltList<H::Built>;
 
     #[inline]
-    fn render(self) -> Self::Rendered {
-        IterWrapper(self).render()
+    fn build(self) -> Self::Built {
+        IterWrapper(self).build()
     }
 }
