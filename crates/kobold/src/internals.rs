@@ -109,7 +109,10 @@ where
 {
     #[inline]
     fn update(&mut self, new: WrappedProperties<T, R, H>) {
-        let mut inner = self.inner.borrow().expect("Component is currently borrowed by a Weak reference!");
+        let mut inner = self
+            .inner
+            .borrow()
+            .expect("Component is currently borrowed by a Weak reference!");
 
         if inner.component.update(new.props) {
             let rendered = (new.render)(&inner.component);

@@ -143,9 +143,10 @@ impl Parser {
                             let (kind, constructor) = match attr_name {
                                 "style" => (FieldKind::Attr, Some(quote! { Style })),
                                 "class" => (FieldKind::Attr, Some(quote! { Class })),
-                                n if n.starts_with("on") && n.len() > 2 => {
-                                    (FieldKind::Callback(n[2..].into()), Some(quote! { Callback }))
-                                },
+                                n if n.starts_with("on") && n.len() > 2 => (
+                                    FieldKind::Callback(n[2..].into()),
+                                    Some(quote! { Callback }),
+                                ),
                                 _ => (FieldKind::Attr, None),
                             };
 
@@ -314,7 +315,12 @@ impl Parser {
 
         let name = into_quote(Ident::new(&buf, Span::call_site()));
 
-        self.fields.push(Field { kind, typ, name, expr });
+        self.fields.push(Field {
+            kind,
+            typ,
+            name,
+            expr,
+        });
     }
 }
 

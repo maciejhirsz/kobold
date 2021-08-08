@@ -30,6 +30,14 @@ pub mod reexport {
     pub use web_sys;
 }
 
+pub fn start(html: impl Html) {
+    use std::mem::ManuallyDrop;
+
+    let built = ManuallyDrop::new(html.build());
+
+    util::__kobold_start(built.js());
+}
+
 mod empty {
     use crate::prelude::*;
     use crate::util;
