@@ -1,0 +1,16 @@
+[workspace]
+members = [
+    "crates/kobold",
+    "crates/kobold_macros",
+    "tests",
+]
+
+[patch.crates-io]
+kobold_macros = { path = "crates/kobold_macros" }
+
+[profile.release]
+lto = true
+
+[profile.bench]
+lto = "fat"
+codegen-units = 1

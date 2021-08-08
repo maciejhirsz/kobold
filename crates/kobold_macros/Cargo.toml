@@ -1,11 +1,13 @@
 [package]
 name = "kobold_macros"
-version = "0.0.0"
+version = "0.1.0"
 authors = ["Maciej Hirsz <hello@maciej.codes>"]
 edition = "2018"
 license = "GPL-3.0"
-readme = "../README.md"
+readme = "../../README.md"
 description = "Macros for the kobold framework"
+repository = "https://github.com/maciejhirsz/kobold"
+documentation = "https://docs.rs/kobold"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -1,4 +1,4 @@
-use crate::scope::Weak;
+use crate::ptr::Weak;
 use crate::traits::{Component, MessageHandler};
 use std::fmt::{self, Debug};
 

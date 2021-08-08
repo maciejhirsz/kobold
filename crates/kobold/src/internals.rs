@@ -1,5 +1,5 @@
 use crate::link::Link;
-use crate::scope::Scope;
+use crate::ptr::Prime;
 use crate::traits::{Component, Html, MessageHandler, Mountable, Update};
 use wasm_bindgen::JsValue;
 
@@ -33,11 +33,11 @@ where
     R: Fn(&T) -> H + 'static,
     H: Html,
 {
-    scope: Scope<ScopedComponent<T, R, H>>,
+    inner: Prime<InnerComponent<T, R, H>>,
     node: JsValue,
 }
 
-pub struct ScopedComponent<T, R, H>
+pub struct InnerComponent<T, R, H>
 where
     T: Component,
     R: Fn(&T) -> H + 'static,
@@ -58,24 +58,24 @@ where
 
     #[inline]
     fn build(self) -> Self::Built {
-        let mut scope = Scope::new_uninit();
+        let mut inner = Prime::new_uninit();
 
         let render = self.render;
-        let component = T::create(self.props, Link::new(scope.new_weak()));
+        let component = T::create(self.props, Link::new(inner.new_weak()));
         let built = render(&component).build();
         let node = built.js().clone();
 
-        scope.init(ScopedComponent {
+        inner.init(InnerComponent {
             component,
             render,
             built,
         });
 
-        BuiltComponent { scope, node }
+        BuiltComponent { inner, node }
     }
 }
 
-impl<T, R, H> MessageHandler for ScopedComponent<T, R, H>
+impl<T, R, H> MessageHandler for InnerComponent<T, R, H>
 where
     T: Component,
     R: Fn(&T) -> H + 'static,
@@ -109,11 +109,11 @@ where
 {
     #[inline]
     fn update(&mut self, new: WrappedProperties<T, R, H>) {
-        let mut this = self.scope.borrow();
+        let mut inner = self.inner.borrow().expect("Component is currently borrowed by a Weak reference!");
 
-        if this.component.update(new.props) {
-            let rendered = (new.render)(&this.component);
-            this.built.update(rendered);
+        if inner.component.update(new.props) {
+            let rendered = (new.render)(&inner.component);
+            inner.built.update(rendered);
         }
     }
 }
