@@ -2,7 +2,7 @@
 members = [
     "crates/kobold",
     "crates/kobold_macros",
-    "tests",
+    "examples/clicker",
 ]
 
 [patch.crates-io]

@@ -93,7 +93,6 @@ where
                                     panic!("HTML node in element attributes!")
                                 }
                             }
-
                         }
                     }
                 }

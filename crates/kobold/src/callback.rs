@@ -1,6 +1,6 @@
 use crate::traits::{Html, Mountable, Update};
-use std::rc::Rc;
 use std::cell::UnsafeCell;
+use std::rc::Rc;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsValue;
 use web_sys::Event;

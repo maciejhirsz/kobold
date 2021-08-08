@@ -1,6 +1,6 @@
-use std::fmt::{self, Display, Debug};
 use proc_macro::Ident;
 use proc_macro2::TokenStream as QuoteTokens;
+use std::fmt::{self, Debug, Display};
 
 pub struct Field {
     pub kind: FieldKind,

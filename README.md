@@ -9,7 +9,7 @@ cargo install trunk wasm-bindgen-cli
 
 rustup target add wasm32-unknown-unknown
 
-cd tests
+cd examples/clicker
 trunk serve
 ```
 

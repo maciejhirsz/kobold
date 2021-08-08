@@ -218,7 +218,7 @@ mod tests {
 
         prime.init(vec![42_u32]);
 
-        assert_eq!(&**prime.borrow(), &[42]);
+        assert_eq!(&**prime.borrow().unwrap(), &[42]);
 
         drop(prime);
     }
