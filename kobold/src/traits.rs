@@ -36,9 +36,7 @@ pub trait Component: Sized + 'static {
 
     fn update(&mut self, new: Self::Properties) -> ShouldRender;
 
-    fn handle(&mut self, _msg: Self::Message) -> ShouldRender {
-        false
-    }
+    fn handle(&mut self, msg: Self::Message) -> ShouldRender;
 }
 
 pub(crate) trait MessageHandler: 'static {

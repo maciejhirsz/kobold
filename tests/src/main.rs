@@ -6,25 +6,32 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::{JsCast, JsValue};
 
 fn main() {
+    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+
     #[derive(Debug)]
     struct Greeter {
         name: &'static str,
-        buf: String,
+        count: i32,
     }
 
     struct GreeterProps {
         name: &'static str,
     }
 
+    enum Msg {
+        Increment,
+        Decrement,
+    }
+
     impl Component for Greeter {
         type Properties = GreeterProps;
 
-        type Message = ();
+        type Message = Msg;
 
         fn create(props: Self::Properties) -> Self {
             Self {
                 name: props.name,
-                buf: "Click me!".into(),
+                count: 0,
             }
         }
 
@@ -33,26 +40,26 @@ fn main() {
 
             true
         }
+
+        fn handle(&mut self, msg: Msg) -> ShouldRender {
+            self.count += match msg {
+                Msg::Increment => 1,
+                Msg::Decrement => -1,
+            };
+
+            true
+        }
     }
 
     impl Greeter {
-        fn render(&self, _: Link<Self>) -> impl Html {
-            // let link = self.link.clone();
-
-            // let onclick = move |_: &Event| {
-            //     if let Some(mut this) = link.borrow() {
-            //         let buf = format!("Clicked! {:?}", &*this);
-
-            //         this.buf = buf;
-            //     }
-            // };
+        fn render(&self, link: Link<Self>) -> impl Html {
+            let inc = link.bind(|_| Msg::Increment);
+            let dec = link.bind(|_| Msg::Decrement);
 
             html! {
                 <div>
                     <h1 class="Greeter">"Hello "{ self.name }"!"</h1>
-                    <pre><code>
-                        { self.buf.clone() }
-                    </code></pre>
+                    <button onclick={inc}>"+"</button>{ self.count }<button onclick={dec}>"-"</button>
                 </div>
             }
         }

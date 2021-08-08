@@ -65,21 +65,20 @@ where
 
     #[inline]
     fn build(self) -> Self::Built {
-        let scope = Scope::new_uninit();
+        let mut scope = Scope::new_uninit();
 
         let render = self.render;
         let component = T::create(self.props);
-        let built = (render)(&component, Link::new(scope.new_weak())).build();
+        let built = render(&component, Link::new(scope.new_weak())).build();
         let node = built.js().clone();
 
-        BuiltComponent {
-            scope: scope.init(ScopedComponent {
-                component,
-                render,
-                built,
-            }),
-            node,
-        }
+        scope.init(ScopedComponent {
+            component,
+            render,
+            built,
+        });
+
+        BuiltComponent { scope, node }
     }
 }
 
@@ -93,20 +92,39 @@ where
 
     fn handle(&mut self, message: <Self::Component as Component>::Message, link: Link<T>) {
         if self.component.handle(message) {
-            // self.built.update((self.render)(&self.component, Link::new(self.new_weak())))
+            self.built.update((self.render)(&self.component, link))
         }
     }
 }
 
-#[derive(Clone)]
 pub struct Link<T: Component + ?Sized>(Weak<dyn MessageHandler<Component = T>>);
+
+impl<T> Clone for Link<T>
+where
+    T: Component + ?Sized,
+{
+    fn clone(&self) -> Self {
+        Link(self.0.clone())
+    }
+}
 
 impl<T: Component> Link<T> {
     fn new(handler: Weak<impl MessageHandler<Component = T>>) -> Self {
         Link(handler.coerce())
     }
 
-    pub fn bind(self, f: impl FnMut(&Event)) {}
+    pub fn bind(&self, mut f: impl FnMut(&Event) -> T::Message) -> impl FnMut(&Event) {
+        let link = self.clone();
+
+        move |event| {
+            let message = f(event);
+            if let Some(mut handler) = link.0.borrow() {
+                let link = link.clone();
+
+                handler.handle(message, link);
+            }
+        }
+    }
 }
 
 impl<T, R, H> Mountable for BuiltComponent<T, R, H>
@@ -167,6 +185,10 @@ mod tests {
             fn update(&mut self, new: u8) -> ShouldRender {
                 self.n = new;
                 true
+            }
+
+            fn handle(&mut self, _: ()) -> ShouldRender {
+                false
             }
         }
 

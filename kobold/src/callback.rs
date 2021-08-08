@@ -1,6 +1,4 @@
 use crate::traits::{Html, Mountable, Update};
-use std::cell::RefCell;
-use std::rc::Rc;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsValue;
 use web_sys::Event;
@@ -8,7 +6,9 @@ use web_sys::Event;
 pub struct Callback<F>(pub F);
 
 pub struct BoundCallback<F> {
-    fun: Rc<RefCell<F>>,
+    // TODO: Have Link.bind closures use their own container, and make this
+    // an Rc<RefCell<F>> again.
+    fun: Box<F>,
     closure: Closure<dyn FnMut(&Event)>,
 }
 
@@ -29,10 +29,10 @@ where
     type Built = BoundCallback<F>;
 
     fn build(self) -> Self::Built {
-        let fun = Rc::new(RefCell::new(self.0));
-        let inner = fun.clone();
+        let mut fun = Box::new(self.0);
+        let inner = &mut *fun as *mut F;
 
-        let closure = make_closure(move |event| inner.borrow_mut()(event));
+        let closure = make_closure(move |event| unsafe { (*inner)(event) });
         let closure = Closure::wrap(closure);
 
         BoundCallback { fun, closure }
@@ -41,7 +41,7 @@ where
 
 impl<F> Update<Callback<F>> for BoundCallback<F> {
     fn update(&mut self, new: Callback<F>) {
-        self.fun.replace(new.0);
+        *self.fun = new.0;
     }
 }
 

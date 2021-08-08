@@ -5,9 +5,10 @@ use std::cell::{Cell, UnsafeCell};
 use std::fmt::{self, Debug};
 use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
+use std::mem::ManuallyDrop;
 // use web_sys::Event;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum Guard {
     /// Scope contains uninitialized data, this should only
     /// be set inside `UninitScope<T>`.
@@ -84,7 +85,7 @@ impl<T> Scope<T> {
         }
     }
 
-    pub fn init(mut self, data: T) -> Scope<T> {
+    pub fn init(&mut self, data: T) {
         let inner = unsafe { self.ptr.as_mut() };
 
         debug_assert!(matches!(inner.guard.get(), Guard::Uninit));
@@ -97,8 +98,6 @@ impl<T> Scope<T> {
             }
         }
         inner.guard.set(Guard::Ready);
-
-        Scope { ptr: self.ptr }
     }
 }
 
@@ -106,14 +105,14 @@ impl<T: ?Sized> Scope<T> {
     pub fn borrow(&self) -> Ref<T> {
         let inner = unsafe { self.ptr.as_ref() };
 
-        debug_assert!(matches!(&inner.guard.get(), Guard::Ready));
+        debug_assert!(!matches!(&inner.guard.get(), Guard::Uninit));
 
         match inner.guard.get() {
             Guard::Ready => {
                 inner.guard.set(Guard::Borrowed);
                 Ref(inner)
             }
-            _ => panic!(),
+            guard => panic!("Guard state: {:?}", guard),
         }
     }
 
@@ -123,10 +122,6 @@ impl<T: ?Sized> Scope<T> {
         inner.links.set(inner.links.get() + 1);
 
         Weak { ptr: self.ptr }
-    }
-
-    pub fn as_weak(&self) -> &Weak<T> {
-        unsafe { &*(self as *const Scope<T> as *const Weak<T>) }
     }
 }
 
@@ -147,7 +142,9 @@ impl<T> Weak<T> {
     where
         T: MessageHandler<Component = C> + 'static,
     {
-        Weak { ptr: self.ptr }
+        let this = ManuallyDrop::new(self);
+
+        Weak { ptr: this.ptr }
     }
 }
 
@@ -202,6 +199,22 @@ impl<T: ?Sized> Weak<T> {
             }
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scope_init() {
+        let mut scope = Scope::new_uninit();
+
+        scope.init(vec![42_u32]);
+
+        assert_eq!(&**scope.borrow(), &[42]);
+
+        drop(scope);
     }
 }
 
