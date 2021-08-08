@@ -43,7 +43,7 @@ where
         }
 
         if self.visible > updated {
-            for old in self.list[updated..].iter() {
+            for old in self.list[updated..self.visible].iter() {
                 old.unmount(&self.node);
             }
             self.visible = updated;
