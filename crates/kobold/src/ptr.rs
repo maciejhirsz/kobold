@@ -1,17 +1,14 @@
-// use crate::traits::{Component, HandleMessage};
-// use crate::traits::{Html, Update};
-use crate::traits::{Component, MessageHandler};
+use crate::traits::MessageHandler;
 use std::cell::{Cell, UnsafeCell};
 use std::fmt::{self, Debug};
+use std::mem::ManuallyDrop;
 use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
-use std::mem::ManuallyDrop;
 // use web_sys::Event;
 
 #[derive(Clone, Copy, Debug)]
 enum Guard {
-    /// Scope contains uninitialized data, this should only
-    /// be set inside `UninitScope<T>`.
+    /// Data is uninitialized and mustn't be borrowed.
     Uninit,
     /// Data is initialized and there are no active borrows to it.
     Ready,
@@ -22,15 +19,29 @@ enum Guard {
     DropRequested,
 }
 
-struct ScopeInner<T: ?Sized> {
+/// Layout for the data held by `Prime` and `Weak` pointers.
+struct Inner<T: ?Sized> {
+    /// Guard to the data.
     guard: Cell<Guard>,
-    links: Cell<u32>,
+    /// Number of `Weak` references that have access to this data.
+    refs: Cell<u32>,
+    /// User defined data that can be `borrow`ed out of a `Prime` or `Weak` reference.
     data: UnsafeCell<T>,
 }
 
+/// `Prime` pointer, this is roughly equivalent to `Rc<RefCell<T>>`, except
+/// there can only ever be one strong reference to it (hence the name).
+#[repr(transparent)]
+pub(crate) struct Prime<T: ?Sized> {
+    ptr: NonNull<Inner<T>>,
+}
+
+/// `Weak` reference to some data owned by the `Prime` pointer. If the `Prime`
+/// pointer is dropped, it will no longer be possible to borrow data from any
+/// `Weak` reference created from it.
 #[repr(transparent)]
 pub struct Weak<T: ?Sized> {
-    ptr: NonNull<ScopeInner<T>>,
+    ptr: NonNull<Inner<T>>,
 }
 
 impl<T: Debug + ?Sized> Debug for Weak<T> {
@@ -39,12 +50,7 @@ impl<T: Debug + ?Sized> Debug for Weak<T> {
     }
 }
 
-#[repr(transparent)]
-pub(crate) struct Scope<T: ?Sized> {
-    ptr: NonNull<ScopeInner<T>>,
-}
-
-pub struct Ref<'a, T: ?Sized>(&'a ScopeInner<T>);
+pub struct Ref<'a, T: ?Sized>(&'a Inner<T>);
 
 impl<T: ?Sized> Deref for Ref<'_, T> {
     type Target = T;
@@ -69,18 +75,18 @@ unsafe fn alloc<T>() -> *mut T {
     alloc(Layout::new::<T>()) as *mut T
 }
 
-impl<T> Scope<T> {
-    pub fn new_uninit() -> Scope<T> {
+impl<T> Prime<T> {
+    pub fn new_uninit() -> Prime<T> {
         let ptr = unsafe {
-            let ptr = alloc::<ScopeInner<T>>();
+            let ptr = alloc::<Inner<T>>();
 
-            (*ptr).links = Cell::new(0);
+            (*ptr).refs = Cell::new(0);
             (*ptr).guard = Cell::new(Guard::Uninit);
 
             ptr
         };
 
-        Scope {
+        Prime {
             ptr: unsafe { NonNull::new_unchecked(ptr) },
         }
     }
@@ -101,8 +107,8 @@ impl<T> Scope<T> {
     }
 }
 
-impl<T: ?Sized> Scope<T> {
-    pub fn borrow(&self) -> Ref<T> {
+impl<T: ?Sized> Prime<T> {
+    pub fn borrow(&self) -> Option<Ref<T>> {
         let inner = unsafe { self.ptr.as_ref() };
 
         debug_assert!(!matches!(&inner.guard.get(), Guard::Uninit));
@@ -110,16 +116,16 @@ impl<T: ?Sized> Scope<T> {
         match inner.guard.get() {
             Guard::Ready => {
                 inner.guard.set(Guard::Borrowed);
-                Ref(inner)
+                Some(Ref(inner))
             }
-            guard => panic!("Guard state: {:?}", guard),
+            _ => None,
         }
     }
 
     pub fn new_weak(&self) -> Weak<T> {
         let inner = unsafe { self.ptr.as_ref() };
 
-        inner.links.set(inner.links.get() + 1);
+        inner.refs.set(inner.refs.get() + 1);
 
         Weak { ptr: self.ptr }
     }
@@ -129,8 +135,8 @@ impl<T: ?Sized> Clone for Weak<T> {
     fn clone(&self) -> Self {
         let inner = unsafe { self.ptr.as_ref() };
 
-        let count = inner.links.get();
-        inner.links.set(count + 1);
+        let count = inner.refs.get();
+        inner.refs.set(count + 1);
 
         Weak { ptr: self.ptr }
     }
@@ -138,9 +144,9 @@ impl<T: ?Sized> Clone for Weak<T> {
 
 impl<T> Weak<T> {
     /// Make generic when CoerceUnized is stabilized: https://github.com/rust-lang/rust/issues/27732
-    pub(crate) fn coerce<C: Component>(self) -> Weak<dyn MessageHandler<Component = C>>
+    pub(crate) fn coerce<M>(self) -> Weak<dyn MessageHandler<Message = M>>
     where
-        T: MessageHandler<Component = C> + 'static,
+        T: MessageHandler<Message = M> + 'static,
     {
         let this = ManuallyDrop::new(self);
 
@@ -152,23 +158,23 @@ impl<T: ?Sized> Drop for Weak<T> {
     fn drop(&mut self) {
         let inner = unsafe { self.ptr.as_ref() };
 
-        match (inner.links.get(), inner.guard.get()) {
+        match (inner.refs.get(), inner.guard.get()) {
             // This link is now the unique pointer
             (1, Guard::DropRequested) => {
                 drop(unsafe { Box::from_raw(self.ptr.as_ptr()) });
             }
             (n, _) => {
-                inner.links.set(n - 1);
+                inner.refs.set(n - 1);
             }
         }
     }
 }
 
-impl<T: ?Sized> Drop for Scope<T> {
+impl<T: ?Sized> Drop for Prime<T> {
     fn drop(&mut self) {
         let inner = unsafe { self.ptr.as_ref() };
 
-        if inner.links.get() == 0 {
+        if inner.refs.get() == 0 {
             debug_assert!(matches!(inner.guard.get(), Guard::Ready));
 
             drop(unsafe { Box::from_raw(self.ptr.as_ptr()) });
@@ -207,66 +213,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn scope_init() {
-        let mut scope = Scope::new_uninit();
+    fn prime_init() {
+        let mut prime = Prime::new_uninit();
 
-        scope.init(vec![42_u32]);
+        prime.init(vec![42_u32]);
 
-        assert_eq!(&**scope.borrow(), &[42]);
+        assert_eq!(&**prime.borrow(), &[42]);
 
-        drop(scope);
+        drop(prime);
     }
 }
-
-// impl<T> Weak<T> {
-//     fn new() -> Self {
-//         Box::into_raw(Box::new(ScopeInner {
-//             links: Cell::new(0),
-//             data: Guarded::Uninit,
-//         }))
-//     }
-// }
-
-// pub struct Scope<Component> {
-//     component: Rc<RefCell<Option<Component>>>,
-// }
-
-// impl<Component> Clone for Scope<Component> {
-//     fn clone(&self) -> Self {
-//         Scope {
-//             component: self.component.clone(),
-//         }
-//     }
-// }
-
-// impl<Comp: Component> Scope<Comp> {
-//     pub(crate) fn new(component: Comp) -> Self {
-//         let component = Rc::new(RefCell::new(Some(component)));
-
-//         Scope { component }
-//     }
-
-//     pub fn with(&self, f: impl FnOnce(&mut Comp)) {
-//         if let Some(comp) = &mut *self.component.borrow_mut() {
-//             f(comp);
-//         }
-//     }
-
-//     pub fn bind<Callback, Message>(&self, callback: Callback) -> impl FnMut(&Event)
-//     where
-//         Callback: Fn(&Event) -> Message,
-//         Comp: HandleMessage<Message>,
-//     {
-//         let weak = Rc::downgrade(&self.component);
-
-//         move |event| {
-//             let msg = callback(event);
-
-//             if let Some(rc) = Weak::upgrade(&weak) {
-//                 if let Ok(Some(comp)) = &mut rc.try_borrow_mut() {
-//                     component.handle(msg);
-//                 }
-//             }
-//         }
-//     }
-// }

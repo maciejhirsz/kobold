@@ -1,4 +1,4 @@
-# kobold
+# Kobold
 
 Very much WIP.
 
