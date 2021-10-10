@@ -5,8 +5,8 @@ use web_sys::Node;
 
 pub type ShouldRender = bool;
 
-pub trait Html: Sized + 'static {
-    type Built: Update<Self> + Mountable;
+pub trait Html: Sized {
+    type Built: Update<Self> + Mountable + 'static;
 
     fn build(self) -> Self::Built;
 }
@@ -14,6 +14,17 @@ pub trait Html: Sized + 'static {
 pub trait Update<H> {
     fn update(&mut self, new: H);
 }
+
+// impl<T, H> Render for Fn(&T) -> H {
+//     type Output = H;
+
+//     fn render<'a>(&'a T) -> H
+//     where
+//         H: 'a,
+//     {
+//         (self)
+//     }
+// }
 
 pub trait Mountable {
     fn js(&self) -> &JsValue;

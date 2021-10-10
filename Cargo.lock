@@ -127,6 +127,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "self_borrow"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook",
+ "kobold",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
 name = "syn"
 version = "1.0.74"
 source = "registry+https://github.com/rust-lang/crates.io-index"

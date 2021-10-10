@@ -69,7 +69,7 @@ where
 
 impl<T> Html for IterWrapper<T>
 where
-    T: IntoIterator + 'static,
+    T: IntoIterator,
     <T as IntoIterator>::Item: Html,
 {
     type Built = BuiltList<<T::Item as Html>::Built>;

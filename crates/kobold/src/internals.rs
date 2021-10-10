@@ -7,7 +7,7 @@ use wasm_bindgen::JsValue;
 pub struct WrappedProperties<T, R, H>
 where
     T: Component,
-    R: Fn(&T) -> H + 'static,
+    R: Fn(&T) -> H,
 {
     props: T::Properties,
     /// Once returning `impl T` from trait methods is stable we can put the
@@ -19,7 +19,7 @@ where
 impl<T, R, H> WrappedProperties<T, R, H>
 where
     T: Component,
-    R: Fn(&T) -> H + 'static,
+    R: Fn(&T) -> H,
 {
     #[inline]
     pub fn new(props: T::Properties, render: R) -> Self {
@@ -30,8 +30,9 @@ where
 pub struct BuiltComponent<T, R, H>
 where
     T: Component,
-    R: Fn(&T) -> H + 'static,
+    R: Fn(&T) -> H,
     H: Html,
+    Self: 'static,
 {
     inner: Prime<InnerComponent<T, R, H>>,
     node: JsValue,
@@ -40,8 +41,9 @@ where
 pub struct InnerComponent<T, R, H>
 where
     T: Component,
-    R: Fn(&T) -> H + 'static,
+    R: Fn(&T) -> H,
     H: Html,
+    Self: 'static,
 {
     component: T,
     render: R,
@@ -51,8 +53,9 @@ where
 impl<T, R, H> Html for WrappedProperties<T, R, H>
 where
     T: Component,
-    R: Fn(&T) -> H + 'static,
+    R: Fn(&T) -> H,
     H: Html,
+    Self: 'static,
 {
     type Built = BuiltComponent<T, R, H>;
 
@@ -78,7 +81,7 @@ where
 impl<T, R, H> MessageHandler for InnerComponent<T, R, H>
 where
     T: Component,
-    R: Fn(&T) -> H + 'static,
+    R: Fn(&T) -> H,
     H: Html,
 {
     type Message = T::Message;
@@ -93,7 +96,7 @@ where
 impl<T, R, H> Mountable for BuiltComponent<T, R, H>
 where
     T: Component,
-    R: Fn(&T) -> H + 'static,
+    R: Fn(&T) -> H,
     H: Html,
 {
     fn js(&self) -> &JsValue {
@@ -104,7 +107,7 @@ where
 impl<T, R, H> Update<WrappedProperties<T, R, H>> for BuiltComponent<T, R, H>
 where
     T: Component,
-    R: Fn(&T) -> H + 'static,
+    R: Fn(&T) -> H,
     H: Html,
 {
     #[inline]
