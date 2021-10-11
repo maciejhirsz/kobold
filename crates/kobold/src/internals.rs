@@ -27,12 +27,12 @@ where
     }
 }
 
-pub struct BuiltComponent<T, H>
+pub struct BuiltComponent<T, B>
 where
-    H: Html,
+    // H: Html,
     Self: 'static,
 {
-    inner: Prime<InnerComponent<T, H::Built>>,
+    inner: Prime<InnerComponent<T, B>>,
     node: JsValue,
 }
 
@@ -51,7 +51,7 @@ where
     H: Html,
     Self: 'static,
 {
-    type Built = BuiltComponent<T, H>;
+    type Built = BuiltComponent<T, H::Built>;
 
     #[inline]
     fn build(self) -> Self::Built {
@@ -84,16 +84,13 @@ where
     }
 }
 
-impl<T, H> Mountable for BuiltComponent<T, H>
-where
-    H: Html,
-{
+impl<T, B> Mountable for BuiltComponent<T, B> {
     fn js(&self) -> &JsValue {
         &self.node
     }
 }
 
-impl<T, R, H> Update<WrappedProperties<T, R, H>> for BuiltComponent<T, H>
+impl<T, R, H> Update<WrappedProperties<T, R, H>> for BuiltComponent<T, H::Built>
 where
     T: Component,
     R: Fn(&T) -> H,
