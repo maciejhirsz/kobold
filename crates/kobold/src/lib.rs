@@ -30,7 +30,7 @@ pub mod reexport {
     pub use web_sys;
 }
 
-pub fn start(html: impl Html) {
+pub fn start<'a>(html: impl Html + 'a) {
     use std::mem::ManuallyDrop;
 
     let built = ManuallyDrop::new(html.build());

@@ -27,26 +27,23 @@ where
     }
 }
 
-pub struct BuiltComponent<T, R, H>
+pub struct BuiltComponent<T, H>
 where
     T: Component,
-    R: Fn(&T) -> H,
     H: Html,
     Self: 'static,
 {
-    inner: Prime<InnerComponent<T, R, H>>,
+    inner: Prime<InnerComponent<T, H>>,
     node: JsValue,
 }
 
-pub struct InnerComponent<T, R, H>
+pub struct InnerComponent<T, H>
 where
     T: Component,
-    R: Fn(&T) -> H,
     H: Html,
     Self: 'static,
 {
     component: T,
-    render: R,
     built: H::Built,
 }
 
@@ -57,20 +54,18 @@ where
     H: Html,
     Self: 'static,
 {
-    type Built = BuiltComponent<T, R, H>;
+    type Built = BuiltComponent<T, H>;
 
     #[inline]
     fn build(self) -> Self::Built {
         let mut inner = Prime::new_uninit();
 
-        let render = self.render;
         let component = T::create(self.props, Link::new(inner.new_weak()));
-        let built = render(&component).build();
+        let built = (self.render)(&component).build();
         let node = built.js().clone();
 
         inner.init(InnerComponent {
             component,
-            render,
             built,
         });
 
@@ -78,25 +73,24 @@ where
     }
 }
 
-impl<T, R, H> MessageHandler for InnerComponent<T, R, H>
+impl<T, H> MessageHandler for InnerComponent<T, H>
 where
     T: Component,
-    R: Fn(&T) -> H,
     H: Html,
 {
     type Message = T::Message;
 
     fn handle(&mut self, message: Self::Message) {
         if self.component.handle(message) {
-            self.built.update((self.render)(&self.component))
+            panic!("What to do?");
+            // self.built.update((self.render)(&self.component))
         }
     }
 }
 
-impl<T, R, H> Mountable for BuiltComponent<T, R, H>
+impl<T, H> Mountable for BuiltComponent<T, H>
 where
     T: Component,
-    R: Fn(&T) -> H,
     H: Html,
 {
     fn js(&self) -> &JsValue {
@@ -104,7 +98,7 @@ where
     }
 }
 
-impl<T, R, H> Update<WrappedProperties<T, R, H>> for BuiltComponent<T, R, H>
+impl<T, R, H> Update<WrappedProperties<T, R, H>> for BuiltComponent<T, H>
 where
     T: Component,
     R: Fn(&T) -> H,
