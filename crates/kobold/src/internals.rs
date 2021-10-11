@@ -32,17 +32,16 @@ where
     H: Html,
     Self: 'static,
 {
-    inner: Prime<InnerComponent<T, H>>,
+    inner: Prime<InnerComponent<T, H::Built>>,
     node: JsValue,
 }
 
-pub struct InnerComponent<T, H>
+pub struct InnerComponent<T, B>
 where
-    H: Html,
     Self: 'static,
 {
     component: T,
-    built: H::Built,
+    built: B,
 }
 
 impl<T, R, H> Html for WrappedProperties<T, R, H>
@@ -71,10 +70,9 @@ where
     }
 }
 
-impl<T, H> MessageHandler for InnerComponent<T, H>
+impl<T, B> MessageHandler for InnerComponent<T, B>
 where
     T: Component,
-    H: Html,
 {
     type Message = T::Message;
 
