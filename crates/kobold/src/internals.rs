@@ -4,25 +4,25 @@ use crate::traits::{Component, Html, MessageHandler, Mountable, Update};
 use wasm_bindgen::JsValue;
 
 /// Wrapper containing proprs needed to build a component `T`, and its render method `R`.
-pub struct WrappedProperties<T, R, H>
+pub struct WrappedProperties<T, H>
 where
     T: Component,
-    R: Fn(&T) -> H,
+    // R: Fn(&T) -> H,
 {
     props: T::Properties,
     /// Once returning `impl T` from trait methods is stable we can put the
     /// `render` method directly on the `Component` trait. Until then this
     /// solution is zero-cost since `R` is 0-sized.
-    render: R,
+    render: fn(&T) -> H,
 }
 
-impl<T, R, H> WrappedProperties<T, R, H>
+impl<T, H> WrappedProperties<T, H>
 where
     T: Component,
-    R: Fn(&T) -> H,
+    // R: Fn(&T) -> H,
 {
     #[inline]
-    pub fn new(props: T::Properties, render: R) -> Self {
+    pub fn new(props: T::Properties, render: fn(&T) -> H) -> Self {
         WrappedProperties { props, render }
     }
 }
@@ -44,10 +44,10 @@ where
     built: B,
 }
 
-impl<T, R, H> Html for WrappedProperties<T, R, H>
+impl<T, H> Html for WrappedProperties<T, H>
 where
     T: Component,
-    R: Fn(&T) -> H,
+    // R: Fn(&T) -> H,
     H: Html,
     Self: 'static,
 {
@@ -90,14 +90,14 @@ impl<T, B> Mountable for BuiltComponent<T, B> {
     }
 }
 
-impl<T, R, H> Update<WrappedProperties<T, R, H>> for BuiltComponent<T, H::Built>
+impl<T, H> Update<WrappedProperties<T, H>> for BuiltComponent<T, H::Built>
 where
     T: Component,
-    R: Fn(&T) -> H,
+    // R: Fn(&T) -> H,
     H: Html,
 {
     #[inline]
-    fn update(&mut self, new: WrappedProperties<T, R, H>) {
+    fn update(&mut self, new: WrappedProperties<T, H>) {
         let mut inner = self
             .inner
             .borrow()

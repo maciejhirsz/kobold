@@ -26,7 +26,7 @@ where
 }
 
 impl<T: Component> Link<T> {
-    pub(crate) fn new(handler: Weak<impl MessageHandler<Message = T::Message>>) -> Self {
+    pub(crate) fn new(handler: Weak<impl MessageHandler<Message = T::Message> + 'static>) -> Self {
         Link {
             handler: handler.coerce(),
         }

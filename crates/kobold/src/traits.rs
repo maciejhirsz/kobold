@@ -38,10 +38,10 @@ pub trait Mountable {
     }
 }
 
-pub trait Component: Sized + 'static {
+pub trait Component: Sized {
     type Properties;
 
-    type Message;
+    type Message: 'static;
 
     fn create(props: Self::Properties, link: Link<Self>) -> Self;
 
@@ -50,7 +50,7 @@ pub trait Component: Sized + 'static {
     fn handle(&mut self, msg: Self::Message) -> ShouldRender;
 }
 
-pub(crate) trait MessageHandler: 'static {
+pub(crate) trait MessageHandler {
     type Message;
 
     fn handle(&mut self, msg: Self::Message);

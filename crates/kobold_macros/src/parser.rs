@@ -122,7 +122,7 @@ impl Parser {
                     };
 
                     let expr = quote! {
-                        ::kobold::internals::WrappedProperties::<#tag, _, _>::new(
+                        ::kobold::internals::WrappedProperties::<#tag, _>::new(
                             {
                                 type Properties = <#tag as ::kobold::Component>::Properties;
 
