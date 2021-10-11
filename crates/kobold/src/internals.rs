@@ -29,7 +29,6 @@ where
 
 pub struct BuiltComponent<T, H>
 where
-    T: Component,
     H: Html,
     Self: 'static,
 {
@@ -39,7 +38,6 @@ where
 
 pub struct InnerComponent<T, H>
 where
-    T: Component,
     H: Html,
     Self: 'static,
 {
@@ -90,7 +88,6 @@ where
 
 impl<T, H> Mountable for BuiltComponent<T, H>
 where
-    T: Component,
     H: Html,
 {
     fn js(&self) -> &JsValue {
