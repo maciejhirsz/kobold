@@ -46,10 +46,9 @@ where
 
 impl<T, H> Html for WrappedProperties<T, H>
 where
-    T: Component,
+    T: Component + 'static,
     // R: Fn(&T) -> H,
     H: Html,
-    Self: 'static,
 {
     type Built = BuiltComponent<T, H::Built>;
 

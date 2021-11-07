@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/kobold",
+    "crates/kobold_new",
     "crates/kobold_macros",
     "examples/clicker",
     "examples/self_borrow",
