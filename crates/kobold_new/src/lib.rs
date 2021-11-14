@@ -1,21 +1,20 @@
+#![feature(generic_associated_types)]
+#![feature(type_alias_impl_trait)]
+
+mod ptr;
 mod util;
 mod value;
 mod traits;
-mod internals;
+pub mod internals;
 
 pub use traits::{Html, Mountable, Component};
 
-
-pub fn start<'a>(html: impl Html<'a>) {
+pub fn start<H: Html>(html: H) {
     use std::mem::ManuallyDrop;
 
     let built = ManuallyDrop::new(html.build());
 
     util::__kobold_start(built.js());
-}
-
-pub fn render<'a, T>(render: impl internals::Render<'a, T>) {
-    panic!();
 }
 
 #[cfg(test)]
@@ -30,25 +29,20 @@ mod test {
             name: String,
         }
 
-        // impl Component for MyComponent {
-        //     type State = Self;
+        impl Component for MyComponent {
+            type State = Self;
 
-        //     fn init(self) -> Self {
-        //         self
-        //     }
-        // }
+            type Rendered<'r> = impl Html;
 
-        impl MyComponent {
-            fn render(&self) -> impl Html {
-                self.name.as_ref()
+            fn init(self) -> Self {
+                self
+            }
+
+            fn render(state: &Self::State) -> Self::Rendered<'_> {
+                state.name.as_ref()
             }
         }
 
-        render(MyComponent::render);
-
-        // start(ComponentInit {
-        //     component: MyComponent { name: "Bob".into() },
-        //     render: MyComponent::render,
-        // })
+        start(ComponentInit::new(MyComponent { name: "Bob".into() }));
     }
 }

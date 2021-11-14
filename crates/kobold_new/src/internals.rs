@@ -1,15 +1,44 @@
-use wasm_bindgen::JsValue;
+use std::marker::PhantomData;
+
+use wasm_bindgen::{JsStatic, JsValue};
 use web_sys::Node;
 use crate::traits::{Html, Component, Mountable};
+use crate::ptr::Prime;
 
-pub struct ComponentInit<C, R> {
-    pub component: C,
-    pub render: R,
+
+/// This is a wrapper for component initialization, we desugar:
+///
+/// ```ignore
+/// <SomeComponent prop={value} />
+/// ```
+///
+/// Into:
+///
+/// ```ignore
+/// ComponentInit::new(SomeComponent { prop: value }, SomeComponent::render)
+/// ```
+pub struct ComponentInit<'a, C: 'a> {
+    component: C,
+    _marker: PhantomData<&'a ()>,
+}
+
+impl<'a, C: 'a> ComponentInit<'a, C> {
+    pub fn new(component: C) -> Self {
+        ComponentInit {
+            component,
+            _marker: PhantomData,
+        }
+    }
+}
+
+pub struct ComponentNodeInner<State, Node> {
+    state: State,
+    node: Node,
 }
 
 pub struct ComponentNode<State, Node> {
-    state: State,
-    node: Node,
+    inner: Prime<ComponentNodeInner<State, Node>>,
+    js: JsValue,
 }
 
 impl<S, N> Mountable for ComponentNode<S, N>
@@ -18,91 +47,86 @@ where
     S: 'static,
 {
     fn js(&self) -> &JsValue {
-        self.node.js()
-    }
-
-    fn mount(&self, parent: &Node) {
-        self.node.mount(parent);
-    }
-
-    fn unmount(&self, parent: &Node) {
-        self.node.unmount(parent);
+        &self.js
     }
 }
 
-pub trait Render<'a, In>: Sized {
-    type Node: Mountable + 'static;
-
-    fn build(self, input: &'a In) -> Self::Node;
-
-    fn update(self, input: &'a In, node: &mut Self::Node);
+trait ComponentWithNode: Component {
+    type Node;
 }
 
-impl<'a, In, Out, F> Render<'a, In> for F
+impl<'a, C> Html for ComponentInit<'a, C>
 where
-    In: 'a,
-    F: Fn(&'a In) -> Out,
-    Out: Html<'a>,
-    Out::Node: 'static,
+    C: Component + 'a,
 {
-    type Node = <Out as Html<'a>>::Node;
-
-    fn build(self, input: &'a In) -> Self::Node {
-        (self)(input).build()
-    }
-
-    fn update(self, input: &'a In, node: &mut Self::Node) {
-        (self)(input).update(node);
-    }
-}
-
-impl<'a, C, R> Html<'a> for ComponentInit<C, R>
-where
-    C: 'static,
-    R: Render<'a, C>,
-{
-    type Node = ComponentNode<C, R::Node>;
+    type Node = ComponentNode<C::State, <C::Rendered<'a> as Html>::Node>;
 
     fn build(self) -> Self::Node {
-        // let node = self.render.build(&self.component);
-        panic!();
+        let mut inner = Prime::new_uninit();
+
+        let state = self.component.init();
+
+        let node = C::render(&state).build();
+        // let node = C::render(unsafe {
+        //     // We are expanding the borrow scope from scope to
+        //     // the generic 'a. It is possible to define the
+        //     // generics in such a way that makes the lifetime
+        //     // of the ref taken by the generic closure bound
+        //     // to the generic Html<'a> output of said closure,
+        //     // but doing so makes the code miscompile since
+        //     // lifetime ellision only kicks in at later stage.
+        //     //
+        //     // Regardless of the lifetime, this borrow should
+        //     // always be ephemeral and dropped immediately when
+        //     // the `build` is called, which produces an owned
+        //     // value with 'static lifetime.
+        //     &*(&state as *const C::State)
+        // }).build();
+        // let node = (self.render)(unsafe {
+        //     // We are expanding the borrow scope from scope to
+        //     // the generic 'a. It is possible to define the
+        //     // generics in such a way that makes the lifetime
+        //     // of the ref taken by the generic closure bound
+        //     // to the generic Html<'a> output of said closure,
+        //     // but doing so makes the code miscompile since
+        //     // lifetime ellision only kicks in at later stage.
+        //     //
+        //     // Regardless of the lifetime, this borrow should
+        //     // always be ephemeral and dropped immediately when
+        //     // the `build` is called, which produces an owned
+        //     // value with 'static lifetime.
+        //     &*(&state as *const C::State)
+        // }).build();
+        let js = node.js().clone();
+
+        // let inner = Rc::new(RefCell::new(ComponentNodeInner {
+        inner.init(ComponentNodeInner {
+            state,
+            node,
+        });
+
+        ComponentNode {
+            inner,
+            js,
+        }
     }
 
-    fn update(self, node: &mut Self::Node) {
-        panic!();
+    fn update(self, built: &mut Self::Node) {
+        let mut inner = built
+            .inner
+            .borrow()
+            .expect("Component is currently borrowed by a Weak reference!");
+
+        if self.component.update(&mut inner.state) {
+            C::render(&inner.state).update(&mut inner.node);
+            // C::render(unsafe {
+            //     // See comment above.
+            //     &*(&inner.state as *const C::State)
+            // }).update(&mut inner.node);
+            // (self.render)(unsafe {
+            //     // See comment above.
+            //     &*(&inner.state as *const C::State)
+            // }).update(&mut inner.node);
+        }
     }
 }
-
-// impl<'a, C, R> Html<'a> for ComponentInit<C, R>
-// where
-//     R: Render<'a, C>,
-// {
-//     type Node = ComponentNode<c, <R::Out as Html>::Node>,
-// }
-// impl<'a, C, R> Html<'a> for ComponentInit<C, R> {
-//     type Node = ComponentNode<C, N>;
-
-//     fn build(self) ->
-// }
-
-
-// impl<C, N, B, U> Html<'_> for ComponentInit<C, B, U>
-// where
-//     // C: Component,
-//     B: Fn(&C::State) -> N,
-//     U: Fn(&mut C::State, &mut N),
-//     N: Mountable,
-// {
-//     type Node = ComponentNode<C::State, N>;
-
-//     fn build(self) -> Self::Node {
-//         let state = self.component.init();
-//         let node = (self.build)(&state);
-
-//         ComponentNode { state, node }
-//     }
-
-//     fn update(self, node: &mut Self::Node) {
-//         (self.update)(&mut node.state, &mut node.node)
-//     }
-// }

@@ -1,4 +1,4 @@
-use kobold::prelude::*;
+use kobold_new::Html;
 
 fn main() {
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
@@ -8,31 +8,31 @@ fn main() {
         name: String,
     }
 
-    struct GreeterProps {
-        name: &'static str,
-    }
+    // struct GreeterProps {
+    //     name: &'static str,
+    // }
 
-    impl Component for Greeter {
-        type Properties = GreeterProps;
+    // impl Component for Greeter {
+    //     type Properties = GreeterProps;
 
-        type Message = ();
+    //     type Message = ();
 
-        fn create(props: Self::Properties, link: Link<Self>) -> Self {
-            Self {
-                name: props.name.into(),
-            }
-        }
+    //     fn create(props: Self::Properties, link: Link<Self>) -> Self {
+    //         Self {
+    //             name: props.name.into(),
+    //         }
+    //     }
 
-        fn update(&mut self, props: Self::Properties) -> ShouldRender {
-            self.name = props.name.into();
+    //     fn update(&mut self, props: Self::Properties) -> ShouldRender {
+    //         self.name = props.name.into();
 
-            true
-        }
+    //         true
+    //     }
 
-        fn handle(&mut self, msg: ()) -> ShouldRender {
-            false
-        }
-    }
+    //     fn handle(&mut self, msg: ()) -> ShouldRender {
+    //         false
+    //     }
+    // }
 
     impl Greeter {
         fn render<'a>(&'a self) -> impl Html + 'a {

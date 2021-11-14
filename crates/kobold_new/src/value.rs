@@ -9,27 +9,44 @@ pub struct ValueNode<T> {
     node: Node,
 }
 
-impl<T> Mountable for ValueNode<T> {
+impl<T: 'static> Mountable for ValueNode<T> {
     fn js(&self) -> &JsValue {
         &self.node
     }
 }
 
-impl<'a> Html<'a> for &'a str {
-	type Node = ValueNode<String>;
+#[derive(PartialEq, Eq)]
+pub struct StrRef {
+    ptr: *const u8,
+    len: usize,
+}
+
+impl StrRef {
+    fn new(s: &str) -> Self {
+        StrRef {
+            ptr: s.as_ptr(),
+            len: s.len(),
+        }
+    }
+}
+
+impl<'a> Html for &'a str {
+	type Node = ValueNode<StrRef>;
 
 	fn build(self) -> Self::Node {
 		let node = util::__kobold_text_node(self);
 
 		ValueNode {
-			value: self.into(),
+			value: StrRef::new(self),
 			node,
 		}
 	}
 
 	fn update(self, built: &mut Self::Node) {
-		if built.value != self {
-			built.value = self.into();
+        let val = StrRef::new(self);
+
+		if built.value != val {
+			built.value = val;
 
 			util::__kobold_update_text(&built.node, self);
 		}
@@ -44,7 +61,7 @@ fn bool_to_str(b: bool) -> &'static str {
     }
 }
 
-impl Html<'_> for bool {
+impl Html for bool {
     type Node = ValueNode<bool>;
 
     fn build(self) -> Self::Node {
@@ -65,7 +82,7 @@ impl Html<'_> for bool {
 macro_rules! impl_int {
     ($($t:ty),*) => {
         $(
-            impl Html<'_> for $t {
+            impl Html for $t {
                 type Node = ValueNode<$t>;
 
                 fn build(self) -> Self::Node {
@@ -103,7 +120,7 @@ macro_rules! impl_int {
 macro_rules! impl_float {
     ($($t:ty),*) => {
         $(
-            impl Html<'_> for $t {
+            impl Html for $t {
                 type Node = ValueNode<$t>;
 
                 fn build(self) -> Self::Node {
@@ -141,7 +158,7 @@ macro_rules! impl_float {
 macro_rules! impl_value {
     ($($t:ty),*) => {
         $(
-            impl Html<'_> for $t {
+            impl Html for $t {
                 type Node = ValueNode<$t>;
 
                 fn build(self) -> Self::Node {
