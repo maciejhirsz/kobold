@@ -1,86 +1,173 @@
-use std::ops::{Deref, DerefMut};
-use std::rc::{Rc, Weak};
-use std::any::TypeId;
 use std::cell::RefCell;
-use std::marker::PhantomData;
+use std::rc::{Rc, Weak};
 
-trait EventedComponent: Sized {
-    type State: State<Props = Self>;
+use wasm_bindgen::JsValue;
+use web_sys::Node;
 
-    fn init(self) -> Self::State;
+mod util;
+
+pub trait Html: Sized {
+    type Built: Mountable;
+
+    fn build(self) -> Self::Built;
+
+    fn update(self, built: &mut Self::Built);
 }
 
-trait State: 'static {
-    type Message;
+pub trait Mountable: 'static {
+    fn js(&self) -> &JsValue;
 
-    type Props: EventedComponent<State = Self>;
+    fn mount(&self, parent: &Node) {
+        util::__kobold_mount(parent, self.js());
+    }
 
-    type Out;
+    fn unmount(&self, parent: &Node) {
+        util::__kobold_unmount(parent, self.js());
+    }
+}
+
+pub type ShouldRender = bool;
+
+pub trait EventedComponent: Sized {
+    type State: Render;
+
+    fn init(self, link: Link<Self::State>) -> Self::State;
+
+    fn update(self, link: Link<Self::State>, state: &mut Self::State) -> ShouldRender {
+        *state = self.init(link);
+
+        true
+    }
+}
+
+pub trait Render: 'static {
+    type Out: Html;
 
     fn render(&self) -> Self::Out;
 }
 
-// trait Handle<Message> {
-//     fn update(&mut self, message: Message) -> bool;
-// }
-
-fn link<S: State>(f: impl Fn(&mut S)) -> Link<impl FnMut()> {
-    let type_id = TypeId::of::<S>();
-
-    EVENTED_STACK.with(move |stack| {
-        let &(tid, ptr) = stack.borrow_mut().last().unwrap();
-
-        assert_eq!(tid, type_id);
-
-        let rc = unsafe { &*(ptr as *const Rc<RefCell<S>> )}.clone();
-
-        Link(move || f(&mut rc.borrow_mut()))
-    })
+pub struct Link<'a, S: Render> {
+    state: &'a Weak<RefCell<S>>,
 }
 
-pub struct Link<F: FnMut()>(F);
+impl<S: Render> Link<'_, S> {
+    pub fn link(&self, f: impl Fn(&mut S) -> ShouldRender + 'static) -> Closure {
+        let state = self.state.clone();
 
-// pub struct Link<S, F: Fn(&mut S)> {
-//     closure: F,
-//     _marker: PhantomData<S>,
-// }
+        Closure(Box::new(move || {
+            if let Some(rc) = state.upgrade() {
+                let mut state = rc.borrow_mut();
 
-trait Component {
-    type Out;
+                if f(&mut state) {
+                    state.render();
+                }
+            }
+        }))
+    }
+}
+
+pub struct Closure(Box<dyn FnMut()>);
+
+trait Component: Sized {
+    type Built: Mountable;
+
+    // fn create(self) -> Self::Built;
+
+    // fn update(self, _built: &mut Self::Built);
+}
+
+trait SimpleComponent: Sized {
+    type Out: Html;
 
     fn render(self) -> Self::Out;
+
+    fn create(self) -> <Self::Out as Html>::Built {
+        self.render().build()
+    }
+
+    fn update(self, built: &mut <Self::Out as Html>::Built) {
+        self.render().update(built);
+    }
 }
 
-thread_local! {
-    static EVENTED_STACK: RefCell<Vec<(TypeId, *const ())>> = RefCell::new(Vec::new());
+struct EventedBuilt<State: Render> {
+    built_html: <State::Out as Html>::Built,
+    state: State,
+}
+
+impl<State: Render> Mountable for EventedBuilt<State> {
+    fn js(&self) -> &JsValue {
+        self.built_html.js()
+    }
+
+    fn mount(&self, parent: &Node) {
+        self.built_html.mount(parent);
+    }
+
+    fn unmount(&self, parent: &Node) {
+        self.built_html.unmount(parent);
+    }
 }
 
 impl<E> Component for E
 where
     E: EventedComponent,
 {
-    type Out = <E::State as State>::Out;
+    type Built = EventedBuilt<E::State>;
 
-    fn render(self) -> Self::Out {
-        let state = Rc::new(RefCell::new(self.init()));
+    // fn create(self) -> Self::Built {
 
-        let stack_ref = (TypeId::of::<E::State>(), &state as *const _ as *const ());
-
-        EVENTED_STACK.with(move |stack| {
-            stack.borrow_mut().push(stack_ref);
-        });
-
-        let out = E::State::render(&state.borrow());
-
-        EVENTED_STACK.with(|stack| {
-            stack.borrow_mut().pop();
-        });
-
-        out
-    }
+    // }
 }
+
+// pub trait Component: Sized {
+//     type Properties;
+
+//     fn create(props: Self::Properties) -> Self;
+
+//     fn update(&mut self, new: Self::Properties) -> ShouldRender;
+// }
+
+// struct Evented<Out> {
+//     Out
+// }
+
+// impl<E> Component for E
+// where
+//     E: EventedComponent,
+// {
+//     type Out = <E::State as Render>::Out;
+
+//     fn render(self) -> Self::Out {
+//         let state = Rc::new_cyclic(|state| RefCell::new(self.init(Link { state })));
+
+//         let state = state.borrow();
+
+//         state.render()
+//     }
+// }
+
+// struct MyState;
+
+
+// impl State for MyState {
+//     #[kobold]
+//     fn render(&self) -> impl Html {
+//         panic!()
+//     }
+// }
 
 // #[kobold]
 // fn Modal(name: &str) -> impl Html {
 //     <p>{name}</p>
+// }
+
+// struct Modal<'a> {
+//     name: &'a str,
+// }
+
+// kobold! {
+//     impl Component for Modal<'_> {
+//         fn render()
+//     }
 // }
