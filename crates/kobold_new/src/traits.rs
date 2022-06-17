@@ -5,19 +5,17 @@ use crate::util;
 pub type ShouldRender = bool;
 
 pub trait Component: Sized {
-	type State: 'static;
+    type State: 'static;
 
-    type Rendered<'a>: Html;
+    type Out<'html>: Html + 'html where Self: 'html;
 
-	fn init(self) -> Self::State;
+    fn init(self) -> Self::State;
 
     fn update(self, state: &mut Self::State) -> ShouldRender {
         *state = self.init();
 
         true
     }
-
-    fn render(state: &Self::State) -> Self::Rendered<'_>;
 }
 
 pub trait Html {
@@ -38,6 +36,10 @@ pub trait Mountable: 'static {
     fn unmount(&self, parent: &Node) {
         util::__kobold_unmount(parent, self.js());
     }
+}
+
+pub trait Link<Component> {
+
 }
 
 pub(crate) trait MessageHandler {

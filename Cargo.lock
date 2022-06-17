@@ -83,6 +83,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "kobold_experiment"
+version = "0.1.0"
+
+[[package]]
 name = "kobold_macros"
 version = "0.1.0"
 dependencies = [
@@ -99,6 +103,7 @@ version = "0.1.0"
 dependencies = [
  "dtoa",
  "itoa",
+ "nougat",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -117,6 +122,49 @@ checksum = "51b9bbe6c47d51fc3e1a9b945965946b4c44142ab8792c50835a980d362c2710"
 dependencies = [
  "cfg-if 1.0.0",
 ]
+
+[[package]]
+name = "macro_rules_attribute"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "422a6e082b3d33461030d68a243af2482eefded078eaaf8ac401777d21cae32b"
+dependencies = [
+ "macro_rules_attribute-proc_macro",
+ "paste",
+]
+
+[[package]]
+name = "macro_rules_attribute-proc_macro"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb4091d2e7f515b3a7ae8dda39417cd2b81d5c8814f68361c3e15b24e2d40b4a"
+
+[[package]]
+name = "nougat"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8dafa3a476b709b3930ca280fe980fa583a9904735b76045ca328f2c7382ca10"
+dependencies = [
+ "macro_rules_attribute",
+ "nougat-proc_macros",
+]
+
+[[package]]
+name = "nougat-proc_macros"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5aad0b7693b89a294713bf27d8664b86a9fee198e44bd683533215e256dc3176"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "paste"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c520e05135d6e763148b6426a837e239041653ba7becd2e538c076c738025fc"
 
 [[package]]
 name = "proc-macro2"
