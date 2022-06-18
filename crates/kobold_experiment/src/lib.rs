@@ -34,12 +34,24 @@ struct Counter {
 }
 
 impl Counter {
-    pub fn render(&self) -> impl Html {
+    pub fn render(self) -> impl Html {
         stateful(self.n, |state, link| {
             let inc = link.bind(|n| *n += 1);
             let dec = link.bind(|n| *n -= 1);
 
             *state
+        })
+    }
+}
+
+struct WithName {
+    name: String,
+}
+
+impl WithName {
+    pub fn render(self) -> impl Html {
+        stateful(self.name, |state, _link| {
+            state.as_str()
         })
     }
 }
@@ -51,12 +63,31 @@ impl Html for i32 {
         self
     }
 
-    fn update(self, built: &mut Self::Product) {
-        *built = self;
+    fn update(self, p: &mut Self::Product) {
+        *p = self;
+    }
+}
+
+impl Html for &str {
+    type Product = String;
+
+    fn build(self) -> Self::Product {
+        self.into()
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        p.clear();
+        p.push_str(self);
     }
 }
 
 impl Mountable for i32 {
+    fn js(&self) -> &JsValue {
+        panic!()
+    }
+}
+
+impl Mountable for String {
     fn js(&self) -> &JsValue {
         panic!()
     }

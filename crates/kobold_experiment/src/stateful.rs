@@ -1,7 +1,9 @@
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
+use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsValue;
+use web_sys::Event;
 
 use crate::{Html, Mountable};
 
@@ -71,26 +73,86 @@ pub struct Link<S, P> {
     inner: Weak<Inner<S, P>>,
 }
 
+pub struct Callback<F, L> {
+    cb: F,
+    link: L,
+}
+
+// I should not need to write this, but lifetime checking
+// was going really off the rails with inlined boxing
+#[inline]
+fn make_closure<F>(fun: F) -> Box<dyn FnMut(&Event)>
+where
+    F: FnMut(&Event) + 'static,
+{
+    Box::new(fun)
+}
+
+pub struct CallbackProduct {
+    closure: Closure<dyn FnMut(&Event)>,
+}
+
+impl<F, A, S, P> Html for Callback<F, &Link<S, P>>
+where
+    F: Fn(&mut S) -> A + 'static,
+    A: ShouldRender,
+    S: 'static,
+    P: 'static,
+{
+    type Product = CallbackProduct;
+
+    fn build(self) -> Self::Product {
+        let link = self.link.clone();
+        let cb = self.cb;
+
+        let closure = make_closure(move |_event| {
+            if let Some(rc) = link.inner.upgrade() {
+                if cb(&mut rc.state.borrow_mut()).should_render() {
+                    rc.update();
+                }
+            }
+        });
+        let closure = Closure::wrap(closure);
+
+        CallbackProduct { closure }
+    }
+
+    fn update(self, _p: &mut Self::Product) {}
+}
+
+impl Mountable for CallbackProduct {
+    fn js(&self) -> &JsValue {
+        self.closure.as_ref()
+    }
+}
+
 impl<S, P> Link<S, P>
 where
     S: 'static,
     P: 'static,
 {
-    pub fn bind<F, A>(&self, f: F) -> Box<dyn FnMut() + 'static>
+    pub fn bind<F, A>(&self, cb: F) -> Callback<F, &Self>
     where
         F: Fn(&mut S) -> A + 'static,
         A: ShouldRender,
     {
-        let link = self.clone();
-
-        Box::new(move || {
-            if let Some(rc) = link.inner.upgrade() {
-                if f(&mut rc.state.borrow_mut()).should_render() {
-                    rc.update();
-                }
-            }
-        })
+        Callback { cb, link: self }
     }
+    // pub fn bind<F, A>(&self, f: F) -> Box<dyn FnMut() + 'static>
+    // where
+    //     F: Fn(&mut S) -> A + 'static,
+    //     A: ShouldRender,
+    // {
+    //     let link = self.clone();
+
+    //     Box::new(move || {
+    //         if let Some(rc) = link.inner.upgrade() {
+    //             if f(&mut rc.state.borrow_mut()).should_render() {
+    //                 rc.update();
+    //             }
+    //         }
+    //     })
+    // }
 }
 
 impl<S, P> Clone for Link<S, P> {
