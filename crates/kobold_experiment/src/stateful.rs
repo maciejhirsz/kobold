@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
+use std::marker::PhantomData;
 
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsValue;
@@ -25,27 +26,28 @@ impl ShouldRender for bool {
 
 pub struct Stateful<S, H: Html> {
     state: S,
-    render: fn(&S, &Link<S, H::Product>) -> H,
+    render: RenderFn,
+    _marker: PhantomData<H>
 }
 
 pub fn stateful<'a, S, H>(state: S, render: fn(&'a S, &'a Link<S, H::Product>) -> H) -> Stateful<S, H>
 where
     H: Html + 'a,
 {
-    Stateful { state, render }
+    Stateful { state, render: RenderFn::new(render), _marker: PhantomData }
 }
 
-/// Magic wrapper for render function that allows us to store it with 'static
-/// lifetime without the lifetime on return type getting in the way
+/// Magic wrapper for render function that allows us to store it with a 'static
+/// lifetime, without the lifetime on return type getting in the way
 #[derive(Clone, Copy)]
 struct RenderFn(usize);
 
 impl RenderFn {
-    fn new<S, H: Html>(render: fn(&S, &Link<S, H::Product>) -> H) -> Self {
+    fn new<'a, S, H: Html + 'a>(render: fn(&'a S, &'a Link<S, H::Product>) -> H) -> Self {
         RenderFn(render as usize)
     }
 
-    unsafe fn cast<S, H: Html>(self) -> fn(&S, &Link<S, H::Product>) -> H {
+    unsafe fn cast<'a, S, H: Html + 'a>(self) -> fn(&'a S, &'a Link<S, H::Product>) -> H {
         std::mem::transmute(self.0)
     }
 }
@@ -138,21 +140,6 @@ where
     {
         Callback { cb, link: self }
     }
-    // pub fn bind<F, A>(&self, f: F) -> Box<dyn FnMut() + 'static>
-    // where
-    //     F: Fn(&mut S) -> A + 'static,
-    //     A: ShouldRender,
-    // {
-    //     let link = self.clone();
-
-    //     Box::new(move || {
-    //         if let Some(rc) = link.inner.upgrade() {
-    //             if f(&mut rc.state.borrow_mut()).should_render() {
-    //                 rc.update();
-    //             }
-    //         }
-    //     })
-    // }
 }
 
 impl<S, P> Clone for Link<S, P> {
@@ -175,15 +162,17 @@ where
             let link = Link {
                 inner: inner.clone(),
             };
-            let product = (self.render)(&self.state, &link).build();
 
-            let render = RenderFn::new(self.render);
+            // Safety: this is safe as long as `S` and `H` are the same types that
+            // were used to create this `RenderFn` instance.
+            let render_fn = unsafe { self.render.cast::<S, H>() };
+            let product = (render_fn)(&self.state, &link).build();
 
             Inner {
                 state: RefCell::new(self.state),
                 product: RefCell::new(product),
-                render,
-                link: link.clone(),
+                render: self.render,
+                link,
                 update: |render, link| {
                     // Safety: this is safe as long as `S` and `H` are the same types that
                     // were used to create this `RenderFn` instance.
@@ -205,8 +194,8 @@ where
     fn update(self, p: &mut Self::Product) {
         *p.inner.state.borrow_mut() = self.state;
 
-        // p.inner.update();
-        (self.render)(&p.inner.state.borrow(), &p.inner.link);
+        p.inner.update();
+        // (self.render)(&p.inner.state.borrow(), &p.inner.link);
         // (p.inner.update)(p.inner.render, &p.inner.link);
     }
 }
