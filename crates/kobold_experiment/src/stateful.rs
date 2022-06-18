@@ -28,9 +28,9 @@ pub struct Stateful<S, H: Html> {
     render: fn(&S, &Link<S, H::Product>) -> H,
 }
 
-pub fn stateful<S, H>(state: S, render: fn(&S, &Link<S, H::Product>) -> H) -> Stateful<S, H>
+pub fn stateful<'a, S, H>(state: S, render: fn(&'a S, &'a Link<S, H::Product>) -> H) -> Stateful<S, H>
 where
-    H: Html,
+    H: Html + 'a,
 {
     Stateful { state, render }
 }
