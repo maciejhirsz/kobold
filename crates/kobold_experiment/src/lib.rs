@@ -75,14 +75,21 @@ struct Inner<S, H: Html> {
 
 pub struct Stateful<S, H: Html> {
     inner: Rc<Inner<S, H>>,
+}
+
+pub struct StatefulProduct<S, H: Html> {
+    inner: Rc<Inner<S, H>>,
     js: JsValue,
 }
 
 impl<S, H: Html> Html for Stateful<S, H> {
-    type Built = Self;
+    type Built = StatefulProduct<S, H>;
 
     fn build(self) -> Self::Built {
-        self
+        let inner = self.inner;
+        let js = inner.product.borrow_mut().js().clone();
+
+        StatefulProduct { inner, js }
     }
 
     fn update(self, built: &mut Self::Built) {
@@ -90,7 +97,7 @@ impl<S, H: Html> Html for Stateful<S, H> {
     }
 }
 
-impl<S, H> Mountable for Stateful<S, H>
+impl<S, H> Mountable for StatefulProduct<S, H>
 where
     H: Html,
 {
@@ -123,7 +130,9 @@ fn stateful<S, H: Html>(state: S, render: fn(&S, Link<S, H>) -> H) -> Stateful<S
         }
     });
 
-    Stateful { inner }
+    let js = inner.product.borrow().js().clone();
+
+    Stateful { inner, js }
 }
 
 impl<S, H: Html> Link<'_, S, H> {
