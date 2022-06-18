@@ -44,7 +44,7 @@ impl RenderFn {
     }
 
     unsafe fn cast<S, H: Html>(self) -> fn(&S, &Link<S, H::Product>) -> H {
-        unsafe { std::mem::transmute(self.0) }
+        std::mem::transmute(self.0)
     }
 }
 
