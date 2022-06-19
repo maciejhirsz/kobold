@@ -49,7 +49,7 @@ pub trait Mountable: 'static {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 struct Counter {
     n: i32,
 }
