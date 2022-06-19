@@ -44,18 +44,6 @@ impl Counter {
     }
 }
 
-struct WithName {
-    name: String,
-}
-
-impl WithName {
-    pub fn render(self) -> impl Html {
-        stateful(self.name, |state, _link| {
-            state.as_str()
-        })
-    }
-}
-
 impl Html for i32 {
     type Product = i32;
 
