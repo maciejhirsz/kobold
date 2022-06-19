@@ -48,12 +48,9 @@ macro_rules! impl_int {
                 type Product = ValueProduct<$t>;
 
                 fn build(self) -> Self::Product {
-                    let mut buf = [0_u8; 20];
+                    let mut buf = itoa::Buffer::new();
 
-                    let n = itoa::write(&mut buf[..], self).unwrap_or_else(|_| 0);
-                    let node = util::__kobold_text_node(unsafe {
-                        str::from_utf8_unchecked(&buf[..n])
-                    });
+                    let node = util::__kobold_text_node(buf.format(self));
 
                     ValueProduct {
                         value: self,
@@ -65,13 +62,9 @@ macro_rules! impl_int {
                     if p.value != self {
                         p.value = self;
 
-                        let mut buf = [0_u8; 20];
+                        let mut buf = itoa::Buffer::new();
 
-                        let n = itoa::write(&mut buf[..], self).unwrap_or_else(|_| 0);
-
-                        util::__kobold_update_text(&p.node, unsafe {
-                            str::from_utf8_unchecked(&buf[..n])
-                        });
+                        util::__kobold_update_text(&p.node, buf.format(self));
                     }
                 }
             }
@@ -86,12 +79,9 @@ macro_rules! impl_float {
                 type Product = ValueProduct<$t>;
 
                 fn build(self) -> Self::Product {
-                    let mut buf = [0_u8; 20];
+                    let mut buf = ryu::Buffer::new();
 
-                    let n = dtoa::write(&mut buf[..], self).unwrap_or_else(|_| 0);
-                    let node = util::__kobold_text_node(unsafe {
-                        str::from_utf8_unchecked(&buf[..n])
-                    });
+                    let node = util::__kobold_text_node(buf.format(self));
 
                     ValueProduct {
                         value: self,
@@ -103,13 +93,9 @@ macro_rules! impl_float {
                     if (p.value - self).abs() > <$t>::EPSILON {
                         p.value = self;
 
-                        let mut buf = [0_u8; 20];
+                        let mut buf = ryu::Buffer::new();
 
-                        let n = dtoa::write(&mut buf[..], self).unwrap_or_else(|_| 0);
-
-                        util::__kobold_update_text(&p.node, unsafe {
-                            str::from_utf8_unchecked(&buf[..n])
-                        });
+                        util::__kobold_update_text(&p.node, buf.format(self));
                     }
                 }
             }
@@ -117,36 +103,5 @@ macro_rules! impl_float {
     };
 }
 
-macro_rules! impl_value {
-    ($($t:ty),*) => {
-        $(
-            impl Html for $t {
-                type Product = ValueProduct<$t>;
-
-                fn build(self) -> Self::Product {
-                    let buf = self.to_string();
-                    let node = util::__kobold_text_node(&buf);
-
-                    ValueProduct {
-                        value: self,
-                        node,
-                    }
-                }
-
-                fn update(self, p: &mut Self::Product) {
-                    if p.value != self {
-                        p.value = self;
-
-                        let buf = self.to_string();
-
-                        util::__kobold_update_text(&p.node, &buf);
-                    }
-                }
-            }
-        )*
-    };
-}
-
-impl_int!(u8, u16, u32, u64, i8, i16, i32, i64, usize, isize);
+impl_int!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, usize, isize);
 impl_float!(f32, f64);
-impl_value!(u128, i128);
