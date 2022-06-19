@@ -1,51 +1,46 @@
-use kobold_new::Html;
+use kobold::prelude::*;
 
 fn main() {
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
-    #[derive(Debug)]
-    struct Greeter {
+    struct Greeter<'a> {
+        name: &'a str,
+    }
+
+    struct GreeterState {
         name: String,
     }
 
-    // struct GreeterProps {
-    //     name: &'static str,
-    // }
+    impl Stateful for Greeter<'_> {
+        type State = GreeterState;
 
-    // impl Component for Greeter {
-    //     type Properties = GreeterProps;
-
-    //     type Message = ();
-
-    //     fn create(props: Self::Properties, link: Link<Self>) -> Self {
-    //         Self {
-    //             name: props.name.into(),
-    //         }
-    //     }
-
-    //     fn update(&mut self, props: Self::Properties) -> ShouldRender {
-    //         self.name = props.name.into();
-
-    //         true
-    //     }
-
-    //     fn handle(&mut self, msg: ()) -> ShouldRender {
-    //         false
-    //     }
-    // }
-
-    impl Greeter {
-        fn render<'a>(&'a self) -> impl Html + 'a {
-            html! {
-                <div>
-                    "Should be able to borrow a reference to string out:"{ self.name.as_str() }
-                </div>
+        fn init(self) -> GreeterState {
+            GreeterState {
+                name: self.name.into()
             }
         }
     }
 
-    // kobold::start(html! {
-    //     <Greeter name={"Bob"} />
-    // });
-    kobold::start(kobold::internals::WrappedProperties::new(GreeterProps { name: "Bob" }, Greeter::render))
+    impl<'a> Greeter<'a> {
+        fn render(self) -> impl Html + 'a {
+            self.stateful(|state, link| {
+                let exclaim = link.callback(|state, _| state.name.push('!'));
+                let alice = link.callback(|state, _| {
+                    state.name.clear();
+                    state.name.push_str("Alice");
+                });
+
+                html! {
+                    <div>
+                        <p>
+                            "Should be able to borrow a reference to an owned String: "{ &state.name }
+                        </p>
+                        <button onclick={alice}>"Alice"</button> <button onclick={exclaim}>"!"</button>
+                    </div>
+                }
+            })
+        }
+    }
+
+    kobold::start(Greeter { name: "Bob" }.render());
 }

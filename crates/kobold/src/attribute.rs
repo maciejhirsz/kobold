@@ -1,9 +1,9 @@
-use crate::traits::{Html, Mountable, Update};
 use crate::util;
+use crate::{Html, Mountable};
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
-pub use crate::callback::Callback;
+pub use crate::stateful::Callback;
 
 pub struct Attribute<V> {
     name: &'static str,
@@ -20,14 +20,21 @@ impl<V> Html for Attribute<V>
 where
     V: AsRef<str> + PartialEq + 'static,
 {
-    type Built = BuiltAttribute<V>;
+    type Product = AttributeProduct<V>;
 
-    fn build(self) -> Self::Built {
+    fn build(self) -> Self::Product {
         let node = util::__kobold_create_attr(self.name, self.value.as_ref());
 
-        BuiltAttribute {
+        AttributeProduct {
             value: self.value,
             node,
+        }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        if p.value != self.value {
+            p.value = self.value;
+            util::__kobold_update_attr(&p.node, p.value.as_ref());
         }
     }
 }
@@ -40,26 +47,21 @@ macro_rules! create_named_attrs {
         where
             V: AsRef<str> + PartialEq + 'static,
         {
-            type Built = BuiltAttribute<V>;
+            type Product = AttributeProduct<V>;
 
-            fn build(self) -> Self::Built {
+            fn build(self) -> Self::Product {
                 let node = util::$fun(self.0.as_ref());
 
-                BuiltAttribute {
+                AttributeProduct {
                     value: self.0,
                     node,
                 }
             }
-        }
 
-        impl<V> Update<$name<V>> for BuiltAttribute<V>
-        where
-            V: AsRef<str> + PartialEq,
-        {
-            fn update(&mut self, new: $name<V>) {
-                if self.value != new.0 {
-                    self.value = new.0;
-                    util::__kobold_update_attr(&self.node, self.value.as_ref());
+            fn update(self, p: &mut Self::Product) {
+                if p.value != self.0 {
+                    p.value = self.0;
+                    util::__kobold_update_attr(&p.node, p.value.as_ref());
                 }
             }
         }
@@ -71,25 +73,13 @@ create_named_attrs! {
     Style => __kobold_create_attr_style,
 }
 
-pub struct BuiltAttribute<V> {
+pub struct AttributeProduct<V> {
     value: V,
     node: Node,
 }
 
-impl<V> Mountable for BuiltAttribute<V> {
+impl<V: 'static> Mountable for AttributeProduct<V> {
     fn js(&self) -> &JsValue {
         &self.node
-    }
-}
-
-impl<V> Update<Attribute<V>> for BuiltAttribute<V>
-where
-    V: AsRef<str> + PartialEq,
-{
-    fn update(&mut self, new: Attribute<V>) {
-        if self.value != new.value {
-            self.value = new.value;
-            util::__kobold_update_attr(&self.node, self.value.as_ref());
-        }
     }
 }

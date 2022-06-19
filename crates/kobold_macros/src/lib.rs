@@ -66,51 +66,52 @@ pub fn html(body: TokenStream) -> TokenStream {
 
     let tokens: TokenStream = (quote! {
         {
-            use ::kobold::{Html, Node, JsValue};
+            use ::kobold::{Html, Node, Mountable, JsValue};
             use ::kobold::reexport::wasm_bindgen::{self, prelude::wasm_bindgen};
 
             #render
 
-            struct TransientHtml<#(#generics),*> {
+            struct Transient<#(#generics),*> {
                 #field_defs
             }
 
-            struct TransientBuilt<#(#generics),*> {
+            struct TransientProduct<#(#generics),*> {
                 #field_defs
                 node: Node,
             }
 
-            impl<#(#generics: Html),*> Html for TransientHtml<#(#generics),*> {
-                type Built = TransientBuilt<#(<#generics as Html>::Built),*>;
+            impl<#(#generics: Html),*> Html for Transient<#(#generics),*> {
+                type Product = TransientProduct<#(<#generics as Html>::Product),*>;
 
-                fn build(self) -> Self::Built {
+                fn build(self) -> Self::Product {
                     #(
                         let #field_names = self.#field_names.build();
                     )*
                     let node = #js_fn_name(#(#field_names.js()),*);
 
-                    TransientBuilt {
+                    TransientProduct {
                         #(#field_names,)*
                         node,
                     }
                 }
+
+                fn update(self, p: &mut Self::Product) {
+                    #(
+                        self.#field_names.update(&mut p.#field_names);
+                    )*
+                }
             }
 
-            impl<#(#generics),*> ::kobold::Mountable for TransientBuilt<#(#generics),*> {
+            impl<#(#generics),*> Mountable for TransientProduct<#(#generics),*>
+            where
+                Self: 'static,
+            {
                 fn js(&self) -> &JsValue {
                     &self.node
                 }
             }
 
-            impl<#(#generics: Html),*> ::kobold::Update<TransientHtml<#(#generics),*>> for TransientBuilt<#(<#generics as Html>::Built),*> {
-                fn update(&mut self, new: TransientHtml<#(#generics),*>) {
-                    #(
-                        self.#field_names.update(new.#field_names);
-                    )*
-                }
-            }
-
-            TransientHtml {
+            Transient {
                 #field_declr
             }
         }

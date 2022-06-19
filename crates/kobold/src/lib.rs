@@ -1,36 +1,69 @@
-mod callback;
-mod link;
-mod list;
-mod ptr;
-mod text;
-mod util;
-mod value;
-
-pub mod attribute;
-pub mod internals;
-pub mod traits;
-
-pub type ShouldRender = bool;
-
-pub use link::Link;
-pub use list::{BuiltList, IterWrapper};
-pub use text::BuiltText;
-pub use traits::{Component, Html, Mountable, Update};
-
-pub mod prelude {
-    pub use super::{html, Component, Html, Link, Mountable, ShouldRender, Update};
-}
-
 pub use kobold_macros::html;
 pub use wasm_bindgen::JsValue;
 pub use web_sys::Node;
 
+mod render_fn;
+mod util;
+mod value;
+
+pub mod attribute;
+pub mod list;
+pub mod stateful;
+
+pub use stateful::Stateful;
+
+pub mod prelude {
+    pub use crate::list::ListExt;
+    pub use crate::{html, Html, ShouldRender, Stateful};
+}
+
+/// Re-exports for the [`html!`](html) macro to use
 pub mod reexport {
     pub use wasm_bindgen;
     pub use web_sys;
 }
 
-pub fn start<'a>(html: impl Html + 'a) {
+pub enum ShouldRender {
+    No,
+    Yes,
+}
+
+impl From<()> for ShouldRender {
+    fn from(_: ()) -> ShouldRender {
+        ShouldRender::Yes
+    }
+}
+
+impl ShouldRender {
+    fn should_render(self) -> bool {
+        match self {
+            ShouldRender::Yes => true,
+            ShouldRender::No => false,
+        }
+    }
+}
+
+pub trait Html: Sized {
+    type Product: Mountable;
+
+    fn build(self) -> Self::Product;
+
+    fn update(self, p: &mut Self::Product);
+}
+
+pub trait Mountable: 'static {
+    fn js(&self) -> &JsValue;
+
+    fn mount(&self, parent: &Node) {
+        util::__kobold_mount(parent, self.js());
+    }
+
+    fn unmount(&self, parent: &Node) {
+        util::__kobold_unmount(parent, self.js());
+    }
+}
+
+pub fn start(html: impl Html) {
     use std::mem::ManuallyDrop;
 
     let built = ManuallyDrop::new(html.build());
@@ -38,28 +71,18 @@ pub fn start<'a>(html: impl Html + 'a) {
     util::__kobold_start(built.js());
 }
 
-mod empty {
-    use crate::prelude::*;
-    use crate::util;
-    use web_sys::Node;
+#[derive(PartialEq, Eq)]
+struct Counter {
+    n: i32,
+}
 
-    impl Html for () {
-        type Built = EmptyNode;
+impl Counter {
+    pub fn render(self) -> impl Html {
+        self.stateful(|state, link| {
+            let inc = link.callback(|state, _| state.n += 1);
+            let dec = link.callback(|state, _| state.n -= 1);
 
-        fn build(self) -> EmptyNode {
-            EmptyNode(util::__kobold_empty_node())
-        }
-    }
-
-    pub struct EmptyNode(Node);
-
-    impl Mountable for EmptyNode {
-        fn js(&self) -> &wasm_bindgen::JsValue {
-            &self.0
-        }
-    }
-
-    impl Update<()> for EmptyNode {
-        fn update(&mut self, _: ()) {}
+            state.n
+        })
     }
 }

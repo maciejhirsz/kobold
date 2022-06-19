@@ -1,6 +1,6 @@
 [package]
 name = "kobold_macros"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Maciej Hirsz <hello@maciej.codes>"]
 edition = "2018"
 license = "LGPL-3.0"

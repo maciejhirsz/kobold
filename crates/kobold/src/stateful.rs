@@ -16,7 +16,11 @@ pub trait Stateful: Sized {
 
     fn init(self) -> Self::State;
 
-    fn update(self, state: &mut Self::State) -> ShouldRender;
+    fn update(self, state: &mut Self::State) -> ShouldRender {
+        *state = self.init();
+
+        ShouldRender::Yes
+    }
 
     fn stateful<'a, H: Html + 'a>(
         self,

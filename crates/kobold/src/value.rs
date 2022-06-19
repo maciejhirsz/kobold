@@ -1,17 +1,74 @@
-use crate::traits::{Html, Mountable, Update};
 use crate::util;
+use crate::{Html, Mountable};
 use std::str;
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
-pub struct BuiltValue<T> {
+pub struct ValueProduct<T> {
     value: T,
     node: Node,
 }
 
-impl<T> Mountable for BuiltValue<T> {
+impl<T: 'static> Mountable for ValueProduct<T> {
     fn js(&self) -> &JsValue {
         &self.node
+    }
+}
+
+impl Html for &'static str {
+    type Product = ValueProduct<&'static str>;
+
+    fn build(self) -> Self::Product {
+        let node = util::__kobold_text_node(self);
+
+        ValueProduct { value: self, node }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        if p.value != self {
+            p.value = self;
+
+            util::__kobold_update_text(&p.node, self);
+        }
+    }
+}
+
+impl Html for String {
+    type Product = ValueProduct<String>;
+
+    fn build(self) -> Self::Product {
+        let node = util::__kobold_text_node(&self);
+
+        ValueProduct { value: self, node }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        if p.value != self {
+            p.value = self;
+
+            util::__kobold_update_text(&p.node, &p.value);
+        }
+    }
+}
+
+impl Html for &String {
+    type Product = ValueProduct<String>;
+
+    fn build(self) -> Self::Product {
+        let node = util::__kobold_text_node(self);
+
+        ValueProduct {
+            value: self.clone(),
+            node,
+        }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        if &p.value != self {
+            p.value.clone_from(self);
+
+            util::__kobold_update_text(&p.node, &p.value);
+        }
     }
 }
 
@@ -24,21 +81,19 @@ fn bool_to_str(b: bool) -> &'static str {
 }
 
 impl Html for bool {
-    type Built = BuiltValue<bool>;
+    type Product = ValueProduct<bool>;
 
-    fn build(self) -> Self::Built {
+    fn build(self) -> Self::Product {
         let node = util::__kobold_text_node(bool_to_str(self));
 
-        BuiltValue { value: self, node }
+        ValueProduct { value: self, node }
     }
-}
 
-impl Update<bool> for BuiltValue<bool> {
-    fn update(&mut self, new: bool) {
-        if self.value != new {
-            self.value = new;
+    fn update(self, p: &mut Self::Product) {
+        if p.value != self {
+            p.value = self;
 
-            util::__kobold_update_text(&self.node, bool_to_str(self.value));
+            util::__kobold_update_text(&p.node, bool_to_str(p.value));
         }
     }
 }
@@ -47,35 +102,26 @@ macro_rules! impl_int {
     ($($t:ty),*) => {
         $(
             impl Html for $t {
-                type Built = BuiltValue<$t>;
+                type Product = ValueProduct<$t>;
 
-                fn build(self) -> Self::Built {
-                    let mut buf = [0_u8; 20];
+                fn build(self) -> Self::Product {
+                    let mut buf = itoa::Buffer::new();
 
-                    let n = itoa::write(&mut buf[..], self).unwrap_or_else(|_| 0);
-                    let node = util::__kobold_text_node(unsafe {
-                        str::from_utf8_unchecked(&buf[..n])
-                    });
+                    let node = util::__kobold_text_node(buf.format(self));
 
-                    BuiltValue {
+                    ValueProduct {
                         value: self,
                         node,
                     }
                 }
-            }
 
-            impl Update<$t> for BuiltValue<$t> {
-                fn update(&mut self, new: $t) {
-                    if self.value != new {
-                        self.value = new;
+                fn update(self, p: &mut Self::Product) {
+                    if p.value != self {
+                        p.value = self;
 
-                        let mut buf = [0_u8; 20];
+                        let mut buf = itoa::Buffer::new();
 
-                        let n = itoa::write(&mut buf[..], new).unwrap_or_else(|_| 0);
-
-                        util::__kobold_update_text(&self.node, unsafe {
-                            str::from_utf8_unchecked(&buf[..n])
-                        });
+                        util::__kobold_update_text(&p.node, buf.format(self));
                     }
                 }
             }
@@ -87,35 +133,26 @@ macro_rules! impl_float {
     ($($t:ty),*) => {
         $(
             impl Html for $t {
-                type Built = BuiltValue<$t>;
+                type Product = ValueProduct<$t>;
 
-                fn build(self) -> Self::Built {
-                    let mut buf = [0_u8; 20];
+                fn build(self) -> Self::Product {
+                    let mut buf = ryu::Buffer::new();
 
-                    let n = dtoa::write(&mut buf[..], self).unwrap_or_else(|_| 0);
-                    let node = util::__kobold_text_node(unsafe {
-                        str::from_utf8_unchecked(&buf[..n])
-                    });
+                    let node = util::__kobold_text_node(buf.format(self));
 
-                    BuiltValue {
+                    ValueProduct {
                         value: self,
                         node,
                     }
                 }
-            }
 
-            impl Update<$t> for BuiltValue<$t> {
-                fn update(&mut self, new: $t) {
-                    if (self.value - new).abs() > <$t>::EPSILON {
-                        self.value = new;
+                fn update(self, p: &mut Self::Product) {
+                    if (p.value - self).abs() > <$t>::EPSILON {
+                        p.value = self;
 
-                        let mut buf = [0_u8; 20];
+                        let mut buf = ryu::Buffer::new();
 
-                        let n = dtoa::write(&mut buf[..], new).unwrap_or_else(|_| 0);
-
-                        util::__kobold_update_text(&self.node, unsafe {
-                            str::from_utf8_unchecked(&buf[..n])
-                        });
+                        util::__kobold_update_text(&p.node, buf.format(self));
                     }
                 }
             }
@@ -123,38 +160,5 @@ macro_rules! impl_float {
     };
 }
 
-macro_rules! impl_value {
-    ($($t:ty),*) => {
-        $(
-            impl Html for $t {
-                type Built = BuiltValue<$t>;
-
-                fn build(self) -> Self::Built {
-                    let buf = self.to_string();
-                    let node = util::__kobold_text_node(&buf);
-
-                    BuiltValue {
-                        value: self,
-                        node,
-                    }
-                }
-            }
-
-            impl Update<$t> for BuiltValue<$t> {
-                fn update(&mut self, new: $t) {
-                    if self.value != new {
-                        self.value = new;
-
-                        let buf = new.to_string();
-
-                        util::__kobold_update_text(&self.node, &buf);
-                    }
-                }
-            }
-        )*
-    };
-}
-
-impl_int!(u8, u16, u32, u64, i8, i16, i32, i64, usize, isize);
+impl_int!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, usize, isize);
 impl_float!(f32, f64);
-impl_value!(u128, i128);
