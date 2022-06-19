@@ -5,6 +5,7 @@ mod render_fn;
 mod util;
 mod value;
 
+pub mod attribute;
 pub mod list;
 pub mod stateful;
 

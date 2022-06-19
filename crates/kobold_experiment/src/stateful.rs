@@ -9,7 +9,7 @@ use crate::{Html, Mountable, ShouldRender};
 
 mod link;
 
-pub use link::Link;
+pub use link::{Callback, Link};
 
 pub trait Stateful: Sized {
     type State: 'static;

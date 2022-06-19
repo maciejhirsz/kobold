@@ -1,5 +1,5 @@
-use crate::{Html, Mountable};
 use crate::util;
+use crate::{Html, Mountable};
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 

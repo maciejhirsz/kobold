@@ -1,5 +1,5 @@
-use crate::{Html, Mountable};
 use crate::util;
+use crate::{Html, Mountable};
 use std::str;
 use wasm_bindgen::JsValue;
 use web_sys::Node;
@@ -57,7 +57,10 @@ impl Html for &String {
     fn build(self) -> Self::Product {
         let node = util::__kobold_text_node(self);
 
-        ValueProduct { value: self.clone(), node }
+        ValueProduct {
+            value: self.clone(),
+            node,
+        }
     }
 
     fn update(self, p: &mut Self::Product) {

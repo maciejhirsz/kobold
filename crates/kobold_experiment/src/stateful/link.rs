@@ -8,7 +8,7 @@ use crate::stateful::Inner;
 use crate::{Html, Mountable, ShouldRender};
 
 pub struct Link<S, P> {
-    pub(in super) inner: Weak<Inner<S, P>>,
+    pub(super) inner: Weak<Inner<S, P>>,
 }
 
 impl<S, P> Link<S, P>
