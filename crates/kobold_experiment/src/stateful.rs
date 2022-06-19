@@ -103,7 +103,7 @@ where
                     let render = unsafe { render.cast::<H>() };
 
                     if let Some(inner) = link.inner.upgrade() {
-                        (render)(&inner.state.borrow(), &link)
+                        (render)(&inner.state.borrow(), link)
                             .update(&mut inner.product.borrow_mut());
                     }
                 },
