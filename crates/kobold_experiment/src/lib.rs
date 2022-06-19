@@ -3,6 +3,7 @@ use web_sys::Node;
 
 mod util;
 mod stateful;
+mod render_fn;
 
 pub use stateful::stateful;
 
