@@ -2,10 +2,31 @@ use wasm_bindgen::JsValue;
 use web_sys::Node;
 
 mod util;
-mod stateful;
 mod render_fn;
 
+pub mod stateful;
+
 pub use stateful::stateful;
+
+pub enum ShouldRender {
+    No,
+    Yes,
+}
+
+impl From<()> for ShouldRender {
+    fn from(_: ()) -> ShouldRender {
+        ShouldRender::Yes
+    }
+}
+
+impl ShouldRender {
+    fn should_render(self) -> bool {
+        match self {
+            ShouldRender::Yes => true,
+            ShouldRender::No => false,
+        }
+    }
+}
 
 pub trait Html: Sized {
     type Product: Mountable;
@@ -27,57 +48,54 @@ pub trait Mountable: 'static {
     }
 }
 
-pub type ShouldRender = bool;
+// struct Counter {
+//     n: i32,
+// }
 
+// impl Counter {
+//     pub fn render(self) -> impl Html {
+//         stateful(self.n, |state, link| {
+//             let inc = link.bind(|n| *n += 1);
+//             let dec = link.bind(|n| *n -= 1);
 
-struct Counter {
-    n: i32,
-}
+//             *state
+//         })
+//     }
+// }
 
-impl Counter {
-    pub fn render(self) -> impl Html {
-        stateful(self.n, |state, link| {
-            let inc = link.bind(|n| *n += 1);
-            let dec = link.bind(|n| *n -= 1);
+// impl Html for i32 {
+//     type Product = i32;
 
-            *state
-        })
-    }
-}
+//     fn build(self) -> Self::Product {
+//         self
+//     }
 
-impl Html for i32 {
-    type Product = i32;
+//     fn update(self, p: &mut Self::Product) {
+//         *p = self;
+//     }
+// }
 
-    fn build(self) -> Self::Product {
-        self
-    }
+// impl Html for &str {
+//     type Product = String;
 
-    fn update(self, p: &mut Self::Product) {
-        *p = self;
-    }
-}
+//     fn build(self) -> Self::Product {
+//         self.into()
+//     }
 
-impl Html for &str {
-    type Product = String;
+//     fn update(self, p: &mut Self::Product) {
+//         p.clear();
+//         p.push_str(self);
+//     }
+// }
 
-    fn build(self) -> Self::Product {
-        self.into()
-    }
+// impl Mountable for i32 {
+//     fn js(&self) -> &JsValue {
+//         panic!()
+//     }
+// }
 
-    fn update(self, p: &mut Self::Product) {
-        p.clear();
-        p.push_str(self);
-    }
-}
-
-impl Mountable for i32 {
-    fn js(&self) -> &JsValue {
-        panic!()
-    }
-}
-
-impl Mountable for String {
-    fn js(&self) -> &JsValue {
-        panic!()
-    }
-}
+// impl Mountable for String {
+//     fn js(&self) -> &JsValue {
+//         panic!()
+//     }
+// }

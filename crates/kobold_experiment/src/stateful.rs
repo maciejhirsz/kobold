@@ -27,26 +27,10 @@ impl<T: Copy + Eq + 'static> Stateful for T {
     fn update(self, state: &mut Self::State) -> ShouldRender {
         if self != *state {
             *state = self;
-            true
+            ShouldRender::Yes
         } else {
-            false
+            ShouldRender::No
         }
-    }
-}
-
-pub trait HasUpdated {
-    fn has_updated(self) -> bool;
-}
-
-impl HasUpdated for () {
-    fn has_updated(self) -> bool {
-        true
-    }
-}
-
-impl HasUpdated for bool {
-    fn has_updated(self) -> bool {
-        self
     }
 }
 
@@ -116,7 +100,7 @@ pub struct CallbackProduct {
 impl<F, A, S, P> Html for Callback<F, &Link<S, P>>
 where
     F: Fn(&mut S) -> A + 'static,
-    A: HasUpdated,
+    A: Into<ShouldRender>,
     S: 'static,
     P: 'static,
 {
@@ -128,7 +112,7 @@ where
 
         let closure = make_closure(move |_event| {
             if let Some(rc) = link.inner.upgrade() {
-                if cb(&mut rc.state.borrow_mut()).has_updated() {
+                if cb(&mut rc.state.borrow_mut()).into().should_render() {
                     rc.update();
                 }
             }
@@ -155,7 +139,7 @@ where
     pub fn bind<F, A>(&self, cb: F) -> Callback<F, &Self>
     where
         F: Fn(&mut S) -> A + 'static,
-        A: HasUpdated,
+        A: Into<ShouldRender>,
     {
         Callback { cb, link: self }
     }
@@ -213,7 +197,7 @@ where
     }
 
     fn update(self, p: &mut Self::Product) {
-        if self.props.update(&mut p.inner.state.borrow_mut()) {
+        if self.props.update(&mut p.inner.state.borrow_mut()).should_render() {
             p.inner.update();
         }
     }
