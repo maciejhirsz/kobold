@@ -16,7 +16,7 @@ where
     S: 'static,
     P: 'static,
 {
-    pub fn bind<F, A>(&self, cb: F) -> Callback<F, &Self>
+    pub fn callback<F, A>(&self, cb: F) -> Callback<F, &Self>
     where
         F: Fn(&mut S, &Event) -> A + 'static,
         A: Into<ShouldRender>,

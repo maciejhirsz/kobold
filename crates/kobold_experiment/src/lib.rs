@@ -9,6 +9,10 @@ pub mod stateful;
 
 pub use stateful::Stateful;
 
+pub mod prelude {
+    pub use crate::{Stateful, Html};
+}
+
 pub enum ShouldRender {
     No,
     Yes,
@@ -57,8 +61,8 @@ struct Counter {
 impl Counter {
     pub fn render(self) -> impl Html {
         self.stateful(|state, link| {
-            let inc = link.bind(|state, _| state.n += 1);
-            let dec = link.bind(|state, _| state.n -= 1);
+            let inc = link.callback(|state, _| state.n += 1);
+            let dec = link.callback(|state, _| state.n -= 1);
 
             state.n
         })
