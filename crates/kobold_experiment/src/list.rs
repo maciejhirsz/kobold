@@ -3,8 +3,23 @@ use crate::util;
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
+/// Helper trait for wrapping iterators in [`List`](List)s which implement [`Html`](Html).
+pub trait ListExt: Sized {
+    fn list(self) -> List<Self>;
+}
+
+impl<T> ListExt for T
+where
+    T: IntoIterator,
+    <T as IntoIterator>::Item: Html,
+{
+    fn list(self) -> List<Self> {
+        List(self)
+    }
+}
+
 /// Wrapper type that implements `Html` for iterators.
-pub struct List<T>(pub T);
+pub struct List<T>(T);
 
 pub struct ListProduct<T> {
     list: Vec<T>,

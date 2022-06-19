@@ -1,17 +1,17 @@
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
-mod list;
 mod render_fn;
 mod util;
 mod value;
 
+pub mod list;
 pub mod stateful;
 
-pub use list::List;
 pub use stateful::Stateful;
 
 pub mod prelude {
+    pub use crate::list::ListExt;
     pub use crate::{Html, Stateful};
 }
 
