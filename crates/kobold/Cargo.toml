@@ -2,7 +2,7 @@
 name = "kobold"
 version = "0.2.0"
 authors = ["Maciej Hirsz <hello@maciej.codes>"]
-edition = "2018"
+edition = "2021"
 license = "LGPL-3.0"
 readme = "../../README.md"
 description = "WIP frontend framework"
