@@ -56,8 +56,8 @@ struct Counter {
 impl Counter {
     pub fn render(self) -> impl Html {
         self.n.stateful(|state, link| {
-            let inc = link.bind(|n| *n += 1);
-            let dec = link.bind(|n| *n -= 1);
+            let inc = link.bind(|n, _| *n += 1);
+            let dec = link.bind(|n, _| *n -= 1);
 
             *state
         })

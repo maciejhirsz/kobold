@@ -95,7 +95,7 @@ pub struct CallbackProduct {
 
 impl<F, A, S, P> Html for Callback<F, &Link<S, P>>
 where
-    F: Fn(&mut S) -> A + 'static,
+    F: Fn(&mut S, &Event) -> A + 'static,
     A: Into<ShouldRender>,
     S: 'static,
     P: 'static,
@@ -106,9 +106,9 @@ where
         let link = self.link.clone();
         let cb = self.cb;
 
-        let closure = make_closure(move |_event| {
+        let closure = make_closure(move |event| {
             if let Some(rc) = link.inner.upgrade() {
-                if cb(&mut rc.state.borrow_mut()).into().should_render() {
+                if cb(&mut rc.state.borrow_mut(), event).into().should_render() {
                     rc.update();
                 }
             }
@@ -134,7 +134,7 @@ where
 {
     pub fn bind<F, A>(&self, cb: F) -> Callback<F, &Self>
     where
-        F: Fn(&mut S) -> A + 'static,
+        F: Fn(&mut S, &Event) -> A + 'static,
         A: Into<ShouldRender>,
     {
         Callback { cb, link: self }
