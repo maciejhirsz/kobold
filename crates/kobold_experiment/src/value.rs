@@ -15,6 +15,60 @@ impl<T: 'static> Mountable for ValueProduct<T> {
     }
 }
 
+impl Html for &'static str {
+    type Product = ValueProduct<&'static str>;
+
+    fn build(self) -> Self::Product {
+        let node = util::__kobold_text_node(self);
+
+        ValueProduct { value: self, node }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        if p.value != self {
+            p.value = self;
+
+            util::__kobold_update_text(&p.node, self);
+        }
+    }
+}
+
+impl Html for String {
+    type Product = ValueProduct<String>;
+
+    fn build(self) -> Self::Product {
+        let node = util::__kobold_text_node(&self);
+
+        ValueProduct { value: self, node }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        if p.value != self {
+            p.value = self;
+
+            util::__kobold_update_text(&p.node, &p.value);
+        }
+    }
+}
+
+impl Html for &String {
+    type Product = ValueProduct<String>;
+
+    fn build(self) -> Self::Product {
+        let node = util::__kobold_text_node(self);
+
+        ValueProduct { value: self.clone(), node }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        if &p.value != self {
+            p.value.clone_from(self);
+
+            util::__kobold_update_text(&p.node, &p.value);
+        }
+    }
+}
+
 fn bool_to_str(b: bool) -> &'static str {
     if b {
         "true"
