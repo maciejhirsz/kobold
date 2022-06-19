@@ -122,7 +122,7 @@ where
         if let Some((first, rest)) = children.split_first() {
             match first {
                 Node::Text(text) => append.push_str(text),
-                node => append.push_str(&self.generate(node)?),
+                ref node => append.push_str(&self.generate(node)?),
             }
 
             for child in rest {
@@ -130,7 +130,7 @@ where
 
                 match child {
                     Node::Text(text) => append.push_str(text),
-                    node => append.push_str(&self.generate(node)?),
+                    ref node => append.push_str(&self.generate(node)?),
                 }
             }
         }

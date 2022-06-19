@@ -3,7 +3,7 @@ use crate::dom::{Attribute, AttributeValue, Element, Field, FieldKind, Node};
 use arrayvec::ArrayString;
 use beef::Cow;
 use proc_macro::token_stream::IntoIter as TokenIter;
-use proc_macro::{Delimiter, Ident, Literal, Span, TokenStream, TokenTree};
+use proc_macro::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 use proc_macro2::TokenStream as QuoteTokens;
 use quote::{quote, quote_spanned};
 use std::convert::TryFrom;
@@ -97,39 +97,41 @@ impl Parser {
                 if el.is_component() {
                     let tag = into_quote(tag_ident);
 
-                    let props = if el.attributes.is_empty() {
-                        quote! { Properties }
-                    } else {
-                        let props = el
-                            .attributes
-                            .into_iter()
-                            .map(|attr| {
-                                let name = into_quote(attr.ident);
-                                let value = match attr.value {
-                                    AttributeValue::Text(text) => quote! { #text },
-                                    AttributeValue::Expression(expr) => expr,
-                                };
+                    let expr = match (el.attributes.is_empty(), el.defaults) {
+                        (true, true) => quote! { #tag::default().render() },
+                        (true, false) => quote! { #tag.render() },
+                        (false, defaults) => {
+                            let props = el
+                                .attributes
+                                .into_iter()
+                                .map(|attr| {
+                                    let name = into_quote(attr.ident);
+                                    let value = match attr.value {
+                                        AttributeValue::Text(text) => quote! { #text },
+                                        AttributeValue::Expression(expr) => expr,
+                                    };
 
-                                quote! { #name: #value, }
-                            })
-                            .collect::<QuoteTokens>();
+                                    quote! { #name: #value, }
+                                })
+                                .collect::<QuoteTokens>();
 
-                        quote! {
-                            Properties {
-                                #props
+                            if defaults {
+                                quote! {
+                                    #tag {
+                                        #props
+                                        ..Default::default()
+                                    }
+                                    .render()
+                                }
+                            } else {
+                                quote! {
+                                    #tag {
+                                        #props
+                                    }
+                                    .render()
+                                }
                             }
                         }
-                    };
-
-                    let expr = quote! {
-                        ::kobold::internals::WrappedProperties::<#tag, _, _>::new(
-                            {
-                                type Properties = <#tag as ::kobold::Component>::Properties;
-
-                                #props
-                            },
-                            #tag::render,
-                        )
                     };
 
                     self.new_field(FieldKind::Html, expr);
@@ -140,23 +142,24 @@ impl Parser {
                         if let AttributeValue::Expression(tokens) = &attr.value {
                             let attr_name = attr.name.as_str();
 
-                            let (kind, constructor) = match attr_name {
-                                "style" => (FieldKind::Attr, Some(quote! { Style })),
-                                "class" => (FieldKind::Attr, Some(quote! { Class })),
-                                n if n.starts_with("on") && n.len() > 2 => (
-                                    FieldKind::Callback(n[2..].into()),
-                                    Some(quote! { Callback }),
+                            let (kind, expr) = match attr_name {
+                                "style" => (
+                                    FieldKind::Attr,
+                                    quote! { ::kobold::attribute::Style(#tokens) },
                                 ),
-                                _ => (FieldKind::Attr, None),
-                            };
-
-                            let expr = match constructor {
-                                Some(constructor) => quote! {
-                                    ::kobold::attribute::#constructor(#tokens)
-                                },
-                                None => quote! {
-                                    ::kobold::attribute::Attribute::new(#attr_name, #tokens)
-                                },
+                                "class" => (
+                                    FieldKind::Attr,
+                                    quote! { ::kobold::attribute::Class(#tokens) },
+                                ),
+                                n if n.starts_with("on") && n.len() > 2 => {
+                                    (FieldKind::Callback(n[2..].into()), tokens.clone())
+                                }
+                                _ => (
+                                    FieldKind::Attr,
+                                    quote! {
+                                        ::kobold::attribute::Attribute::new(#attr_name, #tokens)
+                                    },
+                                ),
                             };
 
                             self.new_field(kind, expr);
@@ -167,24 +170,7 @@ impl Parser {
                 }
             }
             Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
-                let mut iter = group.stream().into_iter();
-
-                let expr = match iter.next() {
-                    Some(TokenTree::Ident(ref ident)) if ident.to_string() == "for" => {
-                        let tokens: QuoteTokens = iter.collect::<TokenStream>().into();
-
-                        quote! {
-                            ::kobold::IterWrapper(#tokens)
-                        }
-                    }
-                    Some(tt) => IntoIterator::into_iter([tt])
-                        .chain(iter)
-                        .collect::<TokenStream>()
-                        .into(),
-                    None => quote! {},
-                };
-
-                self.new_field(FieldKind::Html, expr);
+                self.new_field(FieldKind::Html, group.stream().into());
 
                 Ok(Node::Expression)
             }
@@ -201,6 +187,7 @@ impl Parser {
             tag,
             attributes: Vec::new(),
             children: Vec::new(),
+            defaults: false,
         };
 
         // Props loop
@@ -248,6 +235,17 @@ impl Parser {
                         ident: ident.clone(),
                         value: AttributeValue::Expression(into_quote(ident)),
                     });
+                }
+                Some(TokenTree::Punct(punct))
+                    if punct.as_char() == '.' && punct.spacing() == Spacing::Joint =>
+                {
+                    expect_punct(iter.next(), '.')?;
+                    expect_punct(iter.next(), '/')?;
+                    expect_punct(iter.next(), '>')?;
+
+                    element.defaults = true;
+
+                    return Ok(element);
                 }
                 Some(TokenTree::Punct(punct)) if punct.as_char() == '/' => {
                     expect_punct(iter.next(), '>')?;

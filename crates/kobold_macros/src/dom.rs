@@ -48,6 +48,7 @@ pub struct Element {
     pub tag: String,
     pub attributes: Vec<Attribute>,
     pub children: Vec<Node>,
+    pub defaults: bool,
 }
 
 impl Element {
