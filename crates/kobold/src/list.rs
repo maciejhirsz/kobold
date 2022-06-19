@@ -24,7 +24,8 @@ pub struct List<T>(T);
 pub struct ListProduct<T> {
     list: Vec<T>,
     visible: usize,
-    anchor: Node,
+    start_anchor: Node,
+    end_anchor: Node,
     frag: Node,
 }
 
@@ -43,10 +44,11 @@ where
 
     fn build(self) -> Self::Product {
         let iter = self.0.into_iter();
-        let anchor = util::__kobold_empty_node();
+        let start_anchor = util::__kobold_empty_node();
+        let end_anchor = util::__kobold_empty_node();
         let frag = util::__kobold_document_fragment();
 
-        util::__kobold_mount(&frag, &anchor);
+        util::__kobold_mount(&frag, &start_anchor);
 
         let list: Vec<_> = iter
             .map(|item| {
@@ -58,12 +60,15 @@ where
             })
             .collect();
 
+        util::__kobold_mount(&frag, &end_anchor);
+
         let visible = list.len();
 
         ListProduct {
             list,
             visible,
-            anchor,
+            start_anchor,
+            end_anchor,
             frag,
         }
     }
@@ -100,12 +105,7 @@ where
             }
 
             if p.visible > updated {
-                let anchor = match p.list[..updated].last() {
-                    Some(built) => built.js(),
-                    None => &p.anchor,
-                };
-
-                util::__kobold_after(anchor, &p.frag);
+                util::__kobold_before(&p.end_anchor, &p.frag);
             }
         }
     }

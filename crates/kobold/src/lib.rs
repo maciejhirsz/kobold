@@ -63,6 +63,10 @@ pub trait Mountable: 'static {
     fn unmount(&self) {
         util::__kobold_unmount(self.js());
     }
+
+    fn mount_replace<M: Mountable>(&self, old: &M) {
+        util::__kobold_replace(old.js(), self.js());
+    }
 }
 
 pub fn start(html: impl Html) {
