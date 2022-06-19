@@ -1,16 +1,18 @@
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
-mod util;
+mod list;
 mod render_fn;
+mod util;
 mod value;
 
 pub mod stateful;
 
+pub use list::IterWrapper;
 pub use stateful::Stateful;
 
 pub mod prelude {
-    pub use crate::{Stateful, Html};
+    pub use crate::{Html, Stateful};
 }
 
 pub enum ShouldRender {
