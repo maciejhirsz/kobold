@@ -3,7 +3,8 @@ use crate::util;
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
-pub struct IterWrapper<T>(pub T);
+/// Wrapper type that implements `Html` for iterators.
+pub struct List<T>(pub T);
 
 pub struct ListProduct<T> {
     list: Vec<T>,
@@ -17,7 +18,7 @@ impl<T: 'static> Mountable for ListProduct<T> {
     }
 }
 
-impl<T> Html for IterWrapper<T>
+impl<T> Html for List<T>
 where
     T: IntoIterator,
     <T as IntoIterator>::Item: Html,
@@ -85,11 +86,11 @@ impl<H: Html> Html for Vec<H> {
     type Product = ListProduct<H::Product>;
 
     fn build(self) -> Self::Product {
-        IterWrapper(self).build()
+        List(self).build()
     }
 
     fn update(self, p: &mut Self::Product) {
-        IterWrapper(self).update(p);
+        List(self).update(p);
     }
 }
 
@@ -97,10 +98,10 @@ impl<H: Html, const N: usize> Html for [H; N] {
     type Product = ListProduct<H::Product>;
 
     fn build(self) -> Self::Product {
-        IterWrapper(self).build()
+        List(self).build()
     }
 
     fn update(self, p: &mut Self::Product) {
-        IterWrapper(self).update(p)
+        List(self).update(p)
     }
 }

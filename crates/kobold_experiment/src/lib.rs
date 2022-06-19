@@ -8,7 +8,7 @@ mod value;
 
 pub mod stateful;
 
-pub use list::IterWrapper;
+pub use list::List;
 pub use stateful::Stateful;
 
 pub mod prelude {
