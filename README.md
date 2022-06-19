@@ -17,5 +17,5 @@ trunk serve
 
 ### License
 
-This is free software, and is released under the terms of the GNU Lesser General Public
+Kobold is free software, and is released under the terms of the GNU Lesser General Public
 License version 3. See [LICENSE](LICENSE).
