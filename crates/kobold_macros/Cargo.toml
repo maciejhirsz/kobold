@@ -9,8 +9,6 @@ description = "Macros for the kobold framework"
 repository = "https://github.com/maciejhirsz/kobold"
 documentation = "https://docs.rs/kobold"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 beef = "0.5.2"
 arrayvec = "0.7.2"
