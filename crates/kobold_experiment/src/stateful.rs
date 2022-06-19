@@ -9,12 +9,23 @@ use web_sys::Event;
 use crate::render_fn::RenderFn;
 use crate::{Html, Mountable, ShouldRender};
 
-pub trait Stateful {
+pub trait Stateful: Sized {
     type State: 'static;
 
     fn init(self) -> Self::State;
 
     fn update(self, state: &mut Self::State) -> ShouldRender;
+
+    fn stateful<'a, H: Html + 'a>(
+        self,
+        render: fn(&'a Self::State, &'a Link<Self::State, H::Product>) -> H,
+    ) -> WithState<Self, H> {
+        WithState {
+            props: self,
+            render: RenderFn::new(render),
+            _marker: PhantomData,
+        }
+    }
 }
 
 impl<T: Copy + Eq + 'static> Stateful for T {
@@ -38,21 +49,6 @@ pub struct WithState<S: Stateful, H: Html> {
     props: S,
     render: RenderFn<S::State, H::Product>,
     _marker: PhantomData<H>,
-}
-
-pub fn stateful<'a, S, H>(
-    props: S,
-    render: fn(&'a S::State, &'a Link<S::State, H::Product>) -> H,
-) -> WithState<S, H>
-where
-    S: Stateful,
-    H: Html + 'a,
-{
-    WithState {
-        props,
-        render: RenderFn::new(render),
-        _marker: PhantomData,
-    }
 }
 
 struct Inner<S, P> {
@@ -197,7 +193,11 @@ where
     }
 
     fn update(self, p: &mut Self::Product) {
-        if self.props.update(&mut p.inner.state.borrow_mut()).should_render() {
+        if self
+            .props
+            .update(&mut p.inner.state.borrow_mut())
+            .should_render()
+        {
             p.inner.update();
         }
     }
