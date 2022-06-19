@@ -118,7 +118,7 @@ where
         CallbackProduct { closure }
     }
 
-    fn update(self, _p: &mut Self::Product) {}
+    fn update(self, _: &mut Self::Product) {}
 }
 
 impl Mountable for CallbackProduct {

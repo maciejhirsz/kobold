@@ -49,17 +49,18 @@ pub trait Mountable: 'static {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 struct Counter {
     n: i32,
 }
 
 impl Counter {
     pub fn render(self) -> impl Html {
-        self.n.stateful(|state, link| {
-            let inc = link.bind(|n, _| *n += 1);
-            let dec = link.bind(|n, _| *n -= 1);
+        self.stateful(|state, link| {
+            let inc = link.bind(|state, _| state.n += 1);
+            let dec = link.bind(|state, _| state.n -= 1);
 
-            *state
+            state.n
         })
     }
 }
