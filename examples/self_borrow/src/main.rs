@@ -1,34 +1,29 @@
 use kobold::prelude::*;
 
 fn main() {
-    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-
-    struct Greeter<'a> {
+    struct SelfBorrow<'a> {
         name: &'a str,
     }
 
-    struct GreeterState {
+    struct State {
         name: String,
     }
 
-    impl Stateful for Greeter<'_> {
-        type State = GreeterState;
+    impl Stateful for SelfBorrow<'_> {
+        type State = State;
 
-        fn init(self) -> GreeterState {
-            GreeterState {
-                name: self.name.into()
+        fn init(self) -> State {
+            State {
+                name: self.name.into(),
             }
         }
     }
 
-    impl<'a> Greeter<'a> {
+    impl<'a> SelfBorrow<'a> {
         fn render(self) -> impl Html + 'a {
             self.stateful(|state, link| {
                 let exclaim = link.callback(|state, _| state.name.push('!'));
-                let alice = link.callback(|state, _| {
-                    state.name.clear();
-                    state.name.push_str("Alice");
-                });
+                let alice = link.callback(|state, _| state.name.replace_range(.., "Alice"));
 
                 html! {
                     <div>
@@ -42,5 +37,5 @@ fn main() {
         }
     }
 
-    kobold::start(Greeter { name: "Bob" }.render());
+    kobold::start(html! { <SelfBorrow name={"Bob"} /> });
 }

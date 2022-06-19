@@ -1,6 +1,7 @@
 pub use kobold_macros::html;
-pub use wasm_bindgen::JsValue;
-pub use web_sys::Node;
+
+use wasm_bindgen::JsValue;
+use web_sys::Node;
 
 mod render_fn;
 mod util;
@@ -64,25 +65,21 @@ pub trait Mountable: 'static {
 }
 
 pub fn start(html: impl Html) {
+    use std::cell::Cell;
+
+    thread_local! {
+        static INIT: Cell<bool> = Cell::new(false);
+    }
+
+    if !INIT.with(|init| init.get()) {
+        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+
+        INIT.with(|init| init.set(true));
+    }
+
     use std::mem::ManuallyDrop;
 
     let built = ManuallyDrop::new(html.build());
 
     util::__kobold_start(built.js());
-}
-
-#[derive(PartialEq, Eq)]
-struct Counter {
-    n: i32,
-}
-
-impl Counter {
-    pub fn render(self) -> impl Html {
-        self.stateful(|state, link| {
-            let inc = link.callback(|state, _| state.n += 1);
-            let dec = link.callback(|state, _| state.n -= 1);
-
-            state.n
-        })
-    }
 }

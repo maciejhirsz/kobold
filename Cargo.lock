@@ -67,6 +67,7 @@ dependencies = [
 name = "kobold"
 version = "0.2.0"
 dependencies = [
+ "console_error_panic_hook",
  "itoa",
  "kobold_macros",
  "ryu",
@@ -128,10 +129,7 @@ checksum = "f3f6f92acf49d1b98f7a81226834412ada05458b7364277387724a237f062695"
 name = "self_borrow"
 version = "0.1.0"
 dependencies = [
- "console_error_panic_hook",
  "kobold",
- "wasm-bindgen",
- "web-sys",
 ]
 
 [[package]]
@@ -149,10 +147,7 @@ dependencies = [
 name = "tests"
 version = "0.1.0"
 dependencies = [
- "console_error_panic_hook",
  "kobold",
- "wasm-bindgen",
- "web-sys",
 ]
 
 [[package]]

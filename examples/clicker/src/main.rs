@@ -1,24 +1,22 @@
 use kobold::prelude::*;
 
 fn main() {
-    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-
-    #[derive(Debug, PartialEq, Eq)]
-    struct Greeter {
+    #[derive(PartialEq, Eq)]
+    struct Clicker {
         name: &'static str,
         count: u32,
     }
 
-    impl Default for Greeter {
+    impl Default for Clicker {
         fn default() -> Self {
-            Greeter {
+            Clicker {
                 name: "Alice",
                 count: 2,
             }
         }
     }
 
-    impl Greeter {
+    impl Clicker {
         fn render(self) -> impl Html {
             self.stateful(|state, link| {
                 let n = state.count;
@@ -30,22 +28,23 @@ fn main() {
                     <div>
                         <h1 class="Greeter">"Hello "{ state.name }"!"</h1>
                         <p>
-                            <button onclick={inc}>"+"</button>
+                            "This component dynamically creates a list from a range iterator ending at "
                             { state.count }
+                            <button onclick={inc}>"+"</button>
                             <button onclick={dec}>"-"</button>
                         </p>
-                        <p>
-                            <strong>{ n }" + 2 = "{ n + 2 }</strong>
-                        </p>
-                        { (0..n).map(|n| html! { <p>"Item #"{ n }</p> }).list() }
+                        <ul>
+                            // `.list()` wraps the iterator in a helper struct that implements `Html`
+                            { (1..=n).map(|n| html! { <li>"Item #"{ n }</li> }).list() }
+                        </ul>
                     </div>
                 }
             })
-
         }
     }
 
     kobold::start(html! {
-        <Greeter name={"Bob"} ../>
+        // The `..` notation fills in the rest of the component with values from the `Default` impl.
+        <Clicker name={"Bob"} ../>
     });
 }
