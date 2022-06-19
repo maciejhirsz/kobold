@@ -8,6 +8,7 @@ mod util;
 mod value;
 
 pub mod attribute;
+pub mod branch;
 pub mod list;
 pub mod stateful;
 
@@ -59,8 +60,8 @@ pub trait Mountable: 'static {
         util::__kobold_mount(parent, self.js());
     }
 
-    fn unmount(&self, parent: &Node) {
-        util::__kobold_unmount(parent, self.js());
+    fn unmount(&self) {
+        util::__kobold_unmount(self.js());
     }
 }
 

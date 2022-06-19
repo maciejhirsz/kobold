@@ -1,7 +1,10 @@
 export function __kobold_start(n) { document.body.appendChild(n); }
 export function __kobold_mount(n,c) { n.appendChild(c); }
-export function __kobold_unmount(n,c) { n.removeChild(c); }
+export function __kobold_unmount(n) { n.remove(); }
+export function __kobold_replace(o,n) { o.replaceWith(n); }
+export function __kobold_after(a,n) { a.after(n); }
 export function __kobold_empty_node() { return document.createTextNode(""); }
+export function __kobold_document_fragment() { return document.createDocumentFragment(); };
 export function __kobold_text_node(t) { return document.createTextNode(t); }
 export function __kobold_update_text(n,t) { n.textContent = t; }
 export function __kobold_create_div() { return document.createElement('div'); }

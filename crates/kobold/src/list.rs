@@ -24,12 +24,13 @@ pub struct List<T>(T);
 pub struct ListProduct<T> {
     list: Vec<T>,
     visible: usize,
-    node: Node,
+    anchor: Node,
+    frag: Node,
 }
 
 impl<T: 'static> Mountable for ListProduct<T> {
     fn js(&self) -> &JsValue {
-        &self.node
+        &self.frag
     }
 }
 
@@ -42,13 +43,16 @@ where
 
     fn build(self) -> Self::Product {
         let iter = self.0.into_iter();
-        let node = util::__kobold_create_div();
+        let anchor = util::__kobold_empty_node();
+        let frag = util::__kobold_document_fragment();
+
+        util::__kobold_mount(&frag, &anchor);
 
         let list: Vec<_> = iter
             .map(|item| {
                 let built = item.build();
 
-                built.mount(&node);
+                built.mount(&frag);
 
                 built
             })
@@ -59,7 +63,8 @@ where
         ListProduct {
             list,
             visible,
-            node,
+            anchor,
+            frag,
         }
     }
 
@@ -74,13 +79,13 @@ where
 
         if p.visible > updated {
             for old in p.list[updated..p.visible].iter() {
-                old.unmount(&p.node);
+                old.unmount();
             }
             p.visible = updated;
         } else {
             for (old, new) in p.list[updated..].iter_mut().zip(&mut new) {
                 new.update(old);
-                old.mount(&p.node);
+                old.mount(&p.frag);
 
                 p.visible += 1;
             }
@@ -88,10 +93,19 @@ where
             for new in new {
                 let built = new.build();
 
-                built.mount(&p.node);
+                built.mount(&p.frag);
 
                 p.list.push(built);
                 p.visible += 1;
+            }
+
+            if p.visible > updated {
+                let anchor = match p.list[..updated].last() {
+                    Some(built) => built.js(),
+                    None => &p.anchor,
+                };
+
+                util::__kobold_after(anchor, &p.frag);
             }
         }
     }

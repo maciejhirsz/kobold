@@ -6,9 +6,12 @@ extern "C" {
     pub(crate) fn __kobold_start(node: &JsValue);
 
     pub(crate) fn __kobold_mount(parent: &Node, child: &JsValue);
-    pub(crate) fn __kobold_unmount(parent: &Node, child: &JsValue);
+    pub(crate) fn __kobold_unmount(node: &JsValue);
+    pub(crate) fn __kobold_replace(old: &JsValue, new: &JsValue);
+    pub(crate) fn __kobold_after(anchor: &JsValue, next: &JsValue);
 
     pub(crate) fn __kobold_empty_node() -> Node;
+    pub(crate) fn __kobold_document_fragment() -> Node;
 
     pub(crate) fn __kobold_text_node(t: &str) -> Node;
 
