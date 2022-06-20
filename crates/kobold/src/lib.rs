@@ -1,3 +1,7 @@
+//! <img src="https://raw.githubusercontent.com/maciejhirsz/kobold/master/kobold.svg?sanitize=true" alt="Kobold logo" width="250" align="right">
+//!
+//! # Kobold
+
 pub use kobold_macros::html;
 
 use wasm_bindgen::JsValue;
