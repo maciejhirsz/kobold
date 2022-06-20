@@ -4,6 +4,8 @@
 
 extern crate proc_macro;
 
+use std::cell::Cell;
+
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as QuoteTokens;
 use quote::quote;
@@ -15,14 +17,33 @@ mod parser;
 use gen::Generator;
 use parser::Parser;
 
+thread_local! {
+    static COUNT: Cell<usize> = Cell::new(0);
+}
+
 #[proc_macro]
 pub fn html(body: TokenStream) -> TokenStream {
+    COUNT.with(|count| count.set(count.get() + 1));
+
     let mut parser = Parser::new();
 
     let dom = match parser.parse(body) {
         Ok(dom) => dom,
         Err(err) => return err.tokenize(),
     };
+
+    if dom.is_expression() && parser.fields.len() == 1 {
+        let expr = parser.fields.pop().unwrap().expr;
+
+        return quote! {
+            {
+                use ::kobold::{IntoHtml as _};
+
+                (#expr).into_html()
+            }
+        }
+        .into();
+    }
 
     // panic!("{:#?}\n\n{:#?}", dom, parser.fields);
 
@@ -54,7 +75,7 @@ pub fn html(body: TokenStream) -> TokenStream {
             let name = &field.name;
 
             quote! {
-                #name: #expr,
+                #name: (#expr).into_html(),
             }
         })
         .collect::<QuoteTokens>();
@@ -66,7 +87,7 @@ pub fn html(body: TokenStream) -> TokenStream {
 
     let tokens: TokenStream = (quote! {
         {
-            use ::kobold::{Html, Mountable};
+            use ::kobold::{Html, Mountable, IntoHtml as _};
             use ::kobold::reexport::web_sys::Node;
             use ::kobold::reexport::wasm_bindgen::{self, JsValue, prelude::wasm_bindgen};
 
@@ -116,9 +137,14 @@ pub fn html(body: TokenStream) -> TokenStream {
                 #field_declr
             }
         }
-    }).into();
+    })
+    .into();
 
-    // panic!("{}", tokens);
+    // let count = COUNT.with(|c| c.get());
+
+    // if count == 4 {
+    //     panic!("{count}: {}", tokens);
+    // }
 
     tokens
 }

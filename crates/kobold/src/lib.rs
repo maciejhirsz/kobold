@@ -15,8 +15,7 @@ pub mod stateful;
 pub use stateful::Stateful;
 
 pub mod prelude {
-    pub use crate::list::ListExt;
-    pub use crate::{html, Html, ShouldRender, Stateful};
+    pub use crate::{html, Html, IntoHtml, ShouldRender, Stateful};
 }
 
 /// Re-exports for the [`html!`](html) macro to use
@@ -51,6 +50,25 @@ pub trait Html: Sized {
     fn build(self) -> Self::Product;
 
     fn update(self, p: &mut Self::Product);
+
+    /// This is a no-op method that returns self, you souldn't override the default
+    /// implementation. For details see [`IntoHtml`](IntoHtml).
+    #[inline]
+    fn into_html(self) -> Self {
+        self
+    }
+}
+
+/// Types that cannot implement [`Html`](Html) can instead implement `IntoHtml` and
+/// still be usable within the `html!` macro.
+///
+/// This works as a trait specialization of sorts, allowing for `IntoHtml` to be
+/// implemented for iterators without running into potential future conflict with
+/// `std` foreign types like `&str`.
+pub trait IntoHtml {
+    type Html: Html;
+
+    fn into_html(self) -> Self::Html;
 }
 
 pub trait Mountable: 'static {

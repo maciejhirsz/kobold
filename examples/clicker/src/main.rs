@@ -34,8 +34,11 @@ fn main() {
                             <button onclick={dec}>"-"</button>
                         </p>
                         <ul>
-                            // `.list()` wraps the iterator in a helper struct that implements `Html`
-                            { (1..=n).map(|n| html! { <li>"Item #"{ n }</li> }).list() }
+                            // Just an iterator, you don't need to collect it to a `Vec`.
+                            //
+                            // On subsequent renders `Kobold` can very cheaply diff items yielded
+                            // by iterators, avoiding allocations unless new items are added.
+                            { (1..=n).map(|n| html! { <li>"Item #"{ n }</li> }) }
                         </ul>
                     </div>
                 }

@@ -135,7 +135,7 @@ impl<T: Html> Html for Option<T> {
                 new.mount_replace(old);
 
                 *old = new;
-            },
+            }
         }
     }
 }

@@ -125,6 +125,8 @@ macro_rules! impl_int {
                     }
                 }
             }
+
+            impl_ref_copy!($t);
         )*
     };
 }
@@ -156,9 +158,29 @@ macro_rules! impl_float {
                     }
                 }
             }
+
+            impl_ref_copy!($t);
         )*
+    };
+}
+
+macro_rules! impl_ref_copy {
+    ($t:ty) => {
+        impl Html for &$t {
+            type Product = ValueProduct<$t>;
+
+            fn build(self) -> Self::Product {
+                (*self).build()
+            }
+
+            fn update(self, p: &mut Self::Product) {
+                (*self).update(p);
+            }
+        }
     };
 }
 
 impl_int!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, usize, isize);
 impl_float!(f32, f64);
+impl_ref_copy!(bool);
+impl_ref_copy!(&'static str);

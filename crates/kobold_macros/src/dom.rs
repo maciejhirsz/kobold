@@ -43,6 +43,12 @@ pub enum Node {
     Fragment(Vec<Node>),
 }
 
+impl Node {
+    pub fn is_expression(&self) -> bool {
+        matches!(self, Node::Expression)
+    }
+}
+
 #[derive(Debug)]
 pub struct Element {
     pub tag: String,

@@ -1,22 +1,7 @@
 use crate::util;
-use crate::{Html, Mountable};
+use crate::{Html, IntoHtml, Mountable};
 use wasm_bindgen::JsValue;
 use web_sys::Node;
-
-/// Helper trait for wrapping iterators in [`List`](List)s which implement [`Html`](Html).
-pub trait ListExt: Sized {
-    fn list(self) -> List<Self>;
-}
-
-impl<T> ListExt for T
-where
-    T: IntoIterator,
-    <T as IntoIterator>::Item: Html,
-{
-    fn list(self) -> List<Self> {
-        List(self)
-    }
-}
 
 /// Wrapper type that implements `Html` for iterators.
 pub struct List<T>(T);
@@ -32,6 +17,19 @@ pub struct ListProduct<T> {
 impl<T: 'static> Mountable for ListProduct<T> {
     fn js(&self) -> &JsValue {
         &self.frag
+    }
+}
+
+impl<T> IntoHtml for T
+where
+    T: Iterator,
+    <T as Iterator>::Item: Html,
+{
+    type Html = List<Self>;
+
+    #[inline]
+    fn into_html(self) -> Self::Html {
+        List(self)
     }
 }
 
@@ -125,6 +123,21 @@ impl<H: Html> Html for Vec<H> {
 
 impl<H: Html, const N: usize> Html for [H; N] {
     type Product = ListProduct<H::Product>;
+
+    fn build(self) -> Self::Product {
+        List(self).build()
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        List(self).update(p)
+    }
+}
+
+impl<'a, H> Html for &'a [H]
+where
+    &'a H: Html,
+{
+    type Product = ListProduct<<&'a H as Html>::Product>;
 
     fn build(self) -> Self::Product {
         List(self).build()
