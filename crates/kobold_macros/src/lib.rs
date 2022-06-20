@@ -200,17 +200,15 @@ pub fn html(mut body: TokenStream) -> TokenStream {
     let (js_fn_name, render) = generator.render_js(&root);
 
     let el = if dom.is_fragment() {
-        quote! { unsafe { Element::new_fragment_raw(#js_fn_name(#(#field_names.js()),*)) } }
+        quote! { unsafe { ::kobold::dom::Element::new_fragment_raw(#js_fn_name(#(#field_names.js()),*)) } }
     } else {
-        quote! { Element::new(#js_fn_name(#(#field_names.js()),*)) }
+        quote! { ::kobold::dom::Element::new(#js_fn_name(#(#field_names.js()),*)) }
     };
 
     let tokens: TokenStream = (quote! {
         {
-            use ::kobold::{Html, Mountable, IntoHtml as _};
-            use ::kobold::dom::Element;
-            use ::kobold::reexport::web_sys::Node;
-            use ::kobold::reexport::wasm_bindgen::{self, JsValue, prelude::wasm_bindgen};
+            use ::kobold::{Mountable as _, IntoHtml as _};
+            use ::kobold::reexport::wasm_bindgen;
 
             #render
 
@@ -220,11 +218,11 @@ pub fn html(mut body: TokenStream) -> TokenStream {
 
             struct TransientProduct<#(#generics),*> {
                 #field_defs
-                el: Element,
+                el: ::kobold::dom::Element,
             }
 
-            impl<#(#generics: Html),*> Html for Transient<#(#generics),*> {
-                type Product = TransientProduct<#(<#generics as Html>::Product),*>;
+            impl<#(#generics: ::kobold::Html),*> ::kobold::Html for Transient<#(#generics),*> {
+                type Product = TransientProduct<#(<#generics as ::kobold::Html>::Product),*>;
 
                 fn build(self) -> Self::Product {
                     #(
@@ -245,11 +243,11 @@ pub fn html(mut body: TokenStream) -> TokenStream {
                 }
             }
 
-            impl<#(#generics),*> Mountable for TransientProduct<#(#generics),*>
+            impl<#(#generics),*> ::kobold::Mountable for TransientProduct<#(#generics),*>
             where
                 Self: 'static,
             {
-                fn el(&self) -> &Element {
+                fn el(&self) -> &::kobold::dom::Element {
                     &self.el
                 }
             }

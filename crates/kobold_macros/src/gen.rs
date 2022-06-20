@@ -174,9 +174,9 @@ where
         (
             fn_name.clone(),
             quote! {
-                #[wasm_bindgen(inline_js = #js)]
+                #[wasm_bindgen::prelude::wasm_bindgen(inline_js = #js)]
                 extern "C" {
-                    fn #fn_name(#(#args: &JsValue),*) -> Node;
+                    fn #fn_name(#(#args: &wasm_bindgen::JsValue),*) -> ::kobold::reexport::web_sys::Node;
                 }
             },
         )
