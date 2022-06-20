@@ -95,7 +95,11 @@ impl Parser {
                 let el = self.parse_element(tag, iter)?;
 
                 if el.is_component() {
-                    let tag = into_quote(tag_ident);
+                    let mut tag = into_quote(tag_ident);
+
+                    if let Some(generics) = el.generics {
+                        tag = quote! { #tag :: <#generics> };
+                    }
 
                     let expr = match (el.attributes.is_empty(), el.defaults) {
                         (true, true) => quote! { #tag::default().render() },
@@ -185,14 +189,32 @@ impl Parser {
     fn parse_element(&mut self, tag: String, iter: &mut TokenIter) -> Result<Element, ParseError> {
         let mut element = Element {
             tag,
+            generics: None,
             attributes: Vec::new(),
             children: Vec::new(),
             defaults: false,
         };
 
+        let mut next = iter.next();
+
+        match next {
+            Some(TokenTree::Punct(punct)) if punct.as_char() == '<' => {
+                element.generics = Some(
+                    iter.take_while(
+                        |p| !matches!(p, TokenTree::Punct(punct) if punct.as_char() == '>'),
+                    )
+                    .collect::<TokenStream>()
+                    .into(),
+                );
+
+                next = iter.next();
+            }
+            _ => (),
+        }
+
         // Props loop
         loop {
-            match iter.next() {
+            match next {
                 Some(TokenTree::Ident(ident)) => {
                     let name = ident.to_string();
 
@@ -258,6 +280,8 @@ impl Parser {
                 }
                 tt => return Err(ParseError::new("Expected identifier, /, or >", tt)),
             }
+
+            next = iter.next();
         }
 
         // Children loop

@@ -46,6 +46,7 @@ pub enum Node {
 #[derive(Debug)]
 pub struct Element {
     pub tag: String,
+    pub generics: Option<QuoteTokens>,
     pub attributes: Vec<Attribute>,
     pub children: Vec<Node>,
     pub defaults: bool,
