@@ -1,4 +1,5 @@
-use std::rc::Weak;
+use std::cell::UnsafeCell;
+use std::rc::{Rc, Weak};
 
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsValue;
@@ -48,8 +49,9 @@ where
     Box::new(fun)
 }
 
-pub struct CallbackProduct {
+pub struct CallbackProduct<F> {
     closure: Closure<dyn FnMut(&Event)>,
+    inner: Rc<UnsafeCell<F>>,
 }
 
 impl<F, A, S, P> Html for Callback<F, &Link<S, P>>
@@ -59,14 +61,16 @@ where
     S: 'static,
     P: 'static,
 {
-    type Product = CallbackProduct;
+    type Product = CallbackProduct<F>;
 
     fn build(self) -> Self::Product {
         let link = self.link.clone();
-        let cb = self.cb;
+        let inner = Rc::new(UnsafeCell::new(self.cb));
+        let weak = Rc::downgrade(&inner);
 
         let closure = make_closure(move |event| {
-            if let Some(rc) = link.inner.upgrade() {
+            if let Some((rc, cb)) = link.inner.upgrade().zip(weak.upgrade()) {
+                let cb = unsafe { &*cb.get() };
                 if cb(&mut rc.state.borrow_mut(), event).into().should_render() {
                     rc.update();
                 }
@@ -74,13 +78,15 @@ where
         });
         let closure = Closure::wrap(closure);
 
-        CallbackProduct { closure }
+        CallbackProduct { closure, inner }
     }
 
-    fn update(self, _: &mut Self::Product) {}
+    fn update(self, p: &mut Self::Product) {
+        unsafe { *p.inner.get() = self.cb }
+    }
 }
 
-impl Mountable for CallbackProduct {
+impl<F: 'static> Mountable for CallbackProduct<F> {
     fn el(&self) -> &Element {
         panic!("Callback is not an element");
     }

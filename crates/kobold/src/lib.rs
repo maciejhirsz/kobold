@@ -86,21 +86,28 @@ pub trait Mountable: 'static {
 }
 
 pub fn start(html: impl Html) {
-    use std::cell::Cell;
-
-    thread_local! {
-        static INIT: Cell<bool> = Cell::new(false);
-    }
-
-    if !INIT.with(|init| init.get()) {
-        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-
-        INIT.with(|init| init.set(true));
-    }
+    init_panic_hook();
 
     use std::mem::ManuallyDrop;
 
     let built = ManuallyDrop::new(html.build());
 
     util::__kobold_start(built.js());
+}
+
+fn init_panic_hook() {
+    // Only enable console hook on debug builds
+    #[cfg(debug_assertions)]
+    {
+        use std::cell::Cell;
+
+        thread_local! {
+            static INIT: Cell<bool> = Cell::new(false);
+        }
+        if !INIT.with(|init| init.get()) {
+            std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+
+            INIT.with(|init| init.set(true));
+        }
+    }
 }
