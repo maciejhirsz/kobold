@@ -12,18 +12,18 @@ export function __kobold_fragment()
 export function __kobold_fragment_append(f,c) { f.$end.before(c); }
 export function __kobold_fragment_unmount(f)
 {
-	let t, n = f.$begin, e = f.$end;
-	while (n != null && n !== e) {
-		t = n.nextSibling;
-		f.appendChild(n);
-		n = t;
-	}
+	let b = f.$begin, e = f.$end;
+	while (b.nextSibling !== e) f.appendChild(b.nextSibling);
 	f.appendChild(e);
+	f.insertBefore(b, f.firstChild);
 }
 export function __kobold_fragment_replace(f,n)
 {
-	f.$begin.before(n);
-	__kobold_fragment_unmount(f);
+	let b = f.$begin, e = f.$end;
+	while (b.nextSibling !== e) f.appendChild(b.nextSibling);
+	b.replaceWith(n);
+	f.appendChild(e);
+	f.insertBefore(b, f.firstChild);
 }
 export function __kobold_fragment_drop(f)
 {
