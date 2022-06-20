@@ -1,7 +1,5 @@
 use crate::util;
-use crate::{Html, Mountable};
-use wasm_bindgen::JsValue;
-use web_sys::Node;
+use crate::{Element, Html, Mountable};
 
 pub use crate::stateful::Callback;
 
@@ -24,17 +22,18 @@ where
 
     fn build(self) -> Self::Product {
         let node = util::__kobold_create_attr(self.name, self.value.as_ref());
+        let el = Element::new(node);
 
         AttributeProduct {
             value: self.value,
-            node,
+            el,
         }
     }
 
     fn update(self, p: &mut Self::Product) {
         if p.value != self.value {
             p.value = self.value;
-            util::__kobold_update_attr(&p.node, p.value.as_ref());
+            util::__kobold_update_attr(&p.el.node, p.value.as_ref());
         }
     }
 }
@@ -51,17 +50,15 @@ macro_rules! create_named_attrs {
 
             fn build(self) -> Self::Product {
                 let node = util::$fun(self.0.as_ref());
+                let el = Element::new(node);
 
-                AttributeProduct {
-                    value: self.0,
-                    node,
-                }
+                AttributeProduct { value: self.0, el }
             }
 
             fn update(self, p: &mut Self::Product) {
                 if p.value != self.0 {
                     p.value = self.0;
-                    util::__kobold_update_attr(&p.node, p.value.as_ref());
+                    util::__kobold_update_attr(&p.el.node, p.value.as_ref());
                 }
             }
         }
@@ -75,11 +72,11 @@ create_named_attrs! {
 
 pub struct AttributeProduct<V> {
     value: V,
-    node: Node,
+    el: Element,
 }
 
 impl<V: 'static> Mountable for AttributeProduct<V> {
-    fn js(&self) -> &JsValue {
-        &self.node
+    fn el(&self) -> &Element {
+        &self.el
     }
 }

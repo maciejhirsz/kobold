@@ -1,7 +1,4 @@
-use crate::util;
-use crate::{Html, IntoHtml, Mountable};
-use wasm_bindgen::JsValue;
-use web_sys::Node;
+use crate::{Element, Html, IntoHtml, Mountable};
 
 /// Wrapper type that implements `Html` for iterators.
 pub struct List<T>(T);
@@ -9,14 +6,12 @@ pub struct List<T>(T);
 pub struct ListProduct<T> {
     list: Vec<T>,
     visible: usize,
-    start_anchor: Node,
-    end_anchor: Node,
-    frag: Node,
+    fragment: Element,
 }
 
 impl<T: 'static> Mountable for ListProduct<T> {
-    fn js(&self) -> &JsValue {
-        &self.frag
+    fn el(&self) -> &Element {
+        &self.fragment
     }
 }
 
@@ -42,32 +37,24 @@ where
 
     fn build(self) -> Self::Product {
         let iter = self.0.into_iter();
-        let start_anchor = util::__kobold_empty_node();
-        let end_anchor = util::__kobold_empty_node();
-        let frag = util::__kobold_document_fragment();
-
-        util::__kobold_mount(&frag, &start_anchor);
+        let fragment = Element::new_fragment();
 
         let list: Vec<_> = iter
             .map(|item| {
                 let built = item.build();
 
-                built.mount(&frag);
+                fragment.append(built.js());
 
                 built
             })
             .collect();
-
-        util::__kobold_mount(&frag, &end_anchor);
 
         let visible = list.len();
 
         ListProduct {
             list,
             visible,
-            start_anchor,
-            end_anchor,
-            frag,
+            fragment,
         }
     }
 
@@ -82,28 +69,23 @@ where
 
         if p.visible > updated {
             for old in p.list[updated..p.visible].iter() {
-                old.unmount();
+                old.el().unmount();
             }
             p.visible = updated;
         } else {
             for (old, new) in p.list[updated..].iter_mut().zip(&mut new) {
                 new.update(old);
-                old.mount(&p.frag);
 
+                p.fragment.append(old.js());
                 p.visible += 1;
             }
 
             for new in new {
                 let built = new.build();
 
-                built.mount(&p.frag);
-
+                p.fragment.append(built.js());
                 p.list.push(built);
                 p.visible += 1;
-            }
-
-            if p.visible > updated {
-                util::__kobold_before(&p.end_anchor, &p.frag);
             }
         }
     }

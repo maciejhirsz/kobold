@@ -1,9 +1,9 @@
-use crate::{util, Html, JsValue, Mountable, Node};
+use crate::{Element, Html, Mountable};
 
 pub enum Dead {}
 
 impl Mountable for Dead {
-    fn js(&self) -> &JsValue {
+    fn el(&self) -> &Element {
         unreachable!()
     }
 }
@@ -67,7 +67,7 @@ where
             (html, old) => {
                 let new = html.build();
 
-                new.mount_replace(old);
+                old.el().replace_with(new.js());
 
                 *old = new;
             }
@@ -84,23 +84,23 @@ where
     E: Mountable,
     F: Mountable,
 {
-    fn js(&self) -> &JsValue {
+    fn el(&self) -> &Element {
         match self {
-            Branch::A(p) => p.js(),
-            Branch::B(p) => p.js(),
-            Branch::C(p) => p.js(),
-            Branch::D(p) => p.js(),
-            Branch::E(p) => p.js(),
-            Branch::F(p) => p.js(),
+            Branch::A(p) => p.el(),
+            Branch::B(p) => p.el(),
+            Branch::C(p) => p.el(),
+            Branch::D(p) => p.el(),
+            Branch::E(p) => p.el(),
+            Branch::F(p) => p.el(),
         }
     }
 }
 
-pub struct EmptyNode(Node);
+pub struct EmptyNode(Element);
 
 impl Mountable for EmptyNode {
-    fn js(&self) -> &JsValue {
-        self.0.as_ref()
+    fn el(&self) -> &Element {
+        &self.0
     }
 }
 
@@ -108,7 +108,7 @@ impl Html for () {
     type Product = EmptyNode;
 
     fn build(self) -> Self::Product {
-        EmptyNode(util::__kobold_empty_node())
+        EmptyNode(Element::new_empty())
     }
 
     fn update(self, _: &mut Self::Product) {}
@@ -132,7 +132,7 @@ impl<T: Html> Html for Option<T> {
             (html, old) => {
                 let new = html.build();
 
-                new.mount_replace(old);
+                old.el().replace_with(new.js());
 
                 *old = new;
             }

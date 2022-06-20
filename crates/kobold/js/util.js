@@ -1,11 +1,35 @@
 export function __kobold_start(n) { document.body.appendChild(n); }
-export function __kobold_mount(n,c) { n.appendChild(c); }
+export function __kobold_append(n,c) { n.appendChild(c); }
 export function __kobold_unmount(n) { n.remove(); }
 export function __kobold_replace(o,n) { o.replaceWith(n); }
-export function __kobold_after(a,n) { a.after(n); }
-export function __kobold_before(a,n) { a.before(n); }
 export function __kobold_empty_node() { return document.createTextNode(""); }
-export function __kobold_document_fragment() { return document.createDocumentFragment(); };
+export function __kobold_fragment()
+{
+	let f = document.createDocumentFragment();
+	f.append(f.$begin = document.createTextNode(""), f.$end = document.createTextNode(""));
+	return f;
+};
+export function __kobold_fragment_append(f,c) { f.$end.before(c); }
+export function __kobold_fragment_unmount(f)
+{
+	let t, n = f.$begin, e = f.$end;
+	while (n != null && n !== e) {
+		t = n.nextSibling;
+		f.appendChild(n);
+		n = t;
+	}
+	f.appendChild(e);
+}
+export function __kobold_fragment_replace(f,n)
+{
+	f.$begin.before(n);
+	__kobold_fragment_unmount(f);
+}
+export function __kobold_fragment_drop(f)
+{
+	delete f.$begin;
+	delete f.$end;
+}
 export function __kobold_text_node(t) { return document.createTextNode(t); }
 export function __kobold_update_text(n,t) { n.textContent = t; }
 export function __kobold_create_div() { return document.createElement('div'); }

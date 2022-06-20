@@ -47,6 +47,10 @@ impl Node {
     pub fn is_expression(&self) -> bool {
         matches!(self, Node::Expression)
     }
+
+    pub fn is_fragment(&self) -> bool {
+        matches!(self, Node::Fragment(_))
+    }
 }
 
 #[derive(Debug)]

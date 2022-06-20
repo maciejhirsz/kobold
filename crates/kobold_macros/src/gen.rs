@@ -104,11 +104,16 @@ where
 
                 write!(
                     &mut self.render,
-                    "const {}=document.createDocumentFragment();",
-                    e
+                    "const {e}=document.createDocumentFragment();\
+                    {e}.append({e}.$begin=document.createTextNode(\"\"));",
                 )?;
 
                 self.append(&e, children)?;
+
+                write!(
+                    &mut self.render,
+                    "{e}.append({e}.$end=document.createTextNode(\"\"));",
+                )?;
 
                 Ok(e)
             }

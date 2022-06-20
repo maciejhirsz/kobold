@@ -1,4 +1,4 @@
-use crate::dom::{Attribute, AttributeValue, Element, Field, FieldKind, Node};
+use std::convert::TryFrom;
 
 use arrayvec::ArrayString;
 use beef::Cow;
@@ -6,7 +6,8 @@ use proc_macro::token_stream::IntoIter as TokenIter;
 use proc_macro::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 use proc_macro2::TokenStream as QuoteTokens;
 use quote::{quote, quote_spanned};
-use std::convert::TryFrom;
+
+use crate::dom::{Attribute, AttributeValue, Element, Field, FieldKind, Node};
 
 #[derive(Debug)]
 pub struct ParseError {

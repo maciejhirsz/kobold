@@ -1,7 +1,6 @@
 pub use kobold_macros::html;
 
 use wasm_bindgen::JsValue;
-use web_sys::Node;
 
 mod render_fn;
 mod util;
@@ -9,6 +8,7 @@ mod value;
 
 pub mod attribute;
 pub mod branch;
+pub mod dom;
 pub mod list;
 pub mod stateful;
 
@@ -17,6 +17,8 @@ pub use stateful::Stateful;
 pub mod prelude {
     pub use crate::{html, Html, IntoHtml, ShouldRender, Stateful};
 }
+
+use dom::Element;
 
 /// Re-exports for the [`html!`](html) macro to use
 pub mod reexport {
@@ -72,18 +74,10 @@ pub trait IntoHtml {
 }
 
 pub trait Mountable: 'static {
-    fn js(&self) -> &JsValue;
+    fn el(&self) -> &Element;
 
-    fn mount(&self, parent: &Node) {
-        util::__kobold_mount(parent, self.js());
-    }
-
-    fn unmount(&self) {
-        util::__kobold_unmount(self.js());
-    }
-
-    fn mount_replace<M: Mountable>(&self, old: &M) {
-        util::__kobold_replace(old.js(), self.js());
+    fn js(&self) -> &JsValue {
+        self.el().anchor()
     }
 }
 

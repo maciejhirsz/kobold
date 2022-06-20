@@ -1,17 +1,14 @@
-use crate::util;
-use crate::{Html, Mountable};
+use crate::{Element, Html, Mountable};
 use std::str;
-use wasm_bindgen::JsValue;
-use web_sys::Node;
 
 pub struct ValueProduct<T> {
     value: T,
-    node: Node,
+    el: Element,
 }
 
 impl<T: 'static> Mountable for ValueProduct<T> {
-    fn js(&self) -> &JsValue {
-        &self.node
+    fn el(&self) -> &Element {
+        &self.el
     }
 }
 
@@ -19,16 +16,15 @@ impl Html for &'static str {
     type Product = ValueProduct<&'static str>;
 
     fn build(self) -> Self::Product {
-        let node = util::__kobold_text_node(self);
+        let el = Element::new_text(self);
 
-        ValueProduct { value: self, node }
+        ValueProduct { value: self, el }
     }
 
     fn update(self, p: &mut Self::Product) {
         if p.value != self {
             p.value = self;
-
-            util::__kobold_update_text(&p.node, self);
+            p.el.set_text(self);
         }
     }
 }
@@ -37,16 +33,15 @@ impl Html for String {
     type Product = ValueProduct<String>;
 
     fn build(self) -> Self::Product {
-        let node = util::__kobold_text_node(&self);
+        let el = Element::new_text(&self);
 
-        ValueProduct { value: self, node }
+        ValueProduct { value: self, el }
     }
 
     fn update(self, p: &mut Self::Product) {
         if p.value != self {
             p.value = self;
-
-            util::__kobold_update_text(&p.node, &p.value);
+            p.el.set_text(&p.value);
         }
     }
 }
@@ -55,19 +50,18 @@ impl Html for &String {
     type Product = ValueProduct<String>;
 
     fn build(self) -> Self::Product {
-        let node = util::__kobold_text_node(self);
+        let el = Element::new_text(self);
 
         ValueProduct {
             value: self.clone(),
-            node,
+            el,
         }
     }
 
     fn update(self, p: &mut Self::Product) {
         if &p.value != self {
             p.value.clone_from(self);
-
-            util::__kobold_update_text(&p.node, &p.value);
+            p.el.set_text(&p.value);
         }
     }
 }
@@ -84,16 +78,15 @@ impl Html for bool {
     type Product = ValueProduct<bool>;
 
     fn build(self) -> Self::Product {
-        let node = util::__kobold_text_node(bool_to_str(self));
+        let el = Element::new_text(bool_to_str(self));
 
-        ValueProduct { value: self, node }
+        ValueProduct { value: self, el }
     }
 
     fn update(self, p: &mut Self::Product) {
         if p.value != self {
             p.value = self;
-
-            util::__kobold_update_text(&p.node, bool_to_str(p.value));
+            p.el.set_text(bool_to_str(p.value));
         }
     }
 }
@@ -107,12 +100,9 @@ macro_rules! impl_int {
                 fn build(self) -> Self::Product {
                     let mut buf = itoa::Buffer::new();
 
-                    let node = util::__kobold_text_node(buf.format(self));
+                    let el = Element::new_text(buf.format(self));
 
-                    ValueProduct {
-                        value: self,
-                        node,
-                    }
+                    ValueProduct { value: self, el }
                 }
 
                 fn update(self, p: &mut Self::Product) {
@@ -121,7 +111,7 @@ macro_rules! impl_int {
 
                         let mut buf = itoa::Buffer::new();
 
-                        util::__kobold_update_text(&p.node, buf.format(self));
+                        p.el.set_text(buf.format(self));
                     }
                 }
             }
@@ -140,12 +130,9 @@ macro_rules! impl_float {
                 fn build(self) -> Self::Product {
                     let mut buf = ryu::Buffer::new();
 
-                    let node = util::__kobold_text_node(buf.format(self));
+                    let el = Element::new_text(buf.format(self));
 
-                    ValueProduct {
-                        value: self,
-                        node,
-                    }
+                    ValueProduct { value: self, el }
                 }
 
                 fn update(self, p: &mut Self::Product) {
@@ -154,7 +141,7 @@ macro_rules! impl_float {
 
                         let mut buf = ryu::Buffer::new();
 
-                        util::__kobold_update_text(&p.node, buf.format(self));
+                        p.el.set_text(buf.format(self));
                     }
                 }
             }

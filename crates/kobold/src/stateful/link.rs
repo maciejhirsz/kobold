@@ -5,7 +5,7 @@ use wasm_bindgen::JsValue;
 use web_sys::Event;
 
 use crate::stateful::Inner;
-use crate::{Html, Mountable, ShouldRender};
+use crate::{Element, Html, Mountable, ShouldRender};
 
 pub struct Link<S, P> {
     pub(super) inner: Weak<Inner<S, P>>,
@@ -81,6 +81,10 @@ where
 }
 
 impl Mountable for CallbackProduct {
+    fn el(&self) -> &Element {
+        panic!("Callback is not an element");
+    }
+
     fn js(&self) -> &JsValue {
         self.closure.as_ref()
     }

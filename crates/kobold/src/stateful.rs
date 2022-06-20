@@ -2,10 +2,8 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-use wasm_bindgen::JsValue;
-
 use crate::render_fn::RenderFn;
-use crate::{Html, Mountable, ShouldRender};
+use crate::{Element, Html, Mountable, ShouldRender};
 
 mod link;
 
@@ -73,7 +71,7 @@ impl<S, P> Inner<S, P> {
 
 pub struct WithStateProduct<S, P> {
     inner: Rc<Inner<S, P>>,
-    js: JsValue,
+    el: Element,
 }
 
 impl<S, H> Html for WithState<S, H>
@@ -114,9 +112,9 @@ where
             }
         });
 
-        let js = inner.product.borrow().js().clone();
+        let el = inner.product.borrow().el().clone();
 
-        WithStateProduct { inner, js }
+        WithStateProduct { inner, el }
     }
 
     fn update(self, p: &mut Self::Product) {
@@ -135,7 +133,7 @@ where
     S: 'static,
     P: Mountable,
 {
-    fn js(&self) -> &JsValue {
-        &self.js
+    fn el(&self) -> &Element {
+        &self.el
     }
 }
