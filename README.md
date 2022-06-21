@@ -43,7 +43,7 @@ fn main() {
 }
 ```
 
-### Examples
+## Examples
 
 To run **Kobold** you'll need to install [`trunk`](https://trunkrs.dev/):
 ```
@@ -70,7 +70,7 @@ trunk serve
 
 + [Pedrors](https://pedrors.pt/) for the **Kobold** logo.
 
-### License
+## License
 
 Kobold is free software, and is released under the terms of the GNU Lesser General Public
 License version 3. See [LICENSE](LICENSE).
