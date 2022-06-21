@@ -5,7 +5,9 @@ authors = ["Maciej Hirsz <hello@maciej.codes>"]
 edition = "2021"
 license = "LGPL-3.0"
 readme = "../../README.md"
-description = "WIP frontend framework"
+keywords = ["web", "wasm", "javascript"]
+categories = ["wasm", "web-programming"]
+description = "Crate for building web interfaces"
 repository = "https://github.com/maciejhirsz/kobold"
 documentation = "https://docs.rs/kobold"
 
