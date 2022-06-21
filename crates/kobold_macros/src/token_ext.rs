@@ -64,13 +64,6 @@ impl<I> IteratorExt for I
 where
     I: Iterator<Item = TokenTree>,
 {
-    // fn cloning(self, into: &mut TokenStream) -> Cloning<I> {
-    //     Cloning {
-    //         iter: self,
-    //         into,
-    //     }
-    // }
-
     fn expect(&mut self, pattern: impl Pattern) -> Result<(), ParseError> {
         let tt = self.next();
 
@@ -91,7 +84,3 @@ where
         })
     }
 }
-
-// struct Cloning {
-//     iter: self
-// }
