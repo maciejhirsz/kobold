@@ -1,6 +1,8 @@
 use crate::{Element, Html, IntoHtml, Mountable};
 
-/// Wrapper type that implements `Html` for iterators.
+/// Wrapper type that implements `Html` for iterators. It's automatically created
+/// for all iterators by the [`html!`](crate::html) macro thanks to the
+/// [`IntoHtml`](crate::IntoHtml) trait.
 pub struct List<T>(T);
 
 pub struct ListProduct<T> {

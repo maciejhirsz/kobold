@@ -1,3 +1,5 @@
+//! Utilities for building [`Stateful`](Stateful) components
+
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;

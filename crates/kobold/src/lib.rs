@@ -1,6 +1,45 @@
 //! <img src="https://raw.githubusercontent.com/maciejhirsz/kobold/master/kobold.svg?sanitize=true" alt="Kobold logo" width="250" align="right">
 //!
 //! # Kobold
+//!
+//! _Easy web interfaces._
+//!
+//! **Kobold** uses macros to deliver familiar JSX-esque syntax for building web interfaces in rust,
+//! while leveraging Rust's powerful type system for safety and performance.
+//!
+//! There is no need for a full [virtual DOM](https://en.wikipedia.org/wiki/Virtual_DOM), all static
+//! elements are compiled into plain JavaScript functions that construct the [DOM](https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model)
+//! elements. All expressions wrapped in `{ ... }` braces are then injected into that DOM, and updated
+//! if they change.
+//!
+//! Like in [React](https://reactjs.org/) or [Yew](https://yew.rs/) updates are done by calling a render
+//! function/method, but unlike either the [`html!`][html] macro in Kobold produces transient static types that
+//! implement the [`Html`](Html) trait. If you have a component that renders a whole bunch of HTML and one `i32`,
+//! only that one `i32` is diffed between previous and current render and updated in DOM if necessary.
+//!
+//! ### Hello World
+//!
+//! ```no_run
+//! use kobold::prelude::*;
+//!
+//! fn main() {
+//!     struct Hello {
+//!         name: &'static str,
+//!     }
+//!
+//!     impl Hello {
+//!         fn render(self) -> impl Html {
+//!             html! {
+//!                 <h1>"Hello "{ self.name }"!"</h1>
+//!             }
+//!         }
+//!     }
+//!
+//!     kobold::start(html! {
+//!         <Hello name={"World"} />
+//!     });
+//! }
+//! ```
 
 pub use kobold_macros::{html, branching};
 
@@ -16,6 +55,7 @@ pub mod dom;
 pub mod list;
 pub mod stateful;
 
+/// The prelude module with most commonly used types.
 pub mod prelude {
     pub use crate::{html, Html, IntoHtml};
     pub use crate::stateful::{Stateful, Link, ShouldRender};
@@ -29,11 +69,16 @@ pub mod reexport {
     pub use web_sys;
 }
 
+/// Trait that describes types that can be rendered in the DOM.
 pub trait Html: Sized {
+    /// HTML product of this type, this is effectively the strongly-typed
+    /// virtual DOM equivalent for Kobold.
     type Product: Mountable;
 
+    /// Build a product that can be mounted in the DOM from this type.
     fn build(self) -> Self::Product;
 
+    /// Update the product and apply changes to the DOM if necessary.
     fn update(self, p: &mut Self::Product);
 
     /// This is a no-op method that returns self, you souldn't override the default

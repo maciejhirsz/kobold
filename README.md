@@ -2,18 +2,73 @@
 
 # Kobold
 
-Very much WIP.
+_Easy web interfaces._
 
-To see it in action:
+**Kobold** uses macros to deliver familiar JSX-esque syntax for building web interfaces in rust,
+while leveraging Rust's powerful type system for safety and performance.
 
+There is no need for a full [virtual DOM](https://en.wikipedia.org/wiki/Virtual_DOM), all static
+elements are compiled into plain JavaScript functions that construct the [DOM](https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model)
+elements. All expressions wrapped in `{ ... }` braces are then injected into that DOM, and updated
+if they change.
+
+Like in [React](https://reactjs.org/) or [Yew](https://yew.rs/) updates are done by calling a render
+function/method, but unlike either the `html!` macro in Kobold produces transient static types that
+implement the `Html` trait. If you have a component that renders a whole bunch of HTML and one `i32`,
+only that one `i32` is diffed between previous and current render and updated in DOM if necessary.
+
+### Hello World
+
+Any struct that implements a `render` method is automatically a component.
+
+```rust
+use kobold::prelude::*;
+
+fn main() {
+    struct Hello {
+        name: &'static str,
+    }
+
+    impl Hello {
+        fn render(self) -> impl Html {
+            html! {
+                <h1>"Hello "{ self.name }"!"</h1>
+            }
+        }
+    }
+
+    kobold::start(html! {
+        <Hello name={"World"} />
+    });
+}
 ```
-cargo install trunk wasm-bindgen-cli
+
+### Examples
+
+To run **Kobold** you'll need to install [`trunk`](https://trunkrs.dev/):
+```
+cargo install --locked trunk
+```
+
+You might also need the CLI for wasm-bindgen and ability to compile Rust to Wasm:
+```
+ wasm-bindgen-cli
 
 rustup target add wasm32-unknown-unknown
+```
 
-cd examples/clicker
+Then just run an example:
+```
+# Go to an example
+cd examples/counter
+
+# Run with trunk
 trunk serve
 ```
+
+## Acknowledgements
+
++ [Pedrors](https://pedrors.pt/) for the **Kobold** logo.
 
 ### License
 
