@@ -28,11 +28,23 @@ fn main() {
                             //
                             // On subsequent renders `Kobold` can very cheaply diff items yielded
                             // by iterators, avoiding allocations unless new items are added.
-                            { (1..=n).map(|n| html! { <li>"Item #"{ n }</li> }) }
+                            //
+                            // `{n}` is just shorthand for `n={n}`.
+                            { (1..=n).map(|n| html! { <ListItem {n} /> }) }
                         </ul>
                     </div>
                 }
             })
+        }
+    }
+
+    struct ListItem {
+        n: u32,
+    }
+
+    impl ListItem {
+        fn render(self) -> impl Html {
+            html! { <li>"Item #"{ self.n }</li> }
         }
     }
 

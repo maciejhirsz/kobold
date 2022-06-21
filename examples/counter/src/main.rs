@@ -14,8 +14,12 @@ fn main() {
                 html! {
                     <p>
                         "You clicked the "
-                        <button {onclick}>"Button"</button>
-                        " "{ state.count }" times."
+                        <button {onclick}>
+                            "Button"
+                        </button>
+                        " "
+                        { state.count }
+                        " times."
                     </p>
                 }
             })
