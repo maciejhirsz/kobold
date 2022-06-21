@@ -9,28 +9,23 @@ use web_sys::Event;
 use crate::stateful::Inner;
 use crate::{Element, Html, Mountable, ShouldRender};
 
-pub struct Link<'state, S: 'static> {
+pub struct Link<'state, S> {
     inner: *const (),
-    vtable: &'static LinkVTable<S>,
+    make_closure: fn(*const (), cb: Weak<UnsafeCell<dyn CallbackFn<S>>>) -> Box<dyn FnMut(&Event)>,
     _marker: PhantomData<&'state S>,
 }
 
-impl<'state, S: 'static> Clone for Link<'state, S> {
+impl<S> Clone for Link<'_, S> {
     fn clone(&self) -> Self {
         Link {
             inner: self.inner,
-            vtable: self.vtable,
+            make_closure: self.make_closure,
             _marker: PhantomData,
         }
     }
 }
 
-impl<'state, S: 'static> Copy for Link<'state, S> {}
-
-pub struct LinkVTable<S> {
-    // drop: fn(*const ()),
-    make_closure: fn(*const (), cb: Weak<UnsafeCell<dyn CallbackFn<S>>>) -> Box<dyn FnMut(&Event)>,
-}
+impl<S> Copy for Link<'_, S> {}
 
 impl<'state, S> Link<'state, S>
 where
@@ -41,28 +36,26 @@ where
     }
 
     pub(super) fn from_weak<P: 'static>(weak: &'state Weak<Inner<S, P>>) -> Self {
-        Self::new_raw((*weak).as_ptr())
+        Self::new_raw(weak.as_ptr())
     }
 
     fn new_raw<P: 'static>(inner: *const Inner<S, P>) -> Self {
         Link {
             inner: inner as *const _,
-            vtable: &LinkVTable {
-                make_closure: |inner, weak_cb| {
-                    make_closure(move |event| {
-                        if let Some(cb) = weak_cb.upgrade() {
-                            let inner = unsafe { &*(inner as *const Inner<S, P>) };
-                            let cb = unsafe { &*cb.get() };
+            make_closure: |inner, weak_cb| {
+                make_closure(move |event| {
+                    if let Some(cb) = weak_cb.upgrade() {
+                        let inner = unsafe { &*(inner as *const Inner<S, P>) };
+                        let cb = unsafe { &*cb.get() };
 
-                            if cb
-                                .call(&mut inner.state.borrow_mut(), event)
-                                .should_render()
-                            {
-                                inner.update();
-                            }
+                        if cb
+                            .call(&mut inner.state.borrow_mut(), event)
+                            .should_render()
+                        {
+                            inner.update();
                         }
-                    })
-                },
+                    }
+                })
             },
             _marker: PhantomData,
         }
@@ -101,7 +94,7 @@ pub struct CallbackProduct<F> {
     cb: Rc<UnsafeCell<F>>,
 }
 
-pub trait CallbackFn<S> {
+trait CallbackFn<S> {
     fn call(&self, state: &mut S, event: &Event) -> ShouldRender;
 }
 
@@ -130,7 +123,7 @@ where
         let cb = Rc::new(UnsafeCell::new(cb));
         let weak = Rc::downgrade(&cb);
 
-        let closure = (link.vtable.make_closure)(link.inner, weak);
+        let closure = (link.make_closure)(link.inner, weak);
         let closure = Closure::wrap(closure);
 
         CallbackProduct { closure, cb }

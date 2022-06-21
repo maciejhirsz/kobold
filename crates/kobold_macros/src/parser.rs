@@ -304,11 +304,15 @@ impl Parser {
                         }
 
                         stack -= 1;
+
+                        let (_, ident) = expect_ident(iter.next())?;
+
+                        children.extend([tt, next, ident.into()]);
                     } else {
                         stack += 1;
-                    }
 
-                    children.extend([tt, next]);
+                        children.extend([tt, next]);
+                    }
                 }
 
                 let next = iter.next();
@@ -318,13 +322,20 @@ impl Parser {
 
                 // Allow generics after ident
                 if p == Some('<') {
+                    let mut gen_stack = 1;
+
                     while let Some(next) = iter.next() {
                         let punct = punct(&next);
 
                         children.extend([next]);
 
-                        // TODO: handle nested generics
-                        if punct == Some('>') {
+                        match punct {
+                            Some('>') => gen_stack -= 1,
+                            Some('<') => gen_stack += 1,
+                            _ => (),
+                        }
+
+                        if gen_stack == 0 {
                             break;
                         }
                     }
@@ -334,27 +345,15 @@ impl Parser {
                     match p {
                         Some('/') => stack -= 1,
                         Some('>') => break,
-                        _ => ()
+                        _ => (),
                     }
 
                     match iter.next() {
                         Some(tt) => {
                             p = punct(&tt);
                             children.extend([tt]);
-                        },
+                        }
                         None => break,
-                    }
-                }
-
-                while let Some(next) = iter.next() {
-                    let punct = punct(&next);
-
-                    children.extend([next]);
-
-                    match punct {
-                        Some('/') => stack -= 1,
-                        Some('>') => break,
-                        _ => ()
                     }
                 }
 
@@ -364,12 +363,12 @@ impl Parser {
             children.extend([tt]);
         }
 
-
         if element.is_component() {
             let parsed = crate::html(children);
 
             element.children_raw = Some(parsed.into());
         } else {
+            // panic!("{children}");
             let mut iter = children.into_iter();
 
             loop {

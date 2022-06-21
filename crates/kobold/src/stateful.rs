@@ -55,14 +55,14 @@ pub struct WithState<S: Stateful, H: Html> {
     _marker: PhantomData<H>,
 }
 
-struct Inner<S: 'static, P> {
+struct Inner<S, P> {
     state: RefCell<S>,
     product: RefCell<P>,
     render: RenderFn<S, P>,
     update: fn(RenderFn<S, P>, Link<S>),
 }
 
-impl<S, P: 'static> Inner<S, P> {
+impl<S: 'static, P: 'static> Inner<S, P> {
     fn update(&self) {
         (self.update)(self.render, Link::new(self))
     }
