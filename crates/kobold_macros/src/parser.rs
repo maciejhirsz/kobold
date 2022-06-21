@@ -93,7 +93,12 @@ impl Parser {
             Some(TokenTree::Punct(punct)) if punct.as_char() == '<' => {
                 let (tag, tag_ident) = expect_ident(iter.next())?;
 
-                let el = self.parse_element(tag, iter)?;
+                let mut el = self.parse_element(tag, iter)?;
+
+                let render_call = match el.children_raw.take() {
+                    Some(children) => quote! { render_with(#children) },
+                    None => quote! { render() },
+                };
 
                 if el.is_component() {
                     let mut tag = into_quote(tag_ident);
@@ -103,8 +108,8 @@ impl Parser {
                     }
 
                     let expr = match (el.attributes.is_empty(), el.defaults) {
-                        (true, true) => quote! { #tag::default().render() },
-                        (true, false) => quote! { #tag.render() },
+                        (true, true) => quote! { #tag::default().#render_call },
+                        (true, false) => quote! { #tag.#render_call },
                         (false, defaults) => {
                             let props = el
                                 .attributes
@@ -126,14 +131,14 @@ impl Parser {
                                         #props
                                         ..Default::default()
                                     }
-                                    .render()
+                                    .#render_call
                                 }
                             } else {
                                 quote! {
                                     #tag {
                                         #props
                                     }
-                                    .render()
+                                    .#render_call
                                 }
                             }
                         }
@@ -175,7 +180,8 @@ impl Parser {
                 }
             }
             Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
-                self.new_field(FieldKind::Html, group.stream().into());
+                let expr = into_quote(group);
+                self.new_field(FieldKind::Html, quote! { #expr.into_html() });
 
                 Ok(Node::Expression)
             }
@@ -193,6 +199,7 @@ impl Parser {
             generics: None,
             attributes: Vec::new(),
             children: Vec::new(),
+            children_raw: None,
             defaults: false,
         };
 
@@ -285,14 +292,93 @@ impl Parser {
             next = iter.next();
         }
 
-        // Children loop
-        loop {
-            match self.parse_node(iter) {
-                Ok(child) => element.children.push(child),
-                Err(err) => match err.tt {
-                    Some(TokenTree::Punct(punct)) if punct.as_char() == '/' => break,
-                    _ => return Err(err),
-                },
+        let mut children = TokenStream::new();
+        let mut stack = 0;
+
+        while let Some(tt) = iter.next() {
+            if punct(&tt) == Some('<') {
+                if let Some(next) = iter.next() {
+                    if punct(&next) == Some('/') {
+                        if stack == 0 {
+                            break;
+                        }
+
+                        stack -= 1;
+
+                        let (_, ident) = expect_ident(iter.next())?;
+
+                        children.extend([tt, next, ident.into()]);
+                    } else {
+                        stack += 1;
+
+                        children.extend([tt, next]);
+                    }
+                }
+
+                let next = iter.next();
+                let mut p = next.as_ref().and_then(punct);
+
+                children.extend(next);
+
+                // Allow generics after ident
+                if p == Some('<') {
+                    let mut gen_stack = 1;
+
+                    while let Some(next) = iter.next() {
+                        let punct = punct(&next);
+
+                        children.extend([next]);
+
+                        match punct {
+                            Some('>') => gen_stack -= 1,
+                            Some('<') => gen_stack += 1,
+                            _ => (),
+                        }
+
+                        if gen_stack == 0 {
+                            break;
+                        }
+                    }
+                }
+
+                loop {
+                    match p {
+                        Some('/') => stack -= 1,
+                        Some('>') => break,
+                        _ => (),
+                    }
+
+                    match iter.next() {
+                        Some(tt) => {
+                            p = punct(&tt);
+                            children.extend([tt]);
+                        }
+                        None => break,
+                    }
+                }
+
+                continue;
+            }
+
+            children.extend([tt]);
+        }
+
+        if element.is_component() {
+            let parsed = crate::html(children);
+
+            element.children_raw = Some(parsed.into());
+        } else {
+            // panic!("{children}");
+            let mut iter = children.into_iter();
+
+            loop {
+                match self.parse_node(&mut iter) {
+                    Ok(child) => element.children.push(child),
+                    Err(err) => match err.tt {
+                        None => break,
+                        _ => return Err(err),
+                    },
+                }
             }
         }
 
@@ -372,6 +458,13 @@ fn expect_end(tt: Option<TokenTree>, err: &'static str) -> Result<(), ParseError
     match tt {
         None => Ok(()),
         tt => Err(ParseError::new(err, tt)),
+    }
+}
+
+fn punct(tt: &TokenTree) -> Option<char> {
+    match tt {
+        TokenTree::Punct(p) => Some(p.as_char()),
+        _ => None,
     }
 }
 

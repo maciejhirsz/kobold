@@ -16,10 +16,9 @@ pub mod dom;
 pub mod list;
 pub mod stateful;
 
-pub use stateful::Stateful;
-
 pub mod prelude {
-    pub use crate::{html, Html, IntoHtml, ShouldRender, Stateful};
+    pub use crate::{html, Html, IntoHtml};
+    pub use crate::stateful::{Stateful, Link, ShouldRender};
 }
 
 use dom::Element;
@@ -28,26 +27,6 @@ use dom::Element;
 pub mod reexport {
     pub use wasm_bindgen;
     pub use web_sys;
-}
-
-pub enum ShouldRender {
-    No,
-    Yes,
-}
-
-impl From<()> for ShouldRender {
-    fn from(_: ()) -> ShouldRender {
-        ShouldRender::Yes
-    }
-}
-
-impl ShouldRender {
-    fn should_render(self) -> bool {
-        match self {
-            ShouldRender::Yes => true,
-            ShouldRender::No => false,
-        }
-    }
 }
 
 pub trait Html: Sized {

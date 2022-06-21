@@ -59,6 +59,7 @@ pub struct Element {
     pub generics: Option<QuoteTokens>,
     pub attributes: Vec<Attribute>,
     pub children: Vec<Node>,
+    pub children_raw: Option<QuoteTokens>,
     pub defaults: bool,
 }
 

@@ -46,7 +46,7 @@ where
 
                 write!(
                     &mut self.render,
-                    "const {}=document.createTextNode({})",
+                    "const {}=document.createTextNode({});",
                     e, text
                 )?;
 
