@@ -6,8 +6,8 @@ use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsValue;
 use web_sys::Event;
 
-use crate::stateful::Inner;
-use crate::{Element, Html, Mountable, ShouldRender};
+use crate::stateful::{Inner, ShouldRender};
+use crate::{Element, Html, Mountable};
 
 pub struct Link<'state, S> {
     inner: *const (),

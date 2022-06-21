@@ -7,15 +7,6 @@ fn main() {
         count: u32,
     }
 
-    impl Default for Clicker {
-        fn default() -> Self {
-            Clicker {
-                name: "Alice",
-                count: 2,
-            }
-        }
-    }
-
     impl Clicker {
         fn render(self) -> impl Html {
             self.stateful(|state, link| {
@@ -48,6 +39,6 @@ fn main() {
 
     kobold::start(html! {
         // The `..` notation fills in the rest of the component with values from the `Default` impl.
-        <Clicker name={"Bob"} ../>
+        <Clicker name={"Bob"} count={2} />
     });
 }

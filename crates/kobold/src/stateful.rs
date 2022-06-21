@@ -3,11 +3,42 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 
 use crate::render_fn::RenderFn;
-use crate::{Element, Html, Mountable, ShouldRender};
+use crate::{Element, Html, Mountable};
 
 mod link;
 
 pub use link::{Callback, Link};
+
+/// Describes whether or not a component should be rendered after state changes.
+/// For uses see:
+///
+/// * [Link::callback](Link::callback)
+/// * [Stateful::update](Stateful::update)
+pub enum ShouldRender {
+    /// This is a silent update
+    No,
+
+    /// Yes, re-render the component after this update
+    Yes,
+}
+
+/// Closures without a return type (those that return `()`)
+/// are considered to return [`ShouldRender::Yes`](ShouldRender::Yes).
+impl From<()> for ShouldRender {
+    fn from(_: ()) -> ShouldRender {
+        ShouldRender::Yes
+    }
+}
+
+impl ShouldRender {
+    fn should_render(self) -> bool {
+        match self {
+            ShouldRender::Yes => true,
+            ShouldRender::No => false,
+        }
+    }
+}
+
 
 pub trait Stateful: Sized {
     type State: 'static;
