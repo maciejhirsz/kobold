@@ -189,7 +189,7 @@ pub fn html(mut body: TokenStream) -> TokenStream {
             let name = &field.name;
 
             quote! {
-                #name: (#expr).into_html(),
+                #name: #expr,
             }
         })
         .collect::<QuoteTokens>();
