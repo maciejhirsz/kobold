@@ -1,4 +1,4 @@
-use proc_macro::{Ident, TokenStream};
+use proc_macro::Ident;
 use proc_macro2::TokenStream as QuoteTokens;
 use std::fmt::{self, Debug, Display};
 

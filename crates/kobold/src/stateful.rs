@@ -22,7 +22,7 @@ pub trait Stateful: Sized {
 
     fn stateful<'a, H: Html + 'a>(
         self,
-        render: fn(&'a Self::State, &'a Link<Self::State, H::Product>) -> H,
+        render: fn(&'a Self::State, Link<'a, Self::State>) -> H,
     ) -> WithState<Self, H> {
         WithState {
             stateful: self,
@@ -55,21 +55,20 @@ pub struct WithState<S: Stateful, H: Html> {
     _marker: PhantomData<H>,
 }
 
-struct Inner<S, P> {
+struct Inner<S: 'static, P> {
     state: RefCell<S>,
     product: RefCell<P>,
     render: RenderFn<S, P>,
-    link: Link<S, P>,
-    update: fn(RenderFn<S, P>, &Link<S, P>),
+    update: fn(RenderFn<S, P>, Link<S>),
 }
 
-impl<S, P> Inner<S, P> {
+impl<S, P: 'static> Inner<S, P> {
     fn update(&self) {
-        (self.update)(self.render, &self.link)
+        (self.update)(self.render, Link::new(self))
     }
 }
 
-pub struct WithStateProduct<S, P> {
+pub struct WithStateProduct<S: 'static, P> {
     inner: Rc<Inner<S, P>>,
     el: Element,
 }
@@ -85,29 +84,25 @@ where
         let state = self.stateful.init();
 
         let inner = Rc::new_cyclic(move |inner| {
-            let link = Link {
-                inner: inner.clone(),
-            };
+            let link = Link::from_weak(inner);
 
             // Safety: this is safe as long as `S` and `H` are the same types that
             // were used to create this `RenderFn` instance.
             let render_fn = unsafe { self.render.cast::<H>() };
-            let product = (render_fn)(&state, &link).build();
+            let product = (render_fn)(&state, link).build();
 
             Inner {
                 state: RefCell::new(state),
                 product: RefCell::new(product),
                 render: self.render,
-                link,
                 update: |render, link| {
                     // Safety: this is safe as long as `S` and `H` are the same types that
                     // were used to create this `RenderFn` instance.
                     let render = unsafe { render.cast::<H>() };
+                    let inner = unsafe { &*link.inner() };
 
-                    if let Some(inner) = link.inner.upgrade() {
-                        (render)(&inner.state.borrow(), link)
-                            .update(&mut inner.product.borrow_mut());
-                    }
+                    (render)(&inner.state.borrow(), link)
+                        .update(&mut inner.product.borrow_mut());
                 },
             }
         });
