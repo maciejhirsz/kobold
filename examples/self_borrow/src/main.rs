@@ -1,41 +1,43 @@
 use kobold::prelude::*;
 
-fn main() {
-    struct SelfBorrow<'a> {
-        name: &'a str,
+struct SelfBorrow<'a> {
+    name: &'a str,
+}
+
+struct OwnedState {
+    name: String,
+}
+
+impl Stateful for SelfBorrow<'_> {
+    type State = OwnedState;
+
+    fn init(self) -> OwnedState {
+        OwnedState {
+            name: self.name.into(),
+        }
     }
+}
 
-    struct OwnedState {
-        name: String,
-    }
+impl<'a> SelfBorrow<'a> {
+    fn render(self) -> impl Html + 'a {
+        self.stateful(|state, link| {
+            let exclaim = link.callback(|state, _| state.name.push('!'));
+            let alice = link.callback(|state, _| state.name.replace_range(.., "Alice"));
 
-    impl Stateful for SelfBorrow<'_> {
-        type State = OwnedState;
-
-        fn init(self) -> OwnedState {
-            OwnedState {
-                name: self.name.into(),
+            html! {
+                <div>
+                    <p>
+                        "Should be able to borrow a reference to an owned String: "{ &state.name }
+                    </p>
+                    <button onclick={alice}>"Alice"</button> <button onclick={exclaim}>"!"</button>
+                </div>
             }
-        }
+        })
     }
+}
 
-    impl<'a> SelfBorrow<'a> {
-        fn render(self) -> impl Html + 'a {
-            self.stateful(|state, link| {
-                let exclaim = link.callback(|state, _| state.name.push('!'));
-                let alice = link.callback(|state, _| state.name.replace_range(.., "Alice"));
-
-                html! {
-                    <div>
-                        <p>
-                            "Should be able to borrow a reference to an owned String: "{ &state.name }
-                        </p>
-                        <button onclick={alice}>"Alice"</button> <button onclick={exclaim}>"!"</button>
-                    </div>
-                }
-            })
-        }
-    }
-
-    kobold::start(html! { <SelfBorrow name={"Bob"} /> });
+fn main() {
+    kobold::start(html! {
+        <SelfBorrow name={"Bob"} />
+    });
 }

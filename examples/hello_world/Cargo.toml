@@ -1,5 +1,5 @@
 [package]
-name = "kobold_list_example"
+name = "kobold_hello_world_example"
 version = "0.1.0"
 edition = "2021"
 

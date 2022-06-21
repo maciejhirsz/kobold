@@ -13,6 +13,7 @@ use quote::quote;
 mod dom;
 mod gen;
 mod parser;
+mod token_ext;
 
 use gen::Generator;
 use parser::Parser;

@@ -1,5 +1,5 @@
 [package]
-name = "kobold-self-borrow-example"
+name = "kobold_self_borrow_example"
 version = "0.1.0"
 edition = "2021"
 

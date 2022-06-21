@@ -4,7 +4,7 @@
 //!
 //! _Easy web interfaces._
 //!
-//! **Kobold** uses macros to deliver familiar JSX-esque syntax for building web interfaces in rust,
+//! **Kobold** uses macros to deliver familiar HTML-esque syntax for building web interfaces in rust,
 //! while leveraging Rust's powerful type system for safety and performance.
 //!
 //! There is no need for a full [virtual DOM](https://en.wikipedia.org/wiki/Virtual_DOM), all static
@@ -19,24 +19,26 @@
 //!
 //! ### Hello World
 //!
-//! ```no_run
+//! Any struct that implements a `render` method can be used as a component:
+//!
+//! ```rust
 //! use kobold::prelude::*;
 //!
-//! fn main() {
-//!     struct Hello {
-//!         name: &'static str,
-//!     }
+//! struct Hello {
+//!     name: &'static str,
+//! }
 //!
-//!     impl Hello {
-//!         fn render(self) -> impl Html {
-//!             html! {
-//!                 <h1>"Hello "{ self.name }"!"</h1>
-//!             }
+//! impl Hello {
+//!     fn render(self) -> impl Html {
+//!         html! {
+//!             <h1>"Hello "{ self.name }"!"</h1>
 //!         }
 //!     }
+//! }
 //!
+//! fn main() {
 //!     kobold::start(html! {
-//!         <Hello name={"World"} />
+//!         <Hello name={"Kobold"} />
 //!     });
 //! }
 //! ```

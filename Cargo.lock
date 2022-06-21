@@ -70,21 +70,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "kobold-counter-example"
+name = "kobold_counter_example"
 version = "0.1.0"
 dependencies = [
  "kobold",
 ]
 
 [[package]]
-name = "kobold-list-example"
+name = "kobold_hello_world_example"
 version = "0.1.0"
 dependencies = [
  "kobold",
 ]
 
 [[package]]
-name = "kobold-self-borrow-example"
+name = "kobold_list_example"
 version = "0.1.0"
 dependencies = [
  "kobold",
@@ -99,6 +99,13 @@ dependencies = [
  "fnv",
  "proc-macro2",
  "quote",
+]
+
+[[package]]
+name = "kobold_self_borrow_example"
+version = "0.1.0"
+dependencies = [
+ "kobold",
 ]
 
 [[package]]

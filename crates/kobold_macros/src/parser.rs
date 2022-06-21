@@ -8,11 +8,12 @@ use proc_macro2::TokenStream as QuoteTokens;
 use quote::{quote, quote_spanned};
 
 use crate::dom::{Attribute, AttributeValue, Element, Field, FieldKind, Node};
+use crate::token_ext::IteratorExt as _;
 
 #[derive(Debug)]
 pub struct ParseError {
-    msg: Cow<'static, str>,
-    tt: Option<TokenTree>,
+    pub msg: Cow<'static, str>,
+    pub tt: Option<TokenTree>,
 }
 
 impl ParseError {
@@ -91,7 +92,8 @@ impl Parser {
     fn parse_node(&mut self, iter: &mut TokenIter) -> Result<Node, ParseError> {
         match iter.next() {
             Some(TokenTree::Punct(punct)) if punct.as_char() == '<' => {
-                let (tag, tag_ident) = expect_ident(iter.next())?;
+                let tag_ident: Ident = iter.expect_ty()?;
+                let tag = tag_ident.to_string();
 
                 let mut el = self.parse_element(tag, iter)?;
 
@@ -226,7 +228,7 @@ impl Parser {
                 Some(TokenTree::Ident(ident)) => {
                     let name = ident.to_string();
 
-                    expect_punct(iter.next(), '=')?;
+                    iter.expect('=')?;
 
                     let value = match iter.next() {
                         Some(TokenTree::Literal(lit)) => {
@@ -254,7 +256,8 @@ impl Parser {
                 Some(TokenTree::Group(group)) => {
                     let mut iter = group.stream().into_iter();
 
-                    let (name, ident) = expect_ident(iter.next())?;
+                    let ident: Ident = iter.expect_ty()?;
+                    let name = ident.to_string();
                     expect_end(
                         iter.next(),
                         "Shorthand attributes can only contain a single variable name",
@@ -269,16 +272,16 @@ impl Parser {
                 Some(TokenTree::Punct(punct))
                     if punct.as_char() == '.' && punct.spacing() == Spacing::Joint =>
                 {
-                    expect_punct(iter.next(), '.')?;
-                    expect_punct(iter.next(), '/')?;
-                    expect_punct(iter.next(), '>')?;
+                    iter.expect('.')?;
+                    iter.expect('/')?;
+                    iter.expect('>')?;
 
                     element.defaults = true;
 
                     return Ok(element);
                 }
                 Some(TokenTree::Punct(punct)) if punct.as_char() == '/' => {
-                    expect_punct(iter.next(), '>')?;
+                    iter.expect('>')?;
 
                     // Self-closing tag, no need to parse further
                     return Ok(element);
@@ -305,9 +308,9 @@ impl Parser {
 
                         stack -= 1;
 
-                        let (_, ident) = expect_ident(iter.next())?;
+                        let ident = iter.expect_ty()?;
 
-                        children.extend([tt, next, ident.into()]);
+                        children.extend([tt, next, TokenTree::Ident(ident)]);
                     } else {
                         stack += 1;
 
@@ -382,19 +385,8 @@ impl Parser {
             }
         }
 
-        let (closing, tt) = expect_ident(iter.next())?;
-
-        if closing != element.tag {
-            return Err(ParseError::new(
-                format!(
-                    "Expected a closing tag for {}, but got {} instead",
-                    element.tag, closing
-                ),
-                Some(TokenTree::Ident(tt)),
-            ));
-        }
-
-        expect_punct(iter.next(), '>')?;
+        iter.expect(element.tag.as_str())?;
+        iter.expect('>')?;
 
         Ok(element)
     }
@@ -465,19 +457,5 @@ fn punct(tt: &TokenTree) -> Option<char> {
     match tt {
         TokenTree::Punct(p) => Some(p.as_char()),
         _ => None,
-    }
-}
-
-fn expect_punct(tt: Option<TokenTree>, expect: char) -> Result<(), ParseError> {
-    match tt {
-        Some(TokenTree::Punct(punct)) if punct.as_char() == expect => Ok(()),
-        tt => Err(ParseError::new(format!("Expected {}", expect), tt)),
-    }
-}
-
-fn expect_ident(tt: Option<TokenTree>) -> Result<(String, Ident), ParseError> {
-    match tt {
-        Some(TokenTree::Ident(ident)) => Ok((ident.to_string(), ident)),
-        tt => Err(ParseError::new("Expected identifier", tt)),
     }
 }

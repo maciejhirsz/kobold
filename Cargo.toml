@@ -3,6 +3,7 @@ members = [
     "crates/kobold",
     "crates/kobold_macros",
     "examples/counter",
+    "examples/hello_world",
     "examples/list",
     "examples/self_borrow",
 ]
