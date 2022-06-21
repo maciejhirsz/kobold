@@ -2,27 +2,26 @@ use kobold::prelude::*;
 
 fn main() {
     #[derive(PartialEq, Eq)]
-    struct Clicker {
-        name: &'static str,
+    struct ListExample {
         count: u32,
     }
 
-    impl Clicker {
+    impl ListExample {
         fn render(self) -> impl Html {
             self.stateful(|state, link| {
                 let n = state.count;
 
-                let inc = link.callback(|state, _| state.count += 1);
                 let dec = link.callback(|state, _| state.count = state.count.saturating_sub(1));
+                let inc = link.callback(|state, _| state.count += 1);
 
                 html! {
                     <div>
-                        <h1 class="Greeter">"Hello "{ state.name }"!"</h1>
+                        <h1 class="Greeter">"List example"</h1>
                         <p>
                             "This component dynamically creates a list from a range iterator ending at "
-                            { state.count }
-                            <button onclick={inc}>"+"</button>
                             <button onclick={dec}>"-"</button>
+                            " "{ state.count }" "
+                            <button onclick={inc}>"+"</button>
                         </p>
                         <ul>
                             // Just an iterator, you don't need to collect it to a `Vec`.
@@ -38,7 +37,6 @@ fn main() {
     }
 
     kobold::start(html! {
-        // The `..` notation fills in the rest of the component with values from the `Default` impl.
-        <Clicker name={"Bob"} count={2} />
+        <ListExample count={2} />
     });
 }

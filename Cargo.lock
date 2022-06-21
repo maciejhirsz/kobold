@@ -59,7 +59,7 @@ dependencies = [
 
 [[package]]
 name = "kobold"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "console_error_panic_hook",
  "itoa",
@@ -70,8 +70,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "kobold-counter-example"
+version = "0.1.0"
+dependencies = [
+ "kobold",
+]
+
+[[package]]
+name = "kobold-list-example"
+version = "0.1.0"
+dependencies = [
+ "kobold",
+]
+
+[[package]]
+name = "kobold-self-borrow-example"
+version = "0.1.0"
+dependencies = [
+ "kobold",
+]
+
+[[package]]
 name = "kobold_macros"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "arrayvec",
  "beef",
@@ -120,13 +141,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3f6f92acf49d1b98f7a81226834412ada05458b7364277387724a237f062695"
 
 [[package]]
-name = "self_borrow"
-version = "0.1.0"
-dependencies = [
- "kobold",
-]
-
-[[package]]
 name = "syn"
 version = "1.0.74"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -135,13 +149,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-xid",
-]
-
-[[package]]
-name = "tests"
-version = "0.1.0"
-dependencies = [
- "kobold",
 ]
 
 [[package]]

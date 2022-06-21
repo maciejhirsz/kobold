@@ -2,7 +2,8 @@
 members = [
     "crates/kobold",
     "crates/kobold_macros",
-    "examples/clicker",
+    "examples/counter",
+    "examples/list",
     "examples/self_borrow",
 ]
 

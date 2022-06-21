@@ -5,15 +5,15 @@ fn main() {
         name: &'a str,
     }
 
-    struct State {
+    struct OwnedState {
         name: String,
     }
 
     impl Stateful for SelfBorrow<'_> {
-        type State = State;
+        type State = OwnedState;
 
-        fn init(self) -> State {
-            State {
+        fn init(self) -> OwnedState {
+            OwnedState {
                 name: self.name.into(),
             }
         }

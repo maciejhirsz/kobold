@@ -2,7 +2,7 @@
 //!
 //! # Kobold
 
-pub use kobold_macros::html;
+pub use kobold_macros::{html, branching};
 
 use wasm_bindgen::JsValue;
 
