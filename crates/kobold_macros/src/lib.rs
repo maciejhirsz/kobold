@@ -153,7 +153,7 @@ pub fn html(mut body: TokenStream) -> TokenStream {
             {
                 use ::kobold::{IntoHtml as _};
 
-                (#expr).into_html()
+                #expr
             }
         }
         .into();
