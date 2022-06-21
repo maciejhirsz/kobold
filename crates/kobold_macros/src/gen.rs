@@ -67,15 +67,19 @@ where
 
                 for attr in el.attributes.iter() {
                     match &attr.value {
-                        AttributeValue::Text(value) => match attr.name.as_ref() {
-                            "class" => {
-                                js!("{}.className={};", e, value);
-                            }
-                            "style" | "id" => {
-                                js!("{}.{}={};", e, attr.name, value);
-                            }
-                            _ => {
-                                js!("{}.setAttribute({:?},{});", e, attr.name, value)
+                        AttributeValue::Literal(value) => {
+                            let value = literal_to_string(value);
+
+                            match attr.name.as_ref() {
+                                "class" => {
+                                    js!("{}.className={};", e, value);
+                                }
+                                "style" | "id" => {
+                                    js!("{}.{}={};", e, attr.name, value);
+                                }
+                                _ => {
+                                    js!("{}.setAttribute({:?},{});", e, attr.name, value)
+                                }
                             }
                         },
                         AttributeValue::Expression(_) => {
@@ -204,5 +208,22 @@ where
         self.args_tokens.push(token);
 
         (arg, field)
+    }
+}
+
+pub fn literal_to_string(lit: impl ToString) -> String {
+    const QUOTE: &str = "\"";
+
+    let stringified = lit.to_string();
+
+    match stringified.chars().next() {
+        // Take the string verbatim
+        Some('"' | '\'') => stringified,
+        _ => {
+            let mut buf = String::with_capacity(stringified.len() + QUOTE.len() * 2);
+
+            buf.extend([QUOTE, &stringified, QUOTE]);
+            buf
+        }
     }
 }

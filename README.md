@@ -38,7 +38,7 @@ impl Hello {
 
 fn main() {
     kobold::start(html! {
-        <Hello name={"Kobold"} />
+        <Hello name="Kobold" />
     });
 }
 ```

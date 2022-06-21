@@ -38,6 +38,6 @@ impl<'a> SelfBorrow<'a> {
 
 fn main() {
     kobold::start(html! {
-        <SelfBorrow name={"Bob"} />
+        <SelfBorrow name="Bob" />
     });
 }

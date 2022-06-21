@@ -3,12 +3,13 @@ use std::convert::TryFrom;
 use arrayvec::ArrayString;
 use beef::Cow;
 use proc_macro::token_stream::IntoIter as TokenIter;
-use proc_macro::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
+use proc_macro::{Delimiter, Ident, Spacing, Span, TokenStream, TokenTree};
 use proc_macro2::TokenStream as QuoteTokens;
 use quote::{quote, quote_spanned};
 
+use crate::gen::literal_to_string;
 use crate::dom::{Attribute, AttributeValue, Element, Field, FieldKind, Node};
-use crate::token_ext::IteratorExt as _;
+use crate::token_ext::{IteratorExt as _, Pattern as _};
 
 #[derive(Debug)]
 pub struct ParseError {
@@ -91,8 +92,8 @@ impl Parser {
 
     fn parse_node(&mut self, iter: &mut TokenIter) -> Result<Node, ParseError> {
         match iter.next() {
-            Some(TokenTree::Punct(punct)) if punct.as_char() == '<' => {
-                let tag_ident: Ident = iter.expect_ty()?;
+            Some(ref tt) if '<'.matches(tt) => {
+                let tag_ident: Ident = iter.parse()?;
                 let tag = tag_ident.to_string();
 
                 let mut el = self.parse_element(tag, iter)?;
@@ -119,7 +120,7 @@ impl Parser {
                                 .map(|attr| {
                                     let name = into_quote(attr.ident);
                                     let value = match attr.value {
-                                        AttributeValue::Text(text) => quote! { #text },
+                                        AttributeValue::Literal(text) => quote! { #text },
                                         AttributeValue::Expression(expr) => expr,
                                     };
 
@@ -208,13 +209,11 @@ impl Parser {
         let mut next = iter.next();
 
         match next {
-            Some(TokenTree::Punct(punct)) if punct.as_char() == '<' => {
+            Some(ref tt) if '<'.matches(tt) => {
                 element.generics = Some(
-                    iter.take_while(
-                        |p| !matches!(p, TokenTree::Punct(punct) if punct.as_char() == '>'),
-                    )
-                    .collect::<TokenStream>()
-                    .into(),
+                    iter.take_while(|tt| !'>'.matches(tt))
+                        .collect::<TokenStream>()
+                        .into(),
                 );
 
                 next = iter.next();
@@ -232,7 +231,7 @@ impl Parser {
 
                     let value = match iter.next() {
                         Some(TokenTree::Literal(lit)) => {
-                            AttributeValue::Text(literal_to_string(lit))
+                            AttributeValue::Literal(into_quote(lit))
                         }
                         Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
                             AttributeValue::Expression(group.stream().into())
@@ -256,7 +255,7 @@ impl Parser {
                 Some(TokenTree::Group(group)) => {
                     let mut iter = group.stream().into_iter();
 
-                    let ident: Ident = iter.expect_ty()?;
+                    let ident: Ident = iter.parse()?;
                     let name = ident.to_string();
                     expect_end(
                         iter.next(),
@@ -280,13 +279,13 @@ impl Parser {
 
                     return Ok(element);
                 }
-                Some(TokenTree::Punct(punct)) if punct.as_char() == '/' => {
+                Some(tt) if '/'.matches(&tt) => {
                     iter.expect('>')?;
 
                     // Self-closing tag, no need to parse further
                     return Ok(element);
                 }
-                Some(TokenTree::Punct(punct)) if punct.as_char() == '>' => {
+                Some(tt) if '>'.matches(&tt) => {
                     break;
                 }
                 tt => return Err(ParseError::new("Expected identifier, /, or >", tt)),
@@ -308,7 +307,7 @@ impl Parser {
 
                         stack -= 1;
 
-                        let ident = iter.expect_ty()?;
+                        let ident = iter.parse()?;
 
                         children.extend([tt, next, TokenTree::Ident(ident)]);
                     } else {
@@ -422,23 +421,6 @@ impl Parser {
             name,
             expr,
         });
-    }
-}
-
-fn literal_to_string(lit: Literal) -> String {
-    const QUOTE: &str = "\"";
-
-    let stringified = lit.to_string();
-
-    match stringified.chars().next() {
-        // Take the string verbatim
-        Some('"' | '\'') => stringified,
-        _ => {
-            let mut buf = String::with_capacity(stringified.len() + QUOTE.len() * 2);
-
-            buf.extend([QUOTE, &stringified, QUOTE]);
-            buf
-        }
     }
 }
 

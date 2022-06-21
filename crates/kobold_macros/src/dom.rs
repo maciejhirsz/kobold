@@ -78,6 +78,6 @@ pub struct Attribute {
 
 #[derive(Debug)]
 pub enum AttributeValue {
-    Text(String),
+    Literal(QuoteTokens),
     Expression(QuoteTokens),
 }
