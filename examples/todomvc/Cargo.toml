@@ -1,0 +1,15 @@
+[package]
+name = "kobold_todomvc_example"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+kobold = { path = "../../crates/kobold" }
+
+[dependencies.web-sys]
+version = "0.3"
+features = [
+  "Event",
+  "KeyboardEvent",
+  "HtmlInputElement",
+]

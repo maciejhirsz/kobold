@@ -16,26 +16,86 @@ impl<V> Attribute<V> {
     }
 }
 
-impl<V> Html for Attribute<V>
-where
-    V: AsRef<str> + PartialEq + 'static,
-{
-    type Product = AttributeProduct<V>;
+impl Html for Attribute<&'static str> {
+    type Product = AttributeProduct<&'static str>;
 
     fn build(self) -> Self::Product {
-        let node = util::__kobold_create_attr(self.name, self.value.as_ref());
+        let node = util::__kobold_create_attr(self.name, self.value);
         let el = Element::new(node);
 
         AttributeProduct {
-            value: self.value,
+            value: self.value.clone(),
             el,
         }
     }
 
     fn update(self, p: &mut Self::Product) {
-        if p.value != self.value {
+        if self.value != p.value {
+            util::__kobold_update_attr(&p.el.node, self.value);
             p.value = self.value;
-            util::__kobold_update_attr(&p.el.node, p.value.as_ref());
+        }
+    }
+}
+
+impl Html for Attribute<String> {
+    type Product = AttributeProduct<String>;
+
+    fn build(self) -> Self::Product {
+        let node = util::__kobold_create_attr(self.name, &self.value);
+        let el = Element::new(node);
+
+        AttributeProduct {
+            value: self.value.clone(),
+            el,
+        }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        if *self.value != p.value {
+            util::__kobold_update_attr(&p.el.node, &self.value);
+            p.value = self.value;
+        }
+    }
+}
+
+impl Html for Attribute<&String> {
+    type Product = AttributeProduct<String>;
+
+    fn build(self) -> Self::Product {
+        let node = util::__kobold_create_attr(self.name, self.value);
+        let el = Element::new(node);
+
+        AttributeProduct {
+            value: self.value.clone(),
+            el,
+        }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        if *self.value != p.value {
+            util::__kobold_update_attr(&p.el.node, self.value);
+            p.value.clone_from(self.value);
+        }
+    }
+}
+
+impl Html for Attribute<bool> {
+    type Product = AttributeProduct<bool>;
+
+    fn build(self) -> Self::Product {
+        let node = util::__kobold_create_attr(self.name, "TODO");
+        let el = Element::new(node);
+
+        AttributeProduct {
+            value: self.value.clone(),
+            el,
+        }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        if self.value != p.value {
+            util::__kobold_update_attr(&p.el.node, "TODO");
+            p.value = self.value;
         }
     }
 }
@@ -44,23 +104,56 @@ macro_rules! create_named_attrs {
     ($($name:ident => $fun:ident,)*) => {$(
         pub struct $name<V>(pub V);
 
-        impl<V> Html for $name<V>
-        where
-            V: AsRef<str> + PartialEq + 'static,
-        {
-            type Product = AttributeProduct<V>;
+        impl Html for $name<&'static str> {
+            type Product = AttributeProduct<&'static str>;
 
             fn build(self) -> Self::Product {
-                let node = util::$fun(self.0.as_ref());
+                let node = util::$fun(&self.0);
                 let el = Element::new(node);
 
                 AttributeProduct { value: self.0, el }
             }
 
             fn update(self, p: &mut Self::Product) {
-                if p.value != self.0 {
+                if self.0 != p.value {
+                    util::__kobold_update_attr(&p.el.node, self.0);
                     p.value = self.0;
-                    util::__kobold_update_attr(&p.el.node, p.value.as_ref());
+                }
+            }
+        }
+
+        impl Html for $name<String> {
+            type Product = AttributeProduct<String>;
+
+            fn build(self) -> Self::Product {
+                let node = util::$fun(&self.0);
+                let el = Element::new(node);
+
+                AttributeProduct { value: self.0, el }
+            }
+
+            fn update(self, p: &mut Self::Product) {
+                if self.0 != p.value {
+                    util::__kobold_update_attr(&p.el.node, &self.0);
+                    p.value = self.0;
+                }
+            }
+        }
+
+        impl Html for $name<&String> {
+            type Product = AttributeProduct<String>;
+
+            fn build(self) -> Self::Product {
+                let node = util::$fun(self.0);
+                let el = Element::new(node);
+
+                AttributeProduct { value: self.0.clone(), el }
+            }
+
+            fn update(self, p: &mut Self::Product) {
+                if *self.0 != p.value {
+                    util::__kobold_update_attr(&p.el.node, self.0);
+                    p.value.clone_from(self.0);
                 }
             }
         }

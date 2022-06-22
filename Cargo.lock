@@ -109,6 +109,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "kobold_todomvc_example"
+version = "0.1.0"
+dependencies = [
+ "kobold",
+ "web-sys",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
