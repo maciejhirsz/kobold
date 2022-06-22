@@ -333,9 +333,9 @@ pub fn start(html: impl Html) {
 
     use std::mem::ManuallyDrop;
 
-    let built = ManuallyDrop::new(html.build());
+    let product = ManuallyDrop::new(html.build());
 
-    util::__kobold_start(built.js());
+    util::__kobold_start(product.js());
 }
 
 fn init_panic_hook() {
