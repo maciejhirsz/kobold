@@ -27,7 +27,7 @@ _If the `html!` macro invocation contains no expressions, the resulting `Html::u
 
 Any struct that implements a `render` method can be used as a component:
 
-```no_run
+```rust
 use kobold::prelude::*;
 
 struct Hello {
@@ -71,7 +71,7 @@ and it will change the invocations inside the macros for you.
 
 The `Stateful` trait can be used to create components that own their state:
 
-```no_run
+```rust
 use kobold::prelude::*;
 
 // To derive `Stateful` the component must also implement `PartialEq`.
@@ -109,7 +109,7 @@ fn main() {
 The `stateful` method accepts a non-capturing anonymous render function
 matching the signature:
 
-```text
+```rust
 fn(&State, Link<State>) -> impl Html
 ```
 
@@ -130,8 +130,7 @@ For more details visit the [`stateful` module documentation](https://docs.rs/kob
 Because the `html!` macro produces unique transient types, `if` and `match` expressions that invoke
 the macro will naturally fail to compile. To fix this annotate a function with `#[kobold::branching]`:
 
-```
-# use kobold::prelude::*;
+```rs
 #[kobold::branching]
 fn conditional(illuminatus: bool) -> impl Html {
     if illuminatus {
@@ -148,8 +147,7 @@ For more details visit the [`branching` module documentation](https://docs.rs/ko
 
 Creating lists from `Iterator`s is trivial and works just as you'd expect:
 
-```
-# use kobold::prelude::*;
+```rs
 fn make_list(count: u32) -> impl Html {
     html! {
         <ul>
@@ -168,8 +166,7 @@ No allocations are made by **Kobold** unless the rendered list needs to grow pas
 or for the duration of the subsequent update. This means that you can easily and cheaply render borrowed
 state without unnecessary clones:
 
-```
-# use kobold::prelude::*;
+```rs
 // Need to mark the return type with an elided lifetime
 // to tell the compiler that we borrow from `names` here
 fn render_names(names: &[String]) -> impl Html + '_ {
