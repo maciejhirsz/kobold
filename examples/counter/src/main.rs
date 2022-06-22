@@ -1,6 +1,7 @@
 use kobold::prelude::*;
 
-#[derive(PartialEq, Eq, Default)]
+// To derive `Stateful` the component must also implement `PartialEq`.
+#[derive(Stateful, PartialEq, Default)]
 struct Counter {
     count: u32,
 }
@@ -12,13 +13,10 @@ impl Counter {
 
             html! {
                 <p>
-                    "You clicked the "
-                    <button {onclick}>
-                        "Button"
-                    </button>
-                    " "
-                    { state.count }
-                    " times."
+                    "You clicked on the "
+                    // `{onclick}` here is shorthand for `onclick={onclick}`
+                    <button {onclick}>"Button"</button>
+                    " "{ state.count }" times."
                 </p>
             }
         })

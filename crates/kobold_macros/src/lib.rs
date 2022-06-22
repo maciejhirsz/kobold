@@ -4,9 +4,7 @@
 
 extern crate proc_macro;
 
-use std::cell::Cell;
-
-use proc_macro::{Delimiter, TokenStream, TokenTree};
+use proc_macro::{Delimiter, Ident, TokenStream, TokenTree};
 use proc_macro2::TokenStream as QuoteTokens;
 use quote::quote;
 
@@ -16,10 +14,16 @@ mod parser;
 mod token_ext;
 
 use gen::Generator;
-use parser::Parser;
+use parser::{into_quote, ParseError, Parser};
+use token_ext::IteratorExt as _;
 
-thread_local! {
-    static COUNT: Cell<usize> = Cell::new(0);
+macro_rules! unwrap_err {
+    ($expr:expr) => {
+        match $expr {
+            Ok(dom) => dom,
+            Err(err) => return err.tokenize(),
+        }
+    };
 }
 
 #[proc_macro_attribute]
@@ -108,7 +112,7 @@ fn mark_branches(stream: TokenStream, branch_ty: &proc_macro2::Ident, n: &mut u8
                         *n += 1;
 
                         out.extend::<TokenStream>(
-                            quote!(::kobold::branch::#branch_ty::#variant).into(),
+                            quote!(::kobold::branching::#branch_ty::#variant).into(),
                         );
 
                         tt = Group::new(Delimiter::Parenthesis, branch).into();
@@ -142,10 +146,7 @@ pub fn html(mut body: TokenStream) -> TokenStream {
 
     let mut parser = Parser::new();
 
-    let dom = match parser.parse(body) {
-        Ok(dom) => dom,
-        Err(err) => return err.tokenize(),
-    };
+    let dom = unwrap_err!(parser.parse(body));
 
     if dom.is_expression() && parser.fields.len() == 1 {
         let expr = parser.fields.pop().unwrap().expr;
@@ -261,4 +262,42 @@ pub fn html(mut body: TokenStream) -> TokenStream {
     .into();
 
     tokens
+}
+
+#[proc_macro_derive(Stateful)]
+pub fn stateful(tokens: TokenStream) -> TokenStream {
+    unwrap_err!(do_stateful(tokens))
+}
+
+fn do_stateful(tokens: TokenStream) -> Result<TokenStream, ParseError> {
+    let mut parser = tokens.into_iter();
+
+    let _: Ident = parser.parse()?;
+    let name: Ident = parser.parse()?;
+    let name = into_quote(name);
+
+    let tokens = quote! {
+        impl ::kobold::stateful::Stateful for #name
+        where
+            Self: PartialEq,
+        {
+            type State = Self;
+
+            fn init(self) -> Self::State {
+                self
+            }
+
+            fn update(self, state: &mut Self::State) -> ::kobold::stateful::ShouldRender {
+                if self != *state {
+                    *state = self;
+                    ::kobold::stateful::ShouldRender::Yes
+                } else {
+                    ::kobold::stateful::ShouldRender::No
+                }
+            }
+        }
+    }
+    .into();
+
+    Ok(tokens)
 }

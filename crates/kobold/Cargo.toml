@@ -7,7 +7,7 @@ license = "LGPL-3.0"
 readme = "../../README.md"
 keywords = ["web", "wasm", "javascript"]
 categories = ["wasm", "web-programming"]
-description = "Crate for building web interfaces"
+description = "Easy declarative web interfaces"
 repository = "https://github.com/maciejhirsz/kobold"
 documentation = "https://docs.rs/kobold"
 

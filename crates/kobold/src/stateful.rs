@@ -4,6 +4,8 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
+pub use kobold_macros::Stateful;
+
 use crate::render_fn::RenderFn;
 use crate::{Element, Html, Mountable};
 
@@ -41,7 +43,6 @@ impl ShouldRender {
     }
 }
 
-
 pub trait Stateful: Sized {
     type State: 'static;
 
@@ -61,23 +62,6 @@ pub trait Stateful: Sized {
             stateful: self,
             render: RenderFn::new(render),
             _marker: PhantomData,
-        }
-    }
-}
-
-impl<T: Eq + 'static> Stateful for T {
-    type State = Self;
-
-    fn init(self) -> Self::State {
-        self
-    }
-
-    fn update(self, state: &mut Self::State) -> ShouldRender {
-        if self != *state {
-            *state = self;
-            ShouldRender::Yes
-        } else {
-            ShouldRender::No
         }
     }
 }

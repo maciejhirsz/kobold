@@ -1,6 +1,6 @@
 use kobold::prelude::*;
 
-#[derive(PartialEq, Eq)]
+#[derive(Stateful, PartialEq, Eq)]
 struct ListExample {
     count: u32,
 }

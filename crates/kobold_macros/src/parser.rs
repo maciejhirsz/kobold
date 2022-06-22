@@ -424,7 +424,7 @@ impl Parser {
     }
 }
 
-fn into_quote(tt: impl Into<TokenTree>) -> QuoteTokens {
+pub fn into_quote(tt: impl Into<TokenTree>) -> QuoteTokens {
     TokenStream::from(tt.into()).into()
 }
 
