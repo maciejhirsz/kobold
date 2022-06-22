@@ -7,7 +7,7 @@ _Easy declarative web interfaces._
 **Kobold** uses macros to deliver familiar HTML-esque syntax for building declarative web interfaces,
 while leveraging Rust's powerful type system for safety and performance.
 
-### [Zero Cost](https://without.boats/blog/zero-cost-abstractions/) Static HTML
+### Zero-Cost Static HTML
 
 Like in [React](https://reactjs.org/) or [Yew](https://yew.rs/) updates are done by repeating calls
 to a render function whenever the state changes. However, unlike either, **Kobold** does not produce a
@@ -15,13 +15,15 @@ full blown [virtual DOM](https://en.wikipedia.org/wiki/Virtual_DOM). Instead the
 all static HTML elements to a single JavaScript function that constructs the exact
 [DOM](https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model) for it.
 
-All expressions are hosted in a transient `impl Html` type, and injected into the constructed DOM on first
+All expressions, which must implement the [`Html`](Html) trait, are injected into the constructed DOM on first
 render. Kobold keeps track of the DOM node references for these expressions. Since the exact types the
-expressions evaluate to are known to the Rust compiler, update calls diff them by value and surgically
+expressions evaluate to are known to the Rust compiler, update calls can diff them by value and surgically
 update the DOM should they change. Changing a string or an integer only updates the exact
 [`Text` node](https://developer.mozilla.org/en-US/docs/Web/API/Text) that string or integer was rendered to.
 
-_If the `html!` macro invocation contains no expressions, the resulting `Html::update` method will be empty._
+_If the `html!` macro invocation contains HTML elements with no expressions, the constructed `Html`
+type will be zero-sized, and its `Html::update` method will be empty, making updates of static
+HTML quite literally zero-cost._
 
 ### Hello World
 

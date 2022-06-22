@@ -224,7 +224,7 @@ pub fn html(mut body: TokenStream) -> TokenStream {
             }
 
             impl<#(#generics: ::kobold::Html),*> ::kobold::Html for Transient<#(#generics),*> {
-                type Product = TransientProduct<#(<#generics as ::kobold::Html>::Product),*>;
+                type Product = TransientProduct<#(#generics::Product),*>;
 
                 fn build(self) -> Self::Product {
                     #(

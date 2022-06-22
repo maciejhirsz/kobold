@@ -5,7 +5,7 @@ members = [
     "examples/counter",
     "examples/hello_world",
     "examples/list",
-    "examples/self_borrow",
+    "examples/stateful",
 ]
 
 [patch.crates-io]

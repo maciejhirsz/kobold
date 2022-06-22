@@ -1,11 +1,137 @@
 //! # Utilities for building stateful components
 //!
-//! For a simple example see [main documentation](crate#stateful-components).
+//! **Kobold** has a very simple notion of a component: any struct that has a `render` method
+//! is a component. These components are by default transient, meaning they can include borrowed
+//! and are discarded on each render call. They are also stateless, meaning **Kobold** doesn't
+//! allocate any memory on the heap for them, and there is no way to update them short of
+//! the parent component re-creating them on its state update.
+//!
+//! If you're familiar with [React](https://reactjs.org/) or [Yew](https://yew.rs/) a good way to
+//! think about it is that the component structs in **Kobold** are more like _property lists_ or
+//! _pure functional components_. They are meant to be fast to write, run, and understand.
+//!
+//! However an app built entirely from such components wouldn't be very useful, as all it
+//! could ever do is render itself once. To get around this the [`Stateful`](Stateful) trait can be
+//! implemented on any type either manually, or with `#[derive(Stateful)]` as in the simple example
+//! in the [main documentation](crate#stateful-components).
+//!
+//! ### When to manually implement `Stateful`?
+//!
+//! The derived version of a stateful component will be good enough for many cases, however
+//! to use the derive the component needs to fulfill few main criteria:
+//!
+//! 1. It must also implement [`PartialEq<Self>`](PartialEq) so that it can be compared to itself.
+//! 2. It must live for a `'static` lifetime.
+//! 3. All the fields of the state must be constructed every time parent component performs an update.
+//!
+//! While the first criterion isn't so bad, the second and third can be a real performance killer in
+//! case you'd want to use any heap allocated containers such as a [`String`](String), [`Vec`](Vec),
+//! or [`HashMap`](std::collections::HashMap).
+//!
+//! ### Implementing `Stateful`
+//!
+//! The [`Stateful`](Stateful) trait allows you to define an associated `State` type which can be
+//! different from the component itself. That state is put in a heap allocation so that it can be
+//! referenced from callbacks. It also allows you to define how and if the state should be updated
+//! when the parent component updates:
+//!
+//! ```no_run
+//! use kobold::prelude::*;
+//!
+//! // This is our component struct, note that it can take arbitrary lifetimes.
+//! struct Borrowing<'a> {
+//!     name: &'a str,
+//! }
+//!
+//! // This is our owned state, it must live for a `'static` lifetime, and may
+//! // contain different fields than those on the component.
+//! struct OwnedState {
+//!     name: String,
+//! }
+//!
+//! impl Stateful for Borrowing<'_> {
+//!     // We define that `OwnedState` is the state for this component
+//!     type State = OwnedState;
+//!
+//!     // Create `OwnedState` from this component
+//!     fn init(self) -> OwnedState {
+//!         OwnedState {
+//!             name: self.name.into(),
+//!         }
+//!     }
+//!
+//!     // Update the pre-existing state
+//!     fn update(self, state: &mut Self::State) -> ShouldRender {
+//!         if self.name != state.name {
+//!             // `state.name = self.name.into()` would have been fine too,
+//!             // but this saves an allocation if the original `String` has
+//!             // enough capacity
+//!             state.name.replace_range(.., self.name);
+//!
+//!             ShouldRender::Yes
+//!         } else {
+//!             // If the name hasn't change there is no need to do anything
+//!             ShouldRender::No
+//!         }
+//!     }
+//! }
+//!
+//! impl<'a> Borrowing<'a> {
+//!     fn render(self) -> impl Html + 'a {
+//!         // Types here are:
+//!         // state: &OwnedState,
+//!         // link: Link<OwnedState>,
+//!         self.stateful(|state, link| {
+//!             // Since we work with a state that owns a `String`,
+//!             // callbacks can mutate it at will.
+//!             let exclaim = link.callback(|state, _| state.name.push('!'));
+//!
+//!             // Repeatedly clicking the Alice button does not have to do anything.
+//!             //
+//!             // NOTE: This is quite an overkill for this example, as updates on
+//!             // this render function only do two things:
+//!             //
+//!             //    1. Compare the `&state.name` with previous render.
+//!             //    2. Update closures, which is nearly free as these are
+//!             //       zero-sized (they don't capture anything).
+//!             //
+//!             // For any more robust states and renders logic `ShouldRender::No`
+//!             // when no changes in DOM are necessary is always a good idea.
+//!             let alice = link.callback(|state, _| {
+//!                 if state.name != "Alice" {
+//!                     state.name.replace_range(.., "Alice");
+//!
+//!                     ShouldRender::Yes
+//!                 } else {
+//!                     ShouldRender::No
+//!                 }
+//!             });
+//!
+//!             html! {
+//!                 <div>
+//!                     // Render can borrow `name` from state, no need for clones
+//!                     <h1>"Hello: "{ &state.name }</h1>
+//!                     <button onclick={alice}>"Alice"</button>
+//!                     <button onclick={exclaim}>"!"</button>
+//!                 </div>
+//!             }
+//!         })
+//!     }
+//! }
+//!
+//! fn main() {
+//!     kobold::start(html! {
+//!         // Constructing the component only requires a `&str` slice.
+//!         <Borrowing name="Bob" />
+//!     });
+//! }
+//! ```
 
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
+/// Derive macro for the [`Stateful`](Stateful) trait, see the [module documentation](crate::stateful) for details.
 pub use kobold_macros::Stateful;
 
 use crate::render_fn::RenderFn;
@@ -45,17 +171,13 @@ impl ShouldRender {
     }
 }
 
-/// Trait used to create stateful components, see the [`sateful` module documentation](crate::stateful) for details.
+/// Trait used to create stateful components, see the [module documentation](crate::stateful) for details.
 pub trait Stateful: Sized {
     type State: 'static;
 
     fn init(self) -> Self::State;
 
-    fn update(self, state: &mut Self::State) -> ShouldRender {
-        *state = self.init();
-
-        ShouldRender::Yes
-    }
+    fn update(self, state: &mut Self::State) -> ShouldRender;
 
     fn stateful<'a, H: Html + 'a>(
         self,
