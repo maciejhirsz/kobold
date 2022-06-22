@@ -182,7 +182,7 @@ fn render_names(names: &[String]) -> impl Html + '_ {
 
 ### Components with children
 
-If you wish to capture children from parent [`html!`](html) invocation, simply implement
+If you wish to capture children from parent `html!` invocation, simply implement
 a `render_with` method on the component:
 
 ```rust
