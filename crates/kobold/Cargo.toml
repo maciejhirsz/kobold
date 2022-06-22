@@ -12,8 +12,7 @@ repository = "https://github.com/maciejhirsz/kobold"
 documentation = "https://docs.rs/kobold"
 
 [dependencies]
-# Something in versions above 0.2.76 breaks trunk
-wasm-bindgen = "=0.2.76"
+wasm-bindgen = "0.2.81"
 itoa = "1.0.1"
 ryu = "1.0.10"
 kobold_macros = "0.3"
