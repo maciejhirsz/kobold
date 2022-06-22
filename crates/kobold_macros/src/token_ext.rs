@@ -67,7 +67,7 @@ where
     fn expect(&mut self, pattern: impl Pattern) -> Result<TokenTree, ParseError> {
         match self.next() {
             Some(tt) if pattern.matches(&tt) => Ok(tt),
-            tt => Err(ParseError::new(pattern.expected(), tt))
+            tt => Err(ParseError::new(pattern.expected(), tt)),
         }
     }
 

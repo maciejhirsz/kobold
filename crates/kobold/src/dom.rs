@@ -1,3 +1,5 @@
+//! Utilities for mounting elements in the DOM
+
 use std::ops::Deref;
 
 use wasm_bindgen::JsValue;

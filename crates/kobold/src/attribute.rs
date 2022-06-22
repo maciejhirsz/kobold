@@ -1,3 +1,5 @@
+//! Utilities for dealing with DOM attributes
+
 use crate::util;
 use crate::{Element, Html, Mountable};
 

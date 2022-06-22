@@ -7,8 +7,8 @@ use proc_macro::{Delimiter, Ident, Spacing, Span, TokenStream, TokenTree};
 use proc_macro2::TokenStream as QuoteTokens;
 use quote::{quote, quote_spanned};
 
-use crate::gen::literal_to_string;
 use crate::dom::{Attribute, AttributeValue, Element, Field, FieldKind, Node};
+use crate::gen::literal_to_string;
 use crate::token_ext::{IteratorExt as _, Pattern as _};
 
 #[derive(Debug)]
@@ -230,9 +230,7 @@ impl Parser {
                     iter.expect('=')?;
 
                     let value = match iter.next() {
-                        Some(TokenTree::Literal(lit)) => {
-                            AttributeValue::Literal(into_quote(lit))
-                        }
+                        Some(TokenTree::Literal(lit)) => AttributeValue::Literal(into_quote(lit)),
                         Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
                             AttributeValue::Expression(group.stream().into())
                         }

@@ -81,7 +81,7 @@ where
                                     js!("{}.setAttribute({:?},{});", e, attr.name, value)
                                 }
                             }
-                        },
+                        }
                         AttributeValue::Expression(_) => {
                             let (arg, field) = self.next_arg();
 

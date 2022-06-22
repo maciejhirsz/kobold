@@ -1,4 +1,6 @@
-//! Utilities for building [`Stateful`](Stateful) components
+//! # Utilities for building stateful components
+//!
+//! For a simple example see [main documentation](crate#stateful-components).
 
 use std::cell::RefCell;
 use std::marker::PhantomData;
@@ -43,6 +45,7 @@ impl ShouldRender {
     }
 }
 
+/// Trait used to create stateful components, see the [`sateful` module documentation](crate::stateful) for details.
 pub trait Stateful: Sized {
     type State: 'static;
 
@@ -118,8 +121,7 @@ where
                     let render = unsafe { render.cast::<H>() };
                     let inner = unsafe { &*link.inner() };
 
-                    (render)(&inner.state.borrow(), link)
-                        .update(&mut inner.product.borrow_mut());
+                    (render)(&inner.state.borrow(), link).update(&mut inner.product.borrow_mut());
                 },
             }
         });

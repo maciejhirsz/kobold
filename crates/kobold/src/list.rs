@@ -1,3 +1,5 @@
+//! Utilities for rendering lists
+
 use crate::{Element, Html, IntoHtml, Mountable};
 
 /// Wrapper type that implements `Html` for iterators. It's automatically created

@@ -4,10 +4,10 @@
 
 _Easy declarative web interfaces._
 
-### [Zero Cost](https://without.boats/blog/zero-cost-abstractions/) Static HTML
-
 **Kobold** uses macros to deliver familiar HTML-esque syntax for building declarative web interfaces,
 while leveraging Rust's powerful type system for safety and performance.
+
+### [Zero Cost](https://without.boats/blog/zero-cost-abstractions/) Static HTML
 
 Like in [React](https://reactjs.org/) or [Yew](https://yew.rs/) updates are done by repeating calls
 to a render function whenever the state changes. However, unlike either, **Kobold** does not produce a
@@ -18,7 +18,7 @@ all static HTML elements to a single JavaScript function that constructs the exa
 All expressions are hosted in a transient `impl Html` type, and injected into the constructed DOM on first
 render. Kobold keeps track of the DOM node references for these expressions. Since the exact types the
 expressions evaluate to are known to the Rust compiler, update calls diff them by value and surgically
-update the DOM if they change. Changing a string or an integer only updates the exact
+update the DOM should they change. Changing a string or an integer only updates the exact
 [`Text` node](https://developer.mozilla.org/en-US/docs/Web/API/Text) that string or integer was rendered to.
 
 _If the `html!` macro invocation contains no expressions, the resulting `Html::update` method will be empty._
@@ -54,7 +54,7 @@ the `{ self.name }` expression. Kobold will create a text node for that string, 
 a compiled JavaScript function that will build the `h1` element with the static text around it.
 
 Everything is statically typed and the macro doesn't delete any information when manipulating the
-token stream, so rustc can tell you if you've made a mistake:
+token stream, so the Rust compiler can tell you if you've made a mistake:
 
 ```text
 error[E0560]: struct `Hello` has no field named `nam`
@@ -69,7 +69,7 @@ and it will change the invocations inside the macros for you.
 
 ### Stateful Components
 
-The `Stateful` trait can be used to create components that own their state:
+The `Stateful` trait can be used to create components that own and manipulate their state:
 
 ```rust
 use kobold::prelude::*;
@@ -83,7 +83,7 @@ struct Counter {
 impl Counter {
     fn render(self) -> impl Html {
         self.stateful(|state, link| {
-            let onclick = link.callback(|state, _| state.count += 1);
+            let onclick = link.callback(|state, _event| state.count += 1);
 
             html! {
                 <p>
@@ -106,7 +106,7 @@ fn main() {
 }
 ```
 
-The `stateful` method accepts a non-capturing anonymous render function
+The `stateful` method above accepts a non-capturing anonymous render function
 matching the signature:
 
 ```rust
@@ -118,7 +118,7 @@ use derived `Stateful` implementation defaults to `Self`, so in the example abov
 it is the `Counter` itself.
 
 The `Link` can be used to create event callbacks that take a `&mut` reference to the
-state and a `&` reference to an `Event` (ignored above). If the callback closure has no
+state and a `&` reference to a DOM `Event` (ignored above). If the callback closure has no
 return type (the return type is `()`) each invocation of it will update the component. If you would
 rather perform a "silent" update, or if the callback does not always modify the state, return the provided
 `ShouldRender` enum instead.

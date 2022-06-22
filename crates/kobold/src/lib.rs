@@ -2,10 +2,10 @@
 //!
 //! # Kobold
 //!
-//! ### [Zero Cost](https://without.boats/blog/zero-cost-abstractions/) static HTML
-//!
 //! **Kobold** uses macros to deliver familiar HTML-esque syntax for building declarative web interfaces,
 //! while leveraging Rust's powerful type system for safety and performance.
+//!
+//! ### [Zero Cost](https://without.boats/blog/zero-cost-abstractions/) static HTML
 //!
 //! Like in [React](https://reactjs.org/) or [Yew](https://yew.rs/) updates are done by repeating calls
 //! to a render function whenever the state changes. However, unlike either, **Kobold** does not produce a
@@ -16,7 +16,7 @@
 //! All expressions are hosted in a transient [`impl Html`](Html) type, and injected into the constructed DOM on first
 //! render. Kobold keeps track of the DOM node references for these expressions. Since the exact types the
 //! expressions evaluate to are known to the Rust compiler, update calls diff them by value and surgically
-//! update the DOM if they change. Changing a string or an integer only updates the exact
+//! update the DOM should they change. Changing a string or an integer only updates the exact
 //! [`Text` node](https://developer.mozilla.org/en-US/docs/Web/API/Text) that string or integer was rendered to.
 //!
 //! _If the [`html!`](html) macro invocation contains no expressions, the resulting [`Html::update`](Html::update) method will be empty._
@@ -52,7 +52,7 @@
 //! a compiled JavaScript function that will build the `h1` element with the static text around it.
 //!
 //! Everything is statically typed and the macro doesn't delete any information when manipulating the
-//! token stream, so rustc can tell you if you've made a mistake:
+//! token stream, so the Rust compiler can tell you if you've made a mistake:
 //!
 //! ```text
 //! error[E0560]: struct `Hello` has no field named `nam`
@@ -67,7 +67,8 @@
 //!
 //! ### Stateful Components
 //!
-//! The [`Stateful`](stateful::Stateful) trait can be used to create components that own their state:
+//! The [`Stateful`](stateful::Stateful) trait can be used to create components that own and manipulate
+//! their state:
 //!
 //! ```no_run
 //! use kobold::prelude::*;
@@ -81,7 +82,7 @@
 //! impl Counter {
 //!     fn render(self) -> impl Html {
 //!         self.stateful(|state, link| {
-//!             let onclick = link.callback(|state, _| state.count += 1);
+//!             let onclick = link.callback(|state, _event| state.count += 1);
 //!
 //!             html! {
 //!                 <p>
@@ -104,7 +105,7 @@
 //! }
 //! ```
 //!
-//! The [`stateful`](stateful::Stateful::stateful) method accepts a non-capturing anonymous render function
+//! The [`stateful`](stateful::Stateful::stateful) method above accepts a non-capturing anonymous render function
 //! matching the signature:
 //!
 //! ```text
@@ -116,7 +117,7 @@
 //! it is the `Counter` itself.
 //!
 //! The [`Link`](stateful::Link) can be used to create event callbacks that take a `&mut` reference to the
-//! state and a `&` reference to an [`Event`](web_sys::Event) (ignored above). If the callback closure has no
+//! state and a `&` reference to a DOM [`Event`](web_sys::Event) (ignored above). If the callback closure has no
 //! return type (the return type is `()`) each invocation of it will update the component. If you would
 //! rather perform a "silent" update, or if the callback does not always modify the state, return the provided
 //! [`ShouldRender`](stateful::ShouldRender) enum instead.
@@ -199,10 +200,10 @@
 //! trunk serve
 //! ```
 
-/// Macro for creating transient [`Html`](Html) types. See the [main documentation](crate) for details.
-pub use kobold_macros::html;
 /// Macro for resolving branching issues with the [`html!`](html) macro. See the [`branching` module documentation](mod@branching) for details.
 pub use kobold_macros::branching;
+/// Macro for creating transient [`Html`](Html) types. See the [main documentation](crate) for details.
+pub use kobold_macros::html;
 
 use wasm_bindgen::JsValue;
 
@@ -216,15 +217,15 @@ pub mod dom;
 pub mod list;
 pub mod stateful;
 
-/// The prelude module with most commonly used types.
+/// The prelude module with most commonly used types
 pub mod prelude {
+    pub use crate::stateful::{Link, ShouldRender, Stateful};
     pub use crate::{html, Html, IntoHtml};
-    pub use crate::stateful::{Stateful, Link, ShouldRender};
 }
 
 use dom::Element;
 
-/// Re-exports for the [`html!`](html) macro to use
+/// Crate re-exports for the [`html!`](html) macro internals
 pub mod reexport {
     pub use wasm_bindgen;
     pub use web_sys;
@@ -262,6 +263,7 @@ pub trait IntoHtml {
     fn into_html(self) -> Self::Html;
 }
 
+/// A type that can be mounted in the DOM
 pub trait Mountable: 'static {
     fn el(&self) -> &Element;
 
@@ -270,6 +272,7 @@ pub trait Mountable: 'static {
     }
 }
 
+/// Start the Kobold app by mounting given [`Html`](Html) in the document `body`.
 pub fn start(html: impl Html) {
     init_panic_hook();
 
