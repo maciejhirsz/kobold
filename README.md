@@ -180,6 +180,58 @@ fn render_names(names: &[String]) -> impl Html + '_ {
 }
 ```
 
+### Components with children
+
+If you wish to capture children from parent [`html!`](html) invocation, simply implement
+a `render_with` method on the component:
+
+```rust
+use kobold::prelude::*;
+
+struct Header;
+
+impl Header {
+    fn render_with(self, children: impl Html) -> impl Html {
+        html! {
+            <header><h1>{ children }</h1></header>
+        }
+    }
+}
+
+fn main() {
+    kobold::start(html! {
+        <Header>"Hello Kobold"</Header>
+    });
+}
+```
+
+If you know or expect children to be of a specific type, you can do that too:
+
+```rust
+use kobold::prelude::*;
+
+struct AddTen;
+
+impl AddTen {
+    // integers implement `Html` so they can be passed by value
+    fn render_with(self, n: i32) -> i32 {
+        n + 10
+    }
+}
+
+fn main() {
+    kobold::start(html! {
+        <p>
+            "Meaning of life is "
+            <AddTen>{ 32 }</AddTen>
+        </p>
+    });
+}
+```
+
+A component can have both `render` and `render_with` methods if you want to
+support both styles of invocation.
+
 ## More examples
 
 To run **Kobold** you'll need to install [`trunk`](https://trunkrs.dev/):
