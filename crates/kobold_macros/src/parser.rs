@@ -121,7 +121,7 @@ impl Parser {
                                     let name = into_quote(attr.ident);
                                     let value = match attr.value {
                                         AttributeValue::Literal(text) => quote! { #text },
-                                        AttributeValue::Hoisted(expr) => expr,
+                                        AttributeValue::Hoisted(_, expr) => expr,
                                         AttributeValue::Expression(expr) => expr,
                                     };
 
@@ -159,28 +159,29 @@ impl Parser {
                             AttributeValue::Expression(tokens) => {
                                 let (kind, expr) = match attr_name {
                                     "style" => (
-                                        FieldKind::Attr,
+                                        FieldKind::AttrNode,
                                         quote! { ::kobold::attribute::Style(#tokens) },
                                     ),
                                     "class" => (
-                                        FieldKind::Attr,
+                                        FieldKind::AttrNode,
                                         quote! { ::kobold::attribute::Class(#tokens) },
                                     ),
                                     n if n.starts_with("on") && n.len() > 2 => {
                                         (FieldKind::Callback(n[2..].into()), tokens.clone())
                                     }
                                     _ => (
-                                        FieldKind::Attr,
+                                        FieldKind::AttrNode,
                                         quote! {
-                                            ::kobold::attribute::Attr::new(#attr_name, #tokens)
+                                            ::kobold::attribute::AttributeNode::new(#attr_name, #tokens)
                                         },
                                     ),
                                 };
 
                                 self.new_field(kind, expr);
                             }
-                            AttributeValue::Hoisted(tokens) => {
-                                let field = self.new_field(FieldKind::AttrHoisted, tokens.clone());
+                            AttributeValue::Hoisted(typ, tokens) => {
+                                let field = self
+                                    .new_field(FieldKind::AttrHoisted(typ.clone()), tokens.clone());
 
                                 el.hoisted_attrs.push(field.name.clone());
                             }

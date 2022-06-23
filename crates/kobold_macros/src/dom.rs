@@ -32,8 +32,8 @@ impl<T: Display> Debug for DisplayDebug<T> {
 #[derive(Debug)]
 pub enum FieldKind {
     Html,
-    Attr,
-    AttrHoisted,
+    AttrNode,
+    AttrHoisted(QuoteTokens),
     Callback(String),
 }
 
@@ -96,7 +96,7 @@ pub struct Attribute {
 #[derive(Debug)]
 pub enum AttributeValue {
     Literal(QuoteTokens),
-    Hoisted(QuoteTokens),
+    Hoisted(QuoteTokens, QuoteTokens),
     Expression(QuoteTokens),
 }
 
@@ -105,9 +105,10 @@ impl AttributeValue {
         // TODO: if the `tokens contains just a single literal,
         //       make it a literal value then as well.
         match name {
-            "checked" => AttributeValue::Hoisted(quote! {
-                ::kobold::attribute::Checked(#tokens)
-            }),
+            "checked" => AttributeValue::Hoisted(
+                quote! { bool },
+                quote! { ::kobold::attribute::Checked(#tokens) },
+            ),
             _ => AttributeValue::Expression(tokens),
         }
     }

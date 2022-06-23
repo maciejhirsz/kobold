@@ -166,17 +166,38 @@ pub fn html(mut body: TokenStream) -> TokenStream {
 
     let fields = &parser.fields;
 
-    let generics = fields.iter().map(|field| &field.typ).collect::<Vec<_>>();
-    let generics = &generics[..];
+    let mut generics = Vec::new();
+    let mut generics_with_bounds = Vec::new();
+    let mut update_calls = Vec::new();
 
-    let generics_with_bounds = fields.iter().map(|field| {
+    for field in fields.iter() {
         let typ = &field.typ;
+        let name = &field.name;
 
-        match field.kind {
-            FieldKind::AttrHoisted => quote! { #typ: ::kobold::attribute::Attribute },
-            _ => quote! { #typ: ::kobold::Html }
+        generics.push(typ);
+
+        match &field.kind {
+            FieldKind::AttrHoisted(abi) => {
+                generics_with_bounds.push(quote! {
+                    #typ: ::kobold::attribute::Attribute,
+                    #typ::Product: ::kobold::attribute::AttributeProduct<Abi = #abi>
+                });
+
+                update_calls.push(quote! {
+                    self.#name.update(&mut p.#name, &p.el);
+                })
+            }
+            _ => {
+                generics_with_bounds.push(quote! { #typ: ::kobold::Html });
+
+                update_calls.push(quote! {
+                    self.#name.update(&mut p.#name);
+                })
+            }
         }
-    });
+    }
+
+    let generics = &generics[..];
 
     let field_names = fields.iter().map(|field| &field.name).collect::<Vec<_>>();
     let field_names = &field_names[..];
@@ -220,6 +241,7 @@ pub fn html(mut body: TokenStream) -> TokenStream {
     let tokens: TokenStream = (quote! {
         {
             use ::kobold::{Mountable as _, IntoHtml as _};
+            use ::kobold::attribute::{AttributeProduct as _};
             use ::kobold::reexport::wasm_bindgen;
 
             #render
@@ -233,7 +255,10 @@ pub fn html(mut body: TokenStream) -> TokenStream {
                 el: ::kobold::dom::Element,
             }
 
-            impl<#(#generics_with_bounds),*> ::kobold::Html for Transient<#(#generics),*> {
+            impl<#(#generics),*> ::kobold::Html for Transient<#(#generics),*>
+            where
+                #(#generics_with_bounds),*
+            {
                 type Product = TransientProduct<#(#generics::Product),*>;
 
                 fn build(self) -> Self::Product {
@@ -249,9 +274,7 @@ pub fn html(mut body: TokenStream) -> TokenStream {
                 }
 
                 fn update(self, p: &mut Self::Product) {
-                    #(
-                        self.#field_names.update(&mut p.#field_names);
-                    )*
+                    #(#update_calls)*
                 }
             }
 

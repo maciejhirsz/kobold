@@ -1,5 +1,6 @@
 //! Utilities for dealing with DOM attributes
 
+use wasm_bindgen::convert::IntoWasmAbi;
 use wasm_bindgen::JsValue;
 
 use crate::util;
@@ -9,32 +10,49 @@ use crate::{Element, Html, Mountable};
 pub use crate::stateful::Callback;
 
 pub trait Attribute {
-    type Product: 'static;
+    type Product: AttributeProduct;
 
     fn build(self) -> Self::Product;
 
-    fn update(self, p: &mut Self::Product, js: &JsValue);
+    fn update(self, p: &mut Self::Product, el: &JsValue);
 }
 
-pub struct Attr<V> {
+pub trait AttributeProduct: 'static {
+    type Abi: IntoWasmAbi;
+
+    fn js(&self) -> Self::Abi;
+}
+
+impl<T> AttributeProduct for T
+where
+    T: IntoWasmAbi + Copy + 'static,
+{
+    type Abi = Self;
+
+    fn js(&self) -> Self::Abi {
+        *self
+    }
+}
+
+pub struct AttributeNode<V> {
     name: &'static str,
     value: V,
 }
 
-impl<V> Attr<V> {
+impl<V> AttributeNode<V> {
     pub fn new(name: &'static str, value: V) -> Self {
-        Attr { name, value }
+        AttributeNode { name, value }
     }
 }
 
-impl Html for Attr<String> {
-    type Product = AttrProduct<String>;
+impl Html for AttributeNode<String> {
+    type Product = AttributeNodeProduct<String>;
 
     fn build(self) -> Self::Product {
         let node = util::__kobold_attr(self.name, &self.value);
         let el = Element::new(node);
 
-        AttrProduct {
+        AttributeNodeProduct {
             value: self.value,
             el,
         }
@@ -48,14 +66,14 @@ impl Html for Attr<String> {
     }
 }
 
-impl Html for Attr<&String> {
-    type Product = AttrProduct<String>;
+impl Html for AttributeNode<&String> {
+    type Product = AttributeNodeProduct<String>;
 
     fn build(self) -> Self::Product {
         let node = util::__kobold_attr(self.name, self.value);
         let el = Element::new(node);
 
-        AttrProduct {
+        AttributeNodeProduct {
             value: self.value.clone(),
             el,
         }
@@ -69,17 +87,17 @@ impl Html for Attr<&String> {
     }
 }
 
-impl<S> Html for Attr<S>
+impl<S> Html for AttributeNode<S>
 where
     S: Stringify + Eq + Copy + 'static,
 {
-    type Product = AttrProduct<S>;
+    type Product = AttributeNodeProduct<S>;
 
     fn build(self) -> Self::Product {
         let node = self.value.stringify(|s| util::__kobold_attr(self.name, s));
         let el = Element::new(node);
 
-        AttrProduct {
+        AttributeNodeProduct {
             value: self.value,
             el,
         }
@@ -87,13 +105,12 @@ where
 
     fn update(self, p: &mut Self::Product) {
         if self.value != p.value {
-            self.value.stringify(|s| util::__kobold_attr_update(&p.el.node, s));
+            self.value
+                .stringify(|s| util::__kobold_attr_update(&p.el.node, s));
             p.value = self.value;
         }
     }
 }
-
-pub struct AttributeProduct<V>(V);
 
 pub struct Checked(pub bool);
 
@@ -117,13 +134,13 @@ macro_rules! create_named_attrs {
         pub struct $name<V>(pub V);
 
         impl Html for $name<String> {
-            type Product = AttrProduct<String>;
+            type Product = AttributeNodeProduct<String>;
 
             fn build(self) -> Self::Product {
                 let node = util::$fun(&self.0);
                 let el = Element::new(node);
 
-                AttrProduct { value: self.0, el }
+                AttributeNodeProduct { value: self.0, el }
             }
 
             fn update(self, p: &mut Self::Product) {
@@ -135,13 +152,13 @@ macro_rules! create_named_attrs {
         }
 
         impl Html for $name<&String> {
-            type Product = AttrProduct<String>;
+            type Product = AttributeNodeProduct<String>;
 
             fn build(self) -> Self::Product {
                 let node = util::$fun(self.0);
                 let el = Element::new(node);
 
-                AttrProduct { value: self.0.clone(), el }
+                AttributeNodeProduct { value: self.0.clone(), el }
             }
 
             fn update(self, p: &mut Self::Product) {
@@ -156,13 +173,13 @@ macro_rules! create_named_attrs {
         where
             S: Stringify + Eq + Copy + 'static,
         {
-            type Product = AttrProduct<S>;
+            type Product = AttributeNodeProduct<S>;
 
             fn build(self) -> Self::Product {
                 let node = self.0.stringify(util::$fun);
                 let el = Element::new(node);
 
-                AttrProduct { value: self.0, el }
+                AttributeNodeProduct { value: self.0, el }
             }
 
             fn update(self, p: &mut Self::Product) {
@@ -180,12 +197,12 @@ create_named_attrs! {
     Style => __kobold_attr_style,
 }
 
-pub struct AttrProduct<V> {
+pub struct AttributeNodeProduct<V> {
     value: V,
     el: Element,
 }
 
-impl<V: 'static> Mountable for AttrProduct<V> {
+impl<V: 'static> Mountable for AttributeNodeProduct<V> {
     fn el(&self) -> &Element {
         &self.el
     }

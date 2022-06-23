@@ -1,10 +1,12 @@
-use crate::dom::{AttributeValue, Field, FieldKind, Node};
+use std::fmt::{self, Write};
+use std::marker::PhantomData;
 
 use arrayvec::ArrayString;
 use proc_macro::{Ident, Span, TokenStream, TokenTree};
 use proc_macro2::TokenStream as QuoteTokens;
 use quote::quote;
-use std::fmt::{self, Write};
+
+use crate::dom::{AttributeValue, Field, FieldKind, Node};
 
 #[derive(Debug)]
 pub enum Infallible {}
@@ -21,7 +23,8 @@ pub struct Generator<'a, I> {
     pub render: String,
     pub update: String,
     args: String,
-    args_tokens: Vec<&'a QuoteTokens>,
+    args_tokens: Vec<QuoteTokens>,
+    _marker: PhantomData<&'a Field>,
 }
 
 impl<'a, I> Generator<'a, I>
@@ -36,6 +39,7 @@ where
             update: String::new(),
             args: String::new(),
             args_tokens: Vec::new(),
+            _marker: PhantomData,
         }
     }
 
@@ -67,10 +71,8 @@ where
 
                 for attr in el.attributes.iter() {
                     let value = match &attr.value {
-                        AttributeValue::Literal(value) => {
-                            literal_to_string(value)
-                        }
-                        AttributeValue::Hoisted(_) => {
+                        AttributeValue::Literal(value) => literal_to_string(value),
+                        AttributeValue::Hoisted(_, _) => {
                             let (arg, _) = self.next_arg();
 
                             arg
@@ -79,7 +81,7 @@ where
                             let (arg, field) = self.next_arg();
 
                             match &field.kind {
-                                FieldKind::Attr => {
+                                FieldKind::AttrNode => {
                                     js!("{}.setAttributeNode({});", e, arg);
                                 }
                                 FieldKind::Callback(action) => {
@@ -89,7 +91,7 @@ where
                                 FieldKind::Html => {
                                     panic!("HTML node in element attributes!");
                                 }
-                                FieldKind::AttrHoisted => {
+                                FieldKind::AttrHoisted(_) => {
                                     panic!("Hoisted attribute with expression value!");
                                 }
                             }
@@ -190,7 +192,7 @@ where
             quote! {
                 #[wasm_bindgen::prelude::wasm_bindgen(inline_js = #js)]
                 extern "C" {
-                    fn #fn_name(#(#args: &wasm_bindgen::JsValue),*) -> ::kobold::reexport::web_sys::Node;
+                    fn #fn_name(#(#args),*) -> ::kobold::reexport::web_sys::Node;
                 }
             },
         )
@@ -208,14 +210,22 @@ where
             .next()
             .expect("Trying to generate more arguments in JS than fields in Rust");
 
-        let token = &field.name;
-        let arg = token.to_string();
+        let name = &field.name;
+        let arg = name.to_string();
 
         if !self.args.is_empty() {
             self.args.push(',');
         }
         self.args.push_str(&arg);
-        self.args_tokens.push(token);
+
+        let arg_tokens = match &field.kind {
+            FieldKind::AttrHoisted(typ) => {
+                quote! { #name: #typ }
+            }
+            _ => quote! { #name: &wasm_bindgen::JsValue },
+        };
+
+        self.args_tokens.push(arg_tokens);
 
         (arg, field)
     }

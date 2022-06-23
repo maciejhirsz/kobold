@@ -177,7 +177,7 @@ struct EntryView<'a> {
 }
 
 fn test(checked: bool) -> impl Html {
-    html! { <input {checked} value="foo" /> }
+    html! { <p><input {checked} value="foo" width={ 42 } /></p> }
 }
 
 impl<'a> EntryView<'a> {
@@ -236,7 +236,9 @@ impl<'a> EntryView<'a> {
                         checked={entry.completed}
                         onclick={link.callback(move |state, _| state.entries[idx].toggle())}
                     />
-                    <label ondblclick={link.callback(move |state, _| state.edit_entry(idx))} >{ &entry.description }</label>
+                    <label ondblclick={link.callback(move |state, _| state.edit_entry(idx))} >
+                        { &entry.description }
+                    </label>
                     <button class="destroy" onclick={link.callback(move |state, _| { state.entries.remove(idx); })} />
                 </div>
                 { input }

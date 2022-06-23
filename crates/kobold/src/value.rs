@@ -132,4 +132,21 @@ macro_rules! impl_stringify {
 stringify_int!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, usize, isize);
 stringify_float!(f32, f64);
 
-impl_stringify!(&'static str, bool, u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, usize, isize, f32, f64);
+impl_stringify!(
+    &'static str,
+    bool,
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    usize,
+    isize,
+    f32,
+    f64
+);
