@@ -1,2 +1,5 @@
 [tools]
 wasm_bindgen = "0.2.81"
+
+[build]
+# public_url = "/kosz/kobold-todomvc/"

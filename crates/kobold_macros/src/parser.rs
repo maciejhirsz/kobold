@@ -153,6 +153,7 @@ impl Parser {
                 } else {
                     for attr in el.attributes.iter() {
                         if let AttributeValue::Expression(tokens) = &attr.value {
+                            el.hoisted = true;
                             let attr_name = attr.name.as_str();
 
                             let (kind, expr) = match attr_name {
@@ -197,15 +198,7 @@ impl Parser {
     }
 
     fn parse_element(&mut self, tag: String, iter: &mut TokenIter) -> Result<Element, ParseError> {
-        let mut element = Element {
-            tag,
-            generics: None,
-            attributes: Vec::new(),
-            children: Vec::new(),
-            children_raw: None,
-            defaults: false,
-        };
-
+        let mut element = Element::new(tag);
         let mut next = iter.next();
 
         match next {

@@ -33,8 +33,13 @@ export function __kobold_fragment_drop(f)
 export function __kobold_text_node(t) { return document.createTextNode(t); }
 export function __kobold_update_text(n,t) { n.textContent = t; }
 export function __kobold_create_div() { return document.createElement('div'); }
-export function __kobold_create_input() { return document.createElement('input'); }
+
 export function __kobold_create_attr(n,v) { let a = document.createAttribute(n); a.value = v; return a; }
 export function __kobold_create_attr_class(v) { let a = document.createAttribute('class'); a.value = v; return a; }
 export function __kobold_create_attr_style(v) { let a = document.createAttribute('style'); a.value = v; return a; }
 export function __kobold_update_attr(n,v) { n.value = v; }
+
+export function __kobold_checked_set(n,v) { n.checked = v; }
+export function __kobold_class_add(n,v) { n.classList.add(v); }
+export function __kobold_class_remove(n,v) { n.classList.remove(o,v); }
+export function __kobold_class_set(n,v) { n.className = v; }

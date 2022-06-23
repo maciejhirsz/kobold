@@ -60,10 +60,26 @@ pub struct Element {
     pub attributes: Vec<Attribute>,
     pub children: Vec<Node>,
     pub children_raw: Option<QuoteTokens>,
+    /// Element has been invoked with `..` spread at the end
     pub defaults: bool,
+    /// Element has dynamic attributes and needs to be hoisted
+    /// into its own function
+    pub hoisted: bool,
 }
 
 impl Element {
+    pub fn new(tag: String) -> Self {
+        Element {
+            tag,
+            generics: None,
+            attributes: Vec::new(),
+            children: Vec::new(),
+            children_raw: None,
+            defaults: false,
+            hoisted: false,
+        }
+    }
+
     pub fn is_component(&self) -> bool {
         !self.tag.chars().next().unwrap().is_ascii_lowercase()
     }
