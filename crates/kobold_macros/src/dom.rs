@@ -1,5 +1,6 @@
 use proc_macro::Ident;
 use proc_macro2::TokenStream as QuoteTokens;
+use quote::quote;
 use std::fmt::{self, Debug, Display};
 
 pub struct Field {
@@ -32,6 +33,7 @@ impl<T: Display> Debug for DisplayDebug<T> {
 pub enum FieldKind {
     Html,
     Attr,
+    AttrHoisted,
     Callback(String),
 }
 
@@ -94,5 +96,19 @@ pub struct Attribute {
 #[derive(Debug)]
 pub enum AttributeValue {
     Literal(QuoteTokens),
+    Hoisted(QuoteTokens),
     Expression(QuoteTokens),
+}
+
+impl AttributeValue {
+    pub fn from_group(name: &str, tokens: QuoteTokens) -> Self {
+        // TODO: if the `tokens contains just a single literal,
+        //       make it a literal value then as well.
+        match name {
+            "checked" => AttributeValue::Hoisted(quote! {
+                ::kobold::attribute::Checked(#tokens)
+            }),
+            _ => AttributeValue::Expression(tokens),
+        }
+    }
 }

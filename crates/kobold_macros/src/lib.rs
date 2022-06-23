@@ -13,6 +13,7 @@ mod gen;
 mod parser;
 mod token_ext;
 
+use dom::FieldKind;
 use gen::Generator;
 use parser::{into_quote, ParseError, Parser};
 use token_ext::IteratorExt as _;
@@ -166,10 +167,19 @@ pub fn html(mut body: TokenStream) -> TokenStream {
     let fields = &parser.fields;
 
     let generics = fields.iter().map(|field| &field.typ).collect::<Vec<_>>();
-    let generics = &generics;
+    let generics = &generics[..];
+
+    let generics_with_bounds = fields.iter().map(|field| {
+        let typ = &field.typ;
+
+        match field.kind {
+            FieldKind::AttrHoisted => quote! { #typ: ::kobold::attribute::Attribute },
+            _ => quote! { #typ: ::kobold::Html }
+        }
+    });
 
     let field_names = fields.iter().map(|field| &field.name).collect::<Vec<_>>();
-    let field_names = &field_names;
+    let field_names = &field_names[..];
 
     let field_defs = fields
         .iter()
@@ -223,7 +233,7 @@ pub fn html(mut body: TokenStream) -> TokenStream {
                 el: ::kobold::dom::Element,
             }
 
-            impl<#(#generics: ::kobold::Html),*> ::kobold::Html for Transient<#(#generics),*> {
+            impl<#(#generics_with_bounds),*> ::kobold::Html for Transient<#(#generics),*> {
                 type Product = TransientProduct<#(#generics::Product),*>;
 
                 fn build(self) -> Self::Product {

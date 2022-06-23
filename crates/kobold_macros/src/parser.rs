@@ -121,6 +121,7 @@ impl Parser {
                                     let name = into_quote(attr.ident);
                                     let value = match attr.value {
                                         AttributeValue::Literal(text) => quote! { #text },
+                                        AttributeValue::Hoisted(expr) => expr,
                                         AttributeValue::Expression(expr) => expr,
                                     };
 
@@ -152,37 +153,38 @@ impl Parser {
                     Ok(Node::Expression)
                 } else {
                     for attr in el.attributes.iter() {
-                        if let AttributeValue::Expression(tokens) = &attr.value {
-                            let attr_name = attr.name.as_str();
+                        let attr_name = attr.name.as_str();
 
-                            let (kind, expr, hoist) = match attr_name {
-                                "style" => (
-                                    FieldKind::Attr,
-                                    quote! { ::kobold::attribute::Style(#tokens) },
-                                    true,
-                                ),
-                                "class" => (
-                                    FieldKind::Attr,
-                                    quote! { ::kobold::attribute::Class(#tokens) },
-                                    true,
-                                ),
-                                n if n.starts_with("on") && n.len() > 2 => {
-                                    (FieldKind::Callback(n[2..].into()), tokens.clone(), false)
-                                }
-                                _ => (
-                                    FieldKind::Attr,
-                                    quote! {
-                                        ::kobold::attribute::Attr::new(#attr_name, #tokens)
-                                    },
-                                    true,
-                                ),
-                            };
+                        match &attr.value {
+                            AttributeValue::Expression(tokens) => {
+                                let (kind, expr) = match attr_name {
+                                    "style" => (
+                                        FieldKind::Attr,
+                                        quote! { ::kobold::attribute::Style(#tokens) },
+                                    ),
+                                    "class" => (
+                                        FieldKind::Attr,
+                                        quote! { ::kobold::attribute::Class(#tokens) },
+                                    ),
+                                    n if n.starts_with("on") && n.len() > 2 => {
+                                        (FieldKind::Callback(n[2..].into()), tokens.clone())
+                                    }
+                                    _ => (
+                                        FieldKind::Attr,
+                                        quote! {
+                                            ::kobold::attribute::Attr::new(#attr_name, #tokens)
+                                        },
+                                    ),
+                                };
 
-                            let field = self.new_field(kind, expr);
+                                self.new_field(kind, expr);
+                            }
+                            AttributeValue::Hoisted(tokens) => {
+                                let field = self.new_field(FieldKind::AttrHoisted, tokens.clone());
 
-                            if hoist {
                                 el.hoisted_attrs.push(field.name.clone());
                             }
+                            _ => (),
                         }
                     }
 
@@ -231,7 +233,7 @@ impl Parser {
                     let value = match iter.next() {
                         Some(TokenTree::Literal(lit)) => AttributeValue::Literal(into_quote(lit)),
                         Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
-                            AttributeValue::Expression(group.stream().into())
+                            AttributeValue::from_group(name.as_str(), group.stream().into())
                         }
                         Some(tt) => {
                             return Err(ParseError::new(
@@ -254,16 +256,15 @@ impl Parser {
 
                     let ident: Ident = iter.parse()?;
                     let name = ident.to_string();
+                    let value =
+                        AttributeValue::from_group(name.as_str(), into_quote(ident.clone()));
+
                     expect_end(
                         iter.next(),
                         "Shorthand attributes can only contain a single variable name",
                     )?;
 
-                    element.attributes.push(Attribute {
-                        name,
-                        ident: ident.clone(),
-                        value: AttributeValue::Expression(into_quote(ident)),
-                    });
+                    element.attributes.push(Attribute { name, ident, value });
                 }
                 Some(TokenTree::Punct(punct))
                     if punct.as_char() == '.' && punct.spacing() == Spacing::Joint =>

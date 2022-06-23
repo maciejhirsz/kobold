@@ -66,21 +66,14 @@ where
                 self.append(&e, &el.children)?;
 
                 for attr in el.attributes.iter() {
-                    match &attr.value {
+                    let value = match &attr.value {
                         AttributeValue::Literal(value) => {
-                            let value = literal_to_string(value);
+                            literal_to_string(value)
+                        }
+                        AttributeValue::Hoisted(_) => {
+                            let (arg, _) = self.next_arg();
 
-                            match attr.name.as_ref() {
-                                "class" => {
-                                    js!("{}.className={};", e, value);
-                                }
-                                "style" | "id" => {
-                                    js!("{}.{}={};", e, attr.name, value);
-                                }
-                                _ => {
-                                    js!("{}.setAttribute({:?},{});", e, attr.name, value)
-                                }
-                            }
+                            arg
                         }
                         AttributeValue::Expression(_) => {
                             let (arg, field) = self.next_arg();
@@ -94,9 +87,26 @@ where
                                     js!("{}.addEventListener({:?},{});", e, action, arg);
                                 }
                                 FieldKind::Html => {
-                                    panic!("HTML node in element attributes!")
+                                    panic!("HTML node in element attributes!");
+                                }
+                                FieldKind::AttrHoisted => {
+                                    panic!("Hoisted attribute with expression value!");
                                 }
                             }
+
+                            continue;
+                        }
+                    };
+
+                    match attr.name.as_ref() {
+                        "class" => {
+                            js!("{}.className={};", e, value);
+                        }
+                        "style" | "id" | "checked" => {
+                            js!("{}.{}={};", e, attr.name, value);
+                        }
+                        _ => {
+                            js!("{}.setAttribute({:?},{});", e, attr.name, value)
                         }
                     }
                 }
@@ -167,8 +177,8 @@ where
             .expect("transient function name buffer is too small, this is a bug, please report it");
 
         let js = format!(
-            "export function {}({}){{{}return {};}}",
-            fn_name, self.args, self.render, root
+            "export function {fn_name}({}){{{}return {root};}}",
+            self.args, self.render
         );
         let args = &self.args_tokens;
 

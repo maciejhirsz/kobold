@@ -9,7 +9,7 @@ use crate::{Element, Html, Mountable};
 pub use crate::stateful::Callback;
 
 pub trait Attribute {
-    type Product;
+    type Product: 'static;
 
     fn build(self) -> Self::Product;
 
@@ -92,6 +92,8 @@ where
         }
     }
 }
+
+pub struct AttributeProduct<V>(V);
 
 pub struct Checked(pub bool);
 

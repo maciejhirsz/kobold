@@ -176,6 +176,10 @@ struct EntryView<'a> {
     link: Link<'a, State>,
 }
 
+fn test(checked: bool) -> impl Html {
+    html! { <input {checked} value="foo" /> }
+}
+
 impl<'a> EntryView<'a> {
     fn render(self) -> impl Html + 'a {
         let EntryView { idx, entry, link } = self;
