@@ -3,6 +3,7 @@
 use wasm_bindgen::JsValue;
 
 use crate::util;
+use crate::value::Stringify;
 use crate::{Element, Html, Mountable};
 
 pub use crate::stateful::Callback;
@@ -26,43 +27,22 @@ impl<V> Attr<V> {
     }
 }
 
-impl Html for Attr<&'static str> {
-    type Product = AttrProduct<&'static str>;
-
-    fn build(self) -> Self::Product {
-        let node = util::__kobold_create_attr(self.name, self.value);
-        let el = Element::new(node);
-
-        AttrProduct {
-            value: self.value.clone(),
-            el,
-        }
-    }
-
-    fn update(self, p: &mut Self::Product) {
-        if self.value != p.value {
-            util::__kobold_update_attr(&p.el.node, self.value);
-            p.value = self.value;
-        }
-    }
-}
-
 impl Html for Attr<String> {
     type Product = AttrProduct<String>;
 
     fn build(self) -> Self::Product {
-        let node = util::__kobold_create_attr(self.name, &self.value);
+        let node = util::__kobold_attr(self.name, &self.value);
         let el = Element::new(node);
 
         AttrProduct {
-            value: self.value.clone(),
+            value: self.value,
             el,
         }
     }
 
     fn update(self, p: &mut Self::Product) {
         if *self.value != p.value {
-            util::__kobold_update_attr(&p.el.node, &self.value);
+            util::__kobold_attr_update(&p.el.node, &self.value);
             p.value = self.value;
         }
     }
@@ -72,7 +52,7 @@ impl Html for Attr<&String> {
     type Product = AttrProduct<String>;
 
     fn build(self) -> Self::Product {
-        let node = util::__kobold_create_attr(self.name, self.value);
+        let node = util::__kobold_attr(self.name, self.value);
         let el = Element::new(node);
 
         AttrProduct {
@@ -83,29 +63,49 @@ impl Html for Attr<&String> {
 
     fn update(self, p: &mut Self::Product) {
         if *self.value != p.value {
-            util::__kobold_update_attr(&p.el.node, self.value);
-            p.value.clone_from(self.value);
+            util::__kobold_attr_update(&p.el.node, self.value);
+            p.value.clone_from(self.value)
         }
     }
 }
 
-impl Html for Attr<bool> {
-    type Product = AttrProduct<bool>;
+impl<S> Html for Attr<S>
+where
+    S: Stringify + Eq + Copy + 'static,
+{
+    type Product = AttrProduct<S>;
 
     fn build(self) -> Self::Product {
-        let node = util::__kobold_create_attr(self.name, "TODO");
+        let node = self.value.stringify(|s| util::__kobold_attr(self.name, s));
         let el = Element::new(node);
 
         AttrProduct {
-            value: self.value.clone(),
+            value: self.value,
             el,
         }
     }
 
     fn update(self, p: &mut Self::Product) {
         if self.value != p.value {
-            util::__kobold_update_attr(&p.el.node, "TODO");
+            self.value.stringify(|s| util::__kobold_attr_update(&p.el.node, s));
             p.value = self.value;
+        }
+    }
+}
+
+pub struct Checked(pub bool);
+
+impl Attribute for Checked {
+    type Product = bool;
+
+    fn build(self) -> Self::Product {
+        self.0
+    }
+
+    fn update(self, p: &mut Self::Product, js: &JsValue) {
+        if self.0 != *p {
+            util::__kobold_attr_checked_set(js, self.0);
+            *p = self.0;
         }
     }
 }
@@ -113,24 +113,6 @@ impl Html for Attr<bool> {
 macro_rules! create_named_attrs {
     ($($name:ident => $fun:ident,)*) => {$(
         pub struct $name<V>(pub V);
-
-        impl Html for $name<&'static str> {
-            type Product = AttrProduct<&'static str>;
-
-            fn build(self) -> Self::Product {
-                let node = util::$fun(&self.0);
-                let el = Element::new(node);
-
-                AttrProduct { value: self.0, el }
-            }
-
-            fn update(self, p: &mut Self::Product) {
-                if self.0 != p.value {
-                    util::__kobold_update_attr(&p.el.node, self.0);
-                    p.value = self.0;
-                }
-            }
-        }
 
         impl Html for $name<String> {
             type Product = AttrProduct<String>;
@@ -144,7 +126,7 @@ macro_rules! create_named_attrs {
 
             fn update(self, p: &mut Self::Product) {
                 if self.0 != p.value {
-                    util::__kobold_update_attr(&p.el.node, &self.0);
+                    util::__kobold_attr_update(&p.el.node, &self.0);
                     p.value = self.0;
                 }
             }
@@ -162,8 +144,29 @@ macro_rules! create_named_attrs {
 
             fn update(self, p: &mut Self::Product) {
                 if *self.0 != p.value {
-                    util::__kobold_update_attr(&p.el.node, self.0);
+                    util::__kobold_attr_update(&p.el.node, self.0);
                     p.value.clone_from(self.0);
+                }
+            }
+        }
+
+        impl<S> Html for $name<S>
+        where
+            S: Stringify + Eq + Copy + 'static,
+        {
+            type Product = AttrProduct<S>;
+
+            fn build(self) -> Self::Product {
+                let node = self.0.stringify(util::$fun);
+                let el = Element::new(node);
+
+                AttrProduct { value: self.0, el }
+            }
+
+            fn update(self, p: &mut Self::Product) {
+                if self.0 != p.value {
+                    self.0.stringify(|s| util::__kobold_attr_update(&p.el.node, s));
+                    p.value = self.0;
                 }
             }
         }
@@ -171,8 +174,8 @@ macro_rules! create_named_attrs {
 }
 
 create_named_attrs! {
-    Class => __kobold_create_attr_class,
-    Style => __kobold_create_attr_style,
+    Class => __kobold_attr_class,
+    Style => __kobold_attr_style,
 }
 
 pub struct AttrProduct<V> {

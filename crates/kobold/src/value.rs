@@ -12,22 +12,6 @@ impl<T: 'static> Mountable for ValueProduct<T> {
     }
 }
 
-pub trait Stringify {
-    fn stringify<F: FnOnce(&str) -> R, R>(self, f: F) -> R;
-}
-
-impl Stringify for &'static str {
-    fn stringify<F: FnOnce(&str) -> R, R>(self, f: F) -> R {
-        f(self)
-    }
-}
-
-impl Stringify for bool {
-    fn stringify<F: FnOnce(&str) -> R, R>(self, f: F) -> R {
-        f(if self { "true" } else { "false" })
-    }
-}
-
 impl Html for String {
     type Product = ValueProduct<String>;
 
@@ -65,14 +49,30 @@ impl Html for &String {
     }
 }
 
+pub trait Stringify {
+    fn stringify<F: FnOnce(&str) -> R, R>(&self, f: F) -> R;
+}
+
+impl Stringify for &'static str {
+    fn stringify<F: FnOnce(&str) -> R, R>(&self, f: F) -> R {
+        f(*self)
+    }
+}
+
+impl Stringify for bool {
+    fn stringify<F: FnOnce(&str) -> R, R>(&self, f: F) -> R {
+        f(if *self { "true" } else { "false" })
+    }
+}
+
 macro_rules! stringify_int {
     ($($t:ty),*) => {
         $(
             impl Stringify for $t {
-                fn stringify<F: FnOnce(&str) -> R, R>(self, f: F) -> R {
+                fn stringify<F: FnOnce(&str) -> R, R>(&self, f: F) -> R {
                     let mut buf = itoa::Buffer::new();
 
-                    f(buf.format(self))
+                    f(buf.format(*self))
                 }
             }
         )*
@@ -83,10 +83,10 @@ macro_rules! stringify_float {
     ($($t:ty),*) => {
         $(
             impl Stringify for $t {
-                fn stringify<F: FnOnce(&str) -> R, R>(self, f: F) -> R {
+                fn stringify<F: FnOnce(&str) -> R, R>(&self, f: F) -> R {
                     let mut buf = ryu::Buffer::new();
 
-                    f(buf.format(self))
+                    f(buf.format(*self))
                 }
             }
         )*
@@ -114,24 +114,18 @@ macro_rules! impl_stringify {
                 }
             }
 
-            impl_ref_copy!($t);
+            impl Html for &$t {
+                type Product = ValueProduct<$t>;
+
+                fn build(self) -> Self::Product {
+                    (*self).build()
+                }
+
+                fn update(self, p: &mut Self::Product) {
+                    (*self).update(p);
+                }
+            }
         )*
-    };
-}
-
-macro_rules! impl_ref_copy {
-    ($t:ty) => {
-        impl Html for &$t {
-            type Product = ValueProduct<$t>;
-
-            fn build(self) -> Self::Product {
-                (*self).build()
-            }
-
-            fn update(self, p: &mut Self::Product) {
-                (*self).update(p);
-            }
-        }
     };
 }
 
