@@ -99,13 +99,17 @@ impl App {
                             <EntryInput {link} />
                         </header>
                         <section class={main_class}>
-                            <input
-                                type="checkbox"
-                                class="toggle-all"
-                                id="toggle-all"
-                                checked={is_all_completed}
-                                onclick={link.callback(move |state, _| state.set_all(!is_all_completed))}
-                            />
+                            {
+                                html! {
+                                    <input
+                                        type="checkbox"
+                                        class="toggle-all"
+                                        id="toggle-all"
+                                        checked={is_all_completed}
+                                        onclick={link.callback(move |state, _| state.set_all(!is_all_completed))}
+                                    />
+                                }
+                            }
                             <label for="toggle-all" />
                             <ul class="todo-list">
                                 {
@@ -230,12 +234,16 @@ impl<'a> EntryView<'a> {
         html! {
             <li {class}>
                 <div class="view">
-                    <input
-                        type="checkbox"
-                        class="toggle"
-                        checked={entry.completed}
-                        onclick={link.callback(move |state, _| state.entries[idx].toggle())}
-                    />
+                    {
+                        html! {
+                            <input
+                                type="checkbox"
+                                class="toggle"
+                                checked={entry.completed}
+                                onclick={link.callback(move |state, _| state.entries[idx].toggle())}
+                            />
+                        }
+                    }
                     <label ondblclick={link.callback(move |state, _| state.edit_entry(idx))} >
                         { &entry.description }
                     </label>

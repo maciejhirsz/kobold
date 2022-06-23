@@ -127,7 +127,7 @@
 //! }
 //! ```
 
-use std::cell::RefCell;
+use std::cell::{RefCell, UnsafeCell};
 use std::marker::PhantomData;
 use std::rc::Rc;
 
@@ -199,7 +199,7 @@ pub struct WithState<S: Stateful, H: Html> {
 
 struct Inner<S, P> {
     state: RefCell<S>,
-    product: RefCell<P>,
+    product: UnsafeCell<P>,
     render: RenderFn<S, P>,
     update: fn(RenderFn<S, P>, Link<S>),
 }
@@ -235,7 +235,7 @@ where
 
             Inner {
                 state: RefCell::new(state),
-                product: RefCell::new(product),
+                product: UnsafeCell::new(product),
                 render: self.render,
                 update: |render, link| {
                     // Safety: this is safe as long as `S` and `H` are the same types that
@@ -243,12 +243,13 @@ where
                     let render = unsafe { render.cast::<H>() };
                     let inner = unsafe { &*link.inner() };
 
-                    (render)(&inner.state.borrow(), link).update(&mut inner.product.borrow_mut());
+                    (render)(&inner.state.borrow(), link)
+                        .update(unsafe { &mut *inner.product.get() });
                 },
             }
         });
 
-        let el = inner.product.borrow().el().clone();
+        let el = unsafe { &*inner.product.get() }.el().clone();
 
         WithStateProduct { inner, el }
     }
