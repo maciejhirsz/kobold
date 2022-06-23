@@ -20,3 +20,6 @@ proc-macro2 = "1.0"
 
 [lib]
 proc-macro = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]

@@ -153,30 +153,36 @@ impl Parser {
                 } else {
                     for attr in el.attributes.iter() {
                         if let AttributeValue::Expression(tokens) = &attr.value {
-                            el.hoisted = true;
                             let attr_name = attr.name.as_str();
 
-                            let (kind, expr) = match attr_name {
+                            let (kind, expr, hoist) = match attr_name {
                                 "style" => (
                                     FieldKind::Attr,
                                     quote! { ::kobold::attribute::Style(#tokens) },
+                                    true,
                                 ),
                                 "class" => (
                                     FieldKind::Attr,
                                     quote! { ::kobold::attribute::Class(#tokens) },
+                                    true,
                                 ),
                                 n if n.starts_with("on") && n.len() > 2 => {
-                                    (FieldKind::Callback(n[2..].into()), tokens.clone())
+                                    (FieldKind::Callback(n[2..].into()), tokens.clone(), false)
                                 }
                                 _ => (
                                     FieldKind::Attr,
                                     quote! {
-                                        ::kobold::attribute::Attribute::new(#attr_name, #tokens)
+                                        ::kobold::attribute::Attr::new(#attr_name, #tokens)
                                     },
+                                    true,
                                 ),
                             };
 
-                            self.new_field(kind, expr);
+                            let field = self.new_field(kind, expr);
+
+                            if hoist {
+                                el.hoisted_attrs.push(field.name.clone());
+                            }
                         }
                     }
 
@@ -381,7 +387,7 @@ impl Parser {
         Ok(element)
     }
 
-    fn new_field(&mut self, kind: FieldKind, expr: QuoteTokens) {
+    fn new_field(&mut self, kind: FieldKind, expr: QuoteTokens) -> &Field {
         const LETTERS: usize = 26;
 
         // This gives us up to 456976 unique identifiers, should be enough :)
@@ -412,6 +418,8 @@ impl Parser {
             name,
             expr,
         });
+
+        self.fields.last().unwrap()
     }
 }
 

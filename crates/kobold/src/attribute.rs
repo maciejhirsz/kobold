@@ -1,29 +1,39 @@
 //! Utilities for dealing with DOM attributes
 
+use wasm_bindgen::JsValue;
+
 use crate::util;
 use crate::{Element, Html, Mountable};
 
 pub use crate::stateful::Callback;
 
-pub struct Attribute<V> {
+pub trait Attribute {
+    type Product;
+
+    fn build(self) -> Self::Product;
+
+    fn update(self, p: &mut Self::Product, js: &JsValue);
+}
+
+pub struct Attr<V> {
     name: &'static str,
     value: V,
 }
 
-impl<V> Attribute<V> {
+impl<V> Attr<V> {
     pub fn new(name: &'static str, value: V) -> Self {
-        Attribute { name, value }
+        Attr { name, value }
     }
 }
 
-impl Html for Attribute<&'static str> {
-    type Product = AttributeProduct<&'static str>;
+impl Html for Attr<&'static str> {
+    type Product = AttrProduct<&'static str>;
 
     fn build(self) -> Self::Product {
         let node = util::__kobold_create_attr(self.name, self.value);
         let el = Element::new(node);
 
-        AttributeProduct {
+        AttrProduct {
             value: self.value.clone(),
             el,
         }
@@ -37,14 +47,14 @@ impl Html for Attribute<&'static str> {
     }
 }
 
-impl Html for Attribute<String> {
-    type Product = AttributeProduct<String>;
+impl Html for Attr<String> {
+    type Product = AttrProduct<String>;
 
     fn build(self) -> Self::Product {
         let node = util::__kobold_create_attr(self.name, &self.value);
         let el = Element::new(node);
 
-        AttributeProduct {
+        AttrProduct {
             value: self.value.clone(),
             el,
         }
@@ -58,14 +68,14 @@ impl Html for Attribute<String> {
     }
 }
 
-impl Html for Attribute<&String> {
-    type Product = AttributeProduct<String>;
+impl Html for Attr<&String> {
+    type Product = AttrProduct<String>;
 
     fn build(self) -> Self::Product {
         let node = util::__kobold_create_attr(self.name, self.value);
         let el = Element::new(node);
 
-        AttributeProduct {
+        AttrProduct {
             value: self.value.clone(),
             el,
         }
@@ -79,14 +89,14 @@ impl Html for Attribute<&String> {
     }
 }
 
-impl Html for Attribute<bool> {
-    type Product = AttributeProduct<bool>;
+impl Html for Attr<bool> {
+    type Product = AttrProduct<bool>;
 
     fn build(self) -> Self::Product {
         let node = util::__kobold_create_attr(self.name, "TODO");
         let el = Element::new(node);
 
-        AttributeProduct {
+        AttrProduct {
             value: self.value.clone(),
             el,
         }
@@ -105,13 +115,13 @@ macro_rules! create_named_attrs {
         pub struct $name<V>(pub V);
 
         impl Html for $name<&'static str> {
-            type Product = AttributeProduct<&'static str>;
+            type Product = AttrProduct<&'static str>;
 
             fn build(self) -> Self::Product {
                 let node = util::$fun(&self.0);
                 let el = Element::new(node);
 
-                AttributeProduct { value: self.0, el }
+                AttrProduct { value: self.0, el }
             }
 
             fn update(self, p: &mut Self::Product) {
@@ -123,13 +133,13 @@ macro_rules! create_named_attrs {
         }
 
         impl Html for $name<String> {
-            type Product = AttributeProduct<String>;
+            type Product = AttrProduct<String>;
 
             fn build(self) -> Self::Product {
                 let node = util::$fun(&self.0);
                 let el = Element::new(node);
 
-                AttributeProduct { value: self.0, el }
+                AttrProduct { value: self.0, el }
             }
 
             fn update(self, p: &mut Self::Product) {
@@ -141,13 +151,13 @@ macro_rules! create_named_attrs {
         }
 
         impl Html for $name<&String> {
-            type Product = AttributeProduct<String>;
+            type Product = AttrProduct<String>;
 
             fn build(self) -> Self::Product {
                 let node = util::$fun(self.0);
                 let el = Element::new(node);
 
-                AttributeProduct { value: self.0.clone(), el }
+                AttrProduct { value: self.0.clone(), el }
             }
 
             fn update(self, p: &mut Self::Product) {
@@ -165,12 +175,12 @@ create_named_attrs! {
     Style => __kobold_create_attr_style,
 }
 
-pub struct AttributeProduct<V> {
+pub struct AttrProduct<V> {
     value: V,
     el: Element,
 }
 
-impl<V: 'static> Mountable for AttributeProduct<V> {
+impl<V: 'static> Mountable for AttrProduct<V> {
     fn el(&self) -> &Element {
         &self.el
     }

@@ -62,9 +62,8 @@ pub struct Element {
     pub children_raw: Option<QuoteTokens>,
     /// Element has been invoked with `..` spread at the end
     pub defaults: bool,
-    /// Element has dynamic attributes and needs to be hoisted
-    /// into its own function
-    pub hoisted: bool,
+    /// Attribute fields that need to be hoisted into this element
+    pub hoisted_attrs: Vec<QuoteTokens>,
 }
 
 impl Element {
@@ -76,7 +75,7 @@ impl Element {
             children: Vec::new(),
             children_raw: None,
             defaults: false,
-            hoisted: false,
+            hoisted_attrs: Vec::new(),
         }
     }
 

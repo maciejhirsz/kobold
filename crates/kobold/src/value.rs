@@ -12,20 +12,19 @@ impl<T: 'static> Mountable for ValueProduct<T> {
     }
 }
 
-impl Html for &'static str {
-    type Product = ValueProduct<&'static str>;
+pub trait Stringify {
+    fn stringify<F: FnOnce(&str) -> R, R>(self, f: F) -> R;
+}
 
-    fn build(self) -> Self::Product {
-        let el = Element::new_text(self);
-
-        ValueProduct { value: self, el }
+impl Stringify for &'static str {
+    fn stringify<F: FnOnce(&str) -> R, R>(self, f: F) -> R {
+        f(self)
     }
+}
 
-    fn update(self, p: &mut Self::Product) {
-        if p.value != self {
-            p.value = self;
-            p.el.set_text(self);
-        }
+impl Stringify for bool {
+    fn stringify<F: FnOnce(&str) -> R, R>(self, f: F) -> R {
+        f(if self { "true" } else { "false" })
     }
 }
 
@@ -66,41 +65,42 @@ impl Html for &String {
     }
 }
 
-fn bool_to_str(b: bool) -> &'static str {
-    if b {
-        "true"
-    } else {
-        "false"
-    }
+macro_rules! stringify_int {
+    ($($t:ty),*) => {
+        $(
+            impl Stringify for $t {
+                fn stringify<F: FnOnce(&str) -> R, R>(self, f: F) -> R {
+                    let mut buf = itoa::Buffer::new();
+
+                    f(buf.format(self))
+                }
+            }
+        )*
+    };
 }
 
-impl Html for bool {
-    type Product = ValueProduct<bool>;
+macro_rules! stringify_float {
+    ($($t:ty),*) => {
+        $(
+            impl Stringify for $t {
+                fn stringify<F: FnOnce(&str) -> R, R>(self, f: F) -> R {
+                    let mut buf = ryu::Buffer::new();
 
-    fn build(self) -> Self::Product {
-        let el = Element::new_text(bool_to_str(self));
-
-        ValueProduct { value: self, el }
-    }
-
-    fn update(self, p: &mut Self::Product) {
-        if p.value != self {
-            p.value = self;
-            p.el.set_text(bool_to_str(p.value));
-        }
-    }
+                    f(buf.format(self))
+                }
+            }
+        )*
+    };
 }
 
-macro_rules! impl_int {
+macro_rules! impl_stringify {
     ($($t:ty),*) => {
         $(
             impl Html for $t {
                 type Product = ValueProduct<$t>;
 
                 fn build(self) -> Self::Product {
-                    let mut buf = itoa::Buffer::new();
-
-                    let el = Element::new_text(buf.format(self));
+                    let el = self.stringify(Element::new_text);
 
                     ValueProduct { value: self, el }
                 }
@@ -109,39 +109,7 @@ macro_rules! impl_int {
                     if p.value != self {
                         p.value = self;
 
-                        let mut buf = itoa::Buffer::new();
-
-                        p.el.set_text(buf.format(self));
-                    }
-                }
-            }
-
-            impl_ref_copy!($t);
-        )*
-    };
-}
-
-macro_rules! impl_float {
-    ($($t:ty),*) => {
-        $(
-            impl Html for $t {
-                type Product = ValueProduct<$t>;
-
-                fn build(self) -> Self::Product {
-                    let mut buf = ryu::Buffer::new();
-
-                    let el = Element::new_text(buf.format(self));
-
-                    ValueProduct { value: self, el }
-                }
-
-                fn update(self, p: &mut Self::Product) {
-                    if (p.value - self).abs() > <$t>::EPSILON {
-                        p.value = self;
-
-                        let mut buf = ryu::Buffer::new();
-
-                        p.el.set_text(buf.format(self));
+                        self.stringify(|s| p.el.set_text(s));
                     }
                 }
             }
@@ -167,7 +135,7 @@ macro_rules! impl_ref_copy {
     };
 }
 
-impl_int!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, usize, isize);
-impl_float!(f32, f64);
-impl_ref_copy!(bool);
-impl_ref_copy!(&'static str);
+stringify_int!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, usize, isize);
+stringify_float!(f32, f64);
+
+impl_stringify!(&'static str, bool, u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, usize, isize, f32, f64);
