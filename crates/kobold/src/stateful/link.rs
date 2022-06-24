@@ -1,6 +1,6 @@
 use std::cell::UnsafeCell;
 use std::marker::PhantomData;
-use std::rc::{Rc, Weak};
+use std::rc::Weak;
 
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsValue;
@@ -13,7 +13,7 @@ pub struct Link<'state, S> {
     inner: *const (),
     make_closure: fn(
         *const (),
-        cb: Weak<UnsafeCell<dyn CallbackFn<S, web_sys::Event>>>,
+        cb: *const UnsafeCell<dyn CallbackFn<S, web_sys::Event>>,
     ) -> Box<dyn FnMut(&web_sys::Event)>,
     _marker: PhantomData<&'state S>,
 }
@@ -45,18 +45,16 @@ where
     fn new_raw<P: 'static>(inner: *const Inner<S, P>) -> Self {
         Link {
             inner: inner as *const _,
-            make_closure: |inner, weak_cb| {
+            make_closure: |inner, callback| {
                 make_closure(move |event| {
-                    if let Some(cb) = weak_cb.upgrade() {
-                        let inner = unsafe { &*(inner as *const Inner<S, P>) };
-                        let cb = unsafe { &*cb.get() };
+                    let callback = unsafe { &*(*callback).get() };
+                    let inner = unsafe { &*(inner as *const Inner<S, P>) };
 
-                        if cb
-                            .call(&mut inner.state.borrow_mut(), event)
-                            .should_render()
-                        {
-                            inner.update();
-                        }
+                    if callback
+                        .call(&mut inner.state.borrow_mut(), event)
+                        .should_render()
+                    {
+                        inner.update();
                     }
                 })
             },
@@ -101,7 +99,7 @@ where
 
 pub struct CallbackProduct<F> {
     closure: Closure<dyn FnMut(&web_sys::Event)>,
-    cb: Rc<UnsafeCell<F>>,
+    cb: Box<UnsafeCell<F>>,
 }
 
 trait CallbackFn<S, E> {
@@ -130,11 +128,10 @@ where
     fn build(self) -> Self::Product {
         let Self { link, cb, .. } = self;
 
-        let cb = Rc::new(UnsafeCell::new(cb));
-        let weak = Rc::downgrade(&cb);
+        let cb = Box::new(UnsafeCell::new(cb));
 
         let closure = (link.make_closure)(link.inner, unsafe {
-            let weak: Weak<UnsafeCell<dyn CallbackFn<S, Event<T>>>> = weak;
+            let weak: &UnsafeCell<dyn CallbackFn<S, Event<T>>> = &*cb;
 
             // Safety: This is casting `dyn CallbackFn<S, Event<T>>` to `dyn CallbackFn<S, web_sys::Event>`
             //         which is safe as `Event<T>` is a transparent wrapper for `web_sys::Event`.
