@@ -1,6 +1,6 @@
 use kobold::prelude::*;
 use kobold::reexport::wasm_bindgen::JsCast;
-use web_sys::{Event, HtmlInputElement, KeyboardEvent};
+use web_sys::{Event, HtmlInputElement};
 
 struct App;
 
