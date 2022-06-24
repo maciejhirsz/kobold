@@ -75,6 +75,14 @@ impl Filter {
             Filter::Completed => "#/completed",
         }
     }
+
+    fn to_label(self) -> &'static str {
+        match self {
+            Filter::All => "All",
+            Filter::Active => "Active",
+            Filter::Completed => "Completed",
+        }
+    }
 }
 
 impl App {
@@ -86,7 +94,6 @@ impl App {
                 ("main", "footer")
             };
 
-            let selected = state.filter;
             let active_count = state.count_active();
             let completed_count = state.entries.len() - active_count;
             let is_all_completed = active_count == 0;
@@ -101,9 +108,10 @@ impl App {
                         <section .{main_class}>
                             {
                                 html! {
-                                    <input .toggle-all
+                                    <input
+                                        #toggle-all
+                                        .toggle-all
                                         type="checkbox"
-                                        id="toggle-all"
                                         checked={is_all_completed}
                                         onclick={link.callback(move |state, _| state.set_all(!is_all_completed))}
                                     />
@@ -125,9 +133,16 @@ impl App {
                                 { if active_count == 1 { " item left" } else { " items left" } }
                             </span>
                             <ul .filters>
-                                <FilterView filter={Filter::All} {selected} {link}>"All"</FilterView>
-                                <FilterView filter={Filter::Active} {selected} {link}>"Active"</FilterView>
-                                <FilterView filter={Filter::Completed} {selected} {link}>"Completed"</FilterView>
+                            {
+                                let selected = state.filter;
+
+                                [
+                                    Filter::All,
+                                    Filter::Active,
+                                    Filter::Completed,
+                                ]
+                                .map(|filter| html! { <FilterView {filter} {selected} {link} /> })
+                            }
                             </ul>
                             <button .clear-completed onclick={link.callback(|state, _| state.entries.retain(|entry| !entry.completed))}>
                                 "Clear completed ("{ completed_count }")"
@@ -240,7 +255,7 @@ struct FilterView<'a> {
 }
 
 impl<'a> FilterView<'a> {
-    fn render_with(self, name: impl Html + 'a) -> impl Html + 'a {
+    fn render(self) -> impl Html + 'a {
         let filter = self.filter;
         let class = if self.selected == filter {
             "selected"
@@ -252,7 +267,7 @@ impl<'a> FilterView<'a> {
 
         html! {
             <li>
-                <a {class} {href} {onclick}>{ name }</a>
+                <a {class} {href} {onclick}>{ filter.to_label() }</a>
             </li>
         }
     }
