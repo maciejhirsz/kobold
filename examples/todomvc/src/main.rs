@@ -157,7 +157,7 @@ mod wat {
     impl<'a> EntryInput<'a> {
         pub fn render(self) -> impl Html + 'a {
             let onchange = self.link.callback(|state, event| {
-                let input: HtmlInputElement = event.target();
+                let input = event.target();
 
                 let value = input.value();
                 input.set_value("");
