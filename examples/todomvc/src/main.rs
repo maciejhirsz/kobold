@@ -1,6 +1,5 @@
 use kobold::prelude::*;
-use kobold::reexport::wasm_bindgen::JsCast;
-use web_sys::{Event, HtmlInputElement};
+use web_sys::HtmlInputElement;
 
 struct App;
 
@@ -46,15 +45,9 @@ impl Entry {
         self.completed = !self.completed;
     }
 
-    fn update(&mut self, event: &Event) -> ShouldRender {
-        let value = event
-            .target()
-            .unwrap()
-            .unchecked_into::<HtmlInputElement>()
-            .value();
-
+    fn update(&mut self, description: String) -> ShouldRender {
         self.editing = false;
-        self.description = value;
+        self.description = description;
 
         ShouldRender::Yes
     }
@@ -167,7 +160,7 @@ struct EntryInput<'a> {
 impl<'a> EntryInput<'a> {
     fn render(self) -> impl Html + 'a {
         let onchange = self.link.callback(|state, e| {
-            let input: HtmlInputElement = e.target().unwrap().unchecked_into();
+            let input: HtmlInputElement = e.target();
 
             let value = input.value();
             input.set_value("");
@@ -203,16 +196,18 @@ impl<'a> EntryView<'a> {
         };
 
         let input = self.entry.editing.then(move || {
-            let onchange = link.callback(move |state, event| state.entries[idx].update(event));
+            let onchange = link.callback(move |state, event| {
+                let input: HtmlInputElement = event.target();
+
+                state.entries[idx].update(input.value())
+            });
 
             let onmouseover = link.callback(move |_, event| {
-                let input = event
-                    .target()
-                    .unwrap()
-                    .unchecked_into::<HtmlInputElement>();
+                let input: HtmlInputElement = event.target();
 
-                input.focus().unwrap();
-                input.select();
+                if input.focus().is_ok() {
+                    input.select();
+                }
 
                 ShouldRender::No
             });

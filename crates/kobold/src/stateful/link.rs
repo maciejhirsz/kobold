@@ -4,14 +4,15 @@ use std::rc::{Rc, Weak};
 
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsValue;
-use web_sys::Event;
 
+use crate::event::Event;
 use crate::stateful::{Inner, ShouldRender};
 use crate::{Element, Html, Mountable};
 
 pub struct Link<'state, S> {
     inner: *const (),
-    make_closure: fn(*const (), cb: Weak<UnsafeCell<dyn CallbackFn<S>>>) -> Box<dyn FnMut(&Event)>,
+    make_closure:
+        fn(*const (), cb: Weak<UnsafeCell<dyn CallbackFn<S>>>) -> Box<dyn FnMut(&web_sys::Event)>,
     _marker: PhantomData<&'state S>,
 }
 
@@ -70,7 +71,10 @@ where
         F: Fn(&mut S, &Event) -> A + 'static,
         A: Into<ShouldRender>,
     {
-        Callback { cb, link: self }
+        Callback {
+            cb,
+            link: self,
+        }
     }
 }
 
@@ -82,20 +86,20 @@ pub struct Callback<F, L> {
 // I should not need to write this, but lifetime checking
 // was going really off the rails with inlined boxing
 #[inline]
-fn make_closure<F>(fun: F) -> Box<dyn FnMut(&Event)>
+fn make_closure<F>(fun: F) -> Box<dyn FnMut(&web_sys::Event)>
 where
-    F: FnMut(&Event) + 'static,
+    F: FnMut(&web_sys::Event) + 'static,
 {
     Box::new(fun)
 }
 
 pub struct CallbackProduct<F> {
-    closure: Closure<dyn FnMut(&Event)>,
+    closure: Closure<dyn FnMut(&web_sys::Event)>,
     cb: Rc<UnsafeCell<F>>,
 }
 
 trait CallbackFn<S> {
-    fn call(&self, state: &mut S, event: &Event) -> ShouldRender;
+    fn call(&self, state: &mut S, event: &web_sys::Event) -> ShouldRender;
 }
 
 impl<F, A, S> CallbackFn<S> for F
@@ -104,8 +108,8 @@ where
     A: Into<ShouldRender>,
     S: 'static,
 {
-    fn call(&self, state: &mut S, event: &Event) -> ShouldRender {
-        (self)(state, event).into()
+    fn call(&self, state: &mut S, event: &web_sys::Event) -> ShouldRender {
+        (self)(state, event.into()).into()
     }
 }
 
@@ -118,7 +122,7 @@ where
     type Product = CallbackProduct<F>;
 
     fn build(self) -> Self::Product {
-        let Self { link, cb } = self;
+        let Self { link, cb, .. } = self;
 
         let cb = Rc::new(UnsafeCell::new(cb));
         let weak = Rc::downgrade(&cb);

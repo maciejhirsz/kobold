@@ -282,6 +282,7 @@ mod value;
 pub mod attribute;
 pub mod branching;
 pub mod dom;
+pub mod event;
 pub mod list;
 pub mod stateful;
 
@@ -290,6 +291,7 @@ pub mod prelude {
     pub use crate::list::ListIteratorExt;
     pub use crate::stateful::{Link, ShouldRender, Stateful};
     pub use crate::{html, Html};
+    pub use crate::event::Event;
 }
 
 use dom::Element;
