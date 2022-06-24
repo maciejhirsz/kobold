@@ -1,5 +1,5 @@
 use beef::Cow;
-use proc_macro::{Ident, Literal, Punct, Span, TokenStream, TokenTree};
+use proc_macro::{Ident, Literal, Span, TokenStream, TokenTree};
 
 use crate::parser::ParseError;
 
@@ -120,7 +120,10 @@ impl Parse for Generics {
             tokens.extend([token]);
         }
 
-        Err(ParseError::new("Missing closing > for generics", Some(opening)))
+        Err(ParseError::new(
+            "Missing closing > for generics",
+            tokens.into_iter().next(),
+        ))
     }
 }
 

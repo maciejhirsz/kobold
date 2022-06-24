@@ -8,7 +8,7 @@ use quote::{quote, quote_spanned};
 
 use crate::dom::{Attribute, AttributeValue, Element, Field, FieldKind, Node};
 use crate::gen::literal_to_string;
-use crate::token_ext::*;
+use crate::parse::*;
 
 #[derive(Debug)]
 pub struct ParseError {
@@ -424,12 +424,5 @@ fn expect_end(tt: Option<TokenTree>, err: &'static str) -> Result<(), ParseError
     match tt {
         None => Ok(()),
         tt => Err(ParseError::new(err, tt)),
-    }
-}
-
-fn punct(tt: &TokenTree) -> Option<char> {
-    match tt {
-        TokenTree::Punct(p) => Some(p.as_char()),
-        _ => None,
     }
 }

@@ -11,12 +11,12 @@ use quote::quote;
 mod dom;
 mod gen;
 mod parser;
-mod token_ext;
+mod parse;
 
 use dom::FieldKind;
 use gen::Generator;
 use parser::{into_quote, ParseError, Parser};
-use token_ext::IteratorExt as _;
+use parse::IteratorExt as _;
 
 macro_rules! unwrap_err {
     ($expr:expr) => {
