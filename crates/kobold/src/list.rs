@@ -123,41 +123,14 @@ where
     }
 }
 
-pub struct ArrayListProduct<T, const N: usize> {
-    list: [T; N],
-    fragment: Element,
-}
-
 impl<H: Html, const N: usize> Html for [H; N] {
-    type Product = ArrayListProduct<H::Product, N>;
+    type Product = ListProduct<H::Product>;
 
     fn build(self) -> Self::Product {
-        let fragment = Element::new_fragment();
-
-        let list = self.map(H::build);
-
-        for p in list.iter() {
-            fragment.append(p.js());
-        }
-
-        ArrayListProduct {
-            list,
-            fragment,
-        }
+        List(self).build()
     }
 
     fn update(self, p: &mut Self::Product) {
-        for (i, p) in self.into_iter().zip(&mut p.list) {
-            i.update(p);
-        }
-    }
-}
-
-impl<T, const N: usize> Mountable for ArrayListProduct<T, N>
-where
-    T: 'static
-{
-    fn el(&self) -> &Element {
-        &self.fragment
+        List(self).update(p)
     }
 }

@@ -90,6 +90,7 @@ impl App {
             let active_count = state.count_active();
             let completed_count = state.entries.len() - active_count;
             let is_all_completed = active_count == 0;
+            let selected = state.filter;
 
             html! {
                 <div .todomvc-wrapper>
@@ -126,16 +127,9 @@ impl App {
                                 { if active_count == 1 { " item left" } else { " items left" } }
                             </span>
                             <ul .filters>
-                            {
-                                let selected = state.filter;
-
-                                [
-                                    Filter::All,
-                                    Filter::Active,
-                                    Filter::Completed,
-                                ]
-                                .map(|filter| html! { <FilterView {filter} {selected} {link} /> })
-                            }
+                                <FilterView filter={Filter::All} {selected} {link} />
+                                <FilterView filter={Filter::Active} {selected} {link} />
+                                <FilterView filter={Filter::Completed} {selected} {link} />
                             </ul>
                             <button .clear-completed onclick={link.callback(|state, _| state.entries.retain(|entry| !entry.completed))}>
                                 "Clear completed ("{ completed_count }")"
