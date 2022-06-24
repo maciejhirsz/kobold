@@ -194,7 +194,7 @@ impl Parser {
             }
             Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
                 let expr = into_quote(group);
-                self.new_field(FieldKind::Html, quote! { #expr.into_html() });
+                self.new_field(FieldKind::Html, expr);
 
                 Ok(Node::Expression)
             }

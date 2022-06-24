@@ -152,14 +152,7 @@ pub fn html(mut body: TokenStream) -> TokenStream {
     if dom.is_expression() && parser.fields.len() == 1 {
         let expr = parser.fields.pop().unwrap().expr;
 
-        return quote! {
-            {
-                use ::kobold::{IntoHtml as _};
-
-                #expr
-            }
-        }
-        .into();
+        return expr.into();
     }
 
     // panic!("{:#?}\n\n{:#?}", dom, parser.fields);
@@ -240,7 +233,7 @@ pub fn html(mut body: TokenStream) -> TokenStream {
 
     let tokens: TokenStream = (quote! {
         {
-            use ::kobold::{Mountable as _, IntoHtml as _};
+            use ::kobold::{Mountable as _};
             use ::kobold::attribute::{AttributeProduct as _};
             use ::kobold::reexport::wasm_bindgen;
 

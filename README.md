@@ -147,18 +147,23 @@ For more details visit the [`branching` module documentation](https://docs.rs/ko
 
 ### Lists and Iterators
 
-Creating lists from `Iterator`s is trivial and works just as you'd expect:
+To render an iterator use the `list` method from the `ListIteratorExt`extension trait:
 
 ```rs
 fn make_list(count: u32) -> impl Html {
     html! {
         <ul>
-            { (1..=count).map(|n| html! { <li>"Item #"{n}</li> }) }
+        {
+            (1..=count)
+                .map(|n| html! { <li>"Item #"{n}</li> })
+                .list()
+        }
         </ul>
     }
 }
 ```
 
+This wraps the iterator in a transparent `List<_>` type that implements `Html`.
 On updates the iterator is consumed once and all items are diffed with previous version.
 No allocations are made by **Kobold** unless the rendered list needs to grow past its original capacity.
 
@@ -174,7 +179,12 @@ state without unnecessary clones:
 fn render_names(names: &[String]) -> impl Html + '_ {
     html! {
         <ul>
-            { names.iter().map(|name| html! { <li>{ name }</li> }) }
+        {
+            names
+                .iter()
+                .map(|name| html! { <li>{ name }</li> })
+                .list()
+        }
         </ul>
     }
 }

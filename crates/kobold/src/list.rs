@@ -1,10 +1,10 @@
 //! Utilities for rendering lists
 
-use crate::{Element, Html, IntoHtml, Mountable};
+use crate::{Element, Html, Mountable};
 
-/// Wrapper type that implements `Html` for iterators. It's automatically created
-/// for all iterators by the [`html!`](crate::html) macro thanks to the
-/// [`IntoHtml`](crate::IntoHtml) trait.
+/// Wrapper type that implements `Html` for iterators. Use the [`list`](ListIteratorExt::list)
+/// method on the iterator to create one.
+#[repr(transparent)]
 pub struct List<T>(T);
 
 pub struct ListProduct<T> {
@@ -19,15 +19,16 @@ impl<T: 'static> Mountable for ListProduct<T> {
     }
 }
 
-impl<T> IntoHtml for T
+pub trait ListIteratorExt: Sized {
+    fn list(self) -> List<Self>;
+}
+
+impl<T> ListIteratorExt for T
 where
     T: Iterator,
     <T as Iterator>::Item: Html,
 {
-    type Html = List<Self>;
-
-    #[inline]
-    fn into_html(self) -> Self::Html {
+    fn list(self) -> List<Self> {
         List(self)
     }
 }

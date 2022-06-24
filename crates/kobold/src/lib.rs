@@ -147,19 +147,27 @@
 //!
 //! ### Lists and Iterators
 //!
-//! Creating lists from [`Iterator`s](Iterator) is trivial and works just as you'd expect:
+//! To render an iterator use the [`list`](list::ListIteratorExt::list) method from the
+//! [`ListIteratorExt`](list::ListIteratorExt) extension trait:
 //!
 //! ```
-//! # use kobold::prelude::*;
+//! // `ListIteratorExt` is included in the prelude
+//! use kobold::prelude::*;
+//!
 //! fn make_list(count: u32) -> impl Html {
 //!     html! {
 //!         <ul>
-//!             { (1..=count).map(|n| html! { <li>"Item #"{n}</li> }) }
+//!         {
+//!             (1..=count)
+//!                 .map(|n| html! { <li>"Item #"{n}</li> })
+//!                 .list()
+//!         }
 //!         </ul>
 //!     }
 //! }
 //! ```
 //!
+//! This wraps the iterator in the transparent [`List<_>`](list::List) type that implements [`Html`](Html).
 //! On updates the iterator is consumed once and all items are diffed with previous version.
 //! No allocations are made by **Kobold** unless the rendered list needs to grow past its original capacity.
 //!
@@ -176,7 +184,12 @@
 //! fn render_names(names: &[String]) -> impl Html + '_ {
 //!     html! {
 //!         <ul>
-//!             { names.iter().map(|name| html! { <li>{ name }</li> }) }
+//!         {
+//!             names
+//!                 .iter()
+//!                 .map(|name| html! { <li>{ name }</li> })
+//!                 .list()
+//!         }
 //!         </ul>
 //!     }
 //! }
@@ -274,8 +287,9 @@ pub mod stateful;
 
 /// The prelude module with most commonly used types
 pub mod prelude {
+    pub use crate::list::ListIteratorExt;
     pub use crate::stateful::{Link, ShouldRender, Stateful};
-    pub use crate::{html, Html, IntoHtml};
+    pub use crate::{html, Html};
 }
 
 use dom::Element;
@@ -297,25 +311,6 @@ pub trait Html: Sized {
 
     /// Update the product and apply changes to the DOM if necessary.
     fn update(self, p: &mut Self::Product);
-
-    /// This is a no-op method that returns self, you souldn't override the default
-    /// implementation. For details see [`IntoHtml`](IntoHtml).
-    #[inline]
-    fn into_html(self) -> Self {
-        self
-    }
-}
-
-/// Types that cannot implement [`Html`](Html) can instead implement `IntoHtml` and
-/// still be usable within the `html!` macro.
-///
-/// This works as a trait specialization of sorts, allowing for `IntoHtml` to be
-/// implemented for iterators without running into potential future conflict with
-/// `std` foreign types like `&str`.
-pub trait IntoHtml {
-    type Html: Html;
-
-    fn into_html(self) -> Self::Html;
 }
 
 /// A type that can be mounted in the DOM
