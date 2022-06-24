@@ -112,11 +112,12 @@ impl App {
                             }
                             <label for="toggle-all" />
                             <ul class="todo-list">
-                                {
-                                    state
-                                        .filtered_entries()
-                                        .map(move |(idx, entry)| html! { <EntryView {idx} {entry} {link} /> })
-                                }
+                            {
+                                state
+                                    .filtered_entries()
+                                    .map(move |(idx, entry)| html! { <EntryView {idx} {entry} {link} /> })
+                                    .list()
+                            }
                             </ul>
                         </section>
                         <footer class={footer_class}>
@@ -151,25 +152,17 @@ struct EntryInput<'a> {
 
 impl<'a> EntryInput<'a> {
     fn render(self) -> impl Html + 'a {
-        let onkeypress = self.link.callback(|state, e| {
-            let e: &KeyboardEvent = JsCast::unchecked_from_js_ref(e);
+        let onchange = self.link.callback(|state, e| {
+            let input: HtmlInputElement = e.target().unwrap().unchecked_into();
 
-            if e.key() == "Enter" {
-                let input: HtmlInputElement = e.target().unwrap().unchecked_into();
+            let value = input.value();
+            input.set_value("");
 
-                let value = input.value();
-                input.set_value("");
-
-                state.add(value);
-
-                ShouldRender::Yes
-            } else {
-                ShouldRender::No
-            }
+            state.add(value);
         });
 
         html! {
-            <input class="new-todo" placeholder="What needs to be done?" {onkeypress} />
+            <input class="new-todo" placeholder="What needs to be done?" {onchange} />
         }
     }
 }
@@ -196,25 +189,16 @@ impl<'a> EntryView<'a> {
         };
 
         let input = self.entry.editing.then(move || {
-            let onblur = link.callback(move |state, event| state.entries[idx].update(event));
-
-            let onkeypress = link.callback(move |state, event| {
-                let event: &KeyboardEvent = JsCast::unchecked_from_js_ref(event);
-
-                if event.key() == "Enter" {
-                    state.entries[idx].update(event)
-                } else {
-                    ShouldRender::No
-                }
-            });
+            let onchange = link.callback(move |state, event| state.entries[idx].update(event));
 
             let onmouseover = link.callback(move |_, event| {
-                event
+                let input = event
                     .target()
                     .unwrap()
-                    .unchecked_into::<HtmlInputElement>()
-                    .focus()
-                    .unwrap();
+                    .unchecked_into::<HtmlInputElement>();
+
+                input.focus().unwrap();
+                input.select();
 
                 ShouldRender::No
             });
@@ -225,23 +209,19 @@ impl<'a> EntryView<'a> {
                     type="text"
                     value={&self.entry.description}
                     {onmouseover}
-                    {onblur}
-                    {onkeypress}
+                    {onchange}
                 />
             }
         });
+
+        let onchange = link.callback(move |state, _| state.entries[idx].toggle());
 
         html! {
             <li {class}>
                 <div class="view">
                     {
                         html! {
-                            <input
-                                type="checkbox"
-                                class="toggle"
-                                checked={entry.completed}
-                                onclick={link.callback(move |state, _| state.entries[idx].toggle())}
-                            />
+                            <input type="checkbox" class="toggle" checked={entry.completed} {onchange} />
                         }
                     }
                     <label ondblclick={link.callback(move |state, _| state.edit_entry(idx))} >

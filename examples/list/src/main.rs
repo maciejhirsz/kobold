@@ -23,13 +23,17 @@ impl ListExample {
                         <button onclick={inc}>"+"</button>
                     </p>
                     <ul>
-                        // Just an iterator, you don't need to collect it to a `Vec`.
+                    {
+                        // Use the `list` method on an iterator to turn it into an `Html` type.
                         //
                         // On subsequent renders `Kobold` can very cheaply diff items yielded
                         // by iterators, avoiding allocations unless new items are added.
                         //
                         // `{n}` is just shorthand for `n={n}`.
-                        { (1..=n).map(|n| html! { <ListItem {n} /> }) }
+                        (1..=n)
+                            .map(|n| html! { <ListItem {n} /> })
+                            .list()
+                    }
                     </ul>
                 </div>
             }
