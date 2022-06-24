@@ -296,7 +296,7 @@ pub fn stateful(tokens: TokenStream) -> TokenStream {
 }
 
 fn do_stateful(tokens: TokenStream) -> Result<TokenStream, ParseError> {
-    let mut parser = tokens.into_iter();
+    let mut parser = tokens.into_iter().peekable();
 
     let _: Ident = parser.parse()?;
     let name: Ident = parser.parse()?;

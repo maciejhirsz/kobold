@@ -2,14 +2,13 @@ use std::convert::TryFrom;
 
 use arrayvec::ArrayString;
 use beef::Cow;
-use proc_macro::token_stream::IntoIter as TokenIter;
 use proc_macro::{Delimiter, Ident, Spacing, Span, TokenStream, TokenTree};
 use proc_macro2::TokenStream as QuoteTokens;
 use quote::{quote, quote_spanned};
 
 use crate::dom::{Attribute, AttributeValue, Element, Field, FieldKind, Node};
 use crate::gen::literal_to_string;
-use crate::token_ext::{IteratorExt as _, Pattern as _};
+use crate::token_ext::*;
 
 #[derive(Debug)]
 pub struct ParseError {
@@ -66,7 +65,7 @@ impl Parser {
     }
 
     pub fn parse(&mut self, tokens: TokenStream) -> Result<Node, ParseError> {
-        let mut iter = tokens.into_iter();
+        let mut iter = tokens.into_iter().peekable();
 
         let node = self.parse_node(&mut iter)?;
 
@@ -90,7 +89,7 @@ impl Parser {
         }
     }
 
-    fn parse_node(&mut self, iter: &mut TokenIter) -> Result<Node, ParseError> {
+    fn parse_node(&mut self, iter: &mut ParseStream) -> Result<Node, ParseError> {
         match iter.next() {
             Some(ref tt) if '<'.matches(tt) => {
                 let tag_ident: Ident = iter.parse()?;
@@ -107,7 +106,7 @@ impl Parser {
                     let mut tag = into_quote(tag_ident);
 
                     if let Some(generics) = el.generics {
-                        tag = quote! { #tag :: <#generics> };
+                        tag = quote! { #tag :: #generics };
                     }
 
                     let expr = match (el.attributes.is_empty(), el.defaults) {
@@ -206,26 +205,22 @@ impl Parser {
         }
     }
 
-    fn parse_element(&mut self, tag: String, iter: &mut TokenIter) -> Result<Element, ParseError> {
+    fn parse_element(
+        &mut self,
+        tag: String,
+        iter: &mut ParseStream,
+    ) -> Result<Element, ParseError> {
         let mut element = Element::new(tag);
-        let mut next = iter.next();
 
-        match next {
-            Some(ref tt) if '<'.matches(tt) => {
-                element.generics = Some(
-                    iter.take_while(|tt| !'>'.matches(tt))
-                        .collect::<TokenStream>()
-                        .into(),
-                );
+        if iter.allow('<') {
+            let generics: Generics = iter.parse()?;
 
-                next = iter.next();
-            }
-            _ => (),
+            element.generics = Some(generics.tokens.into());
         }
 
         // Props loop
         loop {
-            match next {
+            match iter.next() {
                 Some(TokenTree::Ident(ident)) => {
                     let name = ident.to_string();
 
@@ -252,8 +247,8 @@ impl Parser {
 
                     element.attributes.push(Attribute { name, ident, value });
                 }
-                Some(TokenTree::Group(group)) => {
-                    let mut iter = group.stream().into_iter();
+                Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
+                    let mut iter = group.stream().into_iter().peekable();
 
                     let ident: Ident = iter.parse()?;
                     let name = ident.to_string();
@@ -267,95 +262,91 @@ impl Parser {
 
                     element.attributes.push(Attribute { name, ident, value });
                 }
-                Some(TokenTree::Punct(punct))
-                    if punct.as_char() == '.' && punct.spacing() == Spacing::Joint =>
-                {
-                    iter.expect('.')?;
-                    iter.expect('/')?;
-                    iter.expect('>')?;
+                Some(TokenTree::Punct(punct)) if punct.as_char() == '.' => {
+                    if punct.spacing() == Spacing::Joint {
+                        iter.expect('.')?;
+                        iter.expect('/')?;
+                        iter.expect('>')?;
 
-                    element.defaults = true;
+                        element.defaults = true;
 
-                    return Ok(element);
+                        return Ok(element);
+                    }
+
+                    let name = "class".to_string();
+                    let ident = Ident::new("class", Span::call_site());
+
+                    let value = match iter.peek() {
+                        Some(TokenTree::Ident(_)) => {
+                            let css_label: CssLabel = iter.parse()?;
+
+                            AttributeValue::Literal(into_quote(css_label.into_literal()))
+                        }
+                        Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
+                            let stream = group.stream();
+                            iter.next();
+                            AttributeValue::from_group(&name, stream.into())
+                        }
+                        _ => {
+                            return Err(ParseError::new(
+                                "Expected identifier or an {expression}",
+                                iter.next(),
+                            ))
+                        }
+                    };
+
+                    element.attributes.push(Attribute { name, ident, value })
                 }
-                Some(tt) if '/'.matches(&tt) => {
+                Some(tt) if tt.is('/') => {
                     iter.expect('>')?;
 
                     // Self-closing tag, no need to parse further
                     return Ok(element);
                 }
-                Some(tt) if '>'.matches(&tt) => {
-                    break;
-                }
+                Some(tt) if tt.is('>') => break,
                 tt => return Err(ParseError::new("Expected identifier, /, or >", tt)),
             }
-
-            next = iter.next();
         }
 
         let mut children = TokenStream::new();
-        let mut stack = 0;
+        let mut depth = 0;
 
         while let Some(tt) = iter.next() {
-            if punct(&tt) == Some('<') {
+            if tt.is('<') {
                 if let Some(next) = iter.next() {
-                    if punct(&next) == Some('/') {
-                        if stack == 0 {
+                    if next.is('/') {
+                        if depth == 0 {
                             break;
                         }
 
-                        stack -= 1;
+                        depth -= 1;
 
                         let ident = iter.parse()?;
 
                         children.extend([tt, next, TokenTree::Ident(ident)]);
                     } else {
-                        stack += 1;
+                        depth += 1;
 
                         children.extend([tt, next]);
                     }
                 }
 
-                let next = iter.next();
-                let mut p = next.as_ref().and_then(punct);
-
-                children.extend(next);
-
                 // Allow generics after ident
-                if p == Some('<') {
-                    let mut gen_stack = 1;
+                if iter.allow('<') {
+                    let generics: Generics = iter.parse()?;
 
-                    while let Some(next) = iter.next() {
-                        let punct = punct(&next);
-
-                        children.extend([next]);
-
-                        match punct {
-                            Some('>') => gen_stack -= 1,
-                            Some('<') => gen_stack += 1,
-                            _ => (),
-                        }
-
-                        if gen_stack == 0 {
-                            break;
-                        }
-                    }
+                    children.extend(generics.tokens);
                 }
 
-                loop {
-                    match p {
-                        Some('/') => stack -= 1,
-                        Some('>') => break,
-                        _ => (),
+                while let Some(tt) = iter.next() {
+                    if tt.is('/') {
+                        depth -= 1;
+                    } else if tt.is('>') {
+                        children.extend([tt]);
+                        break;
                     }
 
-                    match iter.next() {
-                        Some(tt) => {
-                            p = punct(&tt);
-                            children.extend([tt]);
-                        }
-                        None => break,
-                    }
+                    children.extend([tt]);
                 }
 
                 continue;
@@ -370,7 +361,7 @@ impl Parser {
             element.children_raw = Some(parsed.into());
         } else {
             // panic!("{children}");
-            let mut iter = children.into_iter();
+            let mut iter = children.into_iter().peekable();
 
             loop {
                 match self.parse_node(&mut iter) {

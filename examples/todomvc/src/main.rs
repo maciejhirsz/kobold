@@ -92,18 +92,17 @@ impl App {
             let is_all_completed = active_count == 0;
 
             html! {
-                <div class="todomvc-wrapper">
-                    <section class="todoapp">
-                        <header class="header">
+                <div .todomvc-wrapper>
+                    <section .todoapp>
+                        <header .header>
                             <h1>"todos"</h1>
                             <EntryInput {link} />
                         </header>
-                        <section class={main_class}>
+                        <section .{main_class}>
                             {
                                 html! {
-                                    <input
+                                    <input .toggle-all
                                         type="checkbox"
-                                        class="toggle-all"
                                         id="toggle-all"
                                         checked={is_all_completed}
                                         onclick={link.callback(move |state, _| state.set_all(!is_all_completed))}
@@ -111,7 +110,7 @@ impl App {
                                 }
                             }
                             <label for="toggle-all" />
-                            <ul class="todo-list">
+                            <ul .todo-list>
                             {
                                 state
                                     .filtered_entries()
@@ -120,22 +119,22 @@ impl App {
                             }
                             </ul>
                         </section>
-                        <footer class={footer_class}>
-                            <span class="todo-count">
+                        <footer .{footer_class}>
+                            <span .todo-count>
                                 <strong>{ active_count }</strong>
                                 { if active_count == 1 { " item left" } else { " items left" } }
                             </span>
-                            <ul class="filters">
+                            <ul .filters>
                                 <FilterView filter={Filter::All} {selected} {link}>"All"</FilterView>
                                 <FilterView filter={Filter::Active} {selected} {link}>"Active"</FilterView>
                                 <FilterView filter={Filter::Completed} {selected} {link}>"Completed"</FilterView>
                             </ul>
-                            <button class="clear-completed" onclick={link.callback(|state, _| state.entries.retain(|entry| !entry.completed))}>
+                            <button .clear-completed onclick={link.callback(|state, _| state.entries.retain(|entry| !entry.completed))}>
                                 "Clear completed ("{ completed_count }")"
                             </button>
                         </footer>
                     </section>
-                    <footer class="info">
+                    <footer .info>
                         <p>"Double-click to edit a todo"</p>
                         <p>"Written by "<a href="https://maciej.codes/" target="_blank">"Maciej Hirsz"</a></p>
                         <p>"Part of "<a href="http://todomvc.com/" target="_blank">"TodoMVC"</a></p>
@@ -162,7 +161,7 @@ impl<'a> EntryInput<'a> {
         });
 
         html! {
-            <input class="new-todo" placeholder="What needs to be done?" {onchange} />
+            <input .new-todo placeholder="What needs to be done?" {onchange} />
         }
     }
 }
@@ -204,8 +203,7 @@ impl<'a> EntryView<'a> {
             });
 
             html! {
-                <input
-                    class="edit"
+                <input .edit
                     type="text"
                     value={&self.entry.description}
                     {onmouseover}
@@ -218,16 +216,16 @@ impl<'a> EntryView<'a> {
 
         html! {
             <li {class}>
-                <div class="view">
+                <div .view>
                     {
                         html! {
-                            <input type="checkbox" class="toggle" checked={entry.completed} {onchange} />
+                            <input .toggle type="checkbox" checked={entry.completed} {onchange} />
                         }
                     }
                     <label ondblclick={link.callback(move |state, _| state.edit_entry(idx))} >
                         { &entry.description }
                     </label>
-                    <button class="destroy" onclick={link.callback(move |state, _| { state.entries.remove(idx); })} />
+                    <button .destroy onclick={link.callback(move |state, _| { state.entries.remove(idx); })} />
                 </div>
                 { input }
             </li>
