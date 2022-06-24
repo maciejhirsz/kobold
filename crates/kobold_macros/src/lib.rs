@@ -183,20 +183,6 @@ pub fn html(mut body: TokenStream) -> TokenStream {
             _ => {
                 generics_with_bounds.push(quote! { #typ: ::kobold::Html });
 
-                if let FieldKind::Callback {
-                    event_target: target_typ,
-                    ..
-                } = &field.kind
-                {
-                    let target_typ = quote::format_ident!("{target_typ}");
-
-                    generics_with_bounds.push(quote! {
-                        #typ: ::kobold::event::WithEventTarget<
-                            ::kobold::reexport::web_sys::#target_typ
-                        >
-                    });
-                }
-
                 update_calls.push(quote! {
                     self.#name.update(&mut p.#name);
                 })

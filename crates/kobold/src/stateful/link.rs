@@ -5,7 +5,7 @@ use std::rc::Weak;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsValue;
 
-use crate::event::{Event, WithEventTarget};
+use crate::event::Event;
 use crate::stateful::{Inner, ShouldRender};
 use crate::{Element, Html, Mountable};
 
@@ -66,7 +66,7 @@ where
         self.inner as *const Inner<S, P>
     }
 
-    pub fn callback<F, T, A>(self, cb: F) -> Callback<F, T, Self>
+    pub fn callback<T, F, A>(self, cb: F) -> Callback<'state, T, F, S>
     where
         F: Fn(&mut S, &Event<T>) -> A + 'static,
         A: Into<ShouldRender>,
@@ -79,13 +79,13 @@ where
     }
 }
 
-pub struct Callback<F, T, L> {
+pub struct Callback<'state, T, F, S> {
     cb: F,
-    link: L,
+    link: Link<'state, S>,
     _target: PhantomData<T>,
 }
 
-impl<F, T, L> WithEventTarget<T> for Callback<F, T, L> {}
+// impl<T, F, S> WithEventTarget<T> for Callback<'_, T, F, S> {}
 
 // I should not need to write this, but lifetime checking
 // was going really off the rails with inlined boxing
@@ -117,7 +117,7 @@ where
     }
 }
 
-impl<F, T, A, S> Html for Callback<F, T, Link<'_, S>>
+impl<T, F, A, S> Html for Callback<'_, T, F, S>
 where
     F: Fn(&mut S, &Event<T>) -> A + 'static,
     A: Into<ShouldRender>,

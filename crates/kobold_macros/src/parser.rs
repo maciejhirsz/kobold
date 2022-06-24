@@ -166,7 +166,7 @@ impl Parser {
                                         quote! { ::kobold::attribute::Class(#tokens) },
                                     ),
                                     n if n.starts_with("on") && n.len() > 2 => {
-                                        let target_typ = match el.tag.as_str() {
+                                        let event_target = match el.tag.as_str() {
                                             "a" => "HtmlLinkElement",
                                             "form" => "HtmlFormElement",
                                             "img" => "HtmlImageElement",
@@ -177,12 +177,42 @@ impl Parser {
                                             _ => "HtmlElement",
                                         };
 
+                                        let event_target = quote::format_ident!("{event_target}");
+
                                         (
-                                            FieldKind::Callback {
-                                                event: n[2..].into(),
-                                                event_target: target_typ,
-                                            },
-                                            tokens.clone(),
+                                            FieldKind::Callback(n[2..].into()),
+                                            quote! {{
+                                                // let constrained: ::kobold::stateful::Callback<
+                                                //     ::kobold::reexport::web_sys::#event_target,
+                                                //     _,
+                                                //     _,
+                                                // > = #tokens;
+
+                                                // constrained
+                                                fn constrain<F, S, A>(
+                                                    callback: ::kobold::stateful::Callback<
+                                                        ::kobold::reexport::web_sys::#event_target,
+                                                        F,
+                                                        S,
+                                                    >
+                                                ) -> ::kobold::stateful::Callback<
+                                                    ::kobold::reexport::web_sys::#event_target,
+                                                    F,
+                                                    S,
+                                                >
+                                                where
+                                                    F: Fn(
+                                                        &mut S,
+                                                        &::kobold::event::Event<::kobold::reexport::web_sys::#event_target>
+                                                    ) -> A,
+                                                    A: Into<::kobold::stateful::ShouldRender>,
+                                                    S: 'static,
+                                                {
+                                                    callback
+                                                }
+
+                                                constrain(#tokens)
+                                            }}
                                         )
                                     }
                                     _ => (
