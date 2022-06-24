@@ -159,8 +159,8 @@ struct EntryInput<'a> {
 
 impl<'a> EntryInput<'a> {
     fn render(self) -> impl Html + 'a {
-        let onchange = self.link.callback(|state, e| {
-            let input: HtmlInputElement = e.target();
+        let onchange = self.link.callback(|state, event| {
+            let input: HtmlInputElement = event.target();
 
             let value = input.value();
             input.set_value("");

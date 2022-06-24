@@ -12,7 +12,7 @@ use crate::{Element, Html, Mountable};
 pub struct Link<'state, S> {
     inner: *const (),
     make_closure:
-        fn(*const (), cb: Weak<UnsafeCell<dyn CallbackFn<S>>>) -> Box<dyn FnMut(&web_sys::Event)>,
+        fn(*const (), cb: Weak<UnsafeCell<dyn CallbackFn<S, web_sys::Event>>>) -> Box<dyn FnMut(&web_sys::Event)>,
     _marker: PhantomData<&'state S>,
 }
 
@@ -66,21 +66,34 @@ where
         self.inner as *const Inner<S, P>
     }
 
-    pub fn callback<F, A>(self, cb: F) -> Callback<F, Self>
+    pub fn callback<F, T, A>(self, cb: F) -> Callback<F, T, Self>
     where
-        F: Fn(&mut S, &Event) -> A + 'static,
+        F: Fn(&mut S, &Event<T>) -> A + 'static,
         A: Into<ShouldRender>,
     {
         Callback {
             cb,
             link: self,
+            _target: PhantomData,
         }
     }
 }
 
-pub struct Callback<F, L> {
+pub struct Callback<F, T, L> {
     cb: F,
     link: L,
+    _target: PhantomData<T>,
+}
+
+#[doc(hidden)]
+impl<F, T, L> Callback<F, T, L> {
+    pub fn set_target<Target: wasm_bindgen::JsCast>(self) -> Callback<F, Target, L> {
+        Callback {
+            cb: self.cb,
+            link: self.link,
+            _target: PhantomData,
+        }
+    }
 }
 
 // I should not need to write this, but lifetime checking
@@ -98,24 +111,25 @@ pub struct CallbackProduct<F> {
     cb: Rc<UnsafeCell<F>>,
 }
 
-trait CallbackFn<S> {
-    fn call(&self, state: &mut S, event: &web_sys::Event) -> ShouldRender;
+trait CallbackFn<S, E> {
+    fn call(&self, state: &mut S, event: &E) -> ShouldRender;
 }
 
-impl<F, A, S> CallbackFn<S> for F
+impl<F, A, E, S> CallbackFn<S, E> for F
 where
-    F: Fn(&mut S, &Event) -> A + 'static,
+    F: Fn(&mut S, &E) -> A + 'static,
     A: Into<ShouldRender>,
     S: 'static,
 {
-    fn call(&self, state: &mut S, event: &web_sys::Event) -> ShouldRender {
-        (self)(state, event.into()).into()
+    fn call(&self, state: &mut S, event: &E) -> ShouldRender {
+        (self)(state, event).into()
     }
 }
 
-impl<F, A, S> Html for Callback<F, Link<'_, S>>
+impl<F, T, A, S> Html for Callback<F, T, Link<'_, S>>
 where
-    F: Fn(&mut S, &Event) -> A + 'static,
+    F: Fn(&mut S, &Event<T>) -> A + 'static,
+    T: wasm_bindgen::JsCast,
     A: Into<ShouldRender>,
     S: 'static,
 {
@@ -126,8 +140,9 @@ where
 
         let cb = Rc::new(UnsafeCell::new(cb));
         let weak = Rc::downgrade(&cb);
+        let weak: Weak<UnsafeCell<dyn CallbackFn<S, Event<T>>>> = weak;
 
-        let closure = (link.make_closure)(link.inner, weak);
+        let closure = (link.make_closure)(link.inner, unsafe { std::mem::transmute(weak) });
         let closure = Closure::wrap(closure);
 
         CallbackProduct { closure, cb }

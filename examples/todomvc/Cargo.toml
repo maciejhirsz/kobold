@@ -9,5 +9,6 @@ kobold = { path = "../../crates/kobold" }
 [dependencies.web-sys]
 version = "0.3"
 features = [
+  "HtmlFormElement",
   "HtmlInputElement",
 ]
