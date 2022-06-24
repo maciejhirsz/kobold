@@ -274,7 +274,7 @@ impl Parser {
                     }
 
                     let name = "class".to_string();
-                    let ident = Ident::new("class", Span::call_site());
+                    let ident = Ident::new(&name, punct.span());
 
                     let value = match iter.peek() {
                         Some(TokenTree::Ident(_)) => {
@@ -297,13 +297,38 @@ impl Parser {
 
                     element.attributes.push(Attribute { name, ident, value })
                 }
-                Some(tt) if tt.is('/') => {
+                Some(tt) if tt.is('#') => {
+                    let name = "id".to_string();
+                    let ident = Ident::new(&name, tt.span());
+
+                    let value = match iter.peek() {
+                        Some(TokenTree::Ident(_)) => {
+                            let css_label: CssLabel = iter.parse()?;
+
+                            AttributeValue::Literal(into_quote(css_label.into_literal()))
+                        }
+                        Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
+                            let stream = group.stream();
+                            iter.next();
+                            AttributeValue::from_group(&name, stream.into())
+                        }
+                        _ => {
+                            return Err(ParseError::new(
+                                "Expected identifier or an {expression}",
+                                iter.next(),
+                            ))
+                        }
+                    };
+
+                    element.attributes.push(Attribute { name, ident, value })
+                }
+                tt if tt.is('/') => {
                     iter.expect('>')?;
 
                     // Self-closing tag, no need to parse further
                     return Ok(element);
                 }
-                Some(tt) if tt.is('>') => break,
+                tt if tt.is('>') => break,
                 tt => return Err(ParseError::new("Expected identifier, /, or >", tt)),
             }
         }
