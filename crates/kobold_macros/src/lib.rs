@@ -192,7 +192,7 @@ pub fn html(mut body: TokenStream) -> TokenStream {
 
                     generics_with_bounds.push(quote! {
                         #typ: ::kobold::event::WithEventTarget<
-                            Target = ::kobold::reexport::web_sys::#target_typ
+                            ::kobold::reexport::web_sys::#target_typ
                         >
                     });
                 }

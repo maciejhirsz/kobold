@@ -87,9 +87,7 @@ pub struct Callback<F, T, L> {
     _target: PhantomData<T>,
 }
 
-impl<F, T, L> WithEventTarget for Callback<F, T, L> {
-    type Target = T;
-}
+impl<F, T, L> WithEventTarget<T> for Callback<F, T, L> {}
 
 // I should not need to write this, but lifetime checking
 // was going really off the rails with inlined boxing
@@ -124,7 +122,6 @@ where
 impl<F, T, A, S> Html for Callback<F, T, Link<'_, S>>
 where
     F: Fn(&mut S, &Event<T>) -> A + 'static,
-    T: wasm_bindgen::JsCast,
     A: Into<ShouldRender>,
     S: 'static,
 {
@@ -135,11 +132,14 @@ where
 
         let cb = Rc::new(UnsafeCell::new(cb));
         let weak = Rc::downgrade(&cb);
-        let weak: Weak<UnsafeCell<dyn CallbackFn<S, Event<T>>>> = weak;
 
-        // Safety: This is casting `dyn CallbackFn<S, Event<T>>` to `dyn CallbackFn<S, web_sys::Event>`
-        //         which is safe as `Event<T>` is a transparent wrapper for `web_sys::Event`.
-        let closure = (link.make_closure)(link.inner, unsafe { std::mem::transmute(weak) });
+        let closure = (link.make_closure)(link.inner, unsafe {
+            let weak: Weak<UnsafeCell<dyn CallbackFn<S, Event<T>>>> = weak;
+
+            // Safety: This is casting `dyn CallbackFn<S, Event<T>>` to `dyn CallbackFn<S, web_sys::Event>`
+            //         which is safe as `Event<T>` is a transparent wrapper for `web_sys::Event`.
+            std::mem::transmute(weak)
+        });
         let closure = Closure::wrap(closure);
 
         CallbackProduct { closure, cb }

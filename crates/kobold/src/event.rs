@@ -4,9 +4,7 @@ use std::marker::PhantomData;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlElement;
 
-pub trait WithEventTarget {
-    type Target;
-}
+pub trait WithEventTarget<T> {}
 
 #[repr(transparent)]
 pub struct Event<T = HtmlElement> {
