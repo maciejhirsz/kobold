@@ -5,14 +5,16 @@ use std::rc::{Rc, Weak};
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsValue;
 
-use crate::event::Event;
+use crate::event::{Event, WithEventTarget};
 use crate::stateful::{Inner, ShouldRender};
 use crate::{Element, Html, Mountable};
 
 pub struct Link<'state, S> {
     inner: *const (),
-    make_closure:
-        fn(*const (), cb: Weak<UnsafeCell<dyn CallbackFn<S, web_sys::Event>>>) -> Box<dyn FnMut(&web_sys::Event)>,
+    make_closure: fn(
+        *const (),
+        cb: Weak<UnsafeCell<dyn CallbackFn<S, web_sys::Event>>>,
+    ) -> Box<dyn FnMut(&web_sys::Event)>,
     _marker: PhantomData<&'state S>,
 }
 
@@ -85,15 +87,8 @@ pub struct Callback<F, T, L> {
     _target: PhantomData<T>,
 }
 
-#[doc(hidden)]
-impl<F, T, L> Callback<F, T, L> {
-    pub fn set_target<Target: wasm_bindgen::JsCast>(self) -> Callback<F, Target, L> {
-        Callback {
-            cb: self.cb,
-            link: self.link,
-            _target: PhantomData,
-        }
-    }
+impl<F, T, L> WithEventTarget for Callback<F, T, L> {
+    type Target = T;
 }
 
 // I should not need to write this, but lifetime checking
@@ -142,6 +137,8 @@ where
         let weak = Rc::downgrade(&cb);
         let weak: Weak<UnsafeCell<dyn CallbackFn<S, Event<T>>>> = weak;
 
+        // Safety: This is casting `dyn CallbackFn<S, Event<T>>` to `dyn CallbackFn<S, web_sys::Event>`
+        //         which is safe as `Event<T>` is a transparent wrapper for `web_sys::Event`.
         let closure = (link.make_closure)(link.inner, unsafe { std::mem::transmute(weak) });
         let closure = Closure::wrap(closure);
 

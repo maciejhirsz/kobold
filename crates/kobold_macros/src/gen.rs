@@ -84,8 +84,8 @@ where
                                 FieldKind::AttrNode => {
                                     js!("{}.setAttributeNode({});", e, arg);
                                 }
-                                FieldKind::Callback(action) => {
-                                    let action = action.clone();
+                                FieldKind::Callback { event, .. } => {
+                                    let action = event.clone();
                                     js!("{}.addEventListener({:?},{});", e, action, arg);
                                 }
                                 FieldKind::Html => {

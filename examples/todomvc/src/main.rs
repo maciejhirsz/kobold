@@ -157,19 +157,25 @@ struct EntryInput<'a> {
     link: Link<'a, State>,
 }
 
-impl<'a> EntryInput<'a> {
-    fn render(self) -> impl Html + 'a {
-        let onchange = self.link.callback(|state, event| {
-            let input: HtmlInputElement = event.target();
+mod wat {
+    use super::*;
 
-            let value = input.value();
-            input.set_value("");
+    impl<'a> EntryInput<'a> {
+        pub fn render(self) -> impl Html + 'a {
+            let onchange = self.link.callback(|state, event| {
+                let input: HtmlInputElement = event.target();
 
-            state.add(value);
-        });
+                let value = input.value();
+                input.set_value("");
 
-        html! {
-            <input .new-todo placeholder="What needs to be done?" {onchange} />
+                state.add(value);
+
+                ShouldRender::Yes
+            });
+
+            html! {
+                <input .new-todo placeholder="What needs to be done?" {onchange} />
+            }
         }
     }
 }

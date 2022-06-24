@@ -10,13 +10,13 @@ use quote::quote;
 
 mod dom;
 mod gen;
-mod parser;
 mod parse;
+mod parser;
 
 use dom::FieldKind;
 use gen::Generator;
-use parser::{into_quote, ParseError, Parser};
 use parse::IteratorExt as _;
+use parser::{into_quote, ParseError, Parser};
 
 macro_rules! unwrap_err {
     ($expr:expr) => {
@@ -182,6 +182,20 @@ pub fn html(mut body: TokenStream) -> TokenStream {
             }
             _ => {
                 generics_with_bounds.push(quote! { #typ: ::kobold::Html });
+
+                if let FieldKind::Callback {
+                    event_target: target_typ,
+                    ..
+                } = &field.kind
+                {
+                    let target_typ = quote::format_ident!("{target_typ}");
+
+                    generics_with_bounds.push(quote! {
+                        #typ: ::kobold::event::WithEventTarget<
+                            Target = ::kobold::reexport::web_sys::#target_typ
+                        >
+                    });
+                }
 
                 update_calls.push(quote! {
                     self.#name.update(&mut p.#name);

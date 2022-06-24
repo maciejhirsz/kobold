@@ -34,7 +34,10 @@ pub enum FieldKind {
     Html,
     AttrNode,
     AttrHoisted(QuoteTokens),
-    Callback(String),
+    Callback {
+        event: String,
+        event_target: &'static str,
+    },
 }
 
 #[derive(Debug)]

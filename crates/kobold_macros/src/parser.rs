@@ -166,14 +166,24 @@ impl Parser {
                                         quote! { ::kobold::attribute::Class(#tokens) },
                                     ),
                                     n if n.starts_with("on") && n.len() > 2 => {
-                                        let mut tokens = QuoteTokens::from(tokens.clone());
-
-                                        tokens = match el.tag.as_str() {
-                                            "input" => quote! { #tokens.set_target::<::kobold::reexport::web_sys::HtmlInputElement>() },
-                                            _ => quote! { #tokens.set_target::<::kobold::reexport::web_sys::HtmlElement>() },
+                                        let target_typ = match el.tag.as_str() {
+                                            "a" => "HtmlLinkElement",
+                                            "form" => "HtmlFormElement",
+                                            "img" => "HtmlImageElement",
+                                            "input" => "HtmlInputElement",
+                                            "option" => "HtmlOptionElement",
+                                            "select" => "HtmlSelectElement",
+                                            "textarea" => "HtmlTextAreaElement",
+                                            _ => "HtmlElement",
                                         };
 
-                                        (FieldKind::Callback(n[2..].into()), tokens)
+                                        (
+                                            FieldKind::Callback {
+                                                event: n[2..].into(),
+                                                event_target: target_typ,
+                                            },
+                                            tokens.clone(),
+                                        )
                                     }
                                     _ => (
                                         FieldKind::AttrNode,
