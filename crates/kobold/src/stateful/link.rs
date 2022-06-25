@@ -13,7 +13,7 @@ pub struct Link<'state, S> {
     make_closure: fn(
         *const (),
         cb: *const UnsafeCell<dyn CallbackFn<S, web_sys::Event>>,
-    ) -> Box<dyn FnMut(&web_sys::Event)>,
+    ) -> Box<dyn Fn(&web_sys::Event)>,
     _marker: PhantomData<&'state S>,
 }
 
@@ -85,7 +85,7 @@ pub struct Callback<'state, T, F, S> {
 }
 
 pub struct CallbackProduct<F> {
-    closure: Closure<dyn FnMut(&web_sys::Event)>,
+    closure: Closure<dyn Fn(&web_sys::Event)>,
     cb: Box<UnsafeCell<F>>,
 }
 
@@ -117,19 +117,22 @@ where
 
         let cb = Box::new(UnsafeCell::new(cb));
 
-        let closure = (link.make_closure)(link.inner, unsafe {
+        let closure = Closure::wrap((link.make_closure)(link.inner, unsafe {
             let weak: &UnsafeCell<dyn CallbackFn<S, Event<T>>> = &*cb;
 
-            // Safety: This is casting `dyn CallbackFn<S, Event<T>>` to `dyn CallbackFn<S, web_sys::Event>`
-            //         which is safe as `Event<T>` is a transparent wrapper for `web_sys::Event`.
+            // Safety: This is casting `*const dyn CallbackFn<S, Event<T>>` to
+            //         to `*const dyn CallbackFn<S, web_sys::Event>` which is safe
+            //         since `Event<T>` is `#[repr(transparent)]` for `web_sys::Event`.
             std::mem::transmute(weak)
-        });
-        let closure = Closure::wrap(closure);
+        }));
 
         CallbackProduct { closure, cb }
     }
 
     fn update(self, p: &mut Self::Product) {
+        // Technically we could just write to this box, but since
+        // this is a shared pointer I felt some prudence with `UnsafeCell`
+        // is warranted.
         unsafe { *p.cb.get() = self.cb }
     }
 }
