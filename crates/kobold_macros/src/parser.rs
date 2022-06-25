@@ -7,8 +7,8 @@ use quote::quote;
 
 use crate::dom::{Attribute, AttributeValue, Element, Field, FieldKind, Node};
 use crate::gen::literal_to_string;
-use crate::parse::*;
-use crate::syntax::InlineBind;
+use crate::parse::prelude::*;
+use crate::syntax::{InlineBind, Generics};
 
 pub struct Parser {
     vars: usize,

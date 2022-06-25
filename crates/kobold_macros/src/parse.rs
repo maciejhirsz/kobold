@@ -1,3 +1,6 @@
+//! [`ParseStream`](ParseStream), the [`Parse`](Parse) trait and utilities for working with
+//! token streams without `syn` or `quote`.
+
 use beef::Cow;
 use proc_macro::{Delimiter, Ident, Spacing, Span, TokenStream, TokenTree};
 
@@ -184,42 +187,6 @@ impl TokenTreeExt for TokenTree {
 impl TokenTreeExt for Option<TokenTree> {
     fn is(&self, pattern: impl Pattern) -> bool {
         self.as_ref().map(|tt| pattern.matches(tt)).unwrap_or(false)
-    }
-}
-
-pub struct Generics {
-    pub tokens: TokenStream,
-}
-
-impl Parse for Generics {
-    fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
-        let opening = stream.expect('>')?;
-
-        let mut depth = 0;
-        let mut tokens = TokenStream::new();
-
-        tokens.extend([opening]);
-
-        for token in stream {
-            if token.is('<') {
-                depth += 1;
-            } else if token.is('>') {
-                depth -= 1;
-
-                if depth == 0 {
-                    tokens.extend([token]);
-
-                    return Ok(Generics { tokens });
-                }
-            }
-
-            tokens.extend([token]);
-        }
-
-        Err(ParseError::new(
-            "Missing closing > for generics",
-            tokens.into_iter().next(),
-        ))
     }
 }
 

@@ -148,9 +148,7 @@ impl<'a> EntryView<'a> {
             let onmouseover = ctx.bind(move |_, event| {
                 let input: HtmlInputElement = event.target();
 
-                if input.focus().is_ok() {
-                    input.select();
-                }
+                let _ = input.focus();
 
                 ShouldRender::No
             });
