@@ -1,13 +1,13 @@
 use kobold::prelude::*;
 use web_sys::HtmlInputElement;
 
-struct App;
+mod filter;
+mod state;
 
-pub struct State {
-    pub entries: Vec<Entry>,
-    pub filter: Filter,
-    pub editing: Option<usize>,
-}
+use filter::Filter;
+use state::*;
+
+struct App;
 
 impl Stateful for App {
     type State = State;
@@ -23,58 +23,6 @@ impl Stateful for App {
     fn update(self, _: &mut State) -> ShouldRender {
         // App is rendered only once
         ShouldRender::No
-    }
-}
-
-pub struct Entry {
-    pub description: String,
-    pub completed: bool,
-    pub editing: bool,
-}
-
-impl Entry {
-    fn filter(&self, f: Filter) -> bool {
-        match f {
-            Filter::All => true,
-            Filter::Active => !self.completed,
-            Filter::Completed => self.completed,
-        }
-    }
-
-    fn toggle(&mut self) {
-        self.completed = !self.completed;
-    }
-
-    fn update(&mut self, description: String) -> ShouldRender {
-        self.editing = false;
-        self.description = description;
-
-        ShouldRender::Yes
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Filter {
-    All,
-    Active,
-    Completed,
-}
-
-impl Filter {
-    fn to_href(self) -> &'static str {
-        match self {
-            Filter::All => "#/",
-            Filter::Active => "#/active",
-            Filter::Completed => "#/completed",
-        }
-    }
-
-    fn to_label(self) -> &'static str {
-        match self {
-            Filter::All => "All",
-            Filter::Active => "Active",
-            Filter::Completed => "Completed",
-        }
     }
 }
 
@@ -199,7 +147,7 @@ impl<'a> EntryView<'a> {
             let onchange = link.callback(move |state, event| {
                 let input: HtmlInputElement = event.target();
 
-                state.entries[idx].update(input.value())
+                state.update(idx, input.value())
             });
 
             let onmouseover = link.callback(move |_, event| {
@@ -218,11 +166,12 @@ impl<'a> EntryView<'a> {
                     value={&self.entry.description}
                     {onmouseover}
                     {onchange}
+                    // onchange={ link.callback(move |state, event| state.update(idx, event.target().value())) }
                 />
             }
         });
 
-        let onchange = link.callback(move |state, _| state.entries[idx].toggle());
+        let onchange = link.callback(move |state, _| state.toggle(idx));
 
         html! {
             <li {class}>
@@ -235,7 +184,7 @@ impl<'a> EntryView<'a> {
                     <label ondblclick={link.callback(move |state, _| state.edit_entry(idx))} >
                         { &entry.description }
                     </label>
-                    <button .destroy onclick={link.callback(move |state, _| { state.entries.remove(idx); })} />
+                    <button .destroy onclick={link.callback(move |state, _| state.remove(idx))} />
                 </div>
                 { input }
             </li>
@@ -265,45 +214,6 @@ impl<'a> FilterView<'a> {
                 <a {class} {href} {onclick}>{ filter.to_label() }</a>
             </li>
         }
-    }
-}
-
-impl State {
-    fn count_active(&self) -> usize {
-        self.entries
-            .iter()
-            .filter(|e| e.filter(Filter::Active))
-            .count()
-    }
-
-    fn filtered_entries(&self) -> impl Iterator<Item = (usize, &Entry)> {
-        self.entries
-            .iter()
-            .enumerate()
-            .filter(|(_, e)| e.filter(self.filter))
-    }
-
-    fn set_all(&mut self, completed: bool) {
-        for entry in self.entries.iter_mut() {
-            entry.completed = completed;
-        }
-    }
-
-    fn edit_entry(&mut self, idx: usize) {
-        if let Some(entry) = self.editing.and_then(|idx| self.entries.get_mut(idx)) {
-            entry.editing = false;
-        }
-
-        self.editing = Some(idx);
-        self.entries[idx].editing = true;
-    }
-
-    fn add(&mut self, description: String) {
-        self.entries.push(Entry {
-            description,
-            completed: false,
-            editing: false,
-        });
     }
 }
 
