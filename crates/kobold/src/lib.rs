@@ -83,8 +83,8 @@
 //!
 //! impl Counter {
 //!     fn render(self) -> impl Html {
-//!         self.stateful(|state, link| {
-//!             let onclick = link.callback(|state, _event| state.count += 1);
+//!         self.stateful(|state, ctx| {
+//!             let onclick = ctx.bind(|state, _event| state.count += 1);
 //!
 //!             html! {
 //!                 <p>
@@ -111,14 +111,14 @@
 //! matching the signature:
 //!
 //! ```text
-//! fn(&State, Link<State>) -> impl Html
+//! fn(&State, Context<State>) -> impl Html
 //! ```
 //!
 //! The [`State`](stateful::Stateful::State) here is an associated type which for all components that
 //! use derived [`Stateful`](stateful::Stateful) implementation defaults to `Self`, so in the example above
 //! it is the `Counter` itself.
 //!
-//! The [`Link`](stateful::Link) can be used to create event callbacks that take a `&mut` reference to the
+//! The [`Context`](stateful::Context) can be used to create event callbacks that take a `&mut` reference to the
 //! state and a `&` reference to a DOM [`Event`](web_sys::Event) (ignored above). If the callback closure has no
 //! return type (the return type is `()`) each invocation of it will update the component. If you would
 //! rather perform a "silent" update, or if the callback does not always modify the state, return the provided
@@ -290,7 +290,7 @@ pub mod stateful;
 pub mod prelude {
     pub use crate::event::Event;
     pub use crate::list::ListIteratorExt;
-    pub use crate::stateful::{Link, ShouldRender, Stateful};
+    pub use crate::stateful::{Context, ShouldRender, Stateful};
     pub use crate::{html, Html};
 }
 

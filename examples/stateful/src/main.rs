@@ -42,11 +42,11 @@ impl<'a> Borrowing<'a> {
     fn render(self) -> impl Html + 'a {
         // Types here are:
         // state: &OwnedState,
-        // link: Link<OwnedState>,
-        self.stateful(|state, link| {
+        // ctx: Context<OwnedState>,
+        self.stateful(|state, ctx| {
             // Since we work with a state that owns a `String`,
             // callbacks can mutate it at will.
-            let exclaim = link.callback(|state, _| state.name.push('!'));
+            let exclaim = ctx.bind(|state, _| state.name.push('!'));
 
             // Repeatedly clicking the Alice button does not have to do anything.
             //
@@ -59,7 +59,7 @@ impl<'a> Borrowing<'a> {
             //
             // For any more robust states and renders logic `ShouldRender::No`
             // when no changes in DOM are necessary is always a good idea.
-            let alice = link.callback(|state, _| {
+            let alice = ctx.bind(|state, _| {
                 if state.name != "Alice" {
                     state.name.replace_range(.., "Alice");
 

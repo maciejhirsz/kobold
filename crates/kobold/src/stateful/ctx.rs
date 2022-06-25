@@ -8,7 +8,7 @@ use crate::event::Event;
 use crate::stateful::{Inner, ShouldRender};
 use crate::{Element, Html, Mountable};
 
-pub struct Link<'state, S> {
+pub struct Context<'state, S> {
     inner: *const (),
     make_closure: fn(
         *const (),
@@ -17,9 +17,9 @@ pub struct Link<'state, S> {
     _marker: PhantomData<&'state S>,
 }
 
-impl<S> Clone for Link<'_, S> {
+impl<S> Clone for Context<'_, S> {
     fn clone(&self) -> Self {
-        Link {
+        Context {
             inner: self.inner,
             make_closure: self.make_closure,
             _marker: PhantomData,
@@ -27,9 +27,9 @@ impl<S> Clone for Link<'_, S> {
     }
 }
 
-impl<S> Copy for Link<'_, S> {}
+impl<S> Copy for Context<'_, S> {}
 
-impl<'state, S> Link<'state, S>
+impl<'state, S> Context<'state, S>
 where
     S: 'static,
 {
@@ -42,7 +42,7 @@ where
     }
 
     fn new_raw<P: 'static>(inner: *const Inner<S, P>) -> Self {
-        Link {
+        Context {
             inner: inner as *const _,
             make_closure: |inner, callback| {
                 Box::new(move |event| {
@@ -65,14 +65,14 @@ where
         self.inner as *const Inner<S, P>
     }
 
-    pub fn callback<T, F, A>(self, cb: F) -> Callback<'state, T, F, S>
+    pub fn bind<T, F, A>(self, cb: F) -> Callback<'state, T, F, S>
     where
         F: Fn(&mut S, &Event<T>) -> A + 'static,
         A: Into<ShouldRender>,
     {
         Callback {
             cb,
-            link: self,
+            ctx: self,
             _target: PhantomData,
         }
     }
@@ -80,7 +80,7 @@ where
 
 pub struct Callback<'state, T, F, S> {
     cb: F,
-    link: Link<'state, S>,
+    ctx: Context<'state, S>,
     _target: PhantomData<T>,
 }
 
@@ -113,11 +113,11 @@ where
     type Product = CallbackProduct<F>;
 
     fn build(self) -> Self::Product {
-        let Self { link, cb, .. } = self;
+        let Self { ctx, cb, .. } = self;
 
         let cb = Box::new(UnsafeCell::new(cb));
 
-        let closure = Closure::wrap((link.make_closure)(link.inner, unsafe {
+        let closure = Closure::wrap((ctx.make_closure)(ctx.inner, unsafe {
             let weak: &UnsafeCell<dyn CallbackFn<S, Event<T>>> = &*cb;
 
             // Safety: This is casting `*const dyn CallbackFn<S, Event<T>>` to

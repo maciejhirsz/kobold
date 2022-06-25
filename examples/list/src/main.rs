@@ -7,11 +7,11 @@ struct ListExample {
 
 impl ListExample {
     fn render(self) -> impl Html {
-        self.stateful(|state, link| {
+        self.stateful(|state, ctx| {
             let n = state.count;
 
-            let dec = link.callback(|state, _| state.count = state.count.saturating_sub(1));
-            let inc = link.callback(|state, _| state.count += 1);
+            let dec = ctx.bind(|state, _| state.count = state.count.saturating_sub(1));
+            let inc = ctx.bind(|state, _| state.count += 1);
 
             html! {
                 <div>

@@ -8,8 +8,8 @@ struct Counter {
 
 impl Counter {
     fn render(self) -> impl Html {
-        self.stateful(|state, link| {
-            let onclick = link.callback(|state, _event| state.count += 1);
+        self.stateful(|state, ctx| {
+            let onclick = ctx.bind(|state, _event| state.count += 1);
 
             html! {
                 <p>

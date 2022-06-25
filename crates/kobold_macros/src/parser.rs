@@ -8,7 +8,7 @@ use quote::quote;
 use crate::dom::{Attribute, AttributeValue, Element, Field, FieldKind, Node};
 use crate::gen::literal_to_string;
 use crate::parse::*;
-use crate::syntax::InlineCallback;
+use crate::syntax::InlineBind;
 
 pub struct Parser {
     vars: usize,
@@ -125,7 +125,7 @@ impl Parser {
                                         quote! { ::kobold::attribute::Class(#tokens) },
                                     ),
                                     n if n.starts_with("on") && n.len() > 2 => {
-                                        let event_target = match el.tag.as_str() {
+                                        let target = match el.tag.as_str() {
                                             "a" => "HtmlLinkElement",
                                             "form" => "HtmlFormElement",
                                             "img" => "HtmlImageElement",
@@ -136,30 +136,25 @@ impl Parser {
                                             _ => "HtmlElement",
                                         };
 
-                                        let mut callback = TokenStream::from(tokens.clone())
+                                        let mut inner = TokenStream::from(tokens.clone())
                                             .into_iter()
                                             .peekable();
 
-                                        // let inline_callback = InlineCallback::parse(&mut callback)?;
+                                        let expr = if let Ok(bind) = InlineBind::parse(&mut inner) {
+                                            let mut expr = bind.invocation;
 
-                                        // panic!("{} {}", inline_callback.invocation, inline_callback.arg);
-
-                                        let expr = if let Ok(inline_callback) =
-                                            InlineCallback::parse(&mut callback)
-                                        {
-                                            let mut expr = inline_callback.invocation;
-
-                                            expr.write(&format!("::<::kobold::reexport::web_sys::{event_target}, _, _>"));
-                                            expr.push(inline_callback.arg);
+                                            expr.write(&format!(
+                                                "::<::kobold::reexport::web_sys::{target}, _, _>"
+                                            ));
+                                            expr.push(bind.arg);
 
                                             QuoteTokens::from(expr)
                                         } else {
-                                            let event_target =
-                                                quote::format_ident!("{event_target}");
+                                            let target = quote::format_ident!("{target}");
 
                                             quote! {{
                                                 let constrained: ::kobold::stateful::Callback<
-                                                    ::kobold::reexport::web_sys::#event_target,
+                                                    ::kobold::reexport::web_sys::#target,
                                                     _,
                                                     _,
                                                 > = #tokens;

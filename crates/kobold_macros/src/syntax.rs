@@ -1,4 +1,4 @@
-use proc_macro::{Delimiter, Group, Ident, Literal, Span, TokenStream, TokenTree};
+use proc_macro::{Delimiter, Ident, Literal, Span, TokenStream, TokenTree};
 
 use crate::parse::*;
 
@@ -38,40 +38,28 @@ impl CssLabel {
     }
 }
 
-pub struct InlineCallback {
+pub struct InlineBind {
     pub invocation: TokenStream,
     pub arg: TokenTree,
 }
 
-impl Parse for InlineCallback {
+impl Parse for InlineBind {
     fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
         let mut invocation = TokenStream::new();
 
-        // Must begin with an identifier, `link` or anything else
+        // Must begin with an identifier, `ctx` or anything else
         let mut ident: Ident = stream.parse()?;
+        let mut done = false;
 
         invocation.push(ident);
 
-        loop {
-            if let Some(shorthand) = stream.allow_consume(':') {
-                // panic!();
-                invocation.write(".");
-                invocation.push(Ident::new("callback", shorthand.span()));
-
-                let arg = stream.collect();
-                let arg = TokenTree::Group(Group::new(Delimiter::Parenthesis, arg));
-
-                return Ok(InlineCallback { invocation, arg });
-            }
-
-            invocation.extend([stream.expect('.')?]);
-
-            if let Some(callback) = stream.allow_consume("callback") {
-                invocation.push(callback);
-                break;
-            }
+        while !done {
+            invocation.push(stream.expect('.')?);
 
             ident = stream.parse()?;
+
+            done = ident.to_string() == "bind";
+
             invocation.push(ident);
         }
 
@@ -79,6 +67,6 @@ impl Parse for InlineCallback {
 
         stream.expect_end()?;
 
-        Ok(InlineCallback { invocation, arg })
+        Ok(InlineBind { invocation, arg })
     }
 }

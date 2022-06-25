@@ -84,8 +84,8 @@ struct Counter {
 
 impl Counter {
     fn render(self) -> impl Html {
-        self.stateful(|state, link| {
-            let onclick = link.callback(|state, _event| state.count += 1);
+        self.stateful(|state, ctx| {
+            let onclick = ctx.callback(|state, _event| state.count += 1);
 
             html! {
                 <p>
@@ -112,14 +112,14 @@ The `stateful` method above accepts a non-capturing anonymous render function
 matching the signature:
 
 ```rust
-fn(&State, Link<State>) -> impl Html
+fn(&State, Context<State>) -> impl Html
 ```
 
 The `State` here is an associated type which for all components that
 use derived `Stateful` implementation defaults to `Self`, so in the example above
 it is the `Counter` itself.
 
-The `Link` can be used to create event callbacks that take a `&mut` reference to the
+The `Context` can be used to create event callbacks that take a `&mut` reference to the
 state and a `&` reference to a DOM `Event` (ignored above). If the callback closure has no
 return type (the return type is `()`) each invocation of it will update the component. If you would
 rather perform a "silent" update, or if the callback does not always modify the state, return the provided

@@ -28,7 +28,7 @@ impl Stateful for App {
 
 impl App {
     fn render(self) -> impl Html {
-        self.stateful(|state, link| {
+        self.stateful(|state, ctx| {
             let (main_class, footer_class) = if state.entries.is_empty() {
                 ("main hidden", "main hidden")
             } else {
@@ -45,7 +45,7 @@ impl App {
                     <section .todoapp>
                         <header .header>
                             <h1>"todos"</h1>
-                            <EntryInput {link} />
+                            <EntryInput {ctx} />
                         </header>
                         <section .{main_class}>
                             {
@@ -55,7 +55,7 @@ impl App {
                                         .toggle-all
                                         type="checkbox"
                                         checked={is_all_completed}
-                                        onclick={link: move |state, _| state.set_all(!is_all_completed)}
+                                        onclick={ctx.bind(move |state, _| state.set_all(!is_all_completed))}
                                     />
                                 }
                             }
@@ -64,7 +64,7 @@ impl App {
                             {
                                 state
                                     .filtered_entries()
-                                    .map(move |(idx, entry)| html! { <EntryView {idx} {entry} {link} /> })
+                                    .map(move |(idx, entry)| html! { <EntryView {idx} {entry} {ctx} /> })
                                     .list()
                             }
                             </ul>
@@ -75,11 +75,11 @@ impl App {
                                 { if active_count == 1 { " item left" } else { " items left" } }
                             </span>
                             <ul .filters>
-                                <FilterView filter={Filter::All} {selected} {link} />
-                                <FilterView filter={Filter::Active} {selected} {link} />
-                                <FilterView filter={Filter::Completed} {selected} {link} />
+                                <FilterView filter={Filter::All} {selected} {ctx} />
+                                <FilterView filter={Filter::Active} {selected} {ctx} />
+                                <FilterView filter={Filter::Completed} {selected} {ctx} />
                             </ul>
-                            <button .clear-completed onclick={link: |state, _| state.entries.retain(|entry| !entry.completed)}>
+                            <button .clear-completed onclick={ctx.bind(|state, _| state.entries.retain(|entry| !entry.completed))}>
                                 "Clear completed ("{ completed_count }")"
                             </button>
                         </footer>
@@ -96,7 +96,7 @@ impl App {
 }
 
 struct EntryInput<'a> {
-    link: Link<'a, State>,
+    ctx: Context<'a, State>,
 }
 
 mod wat {
@@ -108,16 +108,15 @@ mod wat {
                 <input
                     .new-todo
                     placeholder="What needs to be done?"
-                    onchange={self.link: |state, event| {
+                    onchange={self.ctx.bind(|state, event| {
                         let input = event.target();
-
                         let value = input.value();
-                        input.set_value("");
 
+                        input.set_value("");
                         state.add(value);
 
                         ShouldRender::Yes
-                    }}
+                    })}
                 />
             }
         }
@@ -127,7 +126,7 @@ mod wat {
 struct EntryView<'a> {
     idx: usize,
     entry: &'a Entry,
-    link: Link<'a, State>,
+    ctx: Context<'a, State>,
 }
 
 fn test(checked: bool) -> impl Html {
@@ -136,7 +135,7 @@ fn test(checked: bool) -> impl Html {
 
 impl<'a> EntryView<'a> {
     fn render(self) -> impl Html + 'a {
-        let EntryView { idx, entry, link } = self;
+        let EntryView { idx, entry, ctx } = self;
 
         let class = match (entry.editing, entry.completed) {
             (false, false) => "todo",
@@ -146,7 +145,7 @@ impl<'a> EntryView<'a> {
         };
 
         let input = self.entry.editing.then(move || {
-            let onmouseover = link.callback(move |_, event| {
+            let onmouseover = ctx.bind(move |_, event| {
                 let input: HtmlInputElement = event.target();
 
                 if input.focus().is_ok() {
@@ -161,12 +160,12 @@ impl<'a> EntryView<'a> {
                     type="text"
                     value={&self.entry.description}
                     {onmouseover}
-                    onchange={link: move |state, event| state.update(idx, event.target().value())}
+                    onchange={ctx.bind(move |state, event| state.update(idx, event.target().value()))}
                 />
             }
         });
 
-        let onchange = link.callback(move |state, _| state.toggle(idx));
+        let onchange = ctx.bind(move |state, _| state.toggle(idx));
 
         html! {
             <li {class}>
@@ -176,10 +175,10 @@ impl<'a> EntryView<'a> {
                             <input .toggle type="checkbox" checked={entry.completed} {onchange} />
                         }
                     }
-                    <label ondblclick={link: move |state, _| state.edit_entry(idx)} >
+                    <label ondblclick={ctx.bind(move |state, _| state.edit_entry(idx))} >
                         { &entry.description }
                     </label>
-                    <button .destroy onclick={link: move |state, _| state.remove(idx)} />
+                    <button .destroy onclick={ctx.bind(move |state, _| state.remove(idx))} />
                 </div>
                 { input }
             </li>
@@ -190,7 +189,7 @@ impl<'a> EntryView<'a> {
 struct FilterView<'a> {
     filter: Filter,
     selected: Filter,
-    link: Link<'a, State>,
+    ctx: Context<'a, State>,
 }
 
 impl<'a> FilterView<'a> {
@@ -202,7 +201,7 @@ impl<'a> FilterView<'a> {
             "not-selected"
         };
         let href = filter.to_href();
-        let onclick = self.link.callback(move |state, _| state.filter = filter);
+        let onclick = self.ctx.bind(move |state, _| state.filter = filter);
 
         html! {
             <li>

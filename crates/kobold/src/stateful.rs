@@ -80,24 +80,14 @@
 //!     fn render(self) -> impl Html + 'a {
 //!         // Types here are:
 //!         // state: &OwnedState,
-//!         // link: Link<OwnedState>,
-//!         self.stateful(|state, link| {
+//!         // ctx: Context<OwnedState>,
+//!         self.stateful(|state, ctx| {
 //!             // Since we work with a state that owns a `String`,
 //!             // callbacks can mutate it at will.
-//!             let exclaim = link.callback(|state, _| state.name.push('!'));
+//!             let exclaim = ctx.bind(|state, _| state.name.push('!'));
 //!
 //!             // Repeatedly clicking the Alice button does not have to do anything.
-//!             //
-//!             // NOTE: This is quite an overkill for this example, as updates on
-//!             // this render function only do two things:
-//!             //
-//!             //    1. Compare the `&state.name` with previous render.
-//!             //    2. Update closures, which is nearly free as these are
-//!             //       zero-sized (they don't capture anything).
-//!             //
-//!             // For any more robust states and renders logic `ShouldRender::No`
-//!             // when no changes in DOM are necessary is always a good idea.
-//!             let alice = link.callback(|state, _| {
+//!             let alice = ctx.bind(|state, _| {
 //!                 if state.name != "Alice" {
 //!                     state.name.replace_range(.., "Alice");
 //!
@@ -137,14 +127,14 @@ pub use kobold_macros::Stateful;
 use crate::render_fn::RenderFn;
 use crate::{Element, Html, Mountable};
 
-mod link;
+mod ctx;
 
-pub use link::{Callback, Link};
+pub use ctx::{Callback, Context};
 
 /// Describes whether or not a component should be rendered after state changes.
 /// For uses see:
 ///
-/// * [Link::callback](Link::callback)
+/// * [Context::bind](Context::bind)
 /// * [Stateful::update](Stateful::update)
 pub enum ShouldRender {
     /// This is a silent update
@@ -181,7 +171,7 @@ pub trait Stateful: Sized {
 
     fn stateful<'a, H: Html + 'a>(
         self,
-        render: fn(&'a Self::State, Link<'a, Self::State>) -> H,
+        render: fn(&'a Self::State, Context<'a, Self::State>) -> H,
     ) -> WithState<Self, H> {
         WithState {
             stateful: self,
@@ -201,12 +191,12 @@ struct Inner<S, P> {
     state: RefCell<S>,
     product: UnsafeCell<P>,
     render: RenderFn<S, P>,
-    update: fn(RenderFn<S, P>, Link<S>),
+    update: fn(RenderFn<S, P>, Context<S>),
 }
 
 impl<S: 'static, P: 'static> Inner<S, P> {
     fn update(&self) {
-        (self.update)(self.render, Link::new(self))
+        (self.update)(self.render, Context::new(self))
     }
 }
 
@@ -226,24 +216,24 @@ where
         let state = self.stateful.init();
 
         let inner = Rc::new_cyclic(move |inner| {
-            let link = Link::from_weak(inner);
+            let ctx = Context::from_weak(inner);
 
             // Safety: this is safe as long as `S` and `H` are the same types that
             // were used to create this `RenderFn` instance.
             let render_fn = unsafe { self.render.cast::<H>() };
-            let product = (render_fn)(&state, link).build();
+            let product = (render_fn)(&state, ctx).build();
 
             Inner {
                 state: RefCell::new(state),
                 product: UnsafeCell::new(product),
                 render: self.render,
-                update: |render, link| {
+                update: |render, ctx| {
                     // Safety: this is safe as long as `S` and `H` are the same types that
                     // were used to create this `RenderFn` instance.
                     let render = unsafe { render.cast::<H>() };
-                    let inner = unsafe { &*link.inner() };
+                    let inner = unsafe { &*ctx.inner() };
 
-                    (render)(&inner.state.borrow(), link)
+                    (render)(&inner.state.borrow(), ctx)
                         .update(unsafe { &mut *inner.product.get() });
                 },
             }
