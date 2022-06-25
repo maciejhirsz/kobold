@@ -91,7 +91,7 @@ impl Parser {
 
     fn parse_node(&mut self, iter: &mut ParseStream) -> Result<Node, ParseError> {
         match iter.next() {
-            Some(ref tt) if '<'.matches(tt) => {
+            Some(ref tt) if tt.is('<') => {
                 let tag_ident: Ident = iter.parse()?;
                 let tag = tag_ident.to_string();
 
@@ -322,50 +322,14 @@ impl Parser {
 
                     let name = "class".to_string();
                     let ident = Ident::new(&name, punct.span());
-
-                    let value = match iter.peek() {
-                        Some(TokenTree::Ident(_)) => {
-                            let css_label: CssLabel = iter.parse()?;
-
-                            AttributeValue::Literal(into_quote(css_label.into_literal()))
-                        }
-                        Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
-                            let stream = group.stream();
-                            iter.next();
-                            AttributeValue::from_group(&name, stream.into())
-                        }
-                        _ => {
-                            return Err(ParseError::new(
-                                "Expected identifier or an {expression}",
-                                iter.next(),
-                            ))
-                        }
-                    };
+                    let value = AttributeValue::css_attribute_value(&name, iter)?;
 
                     element.attributes.push(Attribute { name, ident, value })
                 }
                 Some(tt) if tt.is('#') => {
                     let name = "id".to_string();
                     let ident = Ident::new(&name, tt.span());
-
-                    let value = match iter.peek() {
-                        Some(TokenTree::Ident(_)) => {
-                            let css_label: CssLabel = iter.parse()?;
-
-                            AttributeValue::Literal(into_quote(css_label.into_literal()))
-                        }
-                        Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
-                            let stream = group.stream();
-                            iter.next();
-                            AttributeValue::from_group(&name, stream.into())
-                        }
-                        _ => {
-                            return Err(ParseError::new(
-                                "Expected identifier or an {expression}",
-                                iter.next(),
-                            ))
-                        }
-                    };
+                    let value = AttributeValue::css_attribute_value(&name, iter)?;
 
                     element.attributes.push(Attribute { name, ident, value })
                 }

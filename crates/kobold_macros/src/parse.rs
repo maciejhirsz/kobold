@@ -1,5 +1,5 @@
 use beef::Cow;
-use proc_macro::{Ident, Literal, Span, TokenStream, TokenTree};
+use proc_macro::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 
 use crate::parser::ParseError;
 
@@ -50,12 +50,46 @@ impl Pattern for char {
     }
 }
 
+impl Pattern for (char, Spacing) {
+    fn matches(self, tt: &TokenTree) -> bool {
+        match tt {
+            TokenTree::Punct(punct) => punct.as_char() == self.0 && punct.spacing() == self.1,
+            _ => false,
+        }
+    }
+
+    fn expected(self) -> Cow<'static, str> {
+        format!("Expected {}", self.0).into()
+    }
+}
+
+impl Pattern for Delimiter {
+    fn matches(self, tt: &TokenTree) -> bool {
+        match tt {
+            TokenTree::Group(group) => group.delimiter() == self,
+            _ => false,
+        }
+    }
+
+    fn expected(self) -> Cow<'static, str> {
+        match self {
+            Delimiter::Parenthesis => "Expected (...)",
+            Delimiter::Brace => "Expected {...}",
+            Delimiter::Bracket => "Expected [...]",
+            Delimiter::None => "Expected a group",
+        }
+        .into()
+    }
+}
+
 pub trait IteratorExt {
     fn expect(&mut self, pattern: impl Pattern) -> Result<TokenTree, ParseError>;
 
     fn allow(&mut self, pattern: impl Pattern) -> bool;
 
     fn parse<T: Parse>(&mut self) -> Result<T, ParseError>;
+
+    fn end(&mut self) -> bool;
 }
 
 impl IteratorExt for ParseStream {
@@ -72,6 +106,10 @@ impl IteratorExt for ParseStream {
 
     fn parse<T: Parse>(&mut self) -> Result<T, ParseError> {
         T::parse(self)
+    }
+
+    fn end(&mut self) -> bool {
+        self.peek().is_none()
     }
 }
 

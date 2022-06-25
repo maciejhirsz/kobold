@@ -1,7 +1,10 @@
-use proc_macro::Ident;
+use proc_macro::{Delimiter, Ident, TokenTree};
 use proc_macro2::TokenStream as QuoteTokens;
 use quote::quote;
 use std::fmt::{self, Debug, Display};
+
+use crate::parse::*;
+use crate::parser::{into_quote, ParseError};
 
 pub struct Field {
     pub kind: FieldKind,
@@ -111,5 +114,28 @@ impl AttributeValue {
             ),
             _ => AttributeValue::Expression(tokens),
         }
+    }
+
+    pub fn css_attribute_value(name: &str, stream: &mut ParseStream) -> Result<Self, ParseError> {
+        let value = match stream.peek() {
+            Some(TokenTree::Ident(_)) => {
+                let css_label: CssLabel = stream.parse()?;
+
+                AttributeValue::Literal(into_quote(css_label.into_literal()))
+            }
+            Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
+                let group = group.stream();
+                stream.next();
+                AttributeValue::from_group(&name, group.into())
+            }
+            _ => {
+                return Err(ParseError::new(
+                    "Expected identifier or an {expression}",
+                    stream.next(),
+                ))
+            }
+        };
+
+        Ok(value)
     }
 }
