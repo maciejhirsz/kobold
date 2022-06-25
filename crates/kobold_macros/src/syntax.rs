@@ -7,6 +7,7 @@ use proc_macro::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTre
 use crate::parse::*;
 
 /// Tag name for an element, either HTML element such as `div`, or a component `Foo`.
+#[derive(Debug)]
 pub enum TagName {
     HtmlElement {
         name: String,
@@ -87,6 +88,7 @@ impl Parse for TagName {
 
 /// Describes nesting behavior of a tag
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum TagNesting {
     /// Opening tag `<...>`
     Opening,
@@ -97,6 +99,7 @@ pub enum TagNesting {
 }
 
 /// Non-descript tag
+#[derive(Debug)]
 pub struct Tag {
     pub name: TagName,
     pub nesting: TagNesting,
@@ -256,7 +259,7 @@ impl Parse for InlineBind {
 
         let arg = stream.expect(Delimiter::Parenthesis)?;
 
-        stream.expect_end()?;
+        let _: () = stream.parse()?;
 
         Ok(InlineBind { invocation, arg })
     }

@@ -3,4 +3,4 @@ wasm_bindgen = "0.2.81"
 
 [build]
 filehash = false
-public_url = "./"
+# public_url = "./"

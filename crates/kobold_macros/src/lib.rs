@@ -9,6 +9,7 @@ use proc_macro2::TokenStream as QuoteTokens;
 use quote::quote;
 
 mod dom;
+mod dom2;
 mod gen;
 mod parse;
 mod parser;
@@ -133,6 +134,10 @@ fn mark_branches(stream: TokenStream, branch_ty: &proc_macro2::Ident, n: &mut u8
 
 #[proc_macro]
 pub fn html(mut body: TokenStream) -> TokenStream {
+    // let shallow = dom2::shallow_parse(body.clone());
+
+    // panic!("{shallow:#?}");
+
     let mut iter = body.into_iter();
 
     let first = iter.next();

@@ -7,7 +7,9 @@ use proc_macro::{Delimiter, Ident, Spacing, Span, TokenStream, TokenTree};
 pub type ParseStream = std::iter::Peekable<proc_macro::token_stream::IntoIter>;
 
 pub mod prelude {
-    pub use super::{IteratorExt, Parse, ParseError, ParseStream, TokenStreamExt, TokenTreeExt};
+    pub use super::{
+        IteratorExt, Lit, Parse, ParseError, ParseStream, TokenStreamExt, TokenTreeExt,
+    };
 }
 
 #[derive(Debug)]
@@ -67,6 +69,43 @@ impl Parse for Ident {
             Some(TokenTree::Ident(ident)) => Ok(ident),
             tt => Err(ParseError::new("Expected an identifier", tt)),
         }
+    }
+}
+
+impl Parse for () {
+    fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
+        match stream.next() {
+            tt @ Some(_) => Err(ParseError::new("Unexpected token", tt)),
+            _ => Ok(()),
+        }
+    }
+}
+
+impl<T: Parse> Parse for Vec<T> {
+    fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
+        let mut items = Vec::new();
+
+        while !stream.end() {
+            items.push(stream.parse()?);
+        }
+
+        Ok(items)
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Lit;
+
+impl Pattern for Lit {
+    fn matches(self, tt: &TokenTree) -> bool {
+        match tt {
+            TokenTree::Literal(_) => true,
+            _ => false,
+        }
+    }
+
+    fn expected(self) -> Cow<'static, str> {
+        "Expected a literal value".into()
     }
 }
 
@@ -138,8 +177,6 @@ pub trait IteratorExt {
     fn parse<T: Parse>(&mut self) -> Result<T, ParseError>;
 
     fn end(&mut self) -> bool;
-
-    fn expect_end(&mut self) -> Result<(), ParseError>;
 }
 
 impl IteratorExt for ParseStream {
@@ -165,13 +202,6 @@ impl IteratorExt for ParseStream {
     fn end(&mut self) -> bool {
         self.peek().is_none()
     }
-
-    fn expect_end(&mut self) -> Result<(), ParseError> {
-        match self.next() {
-            tt @ Some(_) => Err(ParseError::new("Unexpected token", tt)),
-            _ => Ok(()),
-        }
-    }
 }
 
 pub trait TokenTreeExt {
@@ -194,6 +224,8 @@ pub trait TokenStreamExt {
     fn write(&mut self, rust: &str);
 
     fn push(&mut self, tt: impl Into<TokenTree>);
+
+    fn parse_stream(self) -> ParseStream;
 }
 
 impl TokenStreamExt for TokenStream {
@@ -205,5 +237,9 @@ impl TokenStreamExt for TokenStream {
 
     fn push(&mut self, tt: impl Into<TokenTree>) {
         self.extend([tt.into()]);
+    }
+
+    fn parse_stream(self) -> ParseStream {
+        self.into_iter().peekable()
     }
 }
