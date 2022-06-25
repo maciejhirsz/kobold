@@ -12,6 +12,7 @@ mod dom;
 mod gen;
 mod parse;
 mod parser;
+mod syntax;
 
 use dom::FieldKind;
 use gen::Generator;

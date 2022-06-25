@@ -5,6 +5,7 @@ use std::fmt::{self, Debug, Display};
 
 use crate::parse::*;
 use crate::parser::{into_quote, ParseError};
+use crate::syntax::CssLabel;
 
 pub struct Field {
     pub kind: FieldKind,

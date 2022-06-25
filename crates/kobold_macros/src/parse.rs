@@ -1,5 +1,5 @@
 use beef::Cow;
-use proc_macro::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
+use proc_macro::{Delimiter, Ident, Spacing, TokenStream, TokenTree};
 
 use crate::parser::ParseError;
 
@@ -87,9 +87,13 @@ pub trait IteratorExt {
 
     fn allow(&mut self, pattern: impl Pattern) -> bool;
 
+    fn allow_consume(&mut self, pattern: impl Pattern) -> Option<TokenTree>;
+
     fn parse<T: Parse>(&mut self) -> Result<T, ParseError>;
 
     fn end(&mut self) -> bool;
+
+    fn expect_end(&mut self) -> Result<(), ParseError>;
 }
 
 impl IteratorExt for ParseStream {
@@ -104,12 +108,23 @@ impl IteratorExt for ParseStream {
         self.peek().map(|tt| pattern.matches(tt)).unwrap_or(false)
     }
 
+    fn allow_consume(&mut self, pattern: impl Pattern) -> Option<TokenTree> {
+        self.next_if(|tt| pattern.matches(tt))
+    }
+
     fn parse<T: Parse>(&mut self) -> Result<T, ParseError> {
         T::parse(self)
     }
 
     fn end(&mut self) -> bool {
         self.peek().is_none()
+    }
+
+    fn expect_end(&mut self) -> Result<(), ParseError> {
+        match self.next() {
+            tt @ Some(_) => Err(ParseError::new("Unexpected token", tt)),
+            _ => Ok(())
+        }
     }
 }
 
@@ -165,38 +180,21 @@ impl Parse for Generics {
     }
 }
 
-pub struct CssLabel {
-    pub label: String,
-    pub span: Span,
+
+pub trait TokenStreamExt {
+    fn write(&mut self, rust: &str);
+
+    fn push_tt(&mut self, tt: impl Into<TokenTree>);
 }
 
-impl Parse for CssLabel {
-    fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
-        use std::fmt::Write;
+impl TokenStreamExt for TokenStream {
+    fn write(&mut self, rust: &str) {
+        use std::str::FromStr;
 
-        let mut ident: Ident = stream.parse()?;
-
-        let mut label = String::new();
-        let span = ident.span();
-
-        write!(&mut label, "{ident}").unwrap();
-
-        while stream.allow('-') {
-            stream.next();
-
-            ident = stream.parse()?;
-
-            write!(&mut label, "-{ident}").unwrap();
-        }
-
-        Ok(CssLabel { label, span })
+        self.extend(TokenStream::from_str(rust).unwrap());
     }
-}
 
-impl CssLabel {
-    pub fn into_literal(self) -> Literal {
-        let mut lit = Literal::string(&self.label);
-        lit.set_span(self.span);
-        lit
+    fn push_tt(&mut self, tt: impl Into<TokenTree>) {
+        self.extend([tt.into()]);
     }
 }

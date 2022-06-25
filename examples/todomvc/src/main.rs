@@ -55,7 +55,7 @@ impl App {
                                         .toggle-all
                                         type="checkbox"
                                         checked={is_all_completed}
-                                        onclick={link.callback(move |state, _| state.set_all(!is_all_completed))}
+                                        onclick={link: move |state, _| state.set_all(!is_all_completed)}
                                     />
                                 }
                             }
@@ -79,7 +79,7 @@ impl App {
                                 <FilterView filter={Filter::Active} {selected} {link} />
                                 <FilterView filter={Filter::Completed} {selected} {link} />
                             </ul>
-                            <button .clear-completed onclick={link.callback(|state, _| state.entries.retain(|entry| !entry.completed))}>
+                            <button .clear-completed onclick={link: |state, _| state.entries.retain(|entry| !entry.completed)}>
                                 "Clear completed ("{ completed_count }")"
                             </button>
                         </footer>
@@ -104,19 +104,21 @@ mod wat {
 
     impl<'a> EntryInput<'a> {
         pub fn render(self) -> impl Html + 'a {
-            let onchange = self.link.callback(|state, event| {
-                let input: HtmlInputElement = event.target();
-
-                let value = input.value();
-                input.set_value("");
-
-                state.add(value);
-
-                ShouldRender::Yes
-            });
-
             html! {
-                <input .new-todo placeholder="What needs to be done?" {onchange} />
+                <input
+                    .new-todo
+                    placeholder="What needs to be done?"
+                    onchange={self.link: |state, event| {
+                        let input = event.target();
+
+                        let value = input.value();
+                        input.set_value("");
+
+                        state.add(value);
+
+                        ShouldRender::Yes
+                    }}
+                />
             }
         }
     }
@@ -144,12 +146,6 @@ impl<'a> EntryView<'a> {
         };
 
         let input = self.entry.editing.then(move || {
-            let onchange = link.callback(move |state, event| {
-                let input: HtmlInputElement = event.target();
-
-                state.update(idx, input.value())
-            });
-
             let onmouseover = link.callback(move |_, event| {
                 let input: HtmlInputElement = event.target();
 
@@ -165,8 +161,7 @@ impl<'a> EntryView<'a> {
                     type="text"
                     value={&self.entry.description}
                     {onmouseover}
-                    {onchange}
-                    // onchange={ link.callback(move |state, event| state.update(idx, event.target().value())) }
+                    onchange={link: move |state, event| state.update(idx, event.target().value())}
                 />
             }
         });
@@ -181,10 +176,10 @@ impl<'a> EntryView<'a> {
                             <input .toggle type="checkbox" checked={entry.completed} {onchange} />
                         }
                     }
-                    <label ondblclick={link.callback(move |state, _| state.edit_entry(idx))} >
+                    <label ondblclick={link: move |state, _| state.edit_entry(idx)} >
                         { &entry.description }
                     </label>
-                    <button .destroy onclick={link.callback(move |state, _| state.remove(idx))} />
+                    <button .destroy onclick={link: move |state, _| state.remove(idx)} />
                 </div>
                 { input }
             </li>

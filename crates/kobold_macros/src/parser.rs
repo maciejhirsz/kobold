@@ -9,6 +9,7 @@ use quote::{quote, quote_spanned};
 use crate::dom::{Attribute, AttributeValue, Element, Field, FieldKind, Node};
 use crate::gen::literal_to_string;
 use crate::parse::*;
+use crate::syntax::InlineCallback;
 
 #[derive(Debug)]
 pub struct ParseError {
@@ -177,43 +178,39 @@ impl Parser {
                                             _ => "HtmlElement",
                                         };
 
-                                        let event_target = quote::format_ident!("{event_target}");
+                                        let mut callback = TokenStream::from(tokens.clone())
+                                            .into_iter()
+                                            .peekable();
 
-                                        (
-                                            FieldKind::Callback(n[2..].into()),
+                                        // let inline_callback = InlineCallback::parse(&mut callback)?;
+
+                                        // panic!("{} {}", inline_callback.invocation, inline_callback.arg);
+
+                                        let expr = if let Ok(inline_callback) =
+                                            InlineCallback::parse(&mut callback)
+                                        {
+                                            let mut expr = inline_callback.invocation;
+
+                                            expr.write(&format!("::<::kobold::reexport::web_sys::{event_target}, _, _>"));
+                                            expr.push_tt(inline_callback.arg);
+
+                                            QuoteTokens::from(expr)
+                                        } else {
+                                            let event_target =
+                                                quote::format_ident!("{event_target}");
+
                                             quote! {{
-                                                // let constrained: ::kobold::stateful::Callback<
-                                                //     ::kobold::reexport::web_sys::#event_target,
-                                                //     _,
-                                                //     _,
-                                                // > = #tokens;
-
-                                                // constrained
-                                                fn constrain<F, S, A>(
-                                                    callback: ::kobold::stateful::Callback<
-                                                        ::kobold::reexport::web_sys::#event_target,
-                                                        F,
-                                                        S,
-                                                    >
-                                                ) -> ::kobold::stateful::Callback<
+                                                let constrained: ::kobold::stateful::Callback<
                                                     ::kobold::reexport::web_sys::#event_target,
-                                                    F,
-                                                    S,
-                                                >
-                                                where
-                                                    F: Fn(
-                                                        &mut S,
-                                                        &::kobold::event::Event<::kobold::reexport::web_sys::#event_target>
-                                                    ) -> A,
-                                                    A: Into<::kobold::stateful::ShouldRender>,
-                                                    S: 'static,
-                                                {
-                                                    callback
-                                                }
+                                                    _,
+                                                    _,
+                                                > = #tokens;
 
-                                                constrain(#tokens)
-                                            }},
-                                        )
+                                                constrained
+                                            }}
+                                        };
+
+                                        (FieldKind::Callback(n[2..].into()), expr)
                                     }
                                     _ => (
                                         FieldKind::AttrNode,
