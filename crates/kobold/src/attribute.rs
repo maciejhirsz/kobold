@@ -121,13 +121,12 @@ impl Attribute for Checked {
         self.0
     }
 
-    fn update(self, p: &mut Self::Product, js: &JsValue) {
-        *p = self.0;
+    fn update(self, _: &mut Self::Product, js: &JsValue) {
+        // Checkboxes are weird because a `click` or `change` event
+        // can affect the state without reflecting it on the product.
+        //
+        // Best to do the diff in DOM directly.
         util::__kobold_attr_checked_set(js, self.0);
-        // if self.0 != *p {
-        //     util::__kobold_attr_checked_set(js, self.0);
-        //     *p = self.0;
-        // }
     }
 }
 
