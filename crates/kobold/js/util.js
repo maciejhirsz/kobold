@@ -1,4 +1,5 @@
 export function __kobold_start(n) { document.body.appendChild(n); }
+
 export function __kobold_append(n,c) { n.appendChild(c); }
 export function __kobold_unmount(n) { n.remove(); }
 export function __kobold_replace(o,n) { o.replaceWith(n); }

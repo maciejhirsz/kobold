@@ -2,8 +2,7 @@ use std::cell::UnsafeCell;
 use std::marker::PhantomData;
 use std::rc::Weak;
 
-use wasm_bindgen::closure::Closure;
-use wasm_bindgen::JsValue;
+use wasm_bindgen::prelude::*;
 
 use crate::event::Event;
 use crate::stateful::{Inner, ShouldRender};
@@ -46,7 +45,7 @@ where
         Link {
             inner: inner as *const _,
             make_closure: |inner, callback| {
-                make_closure(move |event| {
+                Box::new(move |event| {
                     let callback = unsafe { &*(*callback).get() };
                     let inner = unsafe { &*(inner as *const Inner<S, P>) };
 
@@ -83,18 +82,6 @@ pub struct Callback<'state, T, F, S> {
     cb: F,
     link: Link<'state, S>,
     _target: PhantomData<T>,
-}
-
-// impl<T, F, S> WithEventTarget<T> for Callback<'_, T, F, S> {}
-
-// I should not need to write this, but lifetime checking
-// was going really off the rails with inlined boxing
-#[inline]
-fn make_closure<F>(fun: F) -> Box<dyn FnMut(&web_sys::Event)>
-where
-    F: FnMut(&web_sys::Event) + 'static,
-{
-    Box::new(fun)
 }
 
 pub struct CallbackProduct<F> {

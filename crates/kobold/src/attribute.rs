@@ -122,10 +122,12 @@ impl Attribute for Checked {
     }
 
     fn update(self, p: &mut Self::Product, js: &JsValue) {
-        if self.0 != *p {
-            util::__kobold_attr_checked_set(js, self.0);
-            *p = self.0;
-        }
+        *p = self.0;
+        util::__kobold_attr_checked_set(js, self.0);
+        // if self.0 != *p {
+        //     util::__kobold_attr_checked_set(js, self.0);
+        //     *p = self.0;
+        // }
     }
 }
 

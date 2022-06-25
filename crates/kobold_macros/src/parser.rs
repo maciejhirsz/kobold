@@ -212,7 +212,7 @@ impl Parser {
                                                 }
 
                                                 constrain(#tokens)
-                                            }}
+                                            }},
                                         )
                                     }
                                     _ => (

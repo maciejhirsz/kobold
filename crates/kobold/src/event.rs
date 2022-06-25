@@ -1,10 +1,8 @@
-use std::ops::Deref;
 use std::marker::PhantomData;
+use std::ops::Deref;
 
 use wasm_bindgen::JsCast;
 use web_sys::HtmlElement;
-
-// pub trait WithEventTarget<T> {}
 
 #[repr(transparent)]
 pub struct Event<T = HtmlElement> {
