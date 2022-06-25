@@ -4,7 +4,7 @@ use quote::quote;
 use std::fmt::{self, Debug, Display};
 
 use crate::parse::*;
-use crate::parser::{into_quote, ParseError};
+use crate::parser::into_quote;
 use crate::syntax::CssLabel;
 
 pub struct Field {
@@ -127,7 +127,7 @@ impl AttributeValue {
             Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
                 let group = group.stream();
                 stream.next();
-                AttributeValue::from_group(&name, group.into())
+                AttributeValue::from_group(name, group.into())
             }
             _ => {
                 return Err(ParseError::new(

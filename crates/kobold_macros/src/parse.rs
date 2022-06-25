@@ -1,9 +1,52 @@
 use beef::Cow;
-use proc_macro::{Delimiter, Ident, Spacing, TokenStream, TokenTree};
-
-use crate::parser::ParseError;
+use proc_macro::{Delimiter, Ident, Spacing, Span, TokenStream, TokenTree};
 
 pub type ParseStream = std::iter::Peekable<proc_macro::token_stream::IntoIter>;
+
+pub mod prelude {
+    pub use super::{IteratorExt, Parse, ParseError, ParseStream, TokenStreamExt, TokenTreeExt};
+}
+
+#[derive(Debug)]
+pub struct ParseError {
+    pub msg: Cow<'static, str>,
+    pub tt: Option<TokenTree>,
+}
+
+impl ParseError {
+    pub fn new<S: Into<Cow<'static, str>>>(msg: S, tt: Option<TokenTree>) -> Self {
+        let mut error = ParseError::from(tt);
+
+        error.msg = msg.into();
+        error
+    }
+
+    pub fn tokenize(self) -> TokenStream {
+        let msg = self.msg.as_ref();
+        let span = self
+            .tt
+            .as_ref()
+            .map(|tt| tt.span())
+            .unwrap_or_else(Span::call_site)
+            .into();
+
+        (quote::quote_spanned! { span =>
+            fn _parse_error() {
+                compile_error!(#msg)
+            }
+        })
+        .into()
+    }
+}
+
+impl From<Option<TokenTree>> for ParseError {
+    fn from(tt: Option<TokenTree>) -> Self {
+        ParseError {
+            msg: "Unexpected token".into(),
+            tt,
+        }
+    }
+}
 
 pub trait Pattern: Copy {
     fn matches(self, tt: &TokenTree) -> bool;
@@ -123,7 +166,7 @@ impl IteratorExt for ParseStream {
     fn expect_end(&mut self) -> Result<(), ParseError> {
         match self.next() {
             tt @ Some(_) => Err(ParseError::new("Unexpected token", tt)),
-            _ => Ok(())
+            _ => Ok(()),
         }
     }
 }
@@ -180,11 +223,10 @@ impl Parse for Generics {
     }
 }
 
-
 pub trait TokenStreamExt {
     fn write(&mut self, rust: &str);
 
-    fn push_tt(&mut self, tt: impl Into<TokenTree>);
+    fn push(&mut self, tt: impl Into<TokenTree>);
 }
 
 impl TokenStreamExt for TokenStream {
@@ -194,7 +236,7 @@ impl TokenStreamExt for TokenStream {
         self.extend(TokenStream::from_str(rust).unwrap());
     }
 
-    fn push_tt(&mut self, tt: impl Into<TokenTree>) {
+    fn push(&mut self, tt: impl Into<TokenTree>) {
         self.extend([tt.into()]);
     }
 }

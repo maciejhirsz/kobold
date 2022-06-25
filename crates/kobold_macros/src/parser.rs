@@ -1,56 +1,14 @@
 use std::convert::TryFrom;
 
 use arrayvec::ArrayString;
-use beef::Cow;
 use proc_macro::{Delimiter, Ident, Spacing, Span, TokenStream, TokenTree};
 use proc_macro2::TokenStream as QuoteTokens;
-use quote::{quote, quote_spanned};
+use quote::quote;
 
 use crate::dom::{Attribute, AttributeValue, Element, Field, FieldKind, Node};
 use crate::gen::literal_to_string;
 use crate::parse::*;
 use crate::syntax::InlineCallback;
-
-#[derive(Debug)]
-pub struct ParseError {
-    pub msg: Cow<'static, str>,
-    pub tt: Option<TokenTree>,
-}
-
-impl ParseError {
-    pub fn new<S: Into<Cow<'static, str>>>(msg: S, tt: Option<TokenTree>) -> Self {
-        let mut error = ParseError::from(tt);
-
-        error.msg = msg.into();
-        error
-    }
-
-    pub fn tokenize(self) -> TokenStream {
-        let msg = self.msg.as_ref();
-        let span = self
-            .tt
-            .as_ref()
-            .map(|tt| tt.span())
-            .unwrap_or_else(Span::call_site)
-            .into();
-
-        (quote_spanned! { span =>
-            fn _parse_error() {
-                compile_error!(#msg)
-            }
-        })
-        .into()
-    }
-}
-
-impl From<Option<TokenTree>> for ParseError {
-    fn from(tt: Option<TokenTree>) -> Self {
-        ParseError {
-            msg: "Unexpected token".into(),
-            tt,
-        }
-    }
-}
 
 pub struct Parser {
     vars: usize,
@@ -192,7 +150,7 @@ impl Parser {
                                             let mut expr = inline_callback.invocation;
 
                                             expr.write(&format!("::<::kobold::reexport::web_sys::{event_target}, _, _>"));
-                                            expr.push_tt(inline_callback.arg);
+                                            expr.push(inline_callback.arg);
 
                                             QuoteTokens::from(expr)
                                         } else {
@@ -371,7 +329,7 @@ impl Parser {
                     children.extend(generics.tokens);
                 }
 
-                while let Some(tt) = iter.next() {
+                for tt in iter.by_ref() {
                     if tt.is('/') {
                         depth -= 1;
                     } else if tt.is('>') {

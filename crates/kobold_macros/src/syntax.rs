@@ -1,7 +1,6 @@
 use proc_macro::{Delimiter, Group, Ident, Literal, Span, TokenStream, TokenTree};
 
 use crate::parse::*;
-use crate::parser::ParseError;
 
 pub struct CssLabel {
     pub label: String,
@@ -51,13 +50,13 @@ impl Parse for InlineCallback {
         // Must begin with an identifier, `link` or anything else
         let mut ident: Ident = stream.parse()?;
 
-        invocation.push_tt(ident);
+        invocation.push(ident);
 
         loop {
             if let Some(shorthand) = stream.allow_consume(':') {
                 // panic!();
                 invocation.write(".");
-                invocation.push_tt(Ident::new("callback", shorthand.span()));
+                invocation.push(Ident::new("callback", shorthand.span()));
 
                 let arg = stream.collect();
                 let arg = TokenTree::Group(Group::new(Delimiter::Parenthesis, arg));
@@ -68,12 +67,12 @@ impl Parse for InlineCallback {
             invocation.extend([stream.expect('.')?]);
 
             if let Some(callback) = stream.allow_consume("callback") {
-                invocation.push_tt(callback);
+                invocation.push(callback);
                 break;
             }
 
             ident = stream.parse()?;
-            invocation.push_tt(ident);
+            invocation.push(ident);
         }
 
         let arg = stream.expect(Delimiter::Parenthesis)?;

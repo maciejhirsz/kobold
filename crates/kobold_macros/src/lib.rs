@@ -16,8 +16,8 @@ mod syntax;
 
 use dom::FieldKind;
 use gen::Generator;
-use parse::IteratorExt as _;
-use parser::{into_quote, ParseError, Parser};
+use parse::prelude::*;
+use parser::{into_quote, Parser};
 
 macro_rules! unwrap_err {
     ($expr:expr) => {
