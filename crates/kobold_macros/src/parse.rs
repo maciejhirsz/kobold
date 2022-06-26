@@ -1,10 +1,6 @@
 //! [`ParseStream`](ParseStream), the [`Parse`](Parse) trait and utilities for working with
 //! token streams without `syn` or `quote`.
 
-use std::cell::UnsafeCell;
-use std::fmt::{Display, Write};
-
-use arrayvec::ArrayString;
 use beef::Cow;
 use proc_macro::{Delimiter, Ident, Spacing, Span, TokenStream, TokenTree};
 
@@ -54,6 +50,16 @@ impl ParseError {
         ParseError {
             msg: msg.into(),
             span: spannable.into_span(),
+        }
+    }
+
+    pub fn msg<M>(self, msg: M) -> Self
+    where
+        M: Into<Cow<'static, str>>,
+    {
+        ParseError {
+            msg: msg.into(),
+            span: self.span,
         }
     }
 
@@ -252,31 +258,41 @@ impl TokenStreamExt for TokenStream {
     }
 }
 
-pub trait IdentExt: Display {
-    /// String compare `Idents` without allocations for small values
-    fn str_eq(&self, other: &str) -> bool {
-        const CAPACITY: usize = 32;
+mod util {
+    use std::cell::UnsafeCell;
+    use std::fmt::{Display, Write};
 
-        if other.len() > CAPACITY {
-            return self.to_string() == other;
-        }
+    use arrayvec::ArrayString;
 
-        thread_local! {
-            static IDENT_DISPLAY_BUF: UnsafeCell<ArrayString<CAPACITY>> = UnsafeCell::new(ArrayString::new());
-        }
+    const FMT_BUF_CAPACITY: usize = 40;
 
-        IDENT_DISPLAY_BUF.with(move |buf| {
-            let mut buf = unsafe { &mut* buf.get() };
-
-            buf.clear();
-
-            if write!(&mut buf, "{self}").is_ok() {
-                buf.as_str() == other
-            } else {
-                false
-            }
-        })
+    thread_local! {
+        static FMT_BUF: UnsafeCell<ArrayString<FMT_BUF_CAPACITY>> = UnsafeCell::new(ArrayString::new());
     }
+
+    pub trait IdentExt: Display {
+        /// String compare `Idents` without allocations for small values
+        fn str_eq(&self, other: &str) -> bool {
+
+            if other.len() > FMT_BUF_CAPACITY {
+                return self.to_string() == other;
+            }
+
+            FMT_BUF.with(move |buf| {
+                let mut buf = unsafe { &mut* buf.get() };
+
+                buf.clear();
+
+                if write!(&mut buf, "{self}").is_ok() {
+                    buf.as_str() == other
+                } else {
+                    false
+                }
+            })
+        }
+    }
+
+    impl IdentExt for proc_macro::Ident {}
 }
 
-impl IdentExt for Ident {}
+pub use util::IdentExt;

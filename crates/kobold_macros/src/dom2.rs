@@ -42,6 +42,12 @@ impl Debug for Expression {
     }
 }
 
+impl From<Expression> for Node {
+    fn from(expr: Expression) -> Node {
+        Node::Expression(expr)
+    }
+}
+
 #[derive(Debug)]
 pub struct Component {
     pub name: String,
@@ -75,19 +81,29 @@ pub struct Attribute {
 
 #[derive(Debug)]
 pub enum AttributeValue {
-    Literal(TokenTree),
+    Literal(Literal),
+    Boolean(Ident),
     Expression(Expression),
+}
+
+impl From<Expression> for AttributeValue {
+    fn from(expr: Expression) -> AttributeValue {
+        AttributeValue::Expression(expr)
+    }
 }
 
 impl Node {
     fn parse(stream: &mut ShallowStream) -> Result<Option<Self>, ParseError> {
-        let tag = match stream.next().transpose()? {
-            Some(ShallowNode::Tag(tag)) => tag,
-            Some(ShallowNode::Literal(lit)) => {
+        let tag = match stream.next() {
+            Some(Ok(ShallowNode::Tag(tag))) => tag,
+            Some(Ok(ShallowNode::Literal(lit))) => {
                 return Ok(Some(Node::Text(lit)));
             }
-            Some(ShallowNode::Expression(expr)) => {
-                return Ok(Some(Node::Expression(Expression(expr))));
+            Some(Ok(ShallowNode::Expression(expr))) => {
+                return Ok(Some(Expression(expr).into()));
+            }
+            Some(Err(error)) => {
+                return Err(error.msg("Expected a tag, a string literal, or an {expression}"))
             }
             None => return Ok(None),
         };
@@ -213,7 +229,7 @@ impl Parse for Property {
         if let Some(TokenTree::Group(expr)) = stream.allow_consume(Delimiter::Brace) {
             let mut inner = expr.stream().parse_stream();
 
-            let name: Ident = inner.parse()?;
+            let name = inner.parse()?;
 
             if let Some(tt) = inner.next() {
                 return Err(ParseError::new(
@@ -241,6 +257,16 @@ impl Parse for Property {
                 let mut expr = TokenStream::new();
 
                 expr.push(lit);
+
+                Ok(Property {
+                    name,
+                    expr: Expression(expr),
+                })
+            }
+            Some(TokenTree::Ident(b)) if b.str_eq("true") || b.str_eq("false") => {
+                let mut expr = TokenStream::new();
+
+                expr.push(b);
 
                 Ok(Property {
                     name,
@@ -283,7 +309,7 @@ impl Parse for Attribute {
         if let Some(TokenTree::Group(expr)) = stream.allow_consume(Delimiter::Brace) {
             let mut inner = expr.stream().parse_stream();
 
-            let name: Ident = inner.parse()?;
+            let name = inner.parse()?;
 
             if let Some(tt) = inner.next() {
                 return Err(ParseError::new(
@@ -294,7 +320,7 @@ impl Parse for Attribute {
 
             return Ok(Attribute {
                 name,
-                value: AttributeValue::Expression(Expression(expr.stream())),
+                value: Expression(expr.stream()).into(),
             });
         }
 
@@ -312,11 +338,15 @@ impl Parse for Attribute {
         match stream.next() {
             Some(TokenTree::Group(expr)) if expr.delimiter() == Delimiter::Brace => Ok(Attribute {
                 name,
-                value: AttributeValue::Expression(Expression(expr.stream())),
+                value: Expression(expr.stream()).into(),
             }),
             Some(TokenTree::Literal(lit)) => Ok(Attribute {
                 name,
-                value: AttributeValue::Literal(lit.into()),
+                value: AttributeValue::Literal(lit),
+            }),
+            Some(TokenTree::Ident(b)) if b.str_eq("true") || b.str_eq("false") => Ok(Attribute {
+                name,
+                value: AttributeValue::Boolean(b),
             }),
             _ => Err(ParseError::new(
                 "Element attributes must contain {expressions} or literals",
