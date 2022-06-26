@@ -1,9 +1,10 @@
 //! [`ParseStream`](ParseStream), the [`Parse`](Parse) trait and utilities for working with
 //! token streams without `syn` or `quote`.
 
-use std::cell::RefCell;
+use std::cell::UnsafeCell;
 use std::fmt::{Display, Write};
 
+use arrayvec::ArrayString;
 use beef::Cow;
 use proc_macro::{Delimiter, Ident, Spacing, Span, TokenStream, TokenTree};
 
@@ -12,7 +13,7 @@ use crate::dom2::{ShallowNodeIter, ShallowStream};
 pub type ParseStream = std::iter::Peekable<proc_macro::token_stream::IntoIter>;
 
 pub mod prelude {
-    pub use super::{DisplayExt, IteratorExt, TokenStreamExt, TokenTreeExt};
+    pub use super::{IdentExt, IteratorExt, TokenStreamExt, TokenTreeExt};
     pub use super::{Lit, Parse, ParseError, ParseStream};
 }
 
@@ -251,28 +252,31 @@ impl TokenStreamExt for TokenStream {
     }
 }
 
-thread_local! {
-    static DISPLAY_EXT_BUF: RefCell<String> = RefCell::new(String::with_capacity(128));
-}
+pub trait IdentExt: Display {
+    /// String compare `Idents` without allocations for small values
+    fn str_eq(&self, other: &str) -> bool {
+        const CAPACITY: usize = 32;
 
-pub trait DisplayExt: Display {
-    /// Do stuff with `Display` types such as `Ident`s without
-    /// allocating a new buffer with `to_string` every time.
-    fn with_str<R, F: FnOnce(&str) -> R>(&self, f: F) -> R {
-        DISPLAY_EXT_BUF.with(move |buf| {
-            let mut buf = buf.borrow_mut();
+        if other.len() > CAPACITY {
+            return self.to_string() == other;
+        }
+
+        thread_local! {
+            static IDENT_DISPLAY_BUF: UnsafeCell<ArrayString<CAPACITY>> = UnsafeCell::new(ArrayString::new());
+        }
+
+        IDENT_DISPLAY_BUF.with(move |buf| {
+            let mut buf = unsafe { &mut* buf.get() };
 
             buf.clear();
 
-            write!(&mut buf, "{self}").unwrap();
-
-            f(&buf)
+            if write!(&mut buf, "{self}").is_ok() {
+                buf.as_str() == other
+            } else {
+                false
+            }
         })
-    }
-
-    fn str_eq(&self, other: &str) -> bool {
-        self.with_str(|s| s == other)
     }
 }
 
-impl<T: Display> DisplayExt for T {}
+impl IdentExt for Ident {}
