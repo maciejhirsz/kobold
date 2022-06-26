@@ -4,11 +4,11 @@ use std::str::FromStr;
 use proc_macro::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 
 use crate::parse::prelude::*;
-use crate::syntax::{CssLabel, TagName, TagNesting};
+use crate::syntax::CssLabel;
 
 mod shallow;
 
-pub use shallow::{ShallowNode, ShallowNodeIter, ShallowStream};
+pub use shallow::{ShallowNode, ShallowNodeIter, ShallowStream, TagName, TagNesting};
 
 pub fn parse(tokens: TokenStream) -> Result<Vec<Node>, ParseError> {
     let mut stream = tokens.parse_stream().into_shallow_stream();
@@ -287,7 +287,7 @@ impl AttributeValue {
             Some(TokenTree::Ident(_)) => {
                 let css_label: CssLabel = stream.parse()?;
 
-                AttributeValue::Literal(css_label.into_literal().into())
+                AttributeValue::Literal(css_label.into_literal())
             }
             Some(TokenTree::Group(expr)) if expr.delimiter() == Delimiter::Brace => {
                 AttributeValue::Expression(Expression(expr.stream()))

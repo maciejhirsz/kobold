@@ -10,7 +10,7 @@ pub type ParseStream = std::iter::Peekable<proc_macro::token_stream::IntoIter>;
 
 pub mod prelude {
     pub use super::{IdentExt, IteratorExt, TokenStreamExt, TokenTreeExt};
-    pub use super::{Lit, Parse, ParseError, ParseStream};
+    pub use super::{Lit, Parse, ParseError, ParseStream, IntoSpan};
 }
 
 #[derive(Debug)]
