@@ -134,9 +134,9 @@ fn mark_branches(stream: TokenStream, branch_ty: &proc_macro2::Ident, n: &mut u8
 
 #[proc_macro]
 pub fn html(mut body: TokenStream) -> TokenStream {
-    // let shallow = dom2::shallow_parse(body.clone());
+    let nodes = dom2::parse(body.clone());
 
-    // panic!("{shallow:#?}");
+    panic!("{nodes:#?}");
 
     let mut iter = body.into_iter();
 

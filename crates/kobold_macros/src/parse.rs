@@ -1,39 +1,64 @@
 //! [`ParseStream`](ParseStream), the [`Parse`](Parse) trait and utilities for working with
 //! token streams without `syn` or `quote`.
 
+use std::cell::RefCell;
+use std::fmt::{Display, Write};
+
 use beef::Cow;
 use proc_macro::{Delimiter, Ident, Spacing, Span, TokenStream, TokenTree};
+
+use crate::dom2::{ShallowNodeIter, ShallowStream};
 
 pub type ParseStream = std::iter::Peekable<proc_macro::token_stream::IntoIter>;
 
 pub mod prelude {
-    pub use super::{
-        IteratorExt, Lit, Parse, ParseError, ParseStream, TokenStreamExt, TokenTreeExt,
-    };
+    pub use super::{DisplayExt, IteratorExt, TokenStreamExt, TokenTreeExt};
+    pub use super::{Lit, Parse, ParseError, ParseStream};
 }
 
 #[derive(Debug)]
 pub struct ParseError {
     pub msg: Cow<'static, str>,
-    pub tt: Option<TokenTree>,
+    pub span: Span,
+}
+
+pub trait IntoSpan {
+    fn into_span(self) -> Span;
+}
+
+impl IntoSpan for Span {
+    fn into_span(self) -> Span {
+        self
+    }
+}
+
+impl IntoSpan for TokenTree {
+    fn into_span(self) -> Span {
+        self.span()
+    }
+}
+
+impl IntoSpan for Option<TokenTree> {
+    fn into_span(self) -> Span {
+        self.as_ref().map(TokenTree::span).unwrap_or_else(Span::call_site)
+    }
 }
 
 impl ParseError {
-    pub fn new<S: Into<Cow<'static, str>>>(msg: S, tt: Option<TokenTree>) -> Self {
-        let mut error = ParseError::from(tt);
-
-        error.msg = msg.into();
-        error
+    pub fn new<M, S>(msg: M, spannable: S) -> Self
+    where
+        M: Into<Cow<'static, str>>,
+        S: IntoSpan,
+    {
+        ParseError {
+            msg: msg.into(),
+            span: spannable.into_span(),
+        }
     }
 
     pub fn tokenize(self) -> TokenStream {
         let msg = self.msg.as_ref();
-        let span = self
-            .tt
-            .as_ref()
-            .map(|tt| tt.span())
-            .unwrap_or_else(Span::call_site)
-            .into();
+        let span = self.span.into();
 
         (quote::quote_spanned! { span =>
             fn _parse_error() {
@@ -41,15 +66,6 @@ impl ParseError {
             }
         })
         .into()
-    }
-}
-
-impl From<Option<TokenTree>> for ParseError {
-    fn from(tt: Option<TokenTree>) -> Self {
-        ParseError {
-            msg: "Unexpected token".into(),
-            tt,
-        }
     }
 }
 
@@ -75,21 +91,9 @@ impl Parse for Ident {
 impl Parse for () {
     fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
         match stream.next() {
-            tt @ Some(_) => Err(ParseError::new("Unexpected token", tt)),
+            Some(tt) => Err(ParseError::new("Unexpected token", tt)),
             _ => Ok(()),
         }
-    }
-}
-
-impl<T: Parse> Parse for Vec<T> {
-    fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
-        let mut items = Vec::new();
-
-        while !stream.end() {
-            items.push(stream.parse()?);
-        }
-
-        Ok(items)
     }
 }
 
@@ -112,7 +116,7 @@ impl Pattern for Lit {
 impl Pattern for &str {
     fn matches(self, tt: &TokenTree) -> bool {
         match tt {
-            TokenTree::Ident(ident) => ident.to_string() == self,
+            TokenTree::Ident(ident) => ident.str_eq(self),
             _ => false,
         }
     }
@@ -177,6 +181,8 @@ pub trait IteratorExt {
     fn parse<T: Parse>(&mut self) -> Result<T, ParseError>;
 
     fn end(&mut self) -> bool;
+
+    fn into_shallow_stream(self) -> ShallowStream;
 }
 
 impl IteratorExt for ParseStream {
@@ -201,6 +207,10 @@ impl IteratorExt for ParseStream {
 
     fn end(&mut self) -> bool {
         self.peek().is_none()
+    }
+
+    fn into_shallow_stream(self) -> ShallowStream {
+        ShallowNodeIter::new(self).peekable()
     }
 }
 
@@ -243,3 +253,29 @@ impl TokenStreamExt for TokenStream {
         self.into_iter().peekable()
     }
 }
+
+thread_local! {
+    static DISPLAY_EXT_BUF: RefCell<String> = RefCell::new(String::with_capacity(128));
+}
+
+pub trait DisplayExt: Display {
+    /// Do stuff with `Display` types such as `Ident`s without
+    /// allocating a new buffer with `to_string` every time.
+    fn with_str<R, F: FnOnce(&str) -> R>(&self, f: F) -> R {
+        DISPLAY_EXT_BUF.with(move |buf| {
+            let mut buf = buf.borrow_mut();
+
+            buf.clear();
+
+            write!(&mut buf, "{self}").unwrap();
+
+            f(&buf)
+        })
+    }
+
+    fn str_eq(&self, other: &str) -> bool {
+        self.with_str(|s| s == other)
+    }
+}
+
+impl<T: Display> DisplayExt for T {}

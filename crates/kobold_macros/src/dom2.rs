@@ -1,131 +1,148 @@
+use std::fmt::{self, Debug};
+use std::str::FromStr;
+
 use proc_macro::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 
 use crate::parse::prelude::*;
-use crate::syntax::{CssLabel, Tag, TagName, TagNesting};
+use crate::syntax::{CssLabel, TagName, TagNesting};
 
-pub enum Node {
-    HtmlElement(HtmlElement),
-    Component(Component),
-    Text(String),
-    Expression(TokenStream),
-    Fragment(Vec<Node>),
+mod shallow;
+
+pub use shallow::{ShallowNode, ShallowNodeIter, ShallowStream};
+
+pub fn parse(tokens: TokenStream) -> Result<Vec<Node>, ParseError> {
+    let mut stream = tokens.parse_stream().into_shallow_stream();
+
+    let mut nodes = Vec::new();
+
+    while let Some(node) = Node::parse(&mut stream)? {
+        nodes.push(node);
+    }
+
+    Ok(nodes)
 }
 
 #[derive(Debug)]
-pub enum ShallowNode {
-    Tag(Tag),
-    Literal(Literal),
-    Expression(TokenStream),
+pub enum Node {
+    HtmlElement(HtmlElement),
+    Component(Component),
+    Text(Literal),
+    Expression(Expression),
 }
 
-impl Parse for ShallowNode {
-    fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
-        if let Some(TokenTree::Group(expr)) = stream.allow_consume(Delimiter::Brace) {
-            let mut try_lit = expr.stream().parse_stream();
+pub struct Expression(pub TokenStream);
 
-            if let Some(TokenTree::Literal(lit)) = try_lit.allow_consume(Lit) {
-                if try_lit.end() {
-                    return Ok(ShallowNode::Literal(lit));
-                }
-            }
-
-            return Ok(ShallowNode::Expression(expr.stream()));
-        }
-
-        if let Some(TokenTree::Literal(lit)) = stream.allow_consume(Lit) {
-            return Ok(ShallowNode::Literal(lit));
-        }
-
-        stream.parse().map(ShallowNode::Tag)
+impl Debug for Expression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(&self.0, f)
     }
 }
 
+#[derive(Debug)]
 pub struct Component {
     pub name: String,
+    pub span: Span,
     pub path: TokenStream,
     pub generics: Option<TokenStream>,
     pub props: Vec<Property>,
-    pub defaults: bool,
+    pub spread: Option<TokenStream>,
+    pub children: Option<Vec<Node>>,
 }
 
-pub struct Property {
-    pub name: Ident,
-    pub expr: TokenStream,
-}
-
+#[derive(Debug)]
 pub struct HtmlElement {
     pub name: String,
     pub span: Span,
     pub attributes: Vec<Attribute>,
+    pub children: Option<Vec<Node>>,
 }
 
+#[derive(Debug)]
+pub struct Property {
+    pub name: Ident,
+    pub expr: Expression,
+}
+
+#[derive(Debug)]
 pub struct Attribute {
     pub name: Ident,
     pub value: AttributeValue,
 }
 
+#[derive(Debug)]
 pub enum AttributeValue {
     Literal(TokenTree),
-    Expression(TokenStream),
-}
-
-pub fn shallow_parse(mut tokens: TokenStream) -> Result<Vec<ShallowNode>, ParseError> {
-    tokens.parse_stream().parse()
+    Expression(Expression),
 }
 
 impl Node {
-    fn parse(shallow: &mut impl Iterator<Item = ShallowNode>) -> Result<Self, ParseError> {
-        let mut tag = match shallow.next() {
+    fn parse(stream: &mut ShallowStream) -> Result<Option<Self>, ParseError> {
+        let tag = match stream.next().transpose()? {
             Some(ShallowNode::Tag(tag)) => tag,
-            _ => unimplemented!(),
+            Some(ShallowNode::Literal(lit)) => {
+                return Ok(Some(Node::Text(lit)));
+            }
+            Some(ShallowNode::Expression(expr)) => {
+                return Ok(Some(Node::Expression(Expression(expr))));
+            }
+            None => return Ok(None),
         };
 
-        if tag.nesting == TagNesting::Closing {
-            return Err(ParseError::new(
-                "Unexpected closing tag",
-                Some(tag.name.into_spanned_token()),
-            ));
-        }
+        let children = match tag.nesting {
+            TagNesting::SelfClosing => None,
+            TagNesting::Opening => Some(Node::parse_children(&tag.name, stream)?),
+            TagNesting::Closing => {
+                return Err(ParseError::new(
+                    format!("Unexpected closing tag {}", tag.name),
+                    tag.name,
+                ));
+            }
+        };
 
         match tag.name {
             TagName::Component {
                 name,
+                span,
                 path,
                 generics,
             } => {
                 let mut content = tag.content.parse_stream();
-                let mut defaults = false;
+                let mut spread = None;
                 let mut props = Vec::new();
 
                 while !content.end() {
                     if content.allow(('.', Spacing::Joint)) {
                         content.expect('.')?;
 
-                        if let Some(tt) = content.next() {
-                            return Err(ParseError::new(
-                                "Not allowed after the .. default spread",
-                                Some(tt),
-                            ));
+                        if let Some(TokenTree::Group(expr)) =
+                            content.allow_consume(Delimiter::Brace)
+                        {
+                            spread = Some(expr.stream());
+                        } else {
+                            let expr = TokenStream::from_str("Default::default()").unwrap();
+
+                            spread = Some(expr);
                         }
 
-                        defaults = true;
+                        if let Some(tt) = content.next() {
+                            return Err(ParseError::new("Not allowed after the .. spread", tt));
+                        }
+
                         break;
                     }
 
                     props.push(content.parse()?);
                 }
 
-                if tag.nesting == TagNesting::Opening {
-                    // TODO: Children
-                }
-
-                Ok(Node::Component(Component {
+                Ok(Some(Node::Component(Component {
                     name,
+                    span,
                     path,
                     generics,
                     props,
-                    defaults,
-                }))
+                    spread,
+                    children,
+                })))
             }
             TagName::HtmlElement { name, span } => {
                 let mut content = tag.content.parse_stream();
@@ -150,17 +167,39 @@ impl Node {
                     attributes.push(content.parse()?);
                 }
 
-                if tag.nesting == TagNesting::Opening {
-                    // TODO: Children
-                }
-
-                Ok(Node::HtmlElement(HtmlElement {
+                Ok(Some(Node::HtmlElement(HtmlElement {
                     name,
                     span,
                     attributes,
-                }))
+                    children,
+                })))
             }
         }
+    }
+
+    fn parse_children(name: &TagName, stream: &mut ShallowStream) -> Result<Vec<Node>, ParseError> {
+        let mut children = Vec::new();
+
+        loop {
+            if let Some(Ok(ShallowNode::Tag(tag))) = stream.peek() {
+                if tag.is_closing(&name) {
+                    stream.next();
+                    break;
+                }
+            }
+
+            match Node::parse(stream)? {
+                Some(node) => children.push(node),
+                None => {
+                    return Err(ParseError::new(
+                        format!("Missing closing tag for {name}"),
+                        name.span(),
+                    ))
+                }
+            }
+        }
+
+        Ok(children)
     }
 }
 
@@ -175,35 +214,38 @@ impl Parse for Property {
             if let Some(tt) = inner.next() {
                 return Err(ParseError::new(
                     "Shorthand expressions can only contain a single identifier",
-                    Some(tt),
+                    tt,
                 ));
             }
 
             return Ok(Property {
                 name,
-                expr: expr.stream(),
+                expr: Expression(expr.stream()),
             });
         }
 
-        let name: Ident = stream.parse()?;
+        let name = stream.parse()?;
 
         stream.expect('=')?;
 
         match stream.next() {
             Some(TokenTree::Group(expr)) if expr.delimiter() == Delimiter::Brace => Ok(Property {
                 name,
-                expr: expr.stream(),
+                expr: Expression(expr.stream()),
             }),
             Some(TokenTree::Literal(lit)) => {
                 let mut expr = TokenStream::new();
 
                 expr.push(lit);
 
-                Ok(Property { name, expr })
+                Ok(Property {
+                    name,
+                    expr: Expression(expr),
+                })
             }
             _ => Err(ParseError::new(
                 "Component properties must contain {expressions} or literals",
-                Some(name.into()),
+                name.span(),
             )),
         }
     }
@@ -218,7 +260,7 @@ impl AttributeValue {
                 AttributeValue::Literal(css_label.into_literal().into())
             }
             Some(TokenTree::Group(expr)) if expr.delimiter() == Delimiter::Brace => {
-                AttributeValue::Expression(expr.stream())
+                AttributeValue::Expression(Expression(expr.stream()))
             }
             _ => {
                 return Err(ParseError::new(
@@ -242,13 +284,13 @@ impl Parse for Attribute {
             if let Some(tt) = inner.next() {
                 return Err(ParseError::new(
                     "Shorthand expressions can only contain a single identifier",
-                    Some(tt),
+                    tt,
                 ));
             }
 
             return Ok(Attribute {
                 name,
-                value: AttributeValue::Expression(expr.stream()),
+                value: AttributeValue::Expression(Expression(expr.stream())),
             });
         }
 
@@ -259,14 +301,14 @@ impl Parse for Attribute {
             ));
         }
 
-        let name: Ident = stream.parse()?;
+        let name = stream.parse()?;
 
-        stream.expect('=');
+        stream.expect('=')?;
 
         match stream.next() {
             Some(TokenTree::Group(expr)) if expr.delimiter() == Delimiter::Brace => Ok(Attribute {
                 name,
-                value: AttributeValue::Expression(expr.stream()),
+                value: AttributeValue::Expression(Expression(expr.stream())),
             }),
             Some(TokenTree::Literal(lit)) => Ok(Attribute {
                 name,
@@ -274,7 +316,7 @@ impl Parse for Attribute {
             }),
             _ => Err(ParseError::new(
                 "Element attributes must contain {expressions} or literals",
-                Some(name.into()),
+                name.span(),
             )),
         }
     }

@@ -36,14 +36,14 @@ impl Parser {
                 loop {
                     match self.parse_node(&mut iter) {
                         Ok(node) => fragment.push(node),
-                        Err(err) if err.tt.is_none() => break,
+                        Err(err) => panic!(),
                         err => return err,
                     }
                 }
 
                 Ok(Node::Fragment(fragment))
             }
-            Err(err) if err.tt.is_none() => Ok(node),
+            Err(err) => panic!(),
             err => err,
         }
     }
@@ -352,10 +352,7 @@ impl Parser {
             loop {
                 match self.parse_node(&mut iter) {
                     Ok(child) => element.children.push(child),
-                    Err(err) => match err.tt {
-                        None => break,
-                        _ => return Err(err),
-                    },
+                    Err(err) => panic!(),
                 }
             }
         }

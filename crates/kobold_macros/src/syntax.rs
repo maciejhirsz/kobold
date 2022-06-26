@@ -1,6 +1,6 @@
 //! `Parse` logic for different syntax elements
 
-use std::fmt::Write;
+use std::fmt::{self, Display, Write};
 
 use proc_macro::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 
@@ -15,6 +15,7 @@ pub enum TagName {
     },
     Component {
         name: String,
+        span: Span,
         path: TokenStream,
         generics: Option<TokenStream>,
     },
@@ -38,11 +39,28 @@ impl TagName {
         }
     }
 
-    pub fn into_spanned_token(self) -> TokenTree {
+    pub fn span(&self) -> Span {
         match self {
-            TagName::HtmlElement { name, span } => TokenTree::from(Ident::new(&name, span)),
-            TagName::Component { path, .. } => path.into_iter().next().unwrap(),
+            TagName::HtmlElement { span, .. } => span.clone(),
+            TagName::Component { span, .. } => span.clone(),
         }
+    }
+}
+
+impl IntoSpan for TagName {
+    fn into_span(self) -> Span {
+        self.span()
+    }
+}
+
+impl Display for TagName {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let name = match self {
+            TagName::HtmlElement { name, .. } => name,
+            TagName::Component { name, .. } => name,
+        };
+
+        f.write_str(name)
     }
 }
 
@@ -50,10 +68,9 @@ impl Parse for TagName {
     fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
         let mut ident: Ident = stream.parse()?;
         let mut name = ident.to_string();
+        let mut span = ident.span();
 
         if name.as_bytes()[0].is_ascii_lowercase() && !stream.allow((':', Spacing::Joint)) {
-            let span = ident.span();
-
             return Ok(TagName::HtmlElement { name, span });
         }
 
@@ -66,6 +83,7 @@ impl Parse for TagName {
             path.push(stream.expect(':')?);
 
             ident = stream.parse()?;
+            span = ident.span();
 
             write!(&mut name, "::{ident}").unwrap();
 
@@ -80,6 +98,7 @@ impl Parse for TagName {
 
         Ok(TagName::Component {
             name,
+            span,
             path,
             generics,
         })
@@ -87,8 +106,7 @@ impl Parse for TagName {
 }
 
 /// Describes nesting behavior of a tag
-#[derive(Clone, Copy, PartialEq, Eq)]
-#[derive(Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TagNesting {
     /// Opening tag `<...>`
     Opening,
@@ -106,16 +124,32 @@ pub struct Tag {
     pub content: TokenStream,
 }
 
+impl Tag {
+    pub fn is_closing(&self, opening: &TagName) -> bool {
+        self.nesting == TagNesting::Closing && &self.name == opening
+    }
+}
+
 impl Parse for Tag {
     fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
         stream.expect('<')?;
 
         let mut nesting = match stream.allow_consume('/') {
-            Some(_) => TagNesting::Closing,
+            Some(_) => {
+                let name = stream.parse()?;
+
+                stream.expect('>')?;
+
+                return Ok(Tag {
+                   name,
+                   nesting: TagNesting::Closing,
+                   content: TokenStream::new(),
+                })
+            },
             None => TagNesting::Opening,
         };
 
-        let name: TagName = stream.parse()?;
+        let name = stream.parse()?;
 
         let mut content = TokenStream::new();
 
@@ -132,7 +166,7 @@ impl Parse for Tag {
                         content,
                     });
                 } else {
-                    return Err(ParseError::new("Unexpected closing slash", Some(tt)));
+                    return Err(ParseError::new("Unexpected closing slash", tt));
                 }
             }
 
@@ -147,10 +181,7 @@ impl Parse for Tag {
             content.push(tt);
         }
 
-        Err(ParseError::new(
-            "Tag without closing",
-            Some(name.into_spanned_token()),
-        ))
+        Err(ParseError::new(format!("Missing closing > for {name}"), name))
     }
 }
 
@@ -220,7 +251,9 @@ impl Parse for CssLabel {
 impl CssLabel {
     pub fn into_literal(self) -> Literal {
         let mut lit = Literal::string(&self.label);
-        lit.set_span(self.span);
+
+        // Keep resolution to literal, but change location
+        lit.set_span(lit.span().located_at(self.span));
         lit
     }
 }
@@ -244,23 +277,24 @@ impl Parse for InlineBind {
 
         // Must begin with an identifier, `ctx` or anything else
         let mut ident: Ident = stream.parse()?;
-        let mut done = false;
 
         invocation.push(ident);
 
-        while !done {
+        loop {
             invocation.push(stream.expect('.')?);
 
             ident = stream.parse()?;
-            done = ident.to_string() == "bind";
+
+            if ident.str_eq("bind") {
+                invocation.push(ident);
+
+                let arg = stream.expect(Delimiter::Parenthesis)?;
+                let _: () = stream.parse()?;
+
+                return Ok(InlineBind { invocation, arg })
+            }
 
             invocation.push(ident);
         }
-
-        let arg = stream.expect(Delimiter::Parenthesis)?;
-
-        let _: () = stream.parse()?;
-
-        Ok(InlineBind { invocation, arg })
     }
 }
