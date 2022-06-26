@@ -102,10 +102,7 @@ pub struct Lit;
 
 impl Pattern for Lit {
     fn matches(self, tt: &TokenTree) -> bool {
-        match tt {
-            TokenTree::Literal(_) => true,
-            _ => false,
-        }
+        matches!(tt, TokenTree::Literal(_))
     }
 
     fn expected(self) -> Cow<'static, str> {

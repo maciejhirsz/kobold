@@ -19,6 +19,10 @@ pub fn parse(tokens: TokenStream) -> Result<Vec<Node>, ParseError> {
         nodes.push(node);
     }
 
+    if nodes.is_empty() {
+        return Err(ParseError::new("Empty html! invocation", Span::call_site()));
+    }
+
     Ok(nodes)
 }
 
@@ -182,7 +186,7 @@ impl Node {
 
         loop {
             if let Some(Ok(ShallowNode::Tag(tag))) = stream.peek() {
-                if tag.is_closing(&name) {
+                if tag.is_closing(name) {
                     stream.next();
                     break;
                 }

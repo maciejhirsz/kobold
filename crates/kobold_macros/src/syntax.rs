@@ -32,17 +32,10 @@ impl PartialEq for TagName {
 }
 
 impl TagName {
-    pub fn is_component(&self) -> bool {
-        match self {
-            TagName::HtmlElement { .. } => false,
-            TagName::Component { .. } => true,
-        }
-    }
-
     pub fn span(&self) -> Span {
         match self {
-            TagName::HtmlElement { span, .. } => span.clone(),
-            TagName::Component { span, .. } => span.clone(),
+            TagName::HtmlElement { span, .. } => *span,
+            TagName::Component { span, .. } => *span,
         }
     }
 }
