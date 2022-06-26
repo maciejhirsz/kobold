@@ -5,7 +5,7 @@
 
 use std::fmt::{self, Display, Write};
 
-use proc_macro::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
+use proc_macro::{Delimiter, Ident, Literal, Spacing, Span, Group, TokenStream, TokenTree};
 
 use crate::parse::prelude::*;
 use crate::syntax::Generics;
@@ -16,7 +16,7 @@ pub type ShallowStream = std::iter::Peekable<ShallowNodeIter>;
 pub enum ShallowNode {
     Tag(Tag),
     Literal(Literal),
-    Expression(TokenStream),
+    Expression(Group),
 }
 
 impl Parse for ShallowNode {
@@ -30,7 +30,7 @@ impl Parse for ShallowNode {
                 }
             }
 
-            return Ok(ShallowNode::Expression(expr.stream()));
+            return Ok(ShallowNode::Expression(expr));
         }
 
         if let Some(TokenTree::Literal(lit)) = stream.allow_consume(Lit) {

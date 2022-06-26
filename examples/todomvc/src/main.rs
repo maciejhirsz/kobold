@@ -29,11 +29,7 @@ impl Stateful for App {
 impl App {
     fn render(self) -> impl Html {
         self.stateful(|state, ctx| {
-            let (main_class, footer_class) = if state.entries.is_empty() {
-                ("main hidden", "main hidden")
-            } else {
-                ("main", "footer")
-            };
+            let hidden = state.entries.is_empty().then(|| "hidden");
 
             let active_count = state.count_active();
             let completed_count = state.entries.len() - active_count;
@@ -47,7 +43,7 @@ impl App {
                             <h1>"todos"</h1>
                             <EntryInput {ctx} />
                         </header>
-                        <section .{main_class}>
+                        <section .main.{hidden}>
                             {
                                 html! {
                                     <input
@@ -69,7 +65,7 @@ impl App {
                             }
                             </ul>
                         </section>
-                        <footer .{footer_class}>
+                        <footer .main.{hidden}>
                             <span .todo-count>
                                 <strong>{ active_count }</strong>
                                 { if active_count == 1 { " item left" } else { " items left" } }
@@ -137,13 +133,6 @@ impl<'a> EntryView<'a> {
     fn render(self) -> impl Html + 'a {
         let EntryView { idx, entry, ctx } = self;
 
-        let class = match (entry.editing, entry.completed) {
-            (false, false) => "todo",
-            (true, false) => "todo editing",
-            (false, true) => "todo completed",
-            (true, true) => "todo editing completed",
-        };
-
         let input = self.entry.editing.then(move || {
             let onmouseover = ctx.bind(move |_, event| {
                 let input: HtmlInputElement = event.target();
@@ -164,9 +153,11 @@ impl<'a> EntryView<'a> {
         });
 
         let onchange = ctx.bind(move |state, _| state.toggle(idx));
+        let editing = entry.editing.then(|| "editing");
+        let completed = entry.completed.then(|| "completed");
 
         html! {
-            <li {class}>
+            <li .todo.{editing}.{completed}>
                 <div .view>
                     {
                         html! {

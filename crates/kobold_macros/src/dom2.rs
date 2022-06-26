@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug};
 use std::str::FromStr;
 
-use proc_macro::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
+use proc_macro::{Delimiter, Group, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 
 use crate::parse::prelude::*;
 use crate::syntax::CssLabel;
@@ -34,7 +34,7 @@ pub enum Node {
     Expression(Expression),
 }
 
-pub struct Expression(pub TokenStream);
+pub struct Expression(pub Group);
 
 impl Debug for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -45,6 +45,18 @@ impl Debug for Expression {
 impl From<Expression> for Node {
     fn from(expr: Expression) -> Node {
         Node::Expression(expr)
+    }
+}
+
+impl From<TokenTree> for Expression {
+    fn from(tt: TokenTree) -> Self {
+        let span = tt.span();
+        let stream = TokenStream::from(tt);
+        let mut expr = Group::new(Delimiter::None, stream);
+
+        expr.set_span(span);
+
+        Expression(expr)
     }
 }
 
@@ -63,6 +75,7 @@ pub struct Component {
 pub struct HtmlElement {
     pub name: String,
     pub span: Span,
+    pub classes: Vec<CssValue>,
     pub attributes: Vec<Attribute>,
     pub children: Option<Vec<Node>>,
 }
@@ -71,6 +84,12 @@ pub struct HtmlElement {
 pub struct Property {
     pub name: Ident,
     pub expr: Expression,
+}
+
+#[derive(Debug)]
+pub enum CssValue {
+    Literal(Literal),
+    Expression(Expression),
 }
 
 #[derive(Debug)]
@@ -166,30 +185,39 @@ impl Node {
             }
             TagName::HtmlElement { name, span } => {
                 let mut content = tag.content.parse_stream();
+                let mut classes = Vec::new();
                 let mut attributes = Vec::new();
 
                 loop {
-                    let name = if let Some(class) = content.allow_consume('.') {
-                        Ident::new("class", class.span())
-                    } else if let Some(id) = content.allow_consume('#') {
-                        Ident::new("id", id.span())
+                    if content.allow_consume('.').is_some() {
+                        classes.push(content.parse()?);
+                    } else if let Some(hash) = content.allow_consume('#') {
+                        let name = Ident::new("id", hash.span());
+                        let value: CssValue = content.parse()?;
+
+                        attributes.push(Attribute {
+                            name,
+                            value: value.into()
+                        })
                     } else {
                         break;
-                    };
-
-                    attributes.push(Attribute {
-                        name,
-                        value: AttributeValue::parse_css_value(&mut content)?,
-                    });
+                    }
                 }
 
                 while !content.end() {
-                    attributes.push(content.parse()?);
+                    let attr: Attribute = content.parse()?;
+
+                    if attr.name.str_eq("class") {
+                        classes.push(CssValue::try_from(attr.value)?);
+                    } else {
+                        attributes.push(attr);
+                    }
                 }
 
                 Ok(Some(Node::HtmlElement(HtmlElement {
                     name,
                     span,
+                    classes,
                     attributes,
                     children,
                 })))
@@ -240,7 +268,7 @@ impl Parse for Property {
 
             return Ok(Property {
                 name,
-                expr: Expression(expr.stream()),
+                expr: Expression(expr),
             });
         }
 
@@ -251,26 +279,18 @@ impl Parse for Property {
         match stream.next() {
             Some(TokenTree::Group(expr)) if expr.delimiter() == Delimiter::Brace => Ok(Property {
                 name,
-                expr: Expression(expr.stream()),
+                expr: Expression(expr),
             }),
-            Some(TokenTree::Literal(lit)) => {
-                let mut expr = TokenStream::new();
-
-                expr.push(lit);
-
+            Some(expr @ TokenTree::Literal(_)) => {
                 Ok(Property {
                     name,
-                    expr: Expression(expr),
+                    expr: Expression::from(expr),
                 })
             }
             Some(TokenTree::Ident(b)) if b.str_eq("true") || b.str_eq("false") => {
-                let mut expr = TokenStream::new();
-
-                expr.push(b);
-
                 Ok(Property {
                     name,
-                    expr: Expression(expr),
+                    expr: Expression::from(TokenTree::Ident(b)),
                 })
             }
             _ => Err(ParseError::new(
@@ -281,26 +301,41 @@ impl Parse for Property {
     }
 }
 
-impl AttributeValue {
-    pub fn parse_css_value(stream: &mut ParseStream) -> Result<Self, ParseError> {
-        let value = match stream.peek() {
-            Some(TokenTree::Ident(_)) => {
-                let css_label: CssLabel = stream.parse()?;
+impl Parse for CssValue {
+    fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
+        if let Some(expr) = stream.allow_consume(Delimiter::Brace) {
+            return Ok(CssValue::Expression(Expression::from(expr)));
+        }
 
-                AttributeValue::Literal(css_label.into_literal())
-            }
-            Some(TokenTree::Group(expr)) if expr.delimiter() == Delimiter::Brace => {
-                AttributeValue::Expression(Expression(expr.stream()))
-            }
-            _ => {
-                return Err(ParseError::new(
-                    "Expected identifier or an {expression}",
-                    stream.next(),
-                ))
-            }
-        };
+        let css_label: CssLabel = stream
+            .parse()
+            .map_err(|err| err.msg("Expected identifier or an {expression}"))?;
 
-        Ok(value)
+        Ok(CssValue::Literal(css_label.into_literal()))
+    }
+}
+
+impl TryFrom<AttributeValue> for CssValue {
+    type Error = ParseError;
+
+    fn try_from(value: AttributeValue) -> Result<CssValue, ParseError> {
+        match value {
+            AttributeValue::Literal(lit) => Ok(CssValue::Literal(lit)),
+            AttributeValue::Expression(expr) => Ok(CssValue::Expression(expr)),
+            AttributeValue::Boolean(b) => Err(ParseError::new(
+                "Cannot assign bool to this attribute",
+                b.span(),
+            )),
+        }
+    }
+}
+
+impl From<CssValue> for AttributeValue {
+    fn from(value: CssValue) -> AttributeValue {
+        match value {
+            CssValue::Literal(lit) => AttributeValue::Literal(lit),
+            CssValue::Expression(expr) => AttributeValue::Expression(expr)
+        }
     }
 }
 
@@ -320,7 +355,7 @@ impl Parse for Attribute {
 
             return Ok(Attribute {
                 name,
-                value: Expression(expr.stream()).into(),
+                value: Expression(expr).into(),
             });
         }
 
@@ -338,7 +373,7 @@ impl Parse for Attribute {
         match stream.next() {
             Some(TokenTree::Group(expr)) if expr.delimiter() == Delimiter::Brace => Ok(Attribute {
                 name,
-                value: Expression(expr.stream()).into(),
+                value: Expression(expr).into(),
             }),
             Some(TokenTree::Literal(lit)) => Ok(Attribute {
                 name,
