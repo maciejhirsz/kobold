@@ -1,19 +1,17 @@
-use std::vec::IntoIter as VecIter;
-
 use arrayvec::ArrayString;
-use proc_macro::{Ident, Span, TokenStream};
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::quote;
 
 use crate::dom2::Node;
 
 pub fn generate(nodes: Vec<Node>) {
-    let mut nodes = nodes.into_iter();
-
-    let gen = Generator::new(&mut nodes);
+    let gen = Generator::default();
 }
 
-pub struct Generator<'a> {
-    nodes: &'a mut VecIter<Node>,
+#[derive(Default)]
+pub struct Generator {
     names: FieldGenerator,
+    out: Transient,
 }
 
 pub struct JsSnippet {
@@ -21,35 +19,60 @@ pub struct JsSnippet {
     args: Vec<Ident>,
 }
 
+#[derive(Default)]
 pub struct Transient {
     fields: Vec<Field>,
-    elements: Vec<Element>,
+    // elements: Vec<DomNode>,
 }
 
 pub struct Field {
     name: Ident,
     typ: Ident,
+    value: TokenStream,
     bounds: TokenStream,
     build: TokenStream,
     update: TokenStream,
 }
 
-pub struct Element {
-    name: Ident,
-    js: JsSnippet,
-    hoisted: bool,
+// pub struct DomNode {
+//     name: Ident,
+//     js: JsSnippet,
+//     hoisted: bool,
+// }
+
+pub enum DomNode {
+    Rust(Ident),
+    TextNode(String),
 }
 
-impl<'a> Generator<'a> {
-    pub fn new(nodes: &'a mut VecIter<Node>) -> Self {
-        Generator {
-            nodes,
-            names: FieldGenerator::default(),
-        }
-    }
+impl Generator {
+    pub fn to_dom(&mut self, node: Node) -> DomNode {
+        match node {
+            Node::Expression(expr) => {
+                let (typ, name) = self.names.next();
 
-    pub fn generate(&mut self) -> Transient {
-        unimplemented!()
+                let value = expr.stream.into();
+
+                let bounds = quote!(#typ: ::kobold::Html,);
+                let build = quote!(let #name = self.#name.build());
+                let update = quote!(self.#name.update(&mut p.#name));
+
+                self.out.fields.push(Field {
+                    name: name.clone(),
+                    typ,
+                    value,
+                    bounds,
+                    build,
+                    update,
+                });
+
+                DomNode::Rust(name)
+            }
+            Node::Text(lit) => {
+                DomNode::TextNode(literal_to_string(lit))
+            }
+            _ => unimplemented!(),
+        }
     }
 }
 
@@ -85,5 +108,22 @@ impl FieldGenerator {
         let name = Ident::new(&buf, Span::call_site());
 
         (typ, name)
+    }
+}
+
+pub fn literal_to_string(lit: impl ToString) -> String {
+    const QUOTE: &str = "\"";
+
+    let stringified = lit.to_string();
+
+    match stringified.chars().next() {
+        // Take the string verbatim
+        Some('"' | '\'') => stringified,
+        _ => {
+            let mut buf = String::with_capacity(stringified.len() + QUOTE.len() * 2);
+
+            buf.extend([QUOTE, &stringified, QUOTE]);
+            buf
+        }
     }
 }

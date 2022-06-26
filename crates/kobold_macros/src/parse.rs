@@ -2,7 +2,7 @@
 //! token streams without `syn` or `quote`.
 
 use beef::Cow;
-use proc_macro::{Delimiter, Ident, Spacing, Span, TokenStream, TokenTree};
+use proc_macro::{Delimiter, Group, Ident, Spacing, Span, TokenStream, TokenTree};
 
 use crate::dom2::{ShallowNodeIter, ShallowStream};
 
@@ -10,7 +10,7 @@ pub type ParseStream = std::iter::Peekable<proc_macro::token_stream::IntoIter>;
 
 pub mod prelude {
     pub use super::{IdentExt, IteratorExt, TokenStreamExt, TokenTreeExt};
-    pub use super::{Lit, Parse, ParseError, ParseStream, IntoSpan};
+    pub use super::{IntoSpan, Lit, Parse, ParseError, ParseStream};
 }
 
 #[derive(Debug)]
@@ -37,7 +37,9 @@ impl IntoSpan for TokenTree {
 
 impl IntoSpan for Option<TokenTree> {
     fn into_span(self) -> Span {
-        self.as_ref().map(TokenTree::span).unwrap_or_else(Span::call_site)
+        self.as_ref()
+            .map(TokenTree::span)
+            .unwrap_or_else(Span::call_site)
     }
 }
 
@@ -282,7 +284,7 @@ mod util {
     pub trait IdentExt: Display {
         fn with_str<F, R>(&self, f: F) -> R
         where
-            F: FnOnce(&str) -> R
+            F: FnOnce(&str) -> R,
         {
             FMT_BUF.with(move |buf| {
                 let mut buf = buf.borrow_mut();
