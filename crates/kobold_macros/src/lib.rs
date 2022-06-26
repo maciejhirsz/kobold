@@ -11,6 +11,7 @@ use quote::quote;
 mod dom;
 mod dom2;
 mod gen;
+mod gen2;
 mod parse;
 mod parser;
 mod syntax;
