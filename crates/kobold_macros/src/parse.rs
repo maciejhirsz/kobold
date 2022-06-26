@@ -120,7 +120,7 @@ impl Pattern for Lit {
 impl Pattern for &str {
     fn matches(self, tt: &TokenTree) -> bool {
         match tt {
-            TokenTree::Ident(ident) => ident.str_eq(self),
+            TokenTree::Ident(ident) => ident.eq(self),
             _ => false,
         }
     }
@@ -132,6 +132,17 @@ impl Pattern for &str {
 
 impl Pattern for char {
     fn matches(self, tt: &TokenTree) -> bool {
+        let delimiter = match self {
+            '{' => Some(Delimiter::Brace),
+            '[' => Some(Delimiter::Bracket),
+            '(' => Some(Delimiter::Parenthesis),
+            _ => None,
+        };
+
+        if let Some(delimiter) = delimiter {
+            return delimiter.matches(tt);
+        }
+
         match tt {
             TokenTree::Punct(punct) => punct.as_char() == self,
             _ => false,
@@ -259,36 +270,38 @@ impl TokenStreamExt for TokenStream {
 }
 
 mod util {
-    use std::cell::UnsafeCell;
+    use std::cell::RefCell;
     use std::fmt::{Display, Write};
 
     use arrayvec::ArrayString;
 
-    const FMT_BUF_CAPACITY: usize = 40;
-
     thread_local! {
-        static FMT_BUF: UnsafeCell<ArrayString<FMT_BUF_CAPACITY>> = UnsafeCell::new(ArrayString::new());
+        static FMT_BUF: RefCell<ArrayString<32>> = RefCell::new(ArrayString::new());
     }
 
     pub trait IdentExt: Display {
-        /// String compare `Idents` without allocations for small values
-        fn str_eq(&self, other: &str) -> bool {
-
-            if other.len() > FMT_BUF_CAPACITY {
-                return self.to_string() == other;
-            }
-
+        fn with_str<F, R>(&self, f: F) -> R
+        where
+            F: FnOnce(&str) -> R
+        {
             FMT_BUF.with(move |buf| {
-                let mut buf = unsafe { &mut* buf.get() };
+                let mut buf = buf.borrow_mut();
 
                 buf.clear();
 
-                if write!(&mut buf, "{self}").is_ok() {
-                    buf.as_str() == other
-                } else {
-                    false
+                match write!(&mut buf, "{self}") {
+                    Ok(()) => f(&buf),
+                    Err(_) => f(&self.to_string()),
                 }
             })
+        }
+
+        fn eq(&self, other: &str) -> bool {
+            self.with_str(|s| s == other)
+        }
+
+        fn one_of<'a>(&self, other: impl IntoIterator<Item = &'a str>) -> bool {
+            self.with_str(move |s| other.into_iter().any(|other| s == other))
         }
     }
 

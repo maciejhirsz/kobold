@@ -2,7 +2,7 @@
 
 use std::fmt::Write;
 
-use proc_macro::{Delimiter, Ident, Literal, Span, TokenStream, TokenTree};
+use proc_macro::{Ident, Literal, Span, TokenStream, TokenTree};
 
 use crate::parse::*;
 
@@ -106,10 +106,10 @@ impl Parse for InlineBind {
 
             ident = stream.parse()?;
 
-            if ident.str_eq("bind") {
+            if ident.eq("bind") {
                 invocation.push(ident);
 
-                let arg = stream.expect(Delimiter::Parenthesis)?;
+                let arg = stream.expect('(')?;
                 let _: () = stream.parse()?;
 
                 return Ok(InlineBind { invocation, arg })
