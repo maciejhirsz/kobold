@@ -1,29 +1,38 @@
 use std::fmt::{Display, Write};
+use std::str::FromStr;
 
 use crate::dom2::{Attribute, AttributeValue, CssValue, HtmlElement};
-use crate::gen2::{DomNode, FieldId, Generator, IntoGenerator};
+use crate::gen2::{DomNode, Field, FieldId, Generator, IntoGenerator, JsString};
+use crate::parse::{IdentExt, Parse, TokenStreamExt};
+use crate::syntax::InlineBind;
 
-pub struct JsElement {
-    /// Constructor for the element, such as `document.createElement('div')`
-    ///
-    /// NOTE: no semicolon
-    pub constructor: String,
+pub enum JsNode {
+    TextNode {
+        /// Contents of the TextNode
+        text: JsString,
+    },
+    Element {
+        /// Tag name of the element such as `div`
+        tag: String,
 
-    /// Method calls on constructed element, such as `append(foo)` or `className = bar`
-    ///
-    /// NOTE: no dot, no semicolon
-    pub calls: Vec<String>,
+        /// Method calls on constructed element, such as `append(foo)` or `className = bar`
+        ///
+        /// NOTE: no dot, no semicolon
+        calls: Vec<String>,
 
-    /// Arguments from Rust this snippet requires
-    pub args: Vec<FieldId>,
+        /// Arguments from Rust this snippet requires
+        args: Vec<FieldId>,
+    },
+    Fragment {
+        /// Children belonging to this document fragment
+        chidren: Vec<JsNode>,
+    },
 }
 
-impl JsElement {
+impl JsNode {
     fn text_node(lit: proc_macro::Literal) -> Self {
-        JsElement {
-            constructor: format!("document.createTextNode({lit})"),
-            calls: Vec::new(),
-            args: Vec::new(),
+        JsNode::TextNode {
+            text: JsString(lit),
         }
     }
 }
@@ -38,7 +47,7 @@ fn into_class_name<'a>(
     }
 
     if let Some(CssValue::Expression(expr)) = class.take() {
-        let id = expr.into_var(gen);
+        let id = gen.add_expression(expr.stream.into());
 
         args.push(id);
 
@@ -50,7 +59,7 @@ fn into_class_name<'a>(
 
 impl IntoGenerator for HtmlElement {
     fn into_gen(self, gen: &mut Generator) -> DomNode {
-        let constructor = format!("document.createElement('{}')", self.name);
+        let tag = self.name.to_string();
         let count = self.classes.len();
 
         let mut calls = Vec::new();
@@ -80,19 +89,62 @@ impl IntoGenerator for HtmlElement {
                     calls.push(format!("setAttribute('{name}',{value})"));
                 }
                 AttributeValue::Boolean(value) => calls.push(format!("{name}={value}")),
-                AttributeValue::Expression(expr) => {
-                    let id = expr.into_var(gen);
+                AttributeValue::Expression(expr) => name.with_str(|name| {
+                    if name.starts_with("on") && name.len() > 2 {
+                        let target = match tag.as_str() {
+                            "a" => "HtmlLinkElement",
+                            "form" => "HtmlFormElement",
+                            "img" => "HtmlImageElement",
+                            "input" => "HtmlInputElement",
+                            "option" => "HtmlOptionElement",
+                            "select" => "HtmlSelectElement",
+                            "textarea" => "HtmlTextAreaElement",
+                            _ => "HtmlElement",
+                        };
+
+                        let mut inner = expr.stream.clone().parse_stream();
+
+                        let expr = if let Ok(bind) = InlineBind::parse(&mut inner) {
+                            let mut expr = bind.invocation;
+                            expr.write(&format!(
+                                "::<::kobold::reexport::web_sys::{target}, _, _> ="
+                            ));
+                            expr.push(bind.arg);
+                            expr
+                        } else {
+                            use proc_macro::{Delimiter, TokenStream};
+
+                            let mut con = TokenStream::from_str(&format!(
+                                "let constrained: ::kobold:stateful::Callback<\
+                                    ::kobold::reexport::web_sys::{target},\
+                                    _,\
+                                    _,\
+                                > ="
+                            ))
+                            .unwrap();
+                            con.extend(expr.stream);
+                            con.write("; constrained");
+                            con.group(Delimiter::Brace)
+                        };
+
+                        let (typ, name) = gen.names.next();
+
+                        // TODO: Do something with this expression!
+                        gen.add_expression(expr.into());
+
+                        return;
+                    }
+
+                    let id = gen.add_expression(expr.stream.into());
 
                     args.push(id);
 
                     let value = gen.out.name(id);
 
                     calls.push(format!("setAttributeNode('{name}',{value}"));
-                }
+                }),
             };
         }
-
-        // TODO: attributes
 
         if let Some(children) = self.children {
             let mut append = String::from("append(");
@@ -101,13 +153,13 @@ impl IntoGenerator for HtmlElement {
                 let dom_node = child.into_gen(gen);
 
                 let value: &dyn Display = match &dom_node {
-                    DomNode::TextNode(text) => text,
                     DomNode::Variable(id) => {
                         args.push(*id);
 
                         gen.out.name(*id)
                     }
-                    DomNode::Element(_) => unimplemented!(),
+                    DomNode::JsNode(JsNode::TextNode { text }) => text,
+                    DomNode::JsNode(_) => unimplemented!(),
                 };
 
                 let _ = write!(&mut append, "{value},");
@@ -119,10 +171,6 @@ impl IntoGenerator for HtmlElement {
             calls.push(append);
         }
 
-        DomNode::Element(JsElement {
-            constructor,
-            calls,
-            args,
-        })
+        DomNode::JsNode(JsNode::Element { tag, calls, args })
     }
 }

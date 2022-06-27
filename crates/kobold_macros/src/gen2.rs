@@ -9,7 +9,7 @@ use crate::dom2::{Expression, Node};
 mod component;
 mod element;
 
-pub use element::JsElement;
+pub use element::JsNode;
 
 pub fn generate(nodes: Vec<Node>) {
     let gen = Generator::default();
@@ -19,6 +19,18 @@ pub fn generate(nodes: Vec<Node>) {
 pub struct Generator {
     names: FieldGenerator,
     out: Transient,
+}
+
+impl Generator {
+    fn add_expression(&mut self, value: TokenStream) -> FieldId {
+        let (typ, name) = self.names.next();
+
+        self.out.add(Field::Html {
+            name,
+            typ,
+            value,
+        })
+    }
 }
 
 pub type FieldId = usize;
@@ -97,33 +109,18 @@ pub enum DomNode {
     /// This node represents a variable, index mapping to a `Field` on `Transient`
     Variable(FieldId),
     /// This node is an element that can be constructed in JavaScript
-    Element(JsElement),
-    /// Text node that can be appended verbatim in JavaScript
-    TextNode(JsString),
+    JsNode(JsNode),
 }
 
 trait IntoGenerator {
     fn into_gen(self, gen: &mut Generator) -> DomNode;
 }
 
-impl Expression {
-    fn into_var(self, gen: &mut Generator) -> FieldId {
-        let (typ, name) = gen.names.next();
-        let value = self.stream.into();
-
-        gen.out.add(Field::Html {
-            name: name.clone(),
-            typ,
-            value,
-        })
-    }
-}
-
 impl IntoGenerator for Expression {
     fn into_gen(self, gen: &mut Generator) -> DomNode {
-        let name = self.into_var(gen);
+        let id = gen.add_expression(self.stream.into());
 
-        DomNode::Variable(name)
+        DomNode::Variable(id)
     }
 }
 
@@ -132,7 +129,7 @@ impl IntoGenerator for Node {
         match self {
             Node::Component(component) => component.into_gen(gen),
             Node::Expression(expr) => expr.into_gen(gen),
-            Node::Text(lit) => DomNode::TextNode(JsString(lit)),
+            Node::Text(lit) => DomNode::JsNode(JsNode::TextNode{ text: JsString(lit) }),
             _ => unimplemented!(),
         }
     }

@@ -2,7 +2,7 @@
 //! token streams without `syn` or `quote`.
 
 use beef::Cow;
-use proc_macro::{Delimiter, Group, Ident, Spacing, Span, TokenStream, TokenTree};
+use proc_macro::{Delimiter, Ident, Spacing, Span, TokenStream, TokenTree, Group};
 
 use crate::dom2::{ShallowNodeIter, ShallowStream};
 
@@ -253,6 +253,8 @@ pub trait TokenStreamExt {
     fn push(&mut self, tt: impl Into<TokenTree>);
 
     fn parse_stream(self) -> ParseStream;
+
+    fn group(self, delim: Delimiter) -> TokenStream;
 }
 
 impl TokenStreamExt for TokenStream {
@@ -268,6 +270,10 @@ impl TokenStreamExt for TokenStream {
 
     fn parse_stream(self) -> ParseStream {
         self.into_iter().peekable()
+    }
+
+    fn group(self, delim: Delimiter) -> TokenStream {
+        TokenStream::from(TokenTree::Group(Group::new(delim, self)))
     }
 }
 

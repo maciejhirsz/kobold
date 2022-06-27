@@ -20,7 +20,7 @@ impl Component {
         let mut body = None;
 
         for Property { name, expr } in self.props {
-            let body = body.get_or_insert_with(|| TokenStream::new());
+            let body = body.get_or_insert_with(TokenStream::new);
 
             body.push(name);
             body.write(":");
@@ -29,7 +29,7 @@ impl Component {
         }
 
         if let Some(spread) = self.spread {
-            let body = body.get_or_insert_with(|| TokenStream::new());
+            let body = body.get_or_insert_with(TokenStream::new);
 
             body.write("..");
             body.extend(spread.stream);
