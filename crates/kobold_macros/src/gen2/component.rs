@@ -45,8 +45,8 @@ impl IntoGenerator for Component {
         let name = gen.names.next();
         let value = self.into_expression();
 
-        let var = gen.out.add(Field::Html { name, value });
+        gen.out.fields.push(Field::Html { name, value });
 
-        DomNode::Variable(*var)
+        DomNode::Variable(name)
     }
 }

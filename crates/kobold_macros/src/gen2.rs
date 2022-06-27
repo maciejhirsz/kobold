@@ -1,4 +1,4 @@
-use std::fmt::{self, Display, Debug, Write};
+use std::fmt::{self, Debug, Display, Write};
 use std::hash::Hash;
 
 use arrayvec::ArrayString;
@@ -11,11 +11,14 @@ mod component;
 mod element;
 mod fragment;
 
-pub use fragment::{append, JsFragment};
 pub use element::JsElement;
+pub use fragment::{append, JsFragment};
 
-pub type Short = ArrayString<8>;
-pub type JsFnName = ArrayString<{ 3 + 8 + 16 }>; // underscores + up to 8 bytes for el + hash
+// Short string for auto-generated variable names
+pub type Short = ArrayString<4>;
+
+// JS function name, capacity must fit a `Short`, a hash, and few underscores
+pub type JsFnName = ArrayString<24>;
 
 pub enum DomNode {
     Variable(Short),
@@ -30,7 +33,7 @@ impl DomNode {
     }
 }
 
-pub fn generate(mut nodes: Vec<Node>) {
+pub fn generate(mut nodes: Vec<Node>) -> Transient {
     let mut gen = Generator::default();
 
     let dom_node = if nodes.len() == 1 {
@@ -40,25 +43,35 @@ pub fn generate(mut nodes: Vec<Node>) {
     };
 
     gen.hoist(dom_node);
-
-    panic!("{gen:#?}");
+    gen.out
 }
 
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub struct Generator {
-    names: FieldGenerator,
-    js: JsModule,
+    names: NameGenerator,
     out: Transient,
 }
 
 impl Generator {
-    fn add_expression(&mut self, value: impl Into<TokenStream>) -> &Short {
+    fn add_expression(&mut self, value: TokenStream) -> Short {
         let name = self.names.next();
 
-        self.out.add(Field::Html {
+        self.out.fields.push(Field::Html { name, value });
+
+        name
+    }
+
+    fn add_attribute(&mut self, el: Short, abi: &'static str, value: TokenStream) -> Short {
+        let name = self.names.next();
+
+        self.out.fields.push(Field::Attribute {
             name,
-            value: value.into(),
-        })
+            el,
+            abi,
+            value,
+        });
+
+        name
     }
 
     fn hoist(&mut self, node: DomNode) -> Option<JsFnName> {
@@ -68,40 +81,36 @@ impl Generator {
             DomNode::Variable(_) => return None,
             DomNode::TextNode(text) => {
                 let body = format!("return document.createTextNode({text});\n");
-                let var = self.out.next_el();
+                let var = self.names.next_el();
 
                 (var, body, Vec::new())
             }
-            DomNode::Element(el) => {
-                let JsElement {
-                    tag,
-                    var,
-                    code,
-                    args,
-                } = el;
-
+            DomNode::Element(JsElement {
+                tag,
+                var,
+                code,
+                args,
+                hoisted: _,
+            }) => {
                 let body = if code.is_empty() {
-                    format!("return document.createElement('{tag}');\n")
+                    format!("return document.createElement(\"{tag}\");\n")
                 } else {
-                    format!("let {var}=document.createElement('{tag}');\n{code}return {var};\n")
+                    format!("let {var}=document.createElement(\"{tag}\");\n{code}return {var};\n")
                 };
 
                 (var, body, args)
             }
-            DomNode::Fragment(frag) => {
-                let JsFragment { var, code, args } = frag;
-
+            DomNode::Fragment(JsFragment { var, code, args }) => {
                 assert!(
                     !code.is_empty(),
                     "Document fragment mustn't be empty, this is a bug"
                 );
 
-                let body =
-                    format!("let {var}=document.createDocumentFragment();\n{code}return {var};\n");
-
-                (var, body, args)
+                (var, code, args)
             }
         };
+
+        self.out.els.push(var);
 
         let mut hasher = fnv::FnvHasher::default();
         var.hash(&mut hasher);
@@ -110,7 +119,7 @@ impl Generator {
         let hash = hasher.finish();
         let name = JsFnName::try_from(format_args!("__{var}_{hash:016x}")).unwrap();
 
-        let js = &mut self.js.code;
+        let js = &mut self.out.js.code;
 
         js.push_str("export function ");
         js.push_str(&name);
@@ -131,7 +140,7 @@ impl Generator {
         js.push_str(&body);
         js.push_str("}\n");
 
-        self.js.functions.push(JsFunction { name, args });
+        self.out.js.functions.push(JsFunction { name, args });
 
         Some(name)
     }
@@ -157,39 +166,11 @@ pub struct JsFunction {
     pub args: Vec<Short>,
 }
 
-pub type FieldId = usize;
-
 #[derive(Default, Debug)]
 pub struct Transient {
+    js: JsModule,
     fields: Vec<Field>,
-    elements: usize,
-}
-
-impl Transient {
-    fn add(&mut self, field: Field) -> &Short {
-        let id = self.fields.len();
-
-        self.fields.push(field);
-        self.name(id)
-    }
-
-    fn name(&self, id: FieldId) -> &Short {
-        match &self.fields[id] {
-            Field::Html { name, .. } | Field::Attribute { name, .. } => name,
-        }
-    }
-
-    fn next_el(&mut self) -> Short {
-        let n = self.elements;
-
-        self.elements += 1;
-
-        let mut var = Short::new();
-
-        let _ = write!(var, "e{n}");
-
-        var
-    }
+    els: Vec<Short>,
 }
 
 pub enum Field {
@@ -200,7 +181,7 @@ pub enum Field {
     Attribute {
         name: Short,
         el: Short,
-        abi: Short,
+        abi: &'static str,
         value: TokenStream,
     },
 }
@@ -209,10 +190,15 @@ impl Debug for Field {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Field::Html { name, value } => {
-                write!(f, "{name} => {value}")
+                write!(f, "{name} <Html>: {value}")
             }
-            Field::Attribute { name, el, abi, value } => {
-                unimplemented!()
+            Field::Attribute {
+                name,
+                el,
+                abi,
+                value,
+            } => {
+                write!(f, "{name} <Attribute({abi} -> {el})>: {value}")
             }
         }
     }
@@ -268,7 +254,7 @@ impl IntoGenerator for Expression {
     fn into_gen(self, gen: &mut Generator) -> DomNode {
         let name = gen.add_expression(self.stream);
 
-        DomNode::Variable(*name)
+        DomNode::Variable(name)
     }
 }
 
@@ -284,18 +270,20 @@ impl IntoGenerator for Node {
 }
 
 #[derive(Default, Debug)]
-pub struct FieldGenerator {
-    count: usize,
+pub struct NameGenerator {
+    variables: usize,
+    elements: usize,
 }
 
-impl FieldGenerator {
+impl NameGenerator {
+    /// Generate next variable name, `a` to `z` lower case
     fn next(&mut self) -> Short {
         const LETTERS: usize = 26;
 
         let mut buf = Short::new();
-        let mut n = self.count;
+        let mut n = self.variables;
 
-        self.count += 1;
+        self.variables += 1;
 
         loop {
             buf.push((u8::try_from(n % LETTERS).unwrap() + b'a') as char);
@@ -309,9 +297,22 @@ impl FieldGenerator {
 
         buf
     }
+
+    /// Generate next element name, integer prefixed with `e`
+    fn next_el(&mut self) -> Short {
+        let n = self.elements;
+
+        self.elements += 1;
+
+        let mut var = Short::new();
+
+        let _ = write!(var, "e{n}");
+
+        var
+    }
 }
 
-pub struct JsString(proc_macro::Literal);
+pub struct JsString(Literal);
 
 impl Display for JsString {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

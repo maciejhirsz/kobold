@@ -18,13 +18,14 @@ impl IntoGenerator for Vec<Node> {
     fn into_gen(self, gen: &mut Generator) -> DomNode {
         assert!(!self.is_empty());
 
-        let var = gen.out.next_el();
+        let var = gen.names.next_el();
 
         let mut code = format!("let {var}=document.createDocumentFragment();\n");
         let mut args = Vec::new();
 
         let append = append(gen, &mut code, &mut args, self);
-        let _ = writeln!(code, "{var}.{append}");
+        let _ = writeln!(code, "{var}.{append};");
+        let _ = writeln!(code, "return {var};");
 
         DomNode::Fragment(JsFragment { var, code, args })
     }
@@ -36,13 +37,13 @@ pub fn append(
     args: &mut Vec<Short>,
     children: Vec<Node>,
 ) -> String {
-    let mut append = format!("append(");
+    let mut append = String::from("append(");
     for child in children {
         let dom_node = child.into_gen(gen);
 
-        match &dom_node {
+        match dom_node {
             DomNode::Variable(value) => {
-                args.push(*value);
+                args.push(value);
 
                 let _ = write!(append, "{value},");
             }
@@ -51,13 +52,20 @@ pub fn append(
                 let _ = write!(append, "{text},");
             }
             DomNode::Element(el) => {
-                let _ = writeln!(js, "let {}=document.createElement('{}');", el.var, el.tag);
+                let var = el.var;
+                if el.hoisted {
+                    gen.hoist(DomNode::Element(el));
 
-                js.push_str(&el.code);
+                    args.push(var);
+                } else {
+                    let _ = writeln!(js, "let {}=document.createElement(\"{}\");", el.var, el.tag);
 
-                args.extend(el.args.iter().copied());
+                    js.push_str(&el.code);
 
-                let _ = write!(append, "{},", el.var);
+                    args.extend(el.args);
+                }
+
+                let _ = write!(append, "{var},");
             }
             DomNode::Fragment(_) => {
                 panic!("Unexpected document fragment in the middle of the DOM");
@@ -66,6 +74,6 @@ pub fn append(
     }
 
     append.pop();
-    append.push_str(");");
+    append.push(')');
     append
 }

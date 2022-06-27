@@ -1,4 +1,6 @@
-use std::fmt::{Display, Write};
+use std::fmt::{self, Display, Write};
+
+use proc_macro::{Delimiter, Group, Literal, TokenStream};
 
 use crate::dom2::{Attribute, AttributeValue, CssValue, HtmlElement};
 use crate::gen2::{append, DomNode, Generator, IntoGenerator, Short};
@@ -17,64 +19,81 @@ pub struct JsElement {
 
     /// Arguments to import from rust
     pub args: Vec<Short>,
+
+    /// Whether or not this element needs to be hoisted in its own JS function
+    pub hoisted: bool,
 }
 
-fn into_class_name<'a>(
-    class: &'a mut Option<CssValue>,
-    args: &mut Vec<Short>,
-    gen: &'a mut Generator,
-) -> Option<&'a dyn Display> {
-    if let Some(CssValue::Literal(lit)) = class {
-        return Some(lit);
+fn into_class_name(
+    class: Option<CssValue>,
+    el: &mut JsElement,
+    gen: &mut Generator,
+) -> Option<ClassName> {
+    match class? {
+        CssValue::Literal(lit) => Some(ClassName::Literal(lit)),
+        CssValue::Expression(expr) => {
+            let name = gen.add_attribute(el.var, "&str", expr.stream);
+
+            el.args.push(name);
+
+            Some(ClassName::Expression(name))
+        }
     }
+}
 
-    if let Some(CssValue::Expression(expr)) = class.take() {
-        let name = gen.add_expression(expr.stream);
+enum ClassName {
+    Literal(Literal),
+    Expression(Short),
+}
 
-        args.push(*name);
-
-        return Some(name);
+impl Display for ClassName {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ClassName::Literal(lit) => lit.fmt(f),
+            ClassName::Expression(short) => f.write_str(short),
+        }
     }
-
-    None
 }
 
 impl IntoGenerator for HtmlElement {
     fn into_gen(self, gen: &mut Generator) -> DomNode {
-        let tag = self.name.to_string();
-        let var = gen.out.next_el();
-        let count = self.classes.len();
+        let var = gen.names.next_el();
 
-        let mut code = String::new();
-        let mut args = Vec::new();
+        let mut el = JsElement {
+            tag: self.name,
+            var,
+            code: String::new(),
+            args: Vec::new(),
+            hoisted: self.classes.iter().any(CssValue::is_expression),
+        };
 
         let mut classes = self.classes.into_iter();
 
-        if count == 1 {
-            if let Some(class) = into_class_name(&mut classes.next(), &mut args, gen) {
-                let _ = writeln!(code, "{var}.className={class};");
+        if classes.len() == 1 {
+            if let Some(class) = into_class_name(classes.next(), &mut el, gen) {
+                let _ = writeln!(el.code, "{var}.className={class};");
             }
-        } else if let Some(first) = into_class_name(&mut classes.next(), &mut args, gen) {
-            let _ = write!(code, "{var}.classList.add({first}");
+        } else if let Some(first) = into_class_name(classes.next(), &mut el, gen) {
+            let _ = write!(el.code, "{var}.classList.add({first}");
 
-            while let Some(class) = into_class_name(&mut classes.next(), &mut args, gen) {
-                let _ = write!(code, ",{class}");
+            while let Some(class) = into_class_name(classes.next(), &mut el, gen) {
+                let _ = write!(el.code, ",{class}");
             }
 
-            code.push_str(");\n");
+            el.code.push_str(");\n");
         }
 
         for Attribute { name, value } in self.attributes {
             match value {
                 AttributeValue::Literal(value) => {
-                    let _ = writeln!(code, "{var}.setAttribute('{name}',{value});");
+                    let _ = writeln!(el.code, "{var}.setAttribute(\"{name}\",{value});");
                 }
                 AttributeValue::Boolean(value) => {
-                    let _ = writeln!(code, "{var}.{name}={value};");
+                    let _ = writeln!(el.code, "{var}.{name}={value};");
                 }
-                AttributeValue::Expression(expr) => name.with_str(|name| {
-                    if name.starts_with("on") && name.len() > 2 {
-                        let target = match tag.as_str() {
+                AttributeValue::Expression(expr) => name.with_str(|attr| {
+                    let value = if attr.starts_with("on") && attr.len() > 2 {
+                        let target = match el.tag.as_str() {
                             "a" => "HtmlLinkElement",
                             "form" => "HtmlFormElement",
                             "img" => "HtmlImageElement",
@@ -93,8 +112,6 @@ impl IntoGenerator for HtmlElement {
                             expr.push(bind.arg);
                             expr
                         } else {
-                            use proc_macro::{Delimiter, TokenStream};
-
                             let mut constrain = TokenStream::new();
 
                             write!(
@@ -110,35 +127,48 @@ impl IntoGenerator for HtmlElement {
                             constrain.group(Delimiter::Brace)
                         };
 
-                        let event = &name[2..];
+                        let event = &attr[2..];
                         let value = gen.add_expression(callback);
 
-                        args.push(*value);
+                        let _ = writeln!(el.code, "{var}.addEventListener(\"{event}\",{value});");
 
-                        let _ = writeln!(code, "{var}.addEventListener('{event}',{value});");
+                        value
+                    } else if attr == "checked" {
+                        el.hoisted = true;
 
-                        return;
-                    }
+                        let value = gen.add_attribute(var, "bool", expr.stream);
 
-                    let value = gen.add_expression(expr.stream);
+                        let _ = writeln!(el.code, "{var}.{attr}={value};");
 
-                    args.push(*value);
+                        value
+                    } else {
+                        let mut args = TokenStream::new();
+                        args.push(Literal::string(&attr));
+                        args.write(",");
+                        args.extend(expr.stream);
 
-                    let _ = writeln!(code, "{var}.setAttributeNode('{name}',{value});");
+                        let mut expr = TokenStream::new();
+
+                        expr.write("::kobold::attribute::AttributeNode::new");
+                        expr.push(Group::new(Delimiter::Parenthesis, args));
+
+                        let value = gen.add_expression(expr);
+
+                        let _ = writeln!(el.code, "{var}.setAttributeNode({value});");
+
+                        value
+                    };
+
+                    el.args.push(value);
                 }),
             };
         }
 
         if let Some(children) = self.children {
-            let append = append(gen, &mut code, &mut args, children);
-            let _ = writeln!(code, "{var}.{append}");
+            let append = append(gen, &mut el.code, &mut el.args, children);
+            let _ = writeln!(el.code, "{var}.{append};");
         }
 
-        DomNode::Element(JsElement {
-            tag,
-            var,
-            code,
-            args,
-        })
+        DomNode::Element(el)
     }
 }

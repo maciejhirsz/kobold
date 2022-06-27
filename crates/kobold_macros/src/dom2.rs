@@ -265,10 +265,10 @@ impl Parse for Property {
 }
 
 impl CssValue {
-    pub fn is_literal(&self) -> bool {
+    pub fn is_expression(&self) -> bool {
         match self {
-            CssValue::Literal(_) => true,
-            CssValue::Expression(_) => false,
+            CssValue::Literal(_) => false,
+            CssValue::Expression(_) => true,
         }
     }
 }

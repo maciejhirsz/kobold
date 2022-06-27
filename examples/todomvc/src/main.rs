@@ -44,28 +44,24 @@ impl App {
                             <EntryInput {ctx} />
                         </header>
                         <section .main.{hidden}>
-                            {
-                                html! {
-                                    <input
-                                        #toggle-all
-                                        .toggle-all
-                                        type="checkbox"
-                                        checked={is_all_completed}
-                                        onclick={ctx.bind(move |state, _| state.set_all(!is_all_completed))}
-                                    />
-                                }
-                            }
+                            <input
+                                #toggle-all
+                                .toggle-all
+                                type="checkbox"
+                                checked={is_all_completed}
+                                onclick={ctx.bind(move |state, _| state.set_all(!is_all_completed))}
+                            />
                             <label for="toggle-all" />
                             <ul .todo-list>
-                            {
-                                state
-                                    .filtered_entries()
-                                    .map(move |(idx, entry)| html! { <EntryView {idx} {entry} {ctx} /> })
-                                    .list()
-                            }
+                                {
+                                    state
+                                        .filtered_entries()
+                                        .map(move |(idx, entry)| html! { <EntryView {idx} {entry} {ctx} /> })
+                                        .list()
+                                }
                             </ul>
                         </section>
-                        <footer .main.{hidden}>
+                        <footer .footer.{hidden}>
                             <span .todo-count>
                                 <strong>{ active_count }</strong>
                                 { if active_count == 1 { " item left" } else { " items left" } }
@@ -126,7 +122,7 @@ struct EntryView<'a> {
 }
 
 fn test(checked: bool) -> impl Html {
-    html! { <p><input {checked} value="foo" width={ 42 } /></p> }
+    html! { <p><input {checked} value="foo" width={ 42 } /></p><strong>"TEST"</strong> }
 }
 
 impl<'a> EntryView<'a> {
@@ -159,11 +155,7 @@ impl<'a> EntryView<'a> {
         html! {
             <li .todo.{editing}.{completed}>
                 <div .view>
-                    {
-                        html! {
-                            <input .toggle type="checkbox" checked={entry.completed} {onchange} />
-                        }
-                    }
+                    <input .toggle type="checkbox" checked={entry.completed} {onchange} />
                     <label ondblclick={ctx.bind(move |state, _| state.edit_entry(idx))} >
                         { &entry.description }
                     </label>

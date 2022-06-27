@@ -142,9 +142,9 @@ pub fn html(body: TokenStream) -> TokenStream {
 
     // panic!("{nodes:#?}");
 
-    gen2::generate(nodes);
+    let transient = gen2::generate(nodes);
 
-    panic!();
+    panic!("{transient:#?}");
 
     let mut iter = body.into_iter();
 
