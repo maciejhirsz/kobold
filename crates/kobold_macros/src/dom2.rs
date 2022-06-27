@@ -269,6 +269,15 @@ impl Parse for Property {
     }
 }
 
+impl CssValue {
+    pub fn is_literal(&self) -> bool {
+        match self {
+            CssValue::Literal(_) => true,
+            CssValue::Expression(_) => false,
+        }
+    }
+}
+
 impl Parse for CssValue {
     fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
         if let Some(expr) = stream.allow_consume('{') {

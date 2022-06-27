@@ -12,8 +12,8 @@ repository = "https://github.com/maciejhirsz/kobold"
 documentation = "https://docs.rs/kobold"
 
 [dependencies]
-beef = "0.5.2"
 arrayvec = "0.7.2"
+beef = "0.5.2"
 fnv = "1.0.7"
 quote = "1.0"
 proc-macro2 = "1.0"
