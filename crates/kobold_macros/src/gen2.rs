@@ -1,18 +1,19 @@
-use std::fmt::{self, Display, Write};
+use std::fmt::{self, Display, Debug, Write};
 use std::hash::Hash;
 
 use arrayvec::ArrayString;
 use proc_macro::{Literal, TokenStream};
 
 use crate::dom2::{Expression, Node};
-use crate::gen2::element::{JsElement, JsFragment};
 use crate::parse::TokenStreamExt;
 
 mod component;
 mod element;
 mod fragment;
 
-pub use fragment::append;
+pub use fragment::{append, JsFragment};
+pub use element::JsElement;
+
 pub type Short = ArrayString<8>;
 pub type JsFnName = ArrayString<{ 3 + 8 + 16 }>; // underscores + up to 8 bytes for el + hash
 
@@ -29,11 +30,21 @@ impl DomNode {
     }
 }
 
-pub fn generate(nodes: Vec<Node>) {
-    let gen = Generator::default();
+pub fn generate(mut nodes: Vec<Node>) {
+    let mut gen = Generator::default();
+
+    let dom_node = if nodes.len() == 1 {
+        nodes.remove(0).into_gen(&mut gen)
+    } else {
+        nodes.into_gen(&mut gen)
+    };
+
+    gen.hoist(dom_node);
+
+    panic!("{gen:#?}");
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Generator {
     names: FieldGenerator,
     js: JsModule,
@@ -50,11 +61,11 @@ impl Generator {
         })
     }
 
-    fn hoist(&mut self, node: DomNode) -> JsFnName {
+    fn hoist(&mut self, node: DomNode) -> Option<JsFnName> {
         use std::hash::Hasher;
 
         let (var, body, args) = match node {
-            DomNode::Variable(_) => panic!("Cannot hoist a variable, this is a bug"),
+            DomNode::Variable(_) => return None,
             DomNode::TextNode(text) => {
                 let body = format!("return document.createTextNode({text});\n");
                 let var = self.out.next_el();
@@ -120,18 +131,27 @@ impl Generator {
         js.push_str(&body);
         js.push_str("}\n");
 
-        self.js.funtions.push(JsFunction { name, args });
+        self.js.functions.push(JsFunction { name, args });
 
-        name
+        Some(name)
     }
 }
 
 #[derive(Default)]
 pub struct JsModule {
-    pub funtions: Vec<JsFunction>,
+    pub functions: Vec<JsFunction>,
     pub code: String,
 }
 
+impl Debug for JsModule {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Debug::fmt(&self.functions, f)?;
+
+        write!(f, "\ncode: ({})", self.code)
+    }
+}
+
+#[derive(Debug)]
 pub struct JsFunction {
     pub name: JsFnName,
     pub args: Vec<Short>,
@@ -139,7 +159,7 @@ pub struct JsFunction {
 
 pub type FieldId = usize;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Transient {
     fields: Vec<Field>,
     elements: usize,
@@ -183,6 +203,19 @@ pub enum Field {
         abi: Short,
         value: TokenStream,
     },
+}
+
+impl Debug for Field {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Field::Html { name, value } => {
+                write!(f, "{name} => {value}")
+            }
+            Field::Attribute { name, el, abi, value } => {
+                unimplemented!()
+            }
+        }
+    }
 }
 
 impl Field {
@@ -250,7 +283,7 @@ impl IntoGenerator for Node {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct FieldGenerator {
     count: usize,
 }

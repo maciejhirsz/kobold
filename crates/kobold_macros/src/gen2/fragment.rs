@@ -3,6 +3,17 @@ use std::fmt::Write;
 use crate::dom2::Node;
 use crate::gen2::{DomNode, Generator, IntoGenerator, Short};
 
+pub struct JsFragment {
+    /// Variable name of the fragment, such as `e0`
+    pub var: Short,
+
+    /// All the appends to this fragment.
+    pub code: String,
+
+    /// Arguments to import from rust
+    pub args: Vec<Short>,
+}
+
 impl IntoGenerator for Vec<Node> {
     fn into_gen(self, gen: &mut Generator) -> DomNode {
         assert!(!self.is_empty());
@@ -15,7 +26,7 @@ impl IntoGenerator for Vec<Node> {
         let append = append(gen, &mut code, &mut args, self);
         let _ = writeln!(code, "{var}.{append}");
 
-        panic!()
+        DomNode::Fragment(JsFragment { var, code, args })
     }
 }
 
@@ -31,6 +42,8 @@ pub fn append(
 
         match &dom_node {
             DomNode::Variable(value) => {
+                args.push(*value);
+
                 let _ = write!(append, "{value},");
             }
             DomNode::TextNode(text) => {

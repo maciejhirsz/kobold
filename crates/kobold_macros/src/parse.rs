@@ -321,13 +321,17 @@ mod util {
             F: FnOnce(&str) -> R,
         {
             FMT_BUF.with(move |buf| {
-                let mut buf = buf.borrow_mut();
+                let buf = buf.try_borrow_mut().ok().and_then(|mut buf| {
+                    buf.clear();
 
-                buf.clear();
+                    write!(buf, "{self}").ok()?;
 
-                match write!(&mut buf, "{self}") {
-                    Ok(()) => f(&buf),
-                    Err(_) => f(&self.to_string()),
+                    Some(buf)
+                });
+
+                match buf {
+                    Some(buf) => f(&buf),
+                    None => f(&self.to_string()),
                 }
             })
         }

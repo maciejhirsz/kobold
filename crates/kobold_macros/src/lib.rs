@@ -137,10 +137,14 @@ fn mark_branches(stream: TokenStream, branch_ty: &proc_macro2::Ident, n: &mut u8
 }
 
 #[proc_macro]
-pub fn html(mut body: TokenStream) -> TokenStream {
+pub fn html(body: TokenStream) -> TokenStream {
     let nodes = unwrap_err!(dom2::parse(body.clone()));
 
-    panic!("{nodes:#?}");
+    // panic!("{nodes:#?}");
+
+    gen2::generate(nodes);
+
+    panic!();
 
     let mut iter = body.into_iter();
 

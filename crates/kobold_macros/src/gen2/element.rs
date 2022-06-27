@@ -19,17 +19,6 @@ pub struct JsElement {
     pub args: Vec<Short>,
 }
 
-pub struct JsFragment {
-    /// Variable name of the fragment, such as `e0`
-    pub var: Short,
-
-    /// All the appends to this fragment.
-    pub code: String,
-
-    /// Arguments to import from rust
-    pub args: Vec<Short>,
-}
-
 fn into_class_name<'a>(
     class: &'a mut Option<CssValue>,
     args: &mut Vec<Short>,
@@ -61,7 +50,7 @@ impl IntoGenerator for HtmlElement {
 
         let mut classes = self.classes.into_iter();
 
-        if count == 0 {
+        if count == 1 {
             if let Some(class) = into_class_name(&mut classes.next(), &mut args, gen) {
                 let _ = writeln!(code, "{var}.className={class};");
             }
