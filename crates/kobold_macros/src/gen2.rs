@@ -1,13 +1,15 @@
 use std::fmt::{self, Display};
 
 use arrayvec::ArrayString;
-use proc_macro2::{Ident, Span, TokenStream};
-use quote::quote;
+use proc_macro::{Ident, TokenStream};
 
 use crate::dom2::{Expression, Node};
+use crate::parse::TokenStreamExt;
 
 mod component;
 mod element;
+
+pub type Short = ArrayString<8>;
 
 pub use element::JsNode;
 
@@ -22,13 +24,12 @@ pub struct Generator {
 }
 
 impl Generator {
-    fn add_expression(&mut self, value: TokenStream) -> FieldId {
-        let (typ, name) = self.names.next();
+    fn add_expression(&mut self, value: impl Into<TokenStream>) -> (FieldId, &Short) {
+        let name = self.names.next();
 
         self.out.add(Field::Html {
             name,
-            typ,
-            value,
+            value: value.into(),
         })
     }
 }
@@ -38,34 +39,41 @@ pub type FieldId = usize;
 #[derive(Default)]
 pub struct Transient {
     fields: Vec<Field>,
+    elements: usize,
     // elements: Vec<DomNode>,
 }
 
 impl Transient {
-    fn add(&mut self, field: Field) -> FieldId {
+    fn add(&mut self, field: Field) -> (FieldId, &Short) {
         let id = self.fields.len();
 
         self.fields.push(field);
 
-        id
+        (id, self.name(id))
     }
 
-    fn name(&self, id: FieldId) -> &Ident {
+    fn name(&self, id: FieldId) -> &Short {
         match &self.fields[id] {
             Field::Html { name, .. } | Field::Attribute { name, .. } => name,
         }
+    }
+
+    fn next_el(&mut self) -> usize {
+        let el = self.elements;
+
+        self.elements += 1;
+
+        el
     }
 }
 
 pub enum Field {
     Html {
-        name: Ident,
-        typ: Ident,
+        name: Short,
         value: TokenStream,
     },
     Attribute {
-        name: Ident,
-        typ: Ident,
+        name: Short,
         el: Ident,
         abi: TokenStream,
         value: TokenStream,
@@ -73,34 +81,43 @@ pub enum Field {
 }
 
 impl Field {
-    fn bounds(&self) -> TokenStream {
+    fn to_bounds(&self, stream: &mut TokenStream) {
         match self {
-            Field::Html { typ, .. } => quote! {
-                #typ: ::kobold::Html,
-            },
-            Field::Attribute { typ, abi, .. } => quote! {
-                #typ: ::kobold::Html,
-                #typ::Product: ::kobold::attribute::AttributeProduct<Abi = #abi>,
-            },
+            Field::Html { name, .. } => {
+                let mut typ = *name;
+                typ.make_ascii_uppercase();
+
+                write!(stream, "{typ}: ::kobold:Html,");
+            }
+            Field::Attribute { name, abi, .. } => {
+                let mut typ = *name;
+                typ.make_ascii_uppercase();
+
+                write!(
+                    stream,
+                    "{typ}: ::kobold:Html,\
+                    {typ}::Product: ::kobold::attribute::AttributeProduct<Abi = {abi}>,"
+                );
+            }
         }
     }
 
-    fn build(&self) -> TokenStream {
-        match self {
-            Field::Html { name, .. } | Field::Attribute { name, .. } => quote! {
-                let #name = self.#name.build();
-            },
-        }
+    fn build(&self, stream: &mut TokenStream) {
+        let name = match self {
+            Field::Html { name, .. } | Field::Attribute { name, .. } => name,
+        };
+
+        write!(stream, "let {name} = self.{name}.build();");
     }
 
-    fn update(&self) -> TokenStream {
+    fn update(&self, stream: &mut TokenStream) {
         match self {
-            Field::Html { name, .. } => quote! {
-                self.#name.update(&mut p.#name);
-            },
-            Field::Attribute { name, el, .. } => quote! {
-                self.#name.update(&mut p.#name, &p.#el);
-            },
+            Field::Html { name, .. } => {
+                write!(stream, "self.{name}.update(&mut p.{name});");
+            }
+            Field::Attribute { name, el, .. } => {
+                write!(stream, "self.{name}.update(&mut p.{name}, &p.{el});");
+            }
         }
     }
 }
@@ -118,7 +135,7 @@ trait IntoGenerator {
 
 impl IntoGenerator for Expression {
     fn into_gen(self, gen: &mut Generator) -> DomNode {
-        let id = gen.add_expression(self.stream.into());
+        let (id, _) = gen.add_expression(self.stream);
 
         DomNode::Variable(id)
     }
@@ -129,7 +146,9 @@ impl IntoGenerator for Node {
         match self {
             Node::Component(component) => component.into_gen(gen),
             Node::Expression(expr) => expr.into_gen(gen),
-            Node::Text(lit) => DomNode::JsNode(JsNode::TextNode{ text: JsString(lit) }),
+            Node::Text(lit) => DomNode::JsNode(JsNode::TextNode {
+                text: JsString(lit),
+            }),
             _ => unimplemented!(),
         }
     }
@@ -141,17 +160,16 @@ pub struct FieldGenerator {
 }
 
 impl FieldGenerator {
-    fn next(&mut self) -> (Ident, Ident) {
+    fn next(&mut self) -> Short {
         const LETTERS: usize = 26;
 
-        // This gives us up to 26**4 = 456976 unique identifiers, should be enough :)
-        let mut buf = ArrayString::<4>::new();
+        let mut buf = Short::new();
         let mut n = self.count;
 
         self.count += 1;
 
         loop {
-            buf.push((u8::try_from(n % LETTERS).unwrap() + b'A') as char);
+            buf.push((u8::try_from(n % LETTERS).unwrap() + b'a') as char);
 
             n /= LETTERS;
 
@@ -160,13 +178,7 @@ impl FieldGenerator {
             }
         }
 
-        let typ = Ident::new(&buf, Span::call_site());
-
-        buf.make_ascii_lowercase();
-
-        let name = Ident::new(&buf, Span::call_site());
-
-        (typ, name)
+        buf
     }
 }
 

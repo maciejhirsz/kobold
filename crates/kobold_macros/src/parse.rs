@@ -1,6 +1,8 @@
 //! [`ParseStream`](ParseStream), the [`Parse`](Parse) trait and utilities for working with
 //! token streams without `syn` or `quote`.
 
+use std::fmt::Arguments;
+
 use beef::Cow;
 use proc_macro::{Delimiter, Ident, Spacing, Span, TokenStream, TokenTree, Group};
 
@@ -255,6 +257,8 @@ pub trait TokenStreamExt {
     fn parse_stream(self) -> ParseStream;
 
     fn group(self, delim: Delimiter) -> TokenStream;
+
+    fn write_fmt(&mut self, args: Arguments);
 }
 
 impl TokenStreamExt for TokenStream {
@@ -274,6 +278,13 @@ impl TokenStreamExt for TokenStream {
 
     fn group(self, delim: Delimiter) -> TokenStream {
         TokenStream::from(TokenTree::Group(Group::new(delim, self)))
+    }
+
+    fn write_fmt(&mut self, args: Arguments) {
+        // TODO: use a thread_local! buffer to avoid allocations
+        let code = args.to_string();
+
+        self.write(&code);
     }
 }
 

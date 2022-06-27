@@ -1,14 +1,11 @@
-use proc_macro2::TokenStream;
+use proc_macro::{Delimiter, Group, TokenStream};
 
 use crate::dom2::{Component, Property};
 use crate::gen2::{DomNode, Field, Generator, IntoGenerator};
+use crate::parse::TokenStreamExt;
 
 impl Component {
     fn into_expression(self) -> TokenStream {
-        // NOTE: Return type is `proc_macro2::TokenStream`
-        use crate::parse::TokenStreamExt;
-        use proc_macro::{Delimiter, Group, TokenStream};
-
         let mut stream = self.path;
 
         if let Some(generics) = self.generics {
@@ -39,21 +36,17 @@ impl Component {
             stream.push(Group::new(Delimiter::Brace, body));
         }
 
-        stream.into()
+        stream
     }
 }
 
 impl IntoGenerator for Component {
     fn into_gen(self, gen: &mut Generator) -> DomNode {
-        let (typ, name) = gen.names.next();
+        let name = gen.names.next();
         let value = self.into_expression();
 
-        let field_id = gen.out.add(Field::Html {
-            name: name.clone(),
-            typ,
-            value,
-        });
+        let (id, _) = gen.out.add(Field::Html { name, value });
 
-        DomNode::Variable(field_id)
+        DomNode::Variable(id)
     }
 }

@@ -1,8 +1,7 @@
 use std::fmt::{Display, Write};
-use std::str::FromStr;
 
 use crate::dom2::{Attribute, AttributeValue, CssValue, HtmlElement};
-use crate::gen2::{DomNode, Field, FieldId, Generator, IntoGenerator, JsString};
+use crate::gen2::{DomNode, FieldId, Generator, IntoGenerator, JsString};
 use crate::parse::{IdentExt, Parse, TokenStreamExt};
 use crate::syntax::InlineBind;
 
@@ -15,17 +14,14 @@ pub enum JsNode {
         /// Tag name of the element such as `div`
         tag: String,
 
-        /// Method calls on constructed element, such as `append(foo)` or `className = bar`
-        ///
-        /// NOTE: no dot, no semicolon
-        calls: Vec<String>,
+        /// Variable name of the element, such as `e0`
+        var: usize,
+
+        /// Method calls on constructed element, such as `e0.append(foo);` or `e0.className = bar;`
+        code: String,
 
         /// Arguments from Rust this snippet requires
         args: Vec<FieldId>,
-    },
-    Fragment {
-        /// Children belonging to this document fragment
-        chidren: Vec<JsNode>,
     },
 }
 
@@ -47,11 +43,11 @@ fn into_class_name<'a>(
     }
 
     if let Some(CssValue::Expression(expr)) = class.take() {
-        let id = gen.add_expression(expr.stream.into());
+        let (id, name) = gen.add_expression(expr.stream);
 
         args.push(id);
 
-        return Some(gen.out.name(id));
+        return Some(name);
     }
 
     None
@@ -60,35 +56,38 @@ fn into_class_name<'a>(
 impl IntoGenerator for HtmlElement {
     fn into_gen(self, gen: &mut Generator) -> DomNode {
         let tag = self.name.to_string();
+        let var = gen.out.next_el();
         let count = self.classes.len();
 
-        let mut calls = Vec::new();
+        let mut code = String::new();
         let mut args = Vec::new();
 
         let mut classes = self.classes.into_iter();
 
+        let js = &mut code;
+
         if count == 0 {
             if let Some(class) = into_class_name(&mut classes.next(), &mut args, gen) {
-                calls.push(format!("className={class}"));
+                let _ = write!(js, "e{var}.className={class};");
             }
         } else if let Some(first) = into_class_name(&mut classes.next(), &mut args, gen) {
-            let mut class_list = format!("classList.add({first}");
+            let _ = write!(js, "e{var}.classList.add({first}");
 
             while let Some(class) = into_class_name(&mut classes.next(), &mut args, gen) {
-                let _ = write!(&mut class_list, ",{class}");
+                let _ = write!(js, ",{class}");
             }
 
-            class_list.push(')');
-
-            calls.push(class_list);
+            js.push_str(");");
         }
 
         for Attribute { name, value } in self.attributes {
             match value {
                 AttributeValue::Literal(value) => {
-                    calls.push(format!("setAttribute('{name}',{value})"));
+                    let _ = write!(js, "e{var}.setAttribute('{name}',{value});");
                 }
-                AttributeValue::Boolean(value) => calls.push(format!("{name}={value}")),
+                AttributeValue::Boolean(value) => {
+                    let _ = write!(js, "e{var}.{name}={value};");
+                }
                 AttributeValue::Expression(expr) => name.with_str(|name| {
                     if name.starts_with("on") && name.len() > 2 {
                         let target = match tag.as_str() {
@@ -104,50 +103,53 @@ impl IntoGenerator for HtmlElement {
 
                         let mut inner = expr.stream.clone().parse_stream();
 
-                        let expr = if let Ok(bind) = InlineBind::parse(&mut inner) {
+                        let callback = if let Ok(bind) = InlineBind::parse(&mut inner) {
                             let mut expr = bind.invocation;
-                            expr.write(&format!(
+                            write!(
+                                expr,
                                 "::<::kobold::reexport::web_sys::{target}, _, _> ="
-                            ));
+                            );
                             expr.push(bind.arg);
                             expr
                         } else {
                             use proc_macro::{Delimiter, TokenStream};
 
-                            let mut con = TokenStream::from_str(&format!(
+                            let mut con = TokenStream::new();
+
+                            write!(
+                                con,
                                 "let constrained: ::kobold:stateful::Callback<\
                                     ::kobold::reexport::web_sys::{target},\
                                     _,\
                                     _,\
                                 > ="
-                            ))
-                            .unwrap();
+                            );
                             con.extend(expr.stream);
                             con.write("; constrained");
                             con.group(Delimiter::Brace)
                         };
 
-                        let (typ, name) = gen.names.next();
+                        let event = &name[2..];
+                        let (id, value) = gen.add_expression(callback);
 
-                        // TODO: Do something with this expression!
-                        gen.add_expression(expr.into());
+                        args.push(id);
+
+                        let _ = write!(js, "e{var}.addEventListener({event:?},{value});");
 
                         return;
                     }
 
-                    let id = gen.add_expression(expr.stream.into());
+                    let (id, value) = gen.add_expression(expr.stream);
 
                     args.push(id);
 
-                    let value = gen.out.name(id);
-
-                    calls.push(format!("setAttributeNode('{name}',{value}"));
+                    let _ = write!(js, "e{var}.setAttributeNode('{name}',{value});");
                 }),
             };
         }
 
         if let Some(children) = self.children {
-            let mut append = String::from("append(");
+            let _ = write!(js, "e{var}.append(");
 
             for child in children {
                 let dom_node = child.into_gen(gen);
@@ -162,15 +164,18 @@ impl IntoGenerator for HtmlElement {
                     DomNode::JsNode(_) => unimplemented!(),
                 };
 
-                let _ = write!(&mut append, "{value},");
+                let _ = write!(js, "{value},");
             }
 
-            append.pop();
-            append.push(')');
-
-            calls.push(append);
+            js.pop();
+            js.push_str(");");
         }
 
-        DomNode::JsNode(JsNode::Element { tag, calls, args })
+        DomNode::JsNode(JsNode::Element {
+            tag,
+            var,
+            code,
+            args,
+        })
     }
 }
