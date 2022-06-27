@@ -112,7 +112,7 @@ impl Parse for InlineBind {
                 let arg = stream.expect('(')?;
                 let _: () = stream.parse()?;
 
-                return Ok(InlineBind { invocation, arg })
+                return Ok(InlineBind { invocation, arg });
             }
 
             invocation.push(ident);

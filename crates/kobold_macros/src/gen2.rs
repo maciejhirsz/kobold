@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Write};
 use std::hash::Hash;
 
 use arrayvec::ArrayString;
-use proc_macro::TokenStream;
+use proc_macro::{Literal, TokenStream};
 
 use crate::dom2::{Expression, Node};
 use crate::gen2::element::{JsElement, JsFragment};
@@ -10,11 +10,24 @@ use crate::parse::TokenStreamExt;
 
 mod component;
 mod element;
+mod fragment;
 
+pub use fragment::append;
 pub type Short = ArrayString<8>;
 pub type JsFnName = ArrayString<{ 3 + 8 + 16 }>; // underscores + up to 8 bytes for el + hash
 
-pub use element::JsNode;
+pub enum DomNode {
+    Variable(Short),
+    TextNode(JsString),
+    Element(JsElement),
+    Fragment(JsFragment),
+}
+
+impl DomNode {
+    pub fn text_node(lit: Literal) -> Self {
+        DomNode::TextNode(JsString(lit))
+    }
+}
 
 pub fn generate(nodes: Vec<Node>) {
     let gen = Generator::default();
@@ -37,17 +50,18 @@ impl Generator {
         })
     }
 
-    fn hoist(&mut self, node: JsNode) -> JsFnName {
+    fn hoist(&mut self, node: DomNode) -> JsFnName {
         use std::hash::Hasher;
 
         let (var, body, args) = match node {
-            JsNode::TextNode(text) => {
+            DomNode::Variable(_) => panic!("Cannot hoist a variable, this is a bug"),
+            DomNode::TextNode(text) => {
                 let body = format!("return document.createTextNode({text});\n");
                 let var = self.out.next_el();
 
                 (var, body, Vec::new())
             }
-            JsNode::Element(el) => {
+            DomNode::Element(el) => {
                 let JsElement {
                     tag,
                     var,
@@ -63,7 +77,7 @@ impl Generator {
 
                 (var, body, args)
             }
-            JsNode::Fragment(frag) => {
+            DomNode::Fragment(frag) => {
                 let JsFragment { var, code, args } = frag;
 
                 assert!(
@@ -213,13 +227,6 @@ impl Field {
     }
 }
 
-pub enum DomNode {
-    /// This node represents a variable, index mapping to a `Field` on `Transient`
-    Variable(Short),
-    /// This node is an element that can be constructed in JavaScript
-    JsNode(JsNode),
-}
-
 trait IntoGenerator {
     fn into_gen(self, gen: &mut Generator) -> DomNode;
 }
@@ -236,9 +243,9 @@ impl IntoGenerator for Node {
     fn into_gen(self, gen: &mut Generator) -> DomNode {
         match self {
             Node::Component(component) => component.into_gen(gen),
+            Node::HtmlElement(element) => element.into_gen(gen),
             Node::Expression(expr) => expr.into_gen(gen),
-            Node::Text(lit) => DomNode::JsNode(JsNode::TextNode(JsString(lit))),
-            _ => unimplemented!(),
+            Node::Text(lit) => DomNode::TextNode(JsString(lit)),
         }
     }
 }

@@ -1,11 +1,11 @@
 //! [`ParseStream`](ParseStream), the [`Parse`](Parse) trait and utilities for working with
 //! token streams without `syn` or `quote`.
 
-use std::fmt::{Write, Arguments};
 use std::cell::RefCell;
+use std::fmt::{Arguments, Write};
 
 use beef::Cow;
-use proc_macro::{Delimiter, Ident, Spacing, Span, TokenStream, TokenTree, Group};
+use proc_macro::{Delimiter, Group, Ident, Spacing, Span, TokenStream, TokenTree};
 
 use crate::dom2::{ShallowNodeIter, ShallowStream};
 
@@ -306,8 +306,8 @@ impl TokenStreamExt for TokenStream {
 }
 
 mod util {
-    use std::fmt::{Display, Write};
     use std::cell::RefCell;
+    use std::fmt::{Display, Write};
 
     use arrayvec::ArrayString;
 

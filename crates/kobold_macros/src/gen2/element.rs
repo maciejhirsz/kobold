@@ -1,17 +1,9 @@
 use std::fmt::{Display, Write};
 
-use proc_macro::Literal;
-
 use crate::dom2::{Attribute, AttributeValue, CssValue, HtmlElement};
-use crate::gen2::{DomNode, Generator, IntoGenerator, JsString, Short};
+use crate::gen2::{append, DomNode, Generator, IntoGenerator, Short};
 use crate::parse::{IdentExt, Parse, TokenStreamExt};
 use crate::syntax::InlineBind;
-
-pub enum JsNode {
-    TextNode(JsString),
-    Element(JsElement),
-    Fragment(JsFragment),
-}
 
 pub struct JsElement {
     /// Tag name of the element such as `div`
@@ -36,12 +28,6 @@ pub struct JsFragment {
 
     /// Arguments to import from rust
     pub args: Vec<Short>,
-}
-
-impl JsNode {
-    fn text_node(lit: Literal) -> Self {
-        JsNode::TextNode(JsString(lit))
-    }
 }
 
 fn into_class_name<'a>(
@@ -75,29 +61,27 @@ impl IntoGenerator for HtmlElement {
 
         let mut classes = self.classes.into_iter();
 
-        let js = &mut code;
-
         if count == 0 {
             if let Some(class) = into_class_name(&mut classes.next(), &mut args, gen) {
-                let _ = writeln!(js, "{var}.className={class};");
+                let _ = writeln!(code, "{var}.className={class};");
             }
         } else if let Some(first) = into_class_name(&mut classes.next(), &mut args, gen) {
-            let _ = write!(js, "{var}.classList.add({first}");
+            let _ = write!(code, "{var}.classList.add({first}");
 
             while let Some(class) = into_class_name(&mut classes.next(), &mut args, gen) {
-                let _ = write!(js, ",{class}");
+                let _ = write!(code, ",{class}");
             }
 
-            js.push_str(");\n");
+            code.push_str(");\n");
         }
 
         for Attribute { name, value } in self.attributes {
             match value {
                 AttributeValue::Literal(value) => {
-                    let _ = writeln!(js, "{var}.setAttribute('{name}',{value});");
+                    let _ = writeln!(code, "{var}.setAttribute('{name}',{value});");
                 }
                 AttributeValue::Boolean(value) => {
-                    let _ = writeln!(js, "{var}.{name}={value};");
+                    let _ = writeln!(code, "{var}.{name}={value};");
                 }
                 AttributeValue::Expression(expr) => name.with_str(|name| {
                     if name.starts_with("on") && name.len() > 2 {
@@ -116,10 +100,7 @@ impl IntoGenerator for HtmlElement {
 
                         let callback = if let Ok(bind) = InlineBind::parse(&mut inner) {
                             let mut expr = bind.invocation;
-                            write!(
-                                expr,
-                                "::<::kobold::reexport::web_sys::{target}, _, _> ="
-                            );
+                            write!(expr, "::<::kobold::reexport::web_sys::{target}, _, _> =");
                             expr.push(bind.arg);
                             expr
                         } else {
@@ -145,7 +126,7 @@ impl IntoGenerator for HtmlElement {
 
                         args.push(*value);
 
-                        let _ = writeln!(js, "{var}.addEventListener('{event}',{value});");
+                        let _ = writeln!(code, "{var}.addEventListener('{event}',{value});");
 
                         return;
                     }
@@ -154,51 +135,21 @@ impl IntoGenerator for HtmlElement {
 
                     args.push(*value);
 
-                    let _ = writeln!(js, "{var}.setAttributeNode('{name}',{value});");
+                    let _ = writeln!(code, "{var}.setAttributeNode('{name}',{value});");
                 }),
             };
         }
 
         if let Some(children) = self.children {
-            let mut append = format!("{var}.append(");
-
-            for child in children {
-                let dom_node = child.into_gen(gen);
-
-                match &dom_node {
-                    DomNode::Variable(value) => {
-                        let _ = write!(append, "{value},");
-                    }
-                    DomNode::JsNode(JsNode::TextNode(text)) => {
-                        // write the text verbatim, no need to go through `document.createTextNode`
-                        let _ = write!(append, "{text},");
-                    }
-                    DomNode::JsNode(JsNode::Element(el)) => {
-                        let _ = writeln!(js, "let {}=document.createElement('{}');", el.var, el.tag);
-
-                        js.push_str(&el.code);
-
-                        args.extend(el.args.iter().copied());
-
-                        let _ = write!(append, "{},", el.var);
-                    },
-                    DomNode::JsNode(JsNode::Fragment(_)) => {
-                        panic!("Unexpected document fragment in the middle of the DOM");
-                    }
-                };
-            }
-
-            append.pop();
-            append.push_str(");\n");
-
-            js.push_str(&append);
+            let append = append(gen, &mut code, &mut args, children);
+            let _ = writeln!(code, "{var}.{append}");
         }
 
-        DomNode::JsNode(JsNode::Element(JsElement {
+        DomNode::Element(JsElement {
             tag,
             var,
             code,
             args,
-        }))
+        })
     }
 }

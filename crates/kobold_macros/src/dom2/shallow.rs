@@ -5,7 +5,7 @@
 
 use std::fmt::{self, Display, Write};
 
-use proc_macro::{Ident, Literal, Spacing, Span, Group, TokenStream, TokenTree};
+use proc_macro::{Group, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 
 use crate::parse::prelude::*;
 use crate::syntax::Generics;

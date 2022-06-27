@@ -3,11 +3,11 @@ use proc_macro::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTre
 use crate::parse::prelude::*;
 use crate::syntax::CssLabel;
 
-mod shallow;
 mod expression;
+mod shallow;
 
-pub use shallow::{ShallowNode, ShallowNodeIter, ShallowStream, TagName, TagNesting};
 pub use expression::Expression;
+pub use shallow::{ShallowNode, ShallowNodeIter, ShallowStream, TagName, TagNesting};
 
 pub fn parse(tokens: TokenStream) -> Result<Vec<Node>, ParseError> {
     let mut stream = tokens.parse_stream().into_shallow_stream();
@@ -32,7 +32,6 @@ pub enum Node {
     Text(Literal),
     Expression(Expression),
 }
-
 
 #[derive(Debug)]
 pub struct Component {
@@ -249,18 +248,14 @@ impl Parse for Property {
         stream.expect('=')?;
 
         match stream.next() {
-            Some(tt) if tt.is('{') || tt.is(Lit) => {
-                Ok(Property {
-                    name,
-                    expr: Expression::from(tt),
-                })
-            }
-            Some(TokenTree::Ident(b)) if b.one_of(["true", "false"]) => {
-                Ok(Property {
-                    name,
-                    expr: Expression::from(TokenTree::from(b)),
-                })
-            }
+            Some(tt) if tt.is('{') || tt.is(Lit) => Ok(Property {
+                name,
+                expr: Expression::from(tt),
+            }),
+            Some(TokenTree::Ident(b)) if b.one_of(["true", "false"]) => Ok(Property {
+                name,
+                expr: Expression::from(TokenTree::from(b)),
+            }),
             _ => Err(ParseError::new(
                 "Component properties must contain {expressions} or literals",
                 name.span(),

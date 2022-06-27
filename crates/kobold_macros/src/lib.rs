@@ -3,7 +3,7 @@
 #![warn(clippy::all, clippy::cast_possible_truncation, clippy::unused_self)]
 
 // TODO: Remove me!
-#![allow(unused)]
+// #![allow(unused)]
 
 extern crate proc_macro;
 
