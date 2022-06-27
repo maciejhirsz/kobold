@@ -2,6 +2,9 @@
 #![recursion_limit = "196"]
 #![warn(clippy::all, clippy::cast_possible_truncation, clippy::unused_self)]
 
+// TODO: Remove me!
+#![allow(unused)]
+
 extern crate proc_macro;
 
 use proc_macro::{Delimiter, Ident, TokenStream, TokenTree};

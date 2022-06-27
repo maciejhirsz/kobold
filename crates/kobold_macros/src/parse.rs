@@ -1,7 +1,8 @@
 //! [`ParseStream`](ParseStream), the [`Parse`](Parse) trait and utilities for working with
 //! token streams without `syn` or `quote`.
 
-use std::fmt::Arguments;
+use std::fmt::{Write, Arguments};
+use std::cell::RefCell;
 
 use beef::Cow;
 use proc_macro::{Delimiter, Ident, Spacing, Span, TokenStream, TokenTree, Group};
@@ -280,17 +281,33 @@ impl TokenStreamExt for TokenStream {
         TokenStream::from(TokenTree::Group(Group::new(delim, self)))
     }
 
+    /// This allows write! macro to write to the TokenStream, auto-parsing all tokens
     fn write_fmt(&mut self, args: Arguments) {
-        // TODO: use a thread_local! buffer to avoid allocations
-        let code = args.to_string();
+        thread_local! {
+            // We need to collect the whole args to a string first, and then write them to stream
+            // all at once, otherwise TokenStream::write might fail if there are any Groups
+            // inside the interlaced string.
+            //
+            // To avoid allocating each time, we use a thread local buffer
+            static TOKEN_STREAM_BUF: RefCell<String> = RefCell::new(String::with_capacity(128));
+        }
 
-        self.write(&code);
+        TOKEN_STREAM_BUF.with(move |buf| {
+            let mut buf = buf.borrow_mut();
+
+            buf.clear();
+
+            // Writing to String is infallible
+            let _ = write!(buf, "{args}");
+
+            self.write(&buf);
+        });
     }
 }
 
 mod util {
-    use std::cell::RefCell;
     use std::fmt::{Display, Write};
+    use std::cell::RefCell;
 
     use arrayvec::ArrayString;
 

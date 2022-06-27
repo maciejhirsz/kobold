@@ -1,41 +1,52 @@
 use std::fmt::{Display, Write};
 
+use proc_macro::Literal;
+
 use crate::dom2::{Attribute, AttributeValue, CssValue, HtmlElement};
-use crate::gen2::{DomNode, FieldId, Generator, IntoGenerator, JsString};
+use crate::gen2::{DomNode, Generator, IntoGenerator, JsString, Short};
 use crate::parse::{IdentExt, Parse, TokenStreamExt};
 use crate::syntax::InlineBind;
 
 pub enum JsNode {
-    TextNode {
-        /// Contents of the TextNode
-        text: JsString,
-    },
-    Element {
-        /// Tag name of the element such as `div`
-        tag: String,
+    TextNode(JsString),
+    Element(JsElement),
+    Fragment(JsFragment),
+}
 
-        /// Variable name of the element, such as `e0`
-        var: usize,
+pub struct JsElement {
+    /// Tag name of the element such as `div`
+    pub tag: String,
 
-        /// Method calls on constructed element, such as `e0.append(foo);` or `e0.className = bar;`
-        code: String,
+    /// Variable name of the element, such as `e0`
+    pub var: Short,
 
-        /// Arguments from Rust this snippet requires
-        args: Vec<FieldId>,
-    },
+    /// Method calls on constructed element, such as `e0.append(foo);` or `e0.className = bar;`
+    pub code: String,
+
+    /// Arguments to import from rust
+    pub args: Vec<Short>,
+}
+
+pub struct JsFragment {
+    /// Variable name of the fragment, such as `e0`
+    pub var: Short,
+
+    /// All the appends to this fragment.
+    pub code: String,
+
+    /// Arguments to import from rust
+    pub args: Vec<Short>,
 }
 
 impl JsNode {
-    fn text_node(lit: proc_macro::Literal) -> Self {
-        JsNode::TextNode {
-            text: JsString(lit),
-        }
+    fn text_node(lit: Literal) -> Self {
+        JsNode::TextNode(JsString(lit))
     }
 }
 
 fn into_class_name<'a>(
     class: &'a mut Option<CssValue>,
-    args: &mut Vec<FieldId>,
+    args: &mut Vec<Short>,
     gen: &'a mut Generator,
 ) -> Option<&'a dyn Display> {
     if let Some(CssValue::Literal(lit)) = class {
@@ -43,9 +54,9 @@ fn into_class_name<'a>(
     }
 
     if let Some(CssValue::Expression(expr)) = class.take() {
-        let (id, name) = gen.add_expression(expr.stream);
+        let name = gen.add_expression(expr.stream);
 
-        args.push(id);
+        args.push(*name);
 
         return Some(name);
     }
@@ -68,25 +79,25 @@ impl IntoGenerator for HtmlElement {
 
         if count == 0 {
             if let Some(class) = into_class_name(&mut classes.next(), &mut args, gen) {
-                let _ = write!(js, "e{var}.className={class};");
+                let _ = writeln!(js, "{var}.className={class};");
             }
         } else if let Some(first) = into_class_name(&mut classes.next(), &mut args, gen) {
-            let _ = write!(js, "e{var}.classList.add({first}");
+            let _ = write!(js, "{var}.classList.add({first}");
 
             while let Some(class) = into_class_name(&mut classes.next(), &mut args, gen) {
                 let _ = write!(js, ",{class}");
             }
 
-            js.push_str(");");
+            js.push_str(");\n");
         }
 
         for Attribute { name, value } in self.attributes {
             match value {
                 AttributeValue::Literal(value) => {
-                    let _ = write!(js, "e{var}.setAttribute('{name}',{value});");
+                    let _ = writeln!(js, "{var}.setAttribute('{name}',{value});");
                 }
                 AttributeValue::Boolean(value) => {
-                    let _ = write!(js, "e{var}.{name}={value};");
+                    let _ = writeln!(js, "{var}.{name}={value};");
                 }
                 AttributeValue::Expression(expr) => name.with_str(|name| {
                     if name.starts_with("on") && name.len() > 2 {
@@ -114,68 +125,80 @@ impl IntoGenerator for HtmlElement {
                         } else {
                             use proc_macro::{Delimiter, TokenStream};
 
-                            let mut con = TokenStream::new();
+                            let mut constrain = TokenStream::new();
 
                             write!(
-                                con,
+                                constrain,
                                 "let constrained: ::kobold:stateful::Callback<\
                                     ::kobold::reexport::web_sys::{target},\
                                     _,\
                                     _,\
                                 > ="
                             );
-                            con.extend(expr.stream);
-                            con.write("; constrained");
-                            con.group(Delimiter::Brace)
+                            constrain.extend(expr.stream);
+                            constrain.write("; constrained");
+                            constrain.group(Delimiter::Brace)
                         };
 
                         let event = &name[2..];
-                        let (id, value) = gen.add_expression(callback);
+                        let value = gen.add_expression(callback);
 
-                        args.push(id);
+                        args.push(*value);
 
-                        let _ = write!(js, "e{var}.addEventListener({event:?},{value});");
+                        let _ = writeln!(js, "{var}.addEventListener('{event}',{value});");
 
                         return;
                     }
 
-                    let (id, value) = gen.add_expression(expr.stream);
+                    let value = gen.add_expression(expr.stream);
 
-                    args.push(id);
+                    args.push(*value);
 
-                    let _ = write!(js, "e{var}.setAttributeNode('{name}',{value});");
+                    let _ = writeln!(js, "{var}.setAttributeNode('{name}',{value});");
                 }),
             };
         }
 
         if let Some(children) = self.children {
-            let _ = write!(js, "e{var}.append(");
+            let mut append = format!("{var}.append(");
 
             for child in children {
                 let dom_node = child.into_gen(gen);
 
-                let value: &dyn Display = match &dom_node {
-                    DomNode::Variable(id) => {
-                        args.push(*id);
-
-                        gen.out.name(*id)
+                match &dom_node {
+                    DomNode::Variable(value) => {
+                        let _ = write!(append, "{value},");
                     }
-                    DomNode::JsNode(JsNode::TextNode { text }) => text,
-                    DomNode::JsNode(_) => unimplemented!(),
-                };
+                    DomNode::JsNode(JsNode::TextNode(text)) => {
+                        // write the text verbatim, no need to go through `document.createTextNode`
+                        let _ = write!(append, "{text},");
+                    }
+                    DomNode::JsNode(JsNode::Element(el)) => {
+                        let _ = writeln!(js, "let {}=document.createElement('{}');", el.var, el.tag);
 
-                let _ = write!(js, "{value},");
+                        js.push_str(&el.code);
+
+                        args.extend(el.args.iter().copied());
+
+                        let _ = write!(append, "{},", el.var);
+                    },
+                    DomNode::JsNode(JsNode::Fragment(_)) => {
+                        panic!("Unexpected document fragment in the middle of the DOM");
+                    }
+                };
             }
 
-            js.pop();
-            js.push_str(");");
+            append.pop();
+            append.push_str(");\n");
+
+            js.push_str(&append);
         }
 
-        DomNode::JsNode(JsNode::Element {
+        DomNode::JsNode(JsNode::Element(JsElement {
             tag,
             var,
             code,
             args,
-        })
+        }))
     }
 }

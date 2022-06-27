@@ -1,15 +1,18 @@
-use std::fmt::{self, Display};
+use std::fmt::{self, Display, Write};
+use std::hash::Hash;
 
 use arrayvec::ArrayString;
-use proc_macro::{Ident, TokenStream};
+use proc_macro::TokenStream;
 
 use crate::dom2::{Expression, Node};
+use crate::gen2::element::{JsElement, JsFragment};
 use crate::parse::TokenStreamExt;
 
 mod component;
 mod element;
 
 pub type Short = ArrayString<8>;
+pub type JsFnName = ArrayString<{ 3 + 8 + 16 }>; // underscores + up to 8 bytes for el + hash
 
 pub use element::JsNode;
 
@@ -20,11 +23,12 @@ pub fn generate(nodes: Vec<Node>) {
 #[derive(Default)]
 pub struct Generator {
     names: FieldGenerator,
+    js: JsModule,
     out: Transient,
 }
 
 impl Generator {
-    fn add_expression(&mut self, value: impl Into<TokenStream>) -> (FieldId, &Short) {
+    fn add_expression(&mut self, value: impl Into<TokenStream>) -> &Short {
         let name = self.names.next();
 
         self.out.add(Field::Html {
@@ -32,6 +36,91 @@ impl Generator {
             value: value.into(),
         })
     }
+
+    fn hoist(&mut self, node: JsNode) -> JsFnName {
+        use std::hash::Hasher;
+
+        let (var, body, args) = match node {
+            JsNode::TextNode(text) => {
+                let body = format!("return document.createTextNode({text});\n");
+                let var = self.out.next_el();
+
+                (var, body, Vec::new())
+            }
+            JsNode::Element(el) => {
+                let JsElement {
+                    tag,
+                    var,
+                    code,
+                    args,
+                } = el;
+
+                let body = if code.is_empty() {
+                    format!("return document.createElement('{tag}');\n")
+                } else {
+                    format!("let {var}=document.createElement('{tag}');\n{code}return {var};\n")
+                };
+
+                (var, body, args)
+            }
+            JsNode::Fragment(frag) => {
+                let JsFragment { var, code, args } = frag;
+
+                assert!(
+                    !code.is_empty(),
+                    "Document fragment mustn't be empty, this is a bug"
+                );
+
+                let body =
+                    format!("let {var}=document.createDocumentFragment();\n{code}return {var};\n");
+
+                (var, body, args)
+            }
+        };
+
+        let mut hasher = fnv::FnvHasher::default();
+        var.hash(&mut hasher);
+        body.hash(&mut hasher);
+
+        let hash = hasher.finish();
+        let name = JsFnName::try_from(format_args!("__{var}_{hash:016x}")).unwrap();
+
+        let js = &mut self.js.code;
+
+        js.push_str("export function ");
+        js.push_str(&name);
+        js.push('(');
+        {
+            let mut args = args.iter();
+
+            if let Some(arg) = args.next() {
+                js.push_str(arg);
+
+                for arg in args {
+                    js.push(',');
+                    js.push_str(arg);
+                }
+            }
+        }
+        js.push_str("){\n");
+        js.push_str(&body);
+        js.push_str("}\n");
+
+        self.js.funtions.push(JsFunction { name, args });
+
+        name
+    }
+}
+
+#[derive(Default)]
+pub struct JsModule {
+    pub funtions: Vec<JsFunction>,
+    pub code: String,
+}
+
+pub struct JsFunction {
+    pub name: JsFnName,
+    pub args: Vec<Short>,
 }
 
 pub type FieldId = usize;
@@ -40,16 +129,14 @@ pub type FieldId = usize;
 pub struct Transient {
     fields: Vec<Field>,
     elements: usize,
-    // elements: Vec<DomNode>,
 }
 
 impl Transient {
-    fn add(&mut self, field: Field) -> (FieldId, &Short) {
+    fn add(&mut self, field: Field) -> &Short {
         let id = self.fields.len();
 
         self.fields.push(field);
-
-        (id, self.name(id))
+        self.name(id)
     }
 
     fn name(&self, id: FieldId) -> &Short {
@@ -58,12 +145,16 @@ impl Transient {
         }
     }
 
-    fn next_el(&mut self) -> usize {
-        let el = self.elements;
+    fn next_el(&mut self) -> Short {
+        let n = self.elements;
 
         self.elements += 1;
 
-        el
+        let mut var = Short::new();
+
+        let _ = write!(var, "e{n}");
+
+        var
     }
 }
 
@@ -74,8 +165,8 @@ pub enum Field {
     },
     Attribute {
         name: Short,
-        el: Ident,
-        abi: TokenStream,
+        el: Short,
+        abi: Short,
         value: TokenStream,
     },
 }
@@ -124,7 +215,7 @@ impl Field {
 
 pub enum DomNode {
     /// This node represents a variable, index mapping to a `Field` on `Transient`
-    Variable(FieldId),
+    Variable(Short),
     /// This node is an element that can be constructed in JavaScript
     JsNode(JsNode),
 }
@@ -135,9 +226,9 @@ trait IntoGenerator {
 
 impl IntoGenerator for Expression {
     fn into_gen(self, gen: &mut Generator) -> DomNode {
-        let (id, _) = gen.add_expression(self.stream);
+        let name = gen.add_expression(self.stream);
 
-        DomNode::Variable(id)
+        DomNode::Variable(*name)
     }
 }
 
@@ -146,9 +237,7 @@ impl IntoGenerator for Node {
         match self {
             Node::Component(component) => component.into_gen(gen),
             Node::Expression(expr) => expr.into_gen(gen),
-            Node::Text(lit) => DomNode::JsNode(JsNode::TextNode {
-                text: JsString(lit),
-            }),
+            Node::Text(lit) => DomNode::JsNode(JsNode::TextNode(JsString(lit))),
             _ => unimplemented!(),
         }
     }
