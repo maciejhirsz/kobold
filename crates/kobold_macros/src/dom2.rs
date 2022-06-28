@@ -1,8 +1,8 @@
 use proc_macro::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 
-use crate::gen2::TokenStreamExt;
 use crate::parse::prelude::*;
 use crate::syntax::CssLabel;
+use crate::tokenize::prelude::*;
 
 mod expression;
 mod shallow;
@@ -130,7 +130,7 @@ impl Node {
                         if let Some(TokenTree::Group(expr)) = content.allow_consume('{') {
                             spread = Some(Expression::from(expr));
                         } else {
-                            let expr = Expression::from_str("Default::default()");
+                            let expr = Expression::from("Default::default()");
 
                             spread = Some(expr);
                         }

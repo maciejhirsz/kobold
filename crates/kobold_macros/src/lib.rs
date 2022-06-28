@@ -7,7 +7,7 @@
 
 extern crate proc_macro;
 
-use proc_macro::{Delimiter, Ident, TokenStream, TokenTree};
+use proc_macro::{Ident, TokenStream, TokenTree};
 use proc_macro2::TokenStream as QuoteTokens;
 use quote::quote;
 
@@ -18,11 +18,13 @@ mod gen2;
 mod parse;
 mod parser;
 mod syntax;
+mod tokenize;
 
 use dom::FieldKind;
 use gen::Generator;
 use parse::prelude::*;
 use parser::{into_quote, Parser};
+use tokenize::prelude::*;
 
 macro_rules! unwrap_err {
     ($expr:expr) => {
@@ -39,12 +41,10 @@ pub fn branching(_: TokenStream, input: TokenStream) -> TokenStream {
 }
 
 fn do_branching(input: TokenStream) -> TokenStream {
-    use proc_macro2::{Ident, Span};
-
     let (input, count) = count_branches(input);
 
     let out = if count > 1 {
-        let ident = Ident::new(&format!("Branch{count}"), Span::call_site());
+        let ident = format!("Branch{count}");
         let mut variant = b'A';
 
         mark_branches(input, &ident, &mut variant)
@@ -61,76 +61,60 @@ fn count_branches(stream: TokenStream) -> (TokenStream, usize) {
     let mut count = 0;
 
     while let Some(mut tt) = iter.next() {
-        match &tt {
-            TokenTree::Group(group) => {
-                let (_, subcount) = count_branches(group.stream());
+        if let TokenTree::Group(group) = &tt {
+            let (_, subcount) = count_branches(group.stream());
 
-                count += subcount;
-            }
-            TokenTree::Ident(ident) if ident.to_string() == "html" => {
-                out.extend([tt]);
+            count += subcount;
+        } else if tt.is("html") {
+            out.write(tt);
 
-                tt = match iter.next() {
-                    Some(TokenTree::Punct(punct)) if punct.as_char() == '!' => {
+            tt = match iter.next() {
+                Some(tt) => {
+                    if tt.is('!') {
                         count += 1;
-                        punct.into()
                     }
-                    Some(tt) => tt,
-                    None => break,
-                }
+                    tt
+                },
+                None => break,
             }
-            _ => (),
         }
 
-        out.extend([tt]);
+        out.write(tt);
     }
 
     (out, count)
 }
 
-fn mark_branches(stream: TokenStream, branch_ty: &proc_macro2::Ident, n: &mut u8) -> TokenStream {
+fn mark_branches(stream: TokenStream, branch_ty: &str, n: &mut u8) -> TokenStream {
     use proc_macro::Group;
-    use proc_macro2::{Ident, Span};
 
     let mut out = TokenStream::new();
-    let mut iter = stream.into_iter().peekable();
+    let mut iter = stream.parse_stream();
 
-    while let Some(mut tt) = iter.next() {
-        match tt {
-            TokenTree::Group(group) => {
-                let delimiter = group.delimiter();
-                let stream = mark_branches(group.stream(), branch_ty, n);
+    while let Some(tt) = iter.next() {
+        if let TokenTree::Group(group) = tt {
+            let stream = mark_branches(group.stream(), branch_ty, n);
 
-                tt = Group::new(delimiter, stream).into();
+            out.write(Group::new(group.delimiter(), stream));
+
+            continue;
+        } else if tt.is("html") {
+            if let Some(bang) = iter.allow_consume('!') {
+                let variant = [*n];
+                let variant = std::str::from_utf8(&variant).unwrap();
+
+                *n += 1;
+
+                out.write((
+                    format_args!("::kobold::branching::{branch_ty}::{variant}"),
+                    group('(', (tt, bang, iter.next().unwrap())),
+                ));
+
+                continue;
             }
-            TokenTree::Ident(ident) if ident.to_string() == "html" => {
-                tt = ident.into();
-
-                match iter.peek() {
-                    Some(TokenTree::Punct(punct)) if punct.as_char() == '!' => {
-                        let mut branch = TokenStream::new();
-
-                        branch.extend([tt, iter.next().unwrap(), iter.next().unwrap()]);
-
-                        let variant = [*n];
-                        let variant = std::str::from_utf8(&variant).unwrap();
-                        let variant = Ident::new(variant, Span::call_site());
-
-                        *n += 1;
-
-                        out.extend::<TokenStream>(
-                            quote!(::kobold::branching::#branch_ty::#variant).into(),
-                        );
-
-                        tt = Group::new(Delimiter::Parenthesis, branch).into();
-                    }
-                    _ => (),
-                }
-            }
-            _ => (),
         }
 
-        out.extend([tt]);
+        out.write(tt);
     }
 
     out

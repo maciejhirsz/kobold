@@ -4,8 +4,8 @@ use std::fmt::Write;
 
 use proc_macro::{Ident, Literal, Span, TokenStream, TokenTree};
 
-use crate::gen2::TokenStreamExt;
-use crate::parse::*;
+use crate::parse::prelude::*;
+use crate::tokenize::prelude::*;
 
 /// Regular Rust `<Generic, Types>`, we don't care about what they are,
 /// but we do care about nested angle braces.
@@ -18,9 +18,7 @@ impl Parse for Generics {
         let opening = stream.expect('<')?;
 
         let mut depth = 1;
-        let mut tokens = TokenStream::new();
-
-        tokens.push(opening);
+        let mut tokens = opening.tokenize();
 
         for token in stream {
             if token.is('<') {
@@ -29,13 +27,13 @@ impl Parse for Generics {
                 depth -= 1;
 
                 if depth == 0 {
-                    tokens.push(token);
+                    tokens.write(token);
 
                     return Ok(Generics { tokens });
                 }
             }
 
-            tokens.push(token);
+            tokens.write(token);
         }
 
         Err(ParseError::new(
@@ -95,20 +93,17 @@ pub struct InlineBind {
 
 impl Parse for InlineBind {
     fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
-        let mut invocation = TokenStream::new();
-
         // Must begin with an identifier, `ctx` or anything else
         let mut ident: Ident = stream.parse()?;
-
-        invocation.push(ident);
+        let mut invocation = ident.tokenize();
 
         loop {
-            invocation.push(stream.expect('.')?);
+            invocation.write(stream.expect('.')?);
 
             ident = stream.parse()?;
 
             if ident.eq("bind") {
-                invocation.push(ident);
+                invocation.write(ident);
 
                 let arg = stream.expect('(')?;
                 let _: () = stream.parse()?;
@@ -116,7 +111,7 @@ impl Parse for InlineBind {
                 return Ok(InlineBind { invocation, arg });
             }
 
-            invocation.push(ident);
+            invocation.write(ident);
         }
     }
 }

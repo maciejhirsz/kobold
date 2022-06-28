@@ -7,9 +7,9 @@ use quote::quote;
 
 use crate::dom::{Attribute, AttributeValue, Element, Field, FieldKind, Node};
 use crate::gen::literal_to_string;
-use crate::gen2::TokenStreamExt;
 use crate::parse::prelude::*;
 use crate::syntax::{Generics, InlineBind};
+use crate::tokenize::prelude::*;
 
 pub struct Parser {
     vars: usize,
@@ -144,10 +144,10 @@ impl Parser {
                                         let expr = if let Ok(bind) = InlineBind::parse(&mut inner) {
                                             let mut expr = bind.invocation;
 
-                                            expr.write(&format!(
+                                            expr.write(format_args!(
                                                 "::<::kobold::reexport::web_sys::{target}, _, _>"
                                             ));
-                                            expr.push(bind.arg);
+                                            expr.write(bind.arg);
 
                                             QuoteTokens::from(expr)
                                         } else {

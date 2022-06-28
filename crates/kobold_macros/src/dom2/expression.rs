@@ -1,9 +1,9 @@
 use std::fmt::{self, Debug};
-use std::str::FromStr;
 
 use proc_macro::{Group, Span, TokenStream, TokenTree};
 
 use crate::dom2::Node;
+use crate::tokenize::prelude::*;
 
 pub struct Expression {
     pub stream: TokenStream,
@@ -29,7 +29,7 @@ impl From<TokenTree> for Expression {
         }
 
         let span = tt.span();
-        let stream = TokenStream::from(tt);
+        let stream = tt.tokenize();
 
         Expression { stream, span }
     }
@@ -44,12 +44,10 @@ impl From<Group> for Expression {
     }
 }
 
-impl Expression {
-    pub fn from_str(code: &str) -> Expression {
-        let stream = TokenStream::from_str(code).unwrap();
-
-        Expression {
-            stream,
+impl From<&str> for Expression {
+    fn from(code: &str) -> Self{
+       Expression {
+            stream: code.tokenize(),
             span: Span::call_site(),
         }
     }

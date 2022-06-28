@@ -5,15 +5,14 @@ use arrayvec::ArrayString;
 use proc_macro::{Literal, TokenStream};
 
 use crate::dom2::{Expression, Node};
+use crate::tokenize::prelude::*;
 
 mod component;
 mod element;
 mod fragment;
-mod token_stream;
 
 pub use element::JsElement;
 pub use fragment::{append, JsFragment};
-pub use token_stream::TokenStreamExt;
 
 // Short string for auto-generated variable names
 pub type Short = ArrayString<4>;
@@ -26,12 +25,6 @@ pub enum DomNode {
     TextNode(JsString),
     Element(JsElement),
     Fragment(JsFragment),
-}
-
-impl DomNode {
-    pub fn text_node(lit: Literal) -> Self {
-        DomNode::TextNode(JsString(lit))
-    }
 }
 
 pub fn generate(mut nodes: Vec<Node>) -> Transient {
@@ -206,42 +199,42 @@ impl Debug for Field {
 }
 
 impl Field {
-    fn to_bounds(&self, stream: &mut TokenStream) {
+    fn to_bounds(&self) -> TokenStream {
         match self {
             Field::Html { name, .. } => {
                 let mut typ = *name;
                 typ.make_ascii_uppercase();
 
-                write!(stream, "{typ}: ::kobold:Html,");
+                format_args!("{typ}: ::kobold:Html,").tokenize()
             }
             Field::Attribute { name, abi, .. } => {
                 let mut typ = *name;
                 typ.make_ascii_uppercase();
 
-                write!(
-                    stream,
+                format_args!(
                     "{typ}: ::kobold:Html,\
                     {typ}::Product: ::kobold::attribute::AttributeProduct<Abi = {abi}>,"
-                );
+                )
+                .tokenize()
             }
         }
     }
 
-    fn build(&self, stream: &mut TokenStream) {
+    fn build(&self) -> TokenStream {
         let name = match self {
             Field::Html { name, .. } | Field::Attribute { name, .. } => name,
         };
 
-        write!(stream, "let {name} = self.{name}.build();");
+        format_args!("let {name} = self.{name}.build();").tokenize()
     }
 
-    fn update(&self, stream: &mut TokenStream) {
+    fn update(&self) -> TokenStream {
         match self {
             Field::Html { name, .. } => {
-                write!(stream, "self.{name}.update(&mut p.{name});");
+                format_args!("self.{name}.update(&mut p.{name});").tokenize()
             }
             Field::Attribute { name, el, .. } => {
-                write!(stream, "self.{name}.update(&mut p.{name}, &p.{el});");
+                format_args!("self.{name}.update(&mut p.{name}, &p.{el});").tokenize()
             }
         }
     }

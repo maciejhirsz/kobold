@@ -1,11 +1,12 @@
-use std::fmt::{self, Display, Write};
+use std::fmt::{self, Arguments, Display, Write};
 
-use proc_macro::{Delimiter, Group, Literal, TokenStream};
+use proc_macro::Literal;
 
 use crate::dom2::{Attribute, AttributeValue, CssValue, HtmlElement};
 use crate::gen2::{append, DomNode, Generator, IntoGenerator, Short, TokenStreamExt};
 use crate::parse::{IdentExt, Parse};
 use crate::syntax::InlineBind;
+use crate::tokenize::prelude::*;
 
 pub struct JsElement {
     /// Tag name of the element such as `div`
@@ -22,6 +23,12 @@ pub struct JsElement {
 
     /// Whether or not this element needs to be hoisted in its own JS function
     pub hoisted: bool,
+}
+
+impl JsElement {
+    fn write_fmt(&mut self, args: Arguments) {
+        let _ = self.code.write_fmt(args);
+    }
 }
 
 fn into_class_name(
@@ -71,13 +78,13 @@ impl IntoGenerator for HtmlElement {
 
         if classes.len() == 1 {
             if let Some(class) = into_class_name(classes.next(), &mut el, gen) {
-                let _ = writeln!(el.code, "{var}.className={class};");
+                writeln!(el, "{var}.className={class};");
             }
         } else if let Some(first) = into_class_name(classes.next(), &mut el, gen) {
-            let _ = write!(el.code, "{var}.classList.add({first}");
+            write!(el, "{var}.classList.add({first}");
 
             while let Some(class) = into_class_name(classes.next(), &mut el, gen) {
-                let _ = write!(el.code, ",{class}");
+                write!(el, ",{class}");
             }
 
             el.code.push_str(");\n");
@@ -86,10 +93,10 @@ impl IntoGenerator for HtmlElement {
         for Attribute { name, value } in self.attributes {
             match value {
                 AttributeValue::Literal(value) => {
-                    let _ = writeln!(el.code, "{var}.setAttribute(\"{name}\",{value});");
+                    writeln!(el, "{var}.setAttribute(\"{name}\",{value});");
                 }
                 AttributeValue::Boolean(value) => {
-                    let _ = writeln!(el.code, "{var}.{name}={value};");
+                    writeln!(el, "{var}.{name}={value};");
                 }
                 AttributeValue::Expression(expr) => name.with_str(|attr| {
                     let value = if attr.starts_with("on") && attr.len() > 2 {
@@ -107,30 +114,34 @@ impl IntoGenerator for HtmlElement {
                         let mut inner = expr.stream.clone().parse_stream();
 
                         let callback = if let Ok(bind) = InlineBind::parse(&mut inner) {
-                            let mut expr = bind.invocation;
-                            write!(expr, "::<::kobold::reexport::web_sys::{target}, _, _> =");
-                            expr.push(bind.arg);
-                            expr
+                            (
+                                bind.invocation,
+                                format_args!("::<::kobold::reexport::web_sys::{target}, _, _> ="),
+                                bind.arg,
+                            )
+                                .tokenize()
                         } else {
-                            let mut constrain = TokenStream::new();
-
-                            write!(
-                                constrain,
-                                "let constrained: ::kobold:stateful::Callback<\
-                                    ::kobold::reexport::web_sys::{target},\
-                                    _,\
-                                    _,\
-                                > ="
-                            );
-                            constrain.extend(expr.stream);
-                            constrain.write("; constrained");
-                            constrain.group(Delimiter::Brace)
+                            group(
+                                '{',
+                                (
+                                    format_args!(
+                                        "let constrained: ::kobold:stateful::Callback<\
+                                            ::kobold::reexport::web_sys::{target},\
+                                            _,\
+                                            _,\
+                                        > ="
+                                    ),
+                                    expr.stream,
+                                    "; constrained",
+                                ),
+                            )
+                            .tokenize()
                         };
 
                         let event = &attr[2..];
                         let value = gen.add_expression(callback);
 
-                        let _ = writeln!(el.code, "{var}.addEventListener(\"{event}\",{value});");
+                        writeln!(el, "{var}.addEventListener(\"{event}\",{value});");
 
                         value
                     } else if attr == "checked" {
@@ -138,23 +149,18 @@ impl IntoGenerator for HtmlElement {
 
                         let value = gen.add_attribute(var, "bool", expr.stream);
 
-                        let _ = writeln!(el.code, "{var}.{attr}={value};");
+                        writeln!(el, "{var}.{attr}={value};");
 
                         value
                     } else {
-                        let mut args = TokenStream::new();
-                        args.push(Literal::string(&attr));
-                        args.write(",");
-                        args.extend(expr.stream);
+                        let expr = (
+                            "::kobold::attribute::AttributeNode::new",
+                            group('(', (Literal::string(attr), ',', expr.stream)),
+                        );
 
-                        let mut expr = TokenStream::new();
+                        let value = gen.add_expression(expr.tokenize());
 
-                        expr.write("::kobold::attribute::AttributeNode::new");
-                        expr.push(Group::new(Delimiter::Parenthesis, args));
-
-                        let value = gen.add_expression(expr);
-
-                        let _ = writeln!(el.code, "{var}.setAttributeNode({value});");
+                        writeln!(el, "{var}.setAttributeNode({value});");
 
                         value
                     };
@@ -166,7 +172,7 @@ impl IntoGenerator for HtmlElement {
 
         if let Some(children) = self.children {
             let append = append(gen, &mut el.code, &mut el.args, children);
-            let _ = writeln!(el.code, "{var}.{append};");
+            writeln!(el, "{var}.{append};");
         }
 
         DomNode::Element(el)

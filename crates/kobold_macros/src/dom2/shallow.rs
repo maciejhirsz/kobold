@@ -7,9 +7,9 @@ use std::fmt::{self, Display, Write};
 
 use proc_macro::{Group, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 
-use crate::gen2::TokenStreamExt;
 use crate::parse::prelude::*;
 use crate::syntax::Generics;
+use crate::tokenize::prelude::*;
 
 pub type ShallowStream = std::iter::Peekable<ShallowNodeIter>;
 
@@ -125,20 +125,17 @@ impl Parse for TagName {
             return Ok(TagName::HtmlElement { name, span });
         }
 
-        let mut path = TokenStream::new();
-
-        path.push(ident);
+        let mut path = ident.tokenize();
 
         while let Some(colon) = stream.allow_consume((':', Spacing::Joint)) {
-            path.push(colon);
-            path.push(stream.expect(':')?);
+            path.write((colon, stream.expect(':')?));
 
             ident = stream.parse()?;
             span = ident.span();
 
             write!(&mut name, "::{ident}").unwrap();
 
-            path.push(ident);
+            path.write(ident);
         }
 
         let mut generics = None;
@@ -229,7 +226,7 @@ impl Parse for Tag {
                 });
             }
 
-            content.push(tt);
+            content.write(tt);
         }
 
         Err(ParseError::new(
