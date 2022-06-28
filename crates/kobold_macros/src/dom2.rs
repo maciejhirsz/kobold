@@ -124,7 +124,7 @@ impl Node {
                 let mut props = Vec::new();
 
                 while !content.end() {
-                    if content.allow(('.', Spacing::Joint)) {
+                    if content.allow_consume(('.', Spacing::Joint)).is_some() {
                         content.expect('.')?;
 
                         if let Some(TokenTree::Group(expr)) = content.allow_consume('{') {

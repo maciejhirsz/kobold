@@ -39,9 +39,11 @@ fn into_class_name(
     match class? {
         CssValue::Literal(lit) => Some(ClassName::Literal(lit)),
         CssValue::Expression(expr) => {
-            let expr = ("::kobold::attribute::Class", group('(', expr.stream)).tokenize();
-
-            let name = gen.add_attribute(el.var, "&'static str", expr);
+            let name = gen.add_attribute(
+                el.var,
+                "&'static str",
+                ("::kobold::attribute::Class", group('(', expr.stream)).tokenize(),
+            );
 
             el.args.push(JsArgument::with_abi(name, "&str"));
 
@@ -118,7 +120,7 @@ impl IntoGenerator for HtmlElement {
                         let callback = if let Ok(bind) = InlineBind::parse(&mut inner) {
                             (
                                 bind.invocation,
-                                format_args!("::<::kobold::reexport::web_sys::{target}, _, _> ="),
+                                format_args!("::<::kobold::reexport::web_sys::{target}, _, _>"),
                                 bind.arg,
                             )
                                 .tokenize()
@@ -148,8 +150,11 @@ impl IntoGenerator for HtmlElement {
                         JsArgument::new(value)
                     } else if attr == "checked" {
                         el.hoisted = true;
-
-                        let value = gen.add_attribute(var, "bool", expr.stream);
+                        let value = gen.add_attribute(
+                            var,
+                            "bool",
+                            ("::kobold::attribute::Checked", group('(', expr.stream)).tokenize(),
+                        );
 
                         writeln!(el, "{var}.{attr}={value};");
 

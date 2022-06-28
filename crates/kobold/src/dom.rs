@@ -51,7 +51,8 @@ impl Element {
     }
 
     pub fn new_fragment_raw(node: Node) -> Self {
-        // TODO: set $begin and $end
+        util::__kobold_fragment_decorate(&node);
+
         Element {
             kind: Kind::Fragment,
             node,
@@ -63,6 +64,10 @@ impl Element {
     }
 
     pub fn anchor(&self) -> &JsValue {
+        &self.node
+    }
+
+    pub fn js(&self) -> &JsValue {
         &self.node
     }
 

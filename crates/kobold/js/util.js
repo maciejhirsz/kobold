@@ -10,6 +10,10 @@ export function __kobold_fragment()
 	f.append(f.$begin = document.createTextNode(""), f.$end = document.createTextNode(""));
 	return f;
 };
+export function __kobold_fragment_decorate(f) {
+	f.$begin = f.firstChild;
+	f.$end = f.lastChild;
+}
 export function __kobold_fragment_append(f,c) { f.$end.before(c); }
 export function __kobold_fragment_unmount(f)
 {
