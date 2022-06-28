@@ -7,6 +7,7 @@ use quote::quote;
 
 use crate::dom::{Attribute, AttributeValue, Element, Field, FieldKind, Node};
 use crate::gen::literal_to_string;
+use crate::gen2::TokenStreamExt;
 use crate::parse::prelude::*;
 use crate::syntax::{Generics, InlineBind};
 

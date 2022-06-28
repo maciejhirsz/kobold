@@ -7,6 +7,7 @@ use std::fmt::{self, Display, Write};
 
 use proc_macro::{Group, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 
+use crate::gen2::TokenStreamExt;
 use crate::parse::prelude::*;
 use crate::syntax::Generics;
 

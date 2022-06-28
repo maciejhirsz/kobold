@@ -4,6 +4,7 @@ use std::fmt::Write;
 
 use proc_macro::{Ident, Literal, Span, TokenStream, TokenTree};
 
+use crate::gen2::TokenStreamExt;
 use crate::parse::*;
 
 /// Regular Rust `<Generic, Types>`, we don't care about what they are,

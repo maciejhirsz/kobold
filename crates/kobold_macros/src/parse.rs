@@ -1,18 +1,15 @@
 //! [`ParseStream`](ParseStream), the [`Parse`](Parse) trait and utilities for working with
 //! token streams without `syn` or `quote`.
 
-use std::cell::RefCell;
-use std::fmt::{Arguments, Write};
-
 use beef::Cow;
-use proc_macro::{Delimiter, Group, Ident, Spacing, Span, TokenStream, TokenTree};
+use proc_macro::{Delimiter, Ident, Spacing, Span, TokenStream, TokenTree};
 
 use crate::dom2::{ShallowNodeIter, ShallowStream};
 
 pub type ParseStream = std::iter::Peekable<proc_macro::token_stream::IntoIter>;
 
 pub mod prelude {
-    pub use super::{IdentExt, IteratorExt, TokenStreamExt, TokenTreeExt};
+    pub use super::{IdentExt, IteratorExt, TokenTreeExt};
     pub use super::{IntoSpan, Lit, Parse, ParseError, ParseStream};
 }
 
@@ -247,61 +244,6 @@ impl TokenTreeExt for TokenTree {
 impl TokenTreeExt for Option<TokenTree> {
     fn is(&self, pattern: impl Pattern) -> bool {
         self.as_ref().map(|tt| pattern.matches(tt)).unwrap_or(false)
-    }
-}
-
-pub trait TokenStreamExt {
-    fn write(&mut self, rust: &str);
-
-    fn push(&mut self, tt: impl Into<TokenTree>);
-
-    fn parse_stream(self) -> ParseStream;
-
-    fn group(self, delim: Delimiter) -> TokenStream;
-
-    fn write_fmt(&mut self, args: Arguments);
-}
-
-impl TokenStreamExt for TokenStream {
-    fn write(&mut self, rust: &str) {
-        use std::str::FromStr;
-
-        self.extend(TokenStream::from_str(rust).unwrap());
-    }
-
-    fn push(&mut self, tt: impl Into<TokenTree>) {
-        self.extend([tt.into()]);
-    }
-
-    fn parse_stream(self) -> ParseStream {
-        self.into_iter().peekable()
-    }
-
-    fn group(self, delim: Delimiter) -> TokenStream {
-        TokenStream::from(TokenTree::Group(Group::new(delim, self)))
-    }
-
-    /// This allows write! macro to write to the TokenStream, auto-parsing all tokens
-    fn write_fmt(&mut self, args: Arguments) {
-        thread_local! {
-            // We need to collect the whole args to a string first, and then write them to stream
-            // all at once, otherwise TokenStream::write might fail if there are any Groups
-            // inside the interlaced string.
-            //
-            // To avoid allocating each time, we use a thread local buffer
-            static TOKEN_STREAM_BUF: RefCell<String> = RefCell::new(String::with_capacity(128));
-        }
-
-        TOKEN_STREAM_BUF.with(move |buf| {
-            let mut buf = buf.borrow_mut();
-
-            buf.clear();
-
-            // Writing to String is infallible
-            let _ = write!(buf, "{args}");
-
-            self.write(&buf);
-        });
     }
 }
 

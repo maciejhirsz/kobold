@@ -3,8 +3,8 @@ use std::fmt::{self, Display, Write};
 use proc_macro::{Delimiter, Group, Literal, TokenStream};
 
 use crate::dom2::{Attribute, AttributeValue, CssValue, HtmlElement};
-use crate::gen2::{append, DomNode, Generator, IntoGenerator, Short};
-use crate::parse::{IdentExt, Parse, TokenStreamExt};
+use crate::gen2::{append, DomNode, Generator, IntoGenerator, Short, TokenStreamExt};
+use crate::parse::{IdentExt, Parse};
 use crate::syntax::InlineBind;
 
 pub struct JsElement {

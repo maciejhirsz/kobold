@@ -5,14 +5,15 @@ use arrayvec::ArrayString;
 use proc_macro::{Literal, TokenStream};
 
 use crate::dom2::{Expression, Node};
-use crate::parse::TokenStreamExt;
 
 mod component;
 mod element;
 mod fragment;
+mod token_stream;
 
 pub use element::JsElement;
 pub use fragment::{append, JsFragment};
+pub use token_stream::TokenStreamExt;
 
 // Short string for auto-generated variable names
 pub type Short = ArrayString<4>;

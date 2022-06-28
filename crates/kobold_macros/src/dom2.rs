@@ -1,5 +1,6 @@
 use proc_macro::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 
+use crate::gen2::TokenStreamExt;
 use crate::parse::prelude::*;
 use crate::syntax::CssLabel;
 

@@ -1,8 +1,7 @@
 use proc_macro::{Delimiter, Group, TokenStream};
 
 use crate::dom2::{Component, Property};
-use crate::gen2::{DomNode, Field, Generator, IntoGenerator};
-use crate::parse::TokenStreamExt;
+use crate::gen2::{DomNode, Field, Generator, IntoGenerator, TokenStreamExt};
 
 impl Component {
     fn into_expression(self) -> TokenStream {
