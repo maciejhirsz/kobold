@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Display, Write};
 use arrayvec::ArrayString;
 use proc_macro::{Literal, TokenStream};
 
-use crate::gen2::Short;
+use crate::gen::Short;
 use crate::tokenize::prelude::*;
 
 // JS function name, capacity must fit a `Short`, a hash, and few underscores

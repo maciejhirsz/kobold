@@ -2,7 +2,7 @@ use std::fmt::{self, Debug};
 
 use proc_macro::{Group, Span, TokenStream, TokenTree};
 
-use crate::dom2::Node;
+use crate::dom::Node;
 use crate::tokenize::prelude::*;
 
 pub struct Expression {

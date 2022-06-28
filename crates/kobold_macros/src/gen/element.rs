@@ -2,8 +2,8 @@ use std::fmt::{self, Arguments, Display, Write};
 
 use proc_macro::Literal;
 
-use crate::dom2::{Attribute, AttributeValue, CssValue, HtmlElement};
-use crate::gen2::{append, DomNode, Generator, IntoGenerator, JsArgument, Short, TokenStreamExt};
+use crate::dom::{Attribute, AttributeValue, CssValue, HtmlElement};
+use crate::gen::{append, DomNode, Generator, IntoGenerator, JsArgument, Short, TokenStreamExt};
 use crate::parse::{IdentExt, Parse};
 use crate::syntax::InlineBind;
 use crate::tokenize::prelude::*;

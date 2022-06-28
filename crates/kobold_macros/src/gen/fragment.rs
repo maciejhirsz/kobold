@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
-use crate::dom2::Node;
-use crate::gen2::{DomNode, Generator, IntoGenerator, JsArgument, Short};
+use crate::dom::Node;
+use crate::gen::{DomNode, Generator, IntoGenerator, JsArgument, Short};
 
 pub struct JsFragment {
     /// Variable name of the fragment, such as `e0`

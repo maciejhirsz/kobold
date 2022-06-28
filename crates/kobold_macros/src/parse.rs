@@ -4,7 +4,8 @@
 use beef::Cow;
 use proc_macro::{Delimiter, Ident, Spacing, Span, TokenStream, TokenTree};
 
-use crate::dom2::{ShallowNodeIter, ShallowStream};
+use crate::dom::{ShallowNodeIter, ShallowStream};
+use crate::tokenize::prelude::*;
 
 pub type ParseStream = std::iter::Peekable<proc_macro::token_stream::IntoIter>;
 
@@ -64,17 +65,23 @@ impl ParseError {
             span: self.span,
         }
     }
+}
 
-    pub fn tokenize(self) -> TokenStream {
+impl Tokenize for ParseError {
+    fn tokenize(self) -> TokenStream {
         let msg = self.msg.as_ref();
         let span = self.span.into();
 
-        (quote::quote_spanned! { span =>
-            fn _parse_error() {
-                compile_error!(#msg)
-            }
-        })
-        .into()
+        let err = ("compile_error!", group('(', string(msg)))
+            .tokenize()
+            .into_iter()
+            .map(|mut tt| {
+                tt.set_span(span);
+                tt
+            })
+            .collect::<TokenStream>();
+
+        ("fn _parse_error()", group('{', err)).tokenize()
     }
 }
 

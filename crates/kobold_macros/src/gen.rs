@@ -1,249 +1,206 @@
-use std::fmt::{self, Write};
-use std::marker::PhantomData;
+use std::fmt::{Debug, Write};
+use std::hash::Hash;
 
 use arrayvec::ArrayString;
-use proc_macro::{Ident, Span, TokenStream, TokenTree};
-use proc_macro2::TokenStream as QuoteTokens;
-use quote::quote;
+use proc_macro::TokenStream;
 
-use crate::dom::{AttributeValue, Field, FieldKind, Node};
+use crate::dom::{Expression, Node};
+use crate::tokenize::prelude::*;
 
-#[derive(Debug)]
-pub enum Infallible {}
+mod component;
+mod element;
+mod fragment;
+mod transient;
 
-impl From<fmt::Error> for Infallible {
-    fn from(err: fmt::Error) -> Infallible {
-        panic!("{}", err)
-    }
+pub use element::JsElement;
+pub use fragment::{append, JsFragment};
+pub use transient::{Field, JsArgument, JsFnName, JsFunction, JsModule, JsString, Transient};
+
+// Short string for auto-generated variable names
+pub type Short = ArrayString<4>;
+
+pub enum DomNode {
+    Variable(Short),
+    TextNode(JsString),
+    Element(JsElement),
+    Fragment(JsFragment),
 }
 
-pub struct Generator<'a, I> {
-    fields: I,
-    var_count: usize,
-    pub render: String,
-    pub update: String,
-    args: String,
-    args_tokens: Vec<QuoteTokens>,
-    _marker: PhantomData<&'a Field>,
+pub fn generate(mut nodes: Vec<Node>) -> Transient {
+    let mut gen = Generator::default();
+
+    let dom_node = if nodes.len() == 1 {
+        nodes.remove(0).into_gen(&mut gen)
+    } else {
+        nodes.into_gen(&mut gen)
+    };
+
+    gen.hoist(dom_node);
+    gen.out
 }
 
-impl<'a, I> Generator<'a, I>
-where
-    I: Iterator<Item = &'a Field> + 'a,
-{
-    pub fn new(fields: I) -> Self {
-        Generator {
-            fields,
-            var_count: 0,
-            render: String::new(),
-            update: String::new(),
-            args: String::new(),
-            args_tokens: Vec::new(),
-            _marker: PhantomData,
-        }
+#[derive(Default)]
+pub struct Generator {
+    names: NameGenerator,
+    out: Transient,
+}
+
+impl Generator {
+    fn add_expression(&mut self, value: TokenStream) -> Short {
+        let name = self.names.next();
+
+        self.out.fields.push(Field::Html { name, value });
+
+        name
     }
 
-    pub fn generate(&mut self, dom: &Node) -> Result<String, Infallible> {
-        match dom {
-            Node::Text(text) => {
-                let e = self.next_el();
+    fn add_attribute(&mut self, el: Short, abi: &'static str, value: TokenStream) -> Short {
+        let name = self.names.next();
 
-                write!(
-                    &mut self.render,
-                    "const {}=document.createTextNode({});",
-                    e, text
-                )?;
+        self.out.fields.push(Field::Attribute {
+            name,
+            el,
+            abi,
+            value,
+        });
 
-                Ok(e)
-            }
-            Node::Element(el) => {
-                let e = self.next_el();
-
-                macro_rules! js {
-                    ($($t:tt)*) => {
-                        write!(&mut self.render, $($t)*)?
-                    };
-                }
-
-                js!("const {}=document.createElement({:?});", e, el.tag);
-
-                self.append(&e, &el.children)?;
-
-                for attr in el.attributes.iter() {
-                    let value = match &attr.value {
-                        AttributeValue::Literal(value) => literal_to_string(value),
-                        AttributeValue::Hoisted(_, _) => {
-                            let (arg, _) = self.next_arg();
-
-                            arg
-                        }
-                        AttributeValue::Expression(_) => {
-                            let (arg, field) = self.next_arg();
-
-                            match &field.kind {
-                                FieldKind::AttrNode => {
-                                    js!("{}.setAttributeNode({});", e, arg);
-                                }
-                                FieldKind::Callback(event) => {
-                                    let action = event.clone();
-                                    js!("{}.addEventListener({:?},{});", e, action, arg);
-                                }
-                                FieldKind::Html => {
-                                    panic!("HTML node in element attributes!");
-                                }
-                                FieldKind::AttrHoisted(_) => {
-                                    panic!("Hoisted attribute with expression value!");
-                                }
-                            }
-
-                            continue;
-                        }
-                    };
-
-                    match attr.name.as_ref() {
-                        "class" => {
-                            js!("{}.className={};", e, value);
-                        }
-                        "style" | "id" | "checked" => {
-                            js!("{}.{}={};", e, attr.name, value);
-                        }
-                        _ => {
-                            js!("{}.setAttribute({:?},{});", e, attr.name, value)
-                        }
-                    }
-                }
-
-                Ok(e)
-            }
-            Node::Fragment(children) => {
-                let e = self.next_el();
-
-                write!(
-                    &mut self.render,
-                    "const {e}=document.createDocumentFragment();\
-                    {e}.append({e}.$begin=document.createTextNode(\"\"));",
-                )?;
-
-                self.append(&e, children)?;
-
-                write!(
-                    &mut self.render,
-                    "{e}.append({e}.$end=document.createTextNode(\"\"));",
-                )?;
-
-                Ok(e)
-            }
-            Node::Expression => Ok(self.next_arg().0),
-        }
+        name
     }
 
-    pub fn append(&mut self, el: &str, children: &[Node]) -> Result<(), Infallible> {
-        let mut append = String::new();
-
-        if let Some((first, rest)) = children.split_first() {
-            match first {
-                Node::Text(text) => append.push_str(text),
-                ref node => append.push_str(&self.generate(node)?),
-            }
-
-            for child in rest {
-                append.push(',');
-
-                match child {
-                    Node::Text(text) => append.push_str(text),
-                    ref node => append.push_str(&self.generate(node)?),
-                }
-            }
-        }
-
-        write!(&mut self.render, "{}.append({});", el, append)?;
-
-        Ok(())
-    }
-
-    pub fn render_js(&mut self, root: &str) -> (QuoteTokens, QuoteTokens) {
-        const FN_PREFIX: &str = "__transient_";
-        const FN_BUF_LEN: usize = FN_PREFIX.len() + 16;
-
+    fn hoist(&mut self, node: DomNode) -> Option<JsFnName> {
         use std::hash::Hasher;
-        let mut hasher = fnv::FnvHasher::default();
 
-        hasher.write(self.render.as_bytes());
+        let (var, body, args) = match node {
+            DomNode::Variable(_) => return None,
+            DomNode::TextNode(text) => {
+                let body = format!("return document.createTextNode({text});\n");
+                let var = self.names.next_el();
 
-        let hash = hasher.finish();
-        let mut fn_name = ArrayString::<FN_BUF_LEN>::new();
-
-        fn_name.push_str(FN_PREFIX);
-
-        write!(&mut fn_name, "{:x}", hash)
-            .expect("transient function name buffer is too small, this is a bug, please report it");
-
-        let js = format!(
-            "export function {fn_name}({}){{{}return {root};}}",
-            self.args, self.render
-        );
-        let args = &self.args_tokens;
-
-        let fn_name = Ident::new(&fn_name, Span::call_site());
-        let fn_name: QuoteTokens = TokenStream::from(TokenTree::Ident(fn_name)).into();
-
-        (
-            fn_name.clone(),
-            quote! {
-                #[wasm_bindgen::prelude::wasm_bindgen(inline_js = #js)]
-                extern "C" {
-                    fn #fn_name(#(#args),*) -> ::kobold::reexport::web_sys::Node;
-                }
-            },
-        )
-    }
-
-    fn next_el(&mut self) -> String {
-        let e = format!("e{}", self.var_count);
-        self.var_count += 1;
-        e
-    }
-
-    fn next_arg(&mut self) -> (String, &Field) {
-        let field = self
-            .fields
-            .next()
-            .expect("Trying to generate more arguments in JS than fields in Rust");
-
-        let name = &field.name;
-        let arg = name.to_string();
-
-        if !self.args.is_empty() {
-            self.args.push(',');
-        }
-        self.args.push_str(&arg);
-
-        let arg_tokens = match &field.kind {
-            FieldKind::AttrHoisted(typ) => {
-                quote! { #name: #typ }
+                (var, body, Vec::new())
             }
-            _ => quote! { #name: &wasm_bindgen::JsValue },
+            DomNode::Element(JsElement {
+                tag,
+                var,
+                code,
+                args,
+                hoisted: _,
+            }) => {
+                let body = if code.is_empty() {
+                    format!("return document.createElement(\"{tag}\");\n")
+                } else {
+                    format!("let {var}=document.createElement(\"{tag}\");\n{code}return {var};\n")
+                };
+
+                (var, body, args)
+            }
+            DomNode::Fragment(JsFragment { var, code, args }) => {
+                assert!(
+                    !code.is_empty(),
+                    "Document fragment mustn't be empty, this is a bug"
+                );
+
+                (var, code, args)
+            }
         };
 
-        self.args_tokens.push(arg_tokens);
+        self.out.els.push(var);
 
-        (arg, field)
+        let mut hasher = fnv::FnvHasher::default();
+        var.hash(&mut hasher);
+        body.hash(&mut hasher);
+
+        let hash = hasher.finish();
+        let name = JsFnName::try_from(format_args!("__{var}_{hash:016x}")).unwrap();
+
+        let js = &mut self.out.js.code;
+
+        js.push_str("export function ");
+        js.push_str(&name);
+        js.push('(');
+        {
+            let mut args = args.iter();
+
+            if let Some(arg) = args.next() {
+                js.push_str(&arg.name);
+
+                for arg in args {
+                    js.push(',');
+                    js.push_str(&arg.name);
+                }
+            }
+        }
+        js.push_str("){\n");
+        js.push_str(&body);
+        js.push_str("}\n");
+
+        self.out.js.functions.push(JsFunction { name, args });
+
+        Some(name)
     }
 }
 
-pub fn literal_to_string(lit: impl ToString) -> String {
-    const QUOTE: &str = "\"";
+trait IntoGenerator {
+    fn into_gen(self, gen: &mut Generator) -> DomNode;
+}
 
-    let stringified = lit.to_string();
+impl IntoGenerator for Expression {
+    fn into_gen(self, gen: &mut Generator) -> DomNode {
+        let name = gen.add_expression(self.stream);
 
-    match stringified.chars().next() {
-        // Take the string verbatim
-        Some('"' | '\'') => stringified,
-        _ => {
-            let mut buf = String::with_capacity(stringified.len() + QUOTE.len() * 2);
+        DomNode::Variable(name)
+    }
+}
 
-            buf.extend([QUOTE, &stringified, QUOTE]);
-            buf
+impl IntoGenerator for Node {
+    fn into_gen(self, gen: &mut Generator) -> DomNode {
+        match self {
+            Node::Component(component) => component.into_gen(gen),
+            Node::HtmlElement(element) => element.into_gen(gen),
+            Node::Expression(expr) => expr.into_gen(gen),
+            Node::Text(lit) => DomNode::TextNode(JsString(lit)),
         }
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct NameGenerator {
+    variables: usize,
+    elements: usize,
+}
+
+impl NameGenerator {
+    /// Generate next variable name, `a` to `z` lower case
+    fn next(&mut self) -> Short {
+        const LETTERS: usize = 26;
+
+        let mut buf = Short::new();
+        let mut n = self.variables;
+
+        self.variables += 1;
+
+        loop {
+            buf.push((u8::try_from(n % LETTERS).unwrap() + b'a') as char);
+
+            n /= LETTERS;
+
+            if n == 0 {
+                break;
+            }
+        }
+
+        buf
+    }
+
+    /// Generate next element name, integer prefixed with `e`
+    fn next_el(&mut self) -> Short {
+        let n = self.elements;
+
+        self.elements += 1;
+
+        let mut var = Short::new();
+
+        let _ = write!(var, "e{n}");
+
+        var
     }
 }

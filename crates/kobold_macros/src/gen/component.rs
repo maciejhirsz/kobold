@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 
-use crate::dom2::{Component, Property};
-use crate::gen2::{DomNode, Field, Generator, IntoGenerator, TokenStreamExt};
+use crate::dom::{Component, Property};
+use crate::gen::{DomNode, Field, Generator, IntoGenerator, TokenStreamExt};
 use crate::tokenize::prelude::*;
 
 impl Component {
