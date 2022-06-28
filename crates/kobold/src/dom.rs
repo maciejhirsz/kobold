@@ -50,7 +50,8 @@ impl Element {
         }
     }
 
-    pub unsafe fn new_fragment_raw(node: Node) -> Self {
+    pub fn new_fragment_raw(node: Node) -> Self {
+        // TODO: set $begin and $end
         Element {
             kind: Kind::Fragment,
             node,

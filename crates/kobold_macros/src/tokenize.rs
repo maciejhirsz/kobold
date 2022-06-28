@@ -2,12 +2,12 @@ use std::cell::RefCell;
 use std::fmt::{Arguments, Write};
 use std::str::FromStr;
 
-use proc_macro::{Delimiter, Group, Ident, Literal, Punct, TokenStream, Spacing, TokenTree};
+use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree};
 
 use crate::parse::ParseStream;
 
 pub mod prelude {
-    pub use super::{group, TokenStreamExt, Tokenize};
+    pub use super::{group, ident, each, string, TokenStreamExt, Tokenize};
 }
 
 pub fn group(delim: char, tokens: impl Tokenize) -> Group {
@@ -18,6 +18,18 @@ pub fn group(delim: char, tokens: impl Tokenize) -> Group {
         _ => panic!("Invalid delimiter {delim}"),
     };
     Group::new(delim, tokens.tokenize())
+}
+
+pub fn string(lit: &str) -> Literal {
+    Literal::string(lit)
+}
+
+pub fn ident(ident: &str) -> Ident {
+    Ident::new(ident, Span::call_site())
+}
+
+pub fn each<I>(iter: I) -> TokenizeIter<I> {
+    TokenizeIter(iter)
 }
 
 pub trait Tokenize {
@@ -34,6 +46,35 @@ pub trait Tokenize {
 impl Tokenize for TokenStream {
     fn tokenize(self) -> TokenStream {
         self
+    }
+}
+
+pub struct TokenizeIter<I>(I);
+
+impl<I> Tokenize for TokenizeIter<I>
+where
+    I: IntoIterator,
+    I::Item: Tokenize,
+{
+    fn tokenize(self) -> TokenStream {
+        let mut iter = self.0.into_iter();
+
+        let mut stream = match iter.next() {
+            Some(item) => item.tokenize(),
+            None => return TokenStream::new(),
+        };
+
+        for item in iter {
+            item.tokenize_in(&mut stream);
+        }
+
+        stream
+    }
+
+    fn tokenize_in(self, stream: &mut TokenStream) {
+        for item in self.0 {
+            item.tokenize_in(stream);
+        }
     }
 }
 

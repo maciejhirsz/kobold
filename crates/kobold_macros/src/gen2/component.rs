@@ -30,6 +30,7 @@ impl Component {
             stream.write(group('{', body));
         }
 
+        stream.write(".render()");
         stream
     }
 }

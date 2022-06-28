@@ -3,7 +3,7 @@ use std::fmt::{self, Arguments, Display, Write};
 use proc_macro::Literal;
 
 use crate::dom2::{Attribute, AttributeValue, CssValue, HtmlElement};
-use crate::gen2::{append, DomNode, Generator, IntoGenerator, Short, TokenStreamExt};
+use crate::gen2::{append, DomNode, Generator, IntoGenerator, JsArgument, Short, TokenStreamExt};
 use crate::parse::{IdentExt, Parse};
 use crate::syntax::InlineBind;
 use crate::tokenize::prelude::*;
@@ -18,8 +18,8 @@ pub struct JsElement {
     /// Method calls on constructed element, such as `e0.append(foo);` or `e0.className = bar;`
     pub code: String,
 
-    /// Arguments to import from rust
-    pub args: Vec<Short>,
+    /// Arguments to import from rust, with optional ABI type
+    pub args: Vec<JsArgument>,
 
     /// Whether or not this element needs to be hoisted in its own JS function
     pub hoisted: bool,
@@ -39,9 +39,11 @@ fn into_class_name(
     match class? {
         CssValue::Literal(lit) => Some(ClassName::Literal(lit)),
         CssValue::Expression(expr) => {
-            let name = gen.add_attribute(el.var, "&str", expr.stream);
+            let expr = ("::kobold::attribute::Class", group('(', expr.stream)).tokenize();
 
-            el.args.push(name);
+            let name = gen.add_attribute(el.var, "&'static str", expr);
+
+            el.args.push(JsArgument::with_abi(name, "&str"));
 
             Some(ClassName::Expression(name))
         }
@@ -99,7 +101,7 @@ impl IntoGenerator for HtmlElement {
                     writeln!(el, "{var}.{name}={value};");
                 }
                 AttributeValue::Expression(expr) => name.with_str(|attr| {
-                    let value = if attr.starts_with("on") && attr.len() > 2 {
+                    let arg = if attr.starts_with("on") && attr.len() > 2 {
                         let target = match el.tag.as_str() {
                             "a" => "HtmlLinkElement",
                             "form" => "HtmlFormElement",
@@ -125,7 +127,7 @@ impl IntoGenerator for HtmlElement {
                                 '{',
                                 (
                                     format_args!(
-                                        "let constrained: ::kobold:stateful::Callback<\
+                                        "let constrained: ::kobold::stateful::Callback<\
                                             ::kobold::reexport::web_sys::{target},\
                                             _,\
                                             _,\
@@ -143,7 +145,7 @@ impl IntoGenerator for HtmlElement {
 
                         writeln!(el, "{var}.addEventListener(\"{event}\",{value});");
 
-                        value
+                        JsArgument::new(value)
                     } else if attr == "checked" {
                         el.hoisted = true;
 
@@ -151,21 +153,21 @@ impl IntoGenerator for HtmlElement {
 
                         writeln!(el, "{var}.{attr}={value};");
 
-                        value
+                        JsArgument::with_abi(value, "bool")
                     } else {
                         let expr = (
                             "::kobold::attribute::AttributeNode::new",
-                            group('(', (Literal::string(attr), ',', expr.stream)),
+                            group('(', (string(attr), ',', expr.stream)),
                         );
 
                         let value = gen.add_expression(expr.tokenize());
 
                         writeln!(el, "{var}.setAttributeNode({value});");
 
-                        value
+                        JsArgument::new(value)
                     };
 
-                    el.args.push(value);
+                    el.args.push(arg);
                 }),
             };
         }

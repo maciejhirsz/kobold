@@ -70,7 +70,7 @@ impl Parse for CssLabel {
 
 impl CssLabel {
     pub fn into_literal(self) -> Literal {
-        let mut lit = Literal::string(&self.label);
+        let mut lit = string(&self.label);
 
         // Keep resolution to literal, but change location
         lit.set_span(lit.span().located_at(self.span));

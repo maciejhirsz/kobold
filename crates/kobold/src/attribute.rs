@@ -112,6 +112,41 @@ where
     }
 }
 
+pub struct Class<T>(pub T);
+
+impl Attribute for Class<&'static str> {
+    type Product = &'static str;
+
+    fn build(self) -> Self::Product {
+        self.0
+    }
+
+    fn update(self, p: &mut Self::Product, js: &JsValue) {
+        if self.0 != *p {
+            if *p == "" {
+                util::__kobold_class_add(js, self.0);
+            } else if self.0 == "" {
+                util::__kobold_class_remove(js, *p);
+            } else {
+                util::__kobold_class_replace(js, *p, self.0);
+            }
+            *p = self.0;
+        }
+    }
+}
+
+impl Attribute for Class<Option<&'static str>> {
+    type Product = &'static str;
+
+    fn build(self) -> Self::Product {
+        self.0.unwrap_or("")
+    }
+
+    fn update(self, p: &mut Self::Product, js: &JsValue) {
+        Class(self.0.unwrap_or("")).update(p, js);
+    }
+}
+
 pub struct Checked(pub bool);
 
 impl Attribute for Checked {
@@ -194,7 +229,6 @@ macro_rules! create_named_attrs {
 }
 
 create_named_attrs! {
-    Class => __kobold_attr_class,
     Style => __kobold_attr_style,
 }
 

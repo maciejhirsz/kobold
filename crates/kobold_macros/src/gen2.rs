@@ -14,7 +14,7 @@ mod transient;
 
 pub use element::JsElement;
 pub use fragment::{append, JsFragment};
-pub use transient::{Field, JsFnName, JsFunction, JsModule, JsString, Transient};
+pub use transient::{Field, JsArgument, JsFnName, JsFunction, JsModule, JsString, Transient};
 
 // Short string for auto-generated variable names
 pub type Short = ArrayString<4>;
@@ -121,11 +121,11 @@ impl Generator {
             let mut args = args.iter();
 
             if let Some(arg) = args.next() {
-                js.push_str(arg);
+                js.push_str(&arg.name);
 
                 for arg in args {
                     js.push(',');
-                    js.push_str(arg);
+                    js.push_str(&arg.name);
                 }
             }
         }
