@@ -51,7 +51,11 @@ impl Tokenize for Transient {
 
         for (jsfn, el) in self.js.functions.iter().zip(self.els) {
             let _ = write!(declare_els, "{el}: ::kobold::dom::Element,");
-            let _ = write!(build, "let {el} = ::kobold::dom::Element::new({}(", jsfn.name);
+            let _ = write!(
+                build,
+                "let {el} = ::kobold::dom::Element::new({}(",
+                jsfn.name
+            );
 
             for arg in jsfn.args.iter() {
                 let _ = write!(build, "{}.js(),", arg.name);

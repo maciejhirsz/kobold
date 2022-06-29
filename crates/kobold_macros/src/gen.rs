@@ -67,6 +67,20 @@ impl Generator {
         name
     }
 
+    fn add_class(&mut self, el: Short, expr: Expression) -> Short {
+        let name = self.names.next();
+        let value = ("::kobold::attribute::Class", group('(', expr.stream)).tokenize();
+
+        self.out.fields.push(Field::Attribute {
+            name,
+            el,
+            abi: "&'static str",
+            value,
+        });
+
+        name
+    }
+
     fn hoist(&mut self, node: DomNode) -> Option<JsFnName> {
         use std::hash::Hasher;
 

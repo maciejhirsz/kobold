@@ -4,6 +4,7 @@ use proc_macro::Literal;
 
 use crate::dom::{Attribute, AttributeValue, CssValue, HtmlElement};
 use crate::gen::{append, DomNode, Generator, IntoGenerator, JsArgument, Short, TokenStreamExt};
+use crate::itertools::IteratorExt;
 use crate::parse::{IdentExt, Parse};
 use crate::syntax::InlineBind;
 use crate::tokenize::prelude::*;
@@ -31,23 +32,15 @@ impl JsElement {
     }
 }
 
-fn into_class_name(
-    class: Option<CssValue>,
-    el: &mut JsElement,
-    gen: &mut Generator,
-) -> Option<ClassName> {
-    match class? {
-        CssValue::Literal(lit) => Some(ClassName::Literal(lit)),
+fn into_class_name(class: CssValue, el: &mut JsElement, gen: &mut Generator) -> ClassName {
+    match class {
+        CssValue::Literal(lit) => ClassName::Literal(lit),
         CssValue::Expression(expr) => {
-            let name = gen.add_attribute(
-                el.var,
-                "&'static str",
-                ("::kobold::attribute::Class", group('(', expr.stream)).tokenize(),
-            );
+            let name = gen.add_class(el.var, expr);
 
             el.args.push(JsArgument::with_abi(name, "&str"));
 
-            Some(ClassName::Expression(name))
+            ClassName::Expression(name)
         }
     }
 }
@@ -67,7 +60,7 @@ impl Display for ClassName {
 }
 
 impl IntoGenerator for HtmlElement {
-    fn into_gen(self, gen: &mut Generator) -> DomNode {
+    fn into_gen(mut self, gen: &mut Generator) -> DomNode {
         let var = gen.names.next_el();
 
         let mut el = JsElement {
@@ -78,20 +71,35 @@ impl IntoGenerator for HtmlElement {
             hoisted: self.classes.iter().any(CssValue::is_expression),
         };
 
-        let mut classes = self.classes.into_iter();
-
-        if classes.len() == 1 {
-            if let Some(class) = into_class_name(classes.next(), &mut el, gen) {
+        match self.classes.len() {
+            0 => (),
+            1 => {
+                let class = into_class_name(self.classes.remove(0), &mut el, gen);
                 writeln!(el, "{var}.className={class};");
             }
-        } else if let Some(first) = into_class_name(classes.next(), &mut el, gen) {
-            write!(el, "{var}.classList.add({first}");
+            _ => {
+                let lit_count = self.classes.iter().map(CssValue::is_literal).count();
 
-            while let Some(class) = into_class_name(classes.next(), &mut el, gen) {
-                write!(el, ",{class}");
+                if lit_count > 0 {
+                    let classes = self
+                        .classes
+                        .iter()
+                        .filter_map(CssValue::as_literal)
+                        .join(",");
+
+                    writeln!(el, "{var}.classList.add({classes});");
+                }
+
+                for class in self.classes {
+                    if let CssValue::Expression(expr) = class {
+                        let name = gen.add_class(el.var, expr);
+
+                        el.args.push(JsArgument::with_abi(name, "&str"));
+
+                        writeln!(el, "{name} && {var}.classList.add({name});");
+                    }
+                }
             }
-
-            el.code.push_str(");\n");
         }
 
         for Attribute { name, value } in self.attributes {

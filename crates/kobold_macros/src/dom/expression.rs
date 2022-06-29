@@ -45,8 +45,8 @@ impl From<Group> for Expression {
 }
 
 impl From<&str> for Expression {
-    fn from(code: &str) -> Self{
-       Expression {
+    fn from(code: &str) -> Self {
+        Expression {
             stream: code.tokenize(),
             span: Span::call_site(),
         }

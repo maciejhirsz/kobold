@@ -266,6 +266,17 @@ impl Parse for Property {
 }
 
 impl CssValue {
+    pub fn as_literal(&self) -> Option<&Literal> {
+        match self {
+            CssValue::Literal(lit) => Some(lit),
+            CssValue::Expression(_) => None,
+        }
+    }
+
+    pub fn is_literal(&self) -> bool {
+        !self.is_expression()
+    }
+
     pub fn is_expression(&self) -> bool {
         match self {
             CssValue::Literal(_) => false,

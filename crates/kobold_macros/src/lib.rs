@@ -8,6 +8,7 @@ use proc_macro::{Ident, TokenStream, TokenTree};
 
 mod dom;
 mod gen;
+mod itertools;
 mod parse;
 mod syntax;
 mod tokenize;
