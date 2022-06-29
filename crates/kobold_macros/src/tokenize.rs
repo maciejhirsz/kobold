@@ -7,7 +7,7 @@ use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenSt
 use crate::parse::ParseStream;
 
 pub mod prelude {
-    pub use super::{each, group, ident, string, TokenStreamExt, Tokenize};
+    pub use super::{call, block, each, group, ident, string, TokenStreamExt, Tokenize};
 }
 
 pub fn group(delim: char, tokens: impl Tokenize) -> Group {
@@ -18,6 +18,14 @@ pub fn group(delim: char, tokens: impl Tokenize) -> Group {
         _ => panic!("Invalid delimiter {delim}"),
     };
     Group::new(delim, tokens.tokenize())
+}
+
+pub fn call(path: impl Tokenize, tokens: impl Tokenize) -> TokenStream {
+    (path, group('(', tokens)).tokenize()
+}
+
+pub fn block(tokens: impl Tokenize) -> impl Tokenize {
+    group('{', tokens)
 }
 
 pub fn string(lit: &str) -> Literal {

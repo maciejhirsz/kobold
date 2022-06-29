@@ -1,6 +1,6 @@
-use std::fmt::{self, Arguments, Display, Write};
+use std::fmt::{Arguments, Write};
 
-use proc_macro::Literal;
+use proc_macro::TokenStream;
 
 use crate::dom::{Attribute, AttributeValue, CssValue, HtmlElement};
 use crate::gen::{append, DomNode, Generator, IntoGenerator, JsArgument, Short, TokenStreamExt};
@@ -30,32 +30,17 @@ impl JsElement {
     fn write_fmt(&mut self, args: Arguments) {
         let _ = self.code.write_fmt(args);
     }
-}
 
-fn into_class_name(class: CssValue, el: &mut JsElement, gen: &mut Generator) -> ClassName {
-    match class {
-        CssValue::Literal(lit) => ClassName::Literal(lit),
-        CssValue::Expression(expr) => {
-            let name = gen.add_class(el.var, expr);
+    fn add_class_expression(&mut self, expr: TokenStream, gen: &mut Generator) -> Short {
+        let class = gen.add_attribute(
+            self.var,
+            "&'static str",
+            call("::kobold::attribute::Class", expr),
+        );
 
-            el.args.push(JsArgument::with_abi(name, "&str"));
+        self.args.push(JsArgument::with_abi(class, "&str"));
 
-            ClassName::Expression(name)
-        }
-    }
-}
-
-enum ClassName {
-    Literal(Literal),
-    Expression(Short),
-}
-
-impl Display for ClassName {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            ClassName::Literal(lit) => lit.fmt(f),
-            ClassName::Expression(short) => f.write_str(short),
-        }
+        class
     }
 }
 
@@ -73,10 +58,14 @@ impl IntoGenerator for HtmlElement {
 
         match self.classes.len() {
             0 => (),
-            1 => {
-                let class = into_class_name(self.classes.remove(0), &mut el, gen);
-                writeln!(el, "{var}.className={class};");
-            }
+            1 => match self.classes.remove(0) {
+                CssValue::Literal(class) => writeln!(el, "{var}.className={class};"),
+                CssValue::Expression(expr) => {
+                    let class = el.add_class_expression(expr.stream, gen);
+
+                    writeln!(el, "{var}.className={class};");
+                }
+            },
             _ => {
                 let lit_count = self.classes.iter().map(CssValue::is_literal).count();
 
@@ -92,11 +81,9 @@ impl IntoGenerator for HtmlElement {
 
                 for class in self.classes {
                     if let CssValue::Expression(expr) = class {
-                        let name = gen.add_class(el.var, expr);
+                        let class = el.add_class_expression(expr.stream, gen);
 
-                        el.args.push(JsArgument::with_abi(name, "&str"));
-
-                        writeln!(el, "{name} && {var}.classList.add({name});");
+                        writeln!(el, "{class} && {var}.classList.add({class});");
                     }
                 }
             }
@@ -112,16 +99,7 @@ impl IntoGenerator for HtmlElement {
                 }
                 AttributeValue::Expression(expr) => name.with_str(|attr| {
                     let arg = if attr.starts_with("on") && attr.len() > 2 {
-                        let target = match el.tag.as_str() {
-                            "a" => "HtmlLinkElement",
-                            "form" => "HtmlFormElement",
-                            "img" => "HtmlImageElement",
-                            "input" => "HtmlInputElement",
-                            "option" => "HtmlOptionElement",
-                            "select" => "HtmlSelectElement",
-                            "textarea" => "HtmlTextAreaElement",
-                            _ => "HtmlElement",
-                        };
+                        let target = element_js_type(el.tag.as_str());
 
                         let mut inner = expr.stream.clone().parse_stream();
 
@@ -133,20 +111,17 @@ impl IntoGenerator for HtmlElement {
                             )
                                 .tokenize()
                         } else {
-                            group(
-                                '{',
-                                (
-                                    format_args!(
-                                        "let constrained: ::kobold::stateful::Callback<\
-                                            ::kobold::reexport::web_sys::{target},\
-                                            _,\
-                                            _,\
-                                        > ="
-                                    ),
-                                    expr.stream,
-                                    "; constrained",
+                            block((
+                                format_args!(
+                                    "let constrained: ::kobold::stateful::Callback<\
+                                        ::kobold::reexport::web_sys::{target},\
+                                        _,\
+                                        _,\
+                                    > ="
                                 ),
-                            )
+                                expr.stream,
+                                "; constrained",
+                            ))
                             .tokenize()
                         };
 
@@ -161,19 +136,17 @@ impl IntoGenerator for HtmlElement {
                         let value = gen.add_attribute(
                             var,
                             "bool",
-                            ("::kobold::attribute::Checked", group('(', expr.stream)).tokenize(),
+                            call("::kobold::attribute::Checked", expr.stream),
                         );
 
                         writeln!(el, "{var}.{attr}={value};");
 
                         JsArgument::with_abi(value, "bool")
                     } else {
-                        let expr = (
+                        let value = gen.add_expression(call(
                             "::kobold::attribute::AttributeNode::new",
-                            group('(', (string(attr), ',', expr.stream)),
-                        );
-
-                        let value = gen.add_expression(expr.tokenize());
+                            (string(attr), ',', expr.stream),
+                        ));
 
                         writeln!(el, "{var}.setAttributeNode({value});");
 
@@ -191,5 +164,18 @@ impl IntoGenerator for HtmlElement {
         }
 
         DomNode::Element(el)
+    }
+}
+
+fn element_js_type(tag: &str) -> &'static str {
+    match tag {
+        "a" => "HtmlLinkElement",
+        "form" => "HtmlFormElement",
+        "img" => "HtmlImageElement",
+        "input" => "HtmlInputElement",
+        "option" => "HtmlOptionElement",
+        "select" => "HtmlSelectElement",
+        "textarea" => "HtmlTextAreaElement",
+        _ => "HtmlElement",
     }
 }

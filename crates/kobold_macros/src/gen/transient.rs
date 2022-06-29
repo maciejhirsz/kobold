@@ -4,6 +4,7 @@ use arrayvec::ArrayString;
 use proc_macro::{Literal, TokenStream};
 
 use crate::gen::Short;
+use crate::itertools::IteratorExt;
 use crate::tokenize::prelude::*;
 
 // JS function name, capacity must fit a `Short`, a hash, and few underscores
@@ -50,32 +51,35 @@ impl Tokenize for Transient {
         let mut declare_els = String::new();
 
         for (jsfn, el) in self.js.functions.iter().zip(self.els) {
+            let name = jsfn.name;
             let _ = write!(declare_els, "{el}: ::kobold::dom::Element,");
+
+            let args = jsfn
+                .args
+                .iter()
+                .map(|a| {
+                    let mut temp = ArrayString::<8>::new();
+                    let _ = write!(temp, "{}.js()", a.name);
+                    temp
+                })
+                .join(",");
+
             let _ = write!(
                 build,
-                "let {el} = ::kobold::dom::Element::new({}(",
-                jsfn.name
+                "let {el} = ::kobold::dom::Element::new({name}({args}));"
             );
-
-            for arg in jsfn.args.iter() {
-                let _ = write!(build, "{}.js(),", arg.name);
-            }
-            build.push_str("));");
-
             let _ = write!(vars, "{el},");
         }
 
-        group(
-            '{',
-            (
-                "\
+        block((
+            "\
                 use ::kobold::{Mountable as _};\
                 use ::kobold::attribute::{AttributeProduct as _};\
                 use ::kobold::reexport::wasm_bindgen;\
                 ",
-                self.js,
-                format_args!(
-                    "\
+            self.js,
+            format_args!(
+                "\
                     struct Transient <{generics}> {{\
                         {declare}\
                     }}\
@@ -115,10 +119,9 @@ impl Tokenize for Transient {
                     \
                     Transient\
                     "
-                ),
-                group('{', each(self.fields.iter().map(Field::invoke))),
             ),
-        )
+            block(each(self.fields.iter().map(Field::invoke))),
+        ))
         .tokenize()
     }
 }
@@ -145,7 +148,7 @@ impl Tokenize for JsModule {
                 ),
             ),
             "extern \"C\"",
-            group('{', each(self.functions)),
+            block(each(self.functions)),
         )
             .tokenize()
     }
@@ -170,8 +173,7 @@ impl Tokenize for JsFunction {
         let name = self.name;
 
         (
-            format_args!("fn {name}"),
-            group('(', each(self.args)),
+            call(format_args!("fn {name}"), each(self.args)),
             "-> ::kobold::reexport::web_sys::Node;",
         )
             .tokenize()

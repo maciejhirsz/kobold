@@ -72,8 +72,7 @@ impl Tokenize for ParseError {
         let msg = self.msg.as_ref();
         let span = self.span.into();
 
-        let err = ("compile_error!", group('(', string(msg)))
-            .tokenize()
+        let err = call("compile_error!", string(msg))
             .into_iter()
             .map(|mut tt| {
                 tt.set_span(span);
@@ -81,7 +80,7 @@ impl Tokenize for ParseError {
             })
             .collect::<TokenStream>();
 
-        ("fn _parse_error()", group('{', err)).tokenize()
+        ("fn _parse_error()", block(err)).tokenize()
     }
 }
 

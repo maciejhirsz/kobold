@@ -27,7 +27,7 @@ impl Component {
         }
 
         if let Some(body) = body {
-            stream.write(group('{', body));
+            stream.write(block(body));
         }
 
         stream.write(".render()");

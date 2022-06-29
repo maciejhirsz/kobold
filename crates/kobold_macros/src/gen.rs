@@ -5,6 +5,7 @@ use arrayvec::ArrayString;
 use proc_macro::TokenStream;
 
 use crate::dom::{Expression, Node};
+use crate::itertools::IteratorExt;
 use crate::tokenize::prelude::*;
 
 mod component;
@@ -67,20 +68,6 @@ impl Generator {
         name
     }
 
-    fn add_class(&mut self, el: Short, expr: Expression) -> Short {
-        let name = self.names.next();
-        let value = ("::kobold::attribute::Class", group('(', expr.stream)).tokenize();
-
-        self.out.fields.push(Field::Attribute {
-            name,
-            el,
-            abi: "&'static str",
-            value,
-        });
-
-        name
-    }
-
     fn hoist(&mut self, node: DomNode) -> Option<JsFnName> {
         use std::hash::Hasher;
 
@@ -126,26 +113,15 @@ impl Generator {
         let hash = hasher.finish();
         let name = JsFnName::try_from(format_args!("__{var}_{hash:016x}")).unwrap();
 
-        let js = &mut self.out.js.code;
+        let js_args = args.iter().map(|a| a.name).join(",");
 
-        js.push_str("export function ");
-        js.push_str(&name);
-        js.push('(');
-        {
-            let mut args = args.iter();
-
-            if let Some(arg) = args.next() {
-                js.push_str(&arg.name);
-
-                for arg in args {
-                    js.push(',');
-                    js.push_str(&arg.name);
-                }
-            }
-        }
-        js.push_str("){\n");
-        js.push_str(&body);
-        js.push_str("}\n");
+        let _ = write!(
+            self.out.js.code,
+            "export function {name}({js_args}) {{\
+                \n{body}\
+            }}\n\
+            "
+        );
 
         self.out.js.functions.push(JsFunction { name, args });
 

@@ -95,9 +95,9 @@ fn mark_branches(stream: TokenStream, branch_ty: &str, n: &mut u8) -> TokenStrea
 
                 *n += 1;
 
-                out.write((
+                out.write(call(
                     format_args!("::kobold::branching::{branch_ty}::{variant}"),
-                    group('(', (tt, bang, iter.next().unwrap())),
+                    (tt, bang, iter.next().unwrap()),
                 ));
 
                 continue;
