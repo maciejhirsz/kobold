@@ -71,13 +71,13 @@ impl Generator {
     fn hoist(&mut self, node: DomNode) -> Option<JsFnName> {
         use std::hash::Hasher;
 
-        let (var, body, args) = match node {
+        let (var, body, args, constructor) = match node {
             DomNode::Variable(_) => return None,
             DomNode::TextNode(text) => {
                 let body = format!("return document.createTextNode({text});\n");
                 let var = self.names.next_el();
 
-                (var, body, Vec::new())
+                (var, body, Vec::new(), "Element::new")
             }
             DomNode::Element(JsElement {
                 tag,
@@ -92,7 +92,7 @@ impl Generator {
                     format!("let {var}=document.createElement(\"{tag}\");\n{code}return {var};\n")
                 };
 
-                (var, body, args)
+                (var, body, args, "Element::new")
             }
             DomNode::Fragment(JsFragment { var, code, args }) => {
                 assert!(
@@ -100,7 +100,7 @@ impl Generator {
                     "Document fragment mustn't be empty, this is a bug"
                 );
 
-                (var, code, args)
+                (var, code, args, "Element::new_fragment_raw")
             }
         };
 
@@ -123,7 +123,11 @@ impl Generator {
             "
         );
 
-        self.out.js.functions.push(JsFunction { name, args });
+        self.out.js.functions.push(JsFunction {
+            name,
+            constructor,
+            args,
+        });
 
         Some(name)
     }

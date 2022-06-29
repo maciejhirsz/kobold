@@ -58,11 +58,11 @@ impl Tokenize for Transient {
         let mut declare_els = String::new();
 
         for (jsfn, el) in self.js.functions.iter().zip(self.els) {
-            let name = jsfn.name;
+            let JsFunction { name, constructor, args } = jsfn;
+
             let _ = write!(declare_els, "{el}: ::kobold::dom::Element,");
 
-            let args = jsfn
-                .args
+            let args = args
                 .iter()
                 .map(|a| {
                     let mut temp = ArrayString::<8>::new();
@@ -73,7 +73,7 @@ impl Tokenize for Transient {
 
             let _ = write!(
                 build,
-                "let {el} = ::kobold::dom::Element::new({name}({args}));"
+                "let {el} = ::kobold::dom::{constructor}({name}({args}));"
             );
             let _ = write!(vars, "{el},");
         }
@@ -172,6 +172,7 @@ impl Debug for JsModule {
 #[derive(Debug)]
 pub struct JsFunction {
     pub name: JsFnName,
+    pub constructor: &'static str,
     pub args: Vec<JsArgument>,
 }
 
