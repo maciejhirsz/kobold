@@ -38,6 +38,7 @@ pub fn append(
     children: Vec<Node>,
 ) -> String {
     let mut append = String::from("append(");
+
     for child in children {
         let dom_node = child.into_gen(gen);
 
@@ -45,7 +46,8 @@ pub fn append(
             DomNode::Variable(value) => {
                 args.push(JsArgument::new(value));
 
-                let _ = write!(append, "{value},");
+                append.push_str(&value);
+                append.push(',');
             }
             DomNode::TextNode(text) => {
                 // write the text verbatim, no need to go through `document.createTextNode`
@@ -65,7 +67,8 @@ pub fn append(
                     args.extend(el.args);
                 }
 
-                let _ = write!(append, "{var},");
+                append.push_str(&var);
+                append.push(',');
             }
             DomNode::Fragment(_) => {
                 panic!("Unexpected document fragment in the middle of the DOM");
