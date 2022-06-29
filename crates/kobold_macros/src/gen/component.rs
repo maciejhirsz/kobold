@@ -9,7 +9,7 @@ impl Component {
         let mut stream = self.path;
 
         if let Some(generics) = self.generics {
-            stream.write(("::<", generics, '>'));
+            stream.write(("::", generics));
         }
 
         let mut body = None;

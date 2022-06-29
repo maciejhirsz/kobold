@@ -147,6 +147,23 @@ impl Attribute for Class<Option<&'static str>> {
     }
 }
 
+pub struct ClassName<T>(pub T);
+
+impl Attribute for ClassName<&'static str> {
+    type Product = &'static str;
+
+    fn build(self) -> Self::Product {
+        self.0
+    }
+
+    fn update(self, p: &mut Self::Product, js: &JsValue) {
+        if self.0 != *p {
+            util::__kobold_class_set(js, self.0);
+            *p = self.0;
+        }
+    }
+}
+
 pub struct Checked(pub bool);
 
 impl Attribute for Checked {

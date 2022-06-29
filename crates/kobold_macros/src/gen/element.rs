@@ -32,18 +32,6 @@ impl JsElement {
     fn write_fmt(&mut self, args: Arguments) {
         let _ = self.code.write_fmt(args);
     }
-
-    fn add_class_expression(&mut self, expr: TokenStream, gen: &mut Generator) -> Short {
-        let class = gen.add_attribute(
-            self.var,
-            Abi::Borrowed("&'abi str"),
-            call("::kobold::attribute::Class", expr),
-        );
-
-        self.args.push(JsArgument::with_abi(class, "&str"));
-
-        class
-    }
 }
 
 impl IntoGenerator for HtmlElement {
@@ -63,7 +51,13 @@ impl IntoGenerator for HtmlElement {
             1 => match self.classes.remove(0) {
                 CssValue::Literal(class) => writeln!(el, "{var}.className={class};"),
                 CssValue::Expression(expr) => {
-                    let class = el.add_class_expression(expr.stream, gen);
+                    let class = gen.add_attribute(
+                        el.var,
+                        Abi::Borrowed("&'abi str"),
+                        call("::kobold::attribute::ClassName", expr.stream),
+                    );
+
+                    el.args.push(JsArgument::with_abi(class, "&str"));
 
                     writeln!(el, "{var}.className={class};");
                 }
@@ -83,7 +77,13 @@ impl IntoGenerator for HtmlElement {
 
                 for class in self.classes {
                     if let CssValue::Expression(expr) = class {
-                        let class = el.add_class_expression(expr.stream, gen);
+                        let class = gen.add_attribute(
+                            el.var,
+                            Abi::Borrowed("&'abi str"),
+                            call("::kobold::attribute::Class", expr.stream),
+                        );
+
+                        el.args.push(JsArgument::with_abi(class, "&str"));
 
                         writeln!(el, "{class} && {var}.classList.add({class});");
                     }

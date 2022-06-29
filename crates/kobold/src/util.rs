@@ -30,6 +30,7 @@ extern "C" {
     pub(crate) fn __kobold_attr_update(node: &Node, value: &str);
 
     pub(crate) fn __kobold_attr_checked_set(el: &JsValue, value: bool);
+    pub(crate) fn __kobold_class_set(el: &JsValue, value: &str);
     pub(crate) fn __kobold_class_add(el: &JsValue, value: &str);
     pub(crate) fn __kobold_class_remove(el: &JsValue, value: &str);
     pub(crate) fn __kobold_class_replace(el: &JsValue, old: &str, value: &str);
