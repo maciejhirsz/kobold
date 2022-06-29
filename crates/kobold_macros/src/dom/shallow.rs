@@ -1,4 +1,4 @@
-//! Converting [`ParseStream`](parse::ParseStream) into [`ShallowStream`](ShallowStream).
+//! Converting [`ParseStream`](crate::parse::ParseStream) into [`ShallowStream`](ShallowStream).
 //!
 //! This is an intermediate representation of the syntax to make the final parsing of
 //! nested elements easier.

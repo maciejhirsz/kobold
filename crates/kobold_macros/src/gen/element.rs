@@ -1,7 +1,5 @@
 use std::fmt::{Arguments, Write};
 
-use proc_macro::TokenStream;
-
 use crate::dom::{Attribute, AttributeValue, CssValue, HtmlElement};
 use crate::gen::{
     append, Abi, DomNode, Generator, IntoGenerator, JsArgument, Short, TokenStreamExt,
@@ -54,7 +52,7 @@ impl IntoGenerator for HtmlElement {
                     let class = gen.add_attribute(
                         el.var,
                         Abi::Borrowed("&'abi str"),
-                        call("::kobold::attribute::ClassName", expr.stream),
+                        call("::kobold::attribute::ClassName::from", expr.stream),
                     );
 
                     el.args.push(JsArgument::with_abi(class, "&str"));
@@ -80,7 +78,7 @@ impl IntoGenerator for HtmlElement {
                         let class = gen.add_attribute(
                             el.var,
                             Abi::Borrowed("&'abi str"),
-                            call("::kobold::attribute::Class", expr.stream),
+                            call("::kobold::attribute::Class::from", expr.stream),
                         );
 
                         el.args.push(JsArgument::with_abi(class, "&str"));
