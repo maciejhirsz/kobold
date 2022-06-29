@@ -119,7 +119,10 @@ pub struct Class(&'static str);
 
 impl From<&'static str> for Class {
     fn from(class: &'static str) -> Self {
-        debug_assert!(!class.chars().any(|c| c == ' '), "Class name cannot contain spaces, offending class: \"{class}\"");
+        debug_assert!(
+            !class.chars().any(|c| c == ' '),
+            "Class name cannot contain spaces, offending class: \"{class}\""
+        );
 
         Class(class)
     }

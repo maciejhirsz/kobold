@@ -1,5 +1,6 @@
 //! Utilities for rendering lists
 
+use crate::dom::Fragment;
 use crate::{Element, Html, Mountable};
 
 /// Wrapper type that implements `Html` for iterators. Use the [`list`](ListIteratorExt::list)
@@ -10,7 +11,7 @@ pub struct List<T>(T);
 pub struct ListProduct<T> {
     list: Vec<T>,
     visible: usize,
-    fragment: Element,
+    fragment: Fragment,
 }
 
 impl<T: 'static> Mountable for ListProduct<T> {
@@ -41,7 +42,7 @@ where
 
     fn build(self) -> Self::Product {
         let iter = self.0.into_iter();
-        let fragment = Element::new_fragment();
+        let fragment = Fragment::new();
 
         let list: Vec<_> = iter
             .map(|item| {

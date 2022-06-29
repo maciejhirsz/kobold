@@ -27,6 +27,37 @@ impl Deref for Element {
     }
 }
 
+pub struct Fragment {
+    el: Element,
+    tail: Node,
+}
+
+impl Fragment {
+    pub fn new() -> Self {
+        let node = util::__kobold_fragment();
+        let tail = util::__kobold_fragment_decorate(&node);
+        Fragment {
+            el: Element {
+                kind: Kind::Fragment,
+                node,
+            },
+            tail,
+        }
+    }
+
+    pub fn append(&self, child: &JsValue) {
+        util::__kobold_before(&self.tail, child);
+    }
+}
+
+impl Deref for Fragment {
+    type Target = Element;
+
+    fn deref(&self) -> &Element {
+        &self.el
+    }
+}
+
 impl Element {
     pub fn new(node: Node) -> Self {
         Element {
@@ -41,13 +72,6 @@ impl Element {
 
     pub fn new_empty() -> Self {
         Self::new(util::__kobold_empty_node())
-    }
-
-    pub fn new_fragment() -> Self {
-        Element {
-            kind: Kind::Fragment,
-            node: util::__kobold_fragment(),
-        }
     }
 
     pub fn new_fragment_raw(node: Node) -> Self {
@@ -69,13 +93,6 @@ impl Element {
 
     pub fn js(&self) -> &JsValue {
         &self.node
-    }
-
-    pub fn append(&self, child: &JsValue) {
-        match self.kind {
-            Kind::Element => util::__kobold_append(&self.node, child),
-            Kind::Fragment => util::__kobold_fragment_append(&self.node, child),
-        };
     }
 
     pub fn replace_with(&self, new: &JsValue) {

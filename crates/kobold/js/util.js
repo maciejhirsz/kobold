@@ -1,30 +1,33 @@
+const fragmentDecorators = new WeakMap();
+
 export function __kobold_start(n) { document.body.appendChild(n); }
 
 export function __kobold_append(n,c) { n.appendChild(c); }
+export function __kobold_before(n,i) { n.before(i); }
 export function __kobold_unmount(n) { n.remove(); }
 export function __kobold_replace(o,n) { o.replaceWith(n); }
 export function __kobold_empty_node() { return document.createTextNode(""); }
 export function __kobold_fragment()
 {
 	let f = document.createDocumentFragment();
-	f.append(f.$begin = document.createTextNode(""), f.$end = document.createTextNode(""));
+	f.append("", "");
 	return f;
 };
 export function __kobold_fragment_decorate(f) {
-	f.$begin = f.firstChild;
-	f.$end = f.lastChild;
+	fragmentDecorators.set(f, [f.firstChild, f.lastChild]);
+	return f.lastChild;
 }
-export function __kobold_fragment_append(f,c) { f.$end.before(c); }
+export function __kobold_fragment_append(f,c) { fragmentDecorators.get(f)[1].before(c); }
 export function __kobold_fragment_unmount(f)
 {
-	let b = f.$begin, e = f.$end;
+	let [b, e] = fragmentDecorators.get(f);
 	while (b.nextSibling !== e) f.appendChild(b.nextSibling);
 	f.appendChild(e);
 	f.insertBefore(b, f.firstChild);
 }
 export function __kobold_fragment_replace(f,n)
 {
-	let b = f.$begin, e = f.$end;
+	let [b, e] = fragmentDecorators.get(f);
 	while (b.nextSibling !== e) f.appendChild(b.nextSibling);
 	b.replaceWith(n);
 	f.appendChild(e);

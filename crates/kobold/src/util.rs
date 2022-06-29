@@ -6,12 +6,13 @@ extern "C" {
     pub(crate) fn __kobold_start(node: &JsValue);
 
     pub(crate) fn __kobold_append(parent: &Node, child: &JsValue);
+    pub(crate) fn __kobold_before(node: &Node, insert: &JsValue);
     pub(crate) fn __kobold_unmount(node: &JsValue);
     pub(crate) fn __kobold_replace(old: &JsValue, new: &JsValue);
 
     pub(crate) fn __kobold_empty_node() -> Node;
     pub(crate) fn __kobold_fragment() -> Node;
-    pub(crate) fn __kobold_fragment_decorate(f: &Node);
+    pub(crate) fn __kobold_fragment_decorate(f: &Node) -> Node;
     pub(crate) fn __kobold_fragment_append(f: &Node, c: &JsValue);
     pub(crate) fn __kobold_fragment_unmount(f: &Node);
     pub(crate) fn __kobold_fragment_replace(f: &Node, new: &JsValue);
