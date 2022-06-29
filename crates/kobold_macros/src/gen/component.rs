@@ -12,25 +12,32 @@ impl Component {
             stream.write(("::", generics));
         }
 
-        let mut body = None;
+        let mut props = None;
 
         for Property { name, expr } in self.props {
-            let body = body.get_or_insert_with(TokenStream::new);
+            let props = props.get_or_insert_with(TokenStream::new);
 
-            body.write((name, ':', expr.stream, ','));
+            props.write((name, ':', expr.stream, ','));
         }
 
         if let Some(spread) = self.spread {
-            let body = body.get_or_insert_with(TokenStream::new);
+            let props = props.get_or_insert_with(TokenStream::new);
 
-            body.write(("..", spread.stream));
+            props.write(("..", spread.stream));
         }
 
-        if let Some(body) = body {
-            stream.write(block(body));
+        if let Some(props) = props {
+            stream.write(block(props));
         }
 
-        stream.write(".render()");
+        if let Some(children) = self.children {
+            let children = crate::gen::generate(children);
+
+            stream.write(call(".render_with", children));
+        } else {
+            stream.write(".render()");
+        }
+
         stream
     }
 }

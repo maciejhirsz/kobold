@@ -23,14 +23,6 @@ pub enum ShallowNode {
 impl Parse for ShallowNode {
     fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
         if let Some(TokenTree::Group(expr)) = stream.allow_consume('{') {
-            let mut try_lit = expr.stream().parse_stream();
-
-            if let Some(TokenTree::Literal(lit)) = try_lit.allow_consume(Lit) {
-                if try_lit.end() {
-                    return Ok(ShallowNode::Literal(lit));
-                }
-            }
-
             return Ok(ShallowNode::Expression(expr));
         }
 
