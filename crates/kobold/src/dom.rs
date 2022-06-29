@@ -50,7 +50,9 @@ impl Element {
         }
     }
 
-    pub unsafe fn new_fragment_raw(node: Node) -> Self {
+    pub fn new_fragment_raw(node: Node) -> Self {
+        util::__kobold_fragment_decorate(&node);
+
         Element {
             kind: Kind::Fragment,
             node,
@@ -62,6 +64,10 @@ impl Element {
     }
 
     pub fn anchor(&self) -> &JsValue {
+        &self.node
+    }
+
+    pub fn js(&self) -> &JsValue {
         &self.node
     }
 

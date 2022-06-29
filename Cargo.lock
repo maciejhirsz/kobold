@@ -97,8 +97,6 @@ dependencies = [
  "arrayvec",
  "beef",
  "fnv",
- "proc-macro2",
- "quote",
 ]
 
 [[package]]

@@ -1,50 +1,86 @@
+//! [`ParseStream`](ParseStream), the [`Parse`](Parse) trait and utilities for working with
+//! token streams without `syn` or `quote`.
+
 use beef::Cow;
 use proc_macro::{Delimiter, Ident, Spacing, Span, TokenStream, TokenTree};
+
+use crate::dom::{ShallowNodeIter, ShallowStream};
+use crate::tokenize::prelude::*;
 
 pub type ParseStream = std::iter::Peekable<proc_macro::token_stream::IntoIter>;
 
 pub mod prelude {
-    pub use super::{IteratorExt, Parse, ParseError, ParseStream, TokenStreamExt, TokenTreeExt};
+    pub use super::{IdentExt, IteratorExt, TokenTreeExt};
+    pub use super::{IntoSpan, Lit, Parse, ParseError, ParseStream};
 }
 
 #[derive(Debug)]
 pub struct ParseError {
     pub msg: Cow<'static, str>,
-    pub tt: Option<TokenTree>,
+    pub span: Span,
+}
+
+pub trait IntoSpan {
+    fn into_span(self) -> Span;
+}
+
+impl IntoSpan for Span {
+    fn into_span(self) -> Span {
+        self
+    }
+}
+
+impl IntoSpan for TokenTree {
+    fn into_span(self) -> Span {
+        self.span()
+    }
+}
+
+impl IntoSpan for Option<TokenTree> {
+    fn into_span(self) -> Span {
+        self.as_ref()
+            .map(TokenTree::span)
+            .unwrap_or_else(Span::call_site)
+    }
 }
 
 impl ParseError {
-    pub fn new<S: Into<Cow<'static, str>>>(msg: S, tt: Option<TokenTree>) -> Self {
-        let mut error = ParseError::from(tt);
-
-        error.msg = msg.into();
-        error
+    pub fn new<M, S>(msg: M, spannable: S) -> Self
+    where
+        M: Into<Cow<'static, str>>,
+        S: IntoSpan,
+    {
+        ParseError {
+            msg: msg.into(),
+            span: spannable.into_span(),
+        }
     }
 
-    pub fn tokenize(self) -> TokenStream {
-        let msg = self.msg.as_ref();
-        let span = self
-            .tt
-            .as_ref()
-            .map(|tt| tt.span())
-            .unwrap_or_else(Span::call_site)
-            .into();
-
-        (quote::quote_spanned! { span =>
-            fn _parse_error() {
-                compile_error!(#msg)
-            }
-        })
-        .into()
+    pub fn msg<M>(self, msg: M) -> Self
+    where
+        M: Into<Cow<'static, str>>,
+    {
+        ParseError {
+            msg: msg.into(),
+            span: self.span,
+        }
     }
 }
 
-impl From<Option<TokenTree>> for ParseError {
-    fn from(tt: Option<TokenTree>) -> Self {
-        ParseError {
-            msg: "Unexpected token".into(),
-            tt,
-        }
+impl Tokenize for ParseError {
+    fn tokenize(self) -> TokenStream {
+        let msg = self.msg.as_ref();
+        let span = self.span.into();
+
+        let err = call("compile_error!", string(msg))
+            .into_iter()
+            .map(|mut tt| {
+                tt.set_span(span);
+                tt
+            })
+            .collect::<TokenStream>();
+
+        ("fn _parse_error()", block(err)).tokenize()
     }
 }
 
@@ -67,10 +103,32 @@ impl Parse for Ident {
     }
 }
 
+impl Parse for () {
+    fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
+        match stream.next() {
+            Some(tt) => Err(ParseError::new("Unexpected token", tt)),
+            _ => Ok(()),
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Lit;
+
+impl Pattern for Lit {
+    fn matches(self, tt: &TokenTree) -> bool {
+        matches!(tt, TokenTree::Literal(_))
+    }
+
+    fn expected(self) -> Cow<'static, str> {
+        "Expected a literal value".into()
+    }
+}
+
 impl Pattern for &str {
     fn matches(self, tt: &TokenTree) -> bool {
         match tt {
-            TokenTree::Ident(ident) => ident.to_string() == self,
+            TokenTree::Ident(ident) => ident.eq(self),
             _ => false,
         }
     }
@@ -82,6 +140,17 @@ impl Pattern for &str {
 
 impl Pattern for char {
     fn matches(self, tt: &TokenTree) -> bool {
+        let delimiter = match self {
+            '{' => Some(Delimiter::Brace),
+            '[' => Some(Delimiter::Bracket),
+            '(' => Some(Delimiter::Parenthesis),
+            _ => None,
+        };
+
+        if let Some(delimiter) = delimiter {
+            return delimiter.matches(tt);
+        }
+
         match tt {
             TokenTree::Punct(punct) => punct.as_char() == self,
             _ => false,
@@ -136,7 +205,7 @@ pub trait IteratorExt {
 
     fn end(&mut self) -> bool;
 
-    fn expect_end(&mut self) -> Result<(), ParseError>;
+    fn into_shallow_stream(self) -> ShallowStream;
 }
 
 impl IteratorExt for ParseStream {
@@ -163,11 +232,8 @@ impl IteratorExt for ParseStream {
         self.peek().is_none()
     }
 
-    fn expect_end(&mut self) -> Result<(), ParseError> {
-        match self.next() {
-            tt @ Some(_) => Err(ParseError::new("Unexpected token", tt)),
-            _ => Ok(()),
-        }
+    fn into_shallow_stream(self) -> ShallowStream {
+        ShallowNodeIter::new(self).peekable()
     }
 }
 
@@ -187,56 +253,47 @@ impl TokenTreeExt for Option<TokenTree> {
     }
 }
 
-pub struct Generics {
-    pub tokens: TokenStream,
-}
+mod util {
+    use std::cell::RefCell;
+    use std::fmt::{Display, Write};
 
-impl Parse for Generics {
-    fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
-        let opening = stream.expect('>')?;
+    use arrayvec::ArrayString;
 
-        let mut depth = 0;
-        let mut tokens = TokenStream::new();
+    thread_local! {
+        static FMT_BUF: RefCell<ArrayString<40>> = RefCell::new(ArrayString::new());
+    }
 
-        tokens.extend([opening]);
+    pub trait IdentExt: Display {
+        fn with_str<F, R>(&self, f: F) -> R
+        where
+            F: FnOnce(&str) -> R,
+        {
+            FMT_BUF.with(move |buf| {
+                let buf = buf.try_borrow_mut().ok().and_then(|mut buf| {
+                    buf.clear();
 
-        for token in stream {
-            if token.is('<') {
-                depth += 1;
-            } else if token.is('>') {
-                depth -= 1;
+                    write!(buf, "{self}").ok()?;
 
-                if depth == 0 {
-                    tokens.extend([token]);
+                    Some(buf)
+                });
 
-                    return Ok(Generics { tokens });
+                match buf {
+                    Some(buf) => f(&buf),
+                    None => f(&self.to_string()),
                 }
-            }
-
-            tokens.extend([token]);
+            })
         }
 
-        Err(ParseError::new(
-            "Missing closing > for generics",
-            tokens.into_iter().next(),
-        ))
-    }
-}
+        fn eq(&self, other: &str) -> bool {
+            self.with_str(|s| s == other)
+        }
 
-pub trait TokenStreamExt {
-    fn write(&mut self, rust: &str);
-
-    fn push(&mut self, tt: impl Into<TokenTree>);
-}
-
-impl TokenStreamExt for TokenStream {
-    fn write(&mut self, rust: &str) {
-        use std::str::FromStr;
-
-        self.extend(TokenStream::from_str(rust).unwrap());
+        fn one_of<'a>(&self, other: impl IntoIterator<Item = &'a str>) -> bool {
+            self.with_str(move |s| other.into_iter().any(|other| s == other))
+        }
     }
 
-    fn push(&mut self, tt: impl Into<TokenTree>) {
-        self.extend([tt.into()]);
-    }
+    impl IdentExt for proc_macro::Ident {}
 }
+
+pub use util::IdentExt;

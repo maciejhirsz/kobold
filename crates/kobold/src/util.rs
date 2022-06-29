@@ -11,6 +11,7 @@ extern "C" {
 
     pub(crate) fn __kobold_empty_node() -> Node;
     pub(crate) fn __kobold_fragment() -> Node;
+    pub(crate) fn __kobold_fragment_decorate(f: &Node);
     pub(crate) fn __kobold_fragment_append(f: &Node, c: &JsValue);
     pub(crate) fn __kobold_fragment_unmount(f: &Node);
     pub(crate) fn __kobold_fragment_replace(f: &Node, new: &JsValue);
@@ -29,4 +30,8 @@ extern "C" {
     pub(crate) fn __kobold_attr_update(node: &Node, value: &str);
 
     pub(crate) fn __kobold_attr_checked_set(el: &JsValue, value: bool);
+    pub(crate) fn __kobold_class_set(el: &JsValue, value: &str);
+    pub(crate) fn __kobold_class_add(el: &JsValue, value: &str);
+    pub(crate) fn __kobold_class_remove(el: &JsValue, value: &str);
+    pub(crate) fn __kobold_class_replace(el: &JsValue, old: &str, value: &str);
 }

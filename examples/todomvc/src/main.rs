@@ -29,11 +29,7 @@ impl Stateful for App {
 impl App {
     fn render(self) -> impl Html {
         self.stateful(|state, ctx| {
-            let (main_class, footer_class) = if state.entries.is_empty() {
-                ("main hidden", "main hidden")
-            } else {
-                ("main", "footer")
-            };
+            let hidden = state.entries.is_empty().then(|| "hidden");
 
             let active_count = state.count_active();
             let completed_count = state.entries.len() - active_count;
@@ -47,29 +43,25 @@ impl App {
                             <h1>"todos"</h1>
                             <EntryInput {ctx} />
                         </header>
-                        <section .{main_class}>
-                            {
-                                html! {
-                                    <input
-                                        #toggle-all
-                                        .toggle-all
-                                        type="checkbox"
-                                        checked={is_all_completed}
-                                        onclick={ctx.bind(move |state, _| state.set_all(!is_all_completed))}
-                                    />
-                                }
-                            }
+                        <section .main.{hidden}>
+                            <input
+                                #toggle-all
+                                .toggle-all
+                                type="checkbox"
+                                checked={is_all_completed}
+                                onclick={ctx.bind(move |state, _| state.set_all(!is_all_completed))}
+                            />
                             <label for="toggle-all" />
                             <ul .todo-list>
-                            {
-                                state
-                                    .filtered_entries()
-                                    .map(move |(idx, entry)| html! { <EntryView {idx} {entry} {ctx} /> })
-                                    .list()
-                            }
+                                {
+                                    state
+                                        .filtered_entries()
+                                        .map(move |(idx, entry)| html! { <EntryView {idx} {entry} {ctx} /> })
+                                        .list()
+                                }
                             </ul>
                         </section>
-                        <footer .{footer_class}>
+                        <footer .footer.{hidden}>
                             <span .todo-count>
                                 <strong>{ active_count }</strong>
                                 { if active_count == 1 { " item left" } else { " items left" } }
@@ -130,27 +122,18 @@ struct EntryView<'a> {
 }
 
 fn test(checked: bool) -> impl Html {
-    html! { <p><input {checked} value="foo" width={ 42 } /></p> }
+    html! { <p><input {checked} value="foo" width={ 42 } /></p><strong>"TEST"</strong> }
 }
 
 impl<'a> EntryView<'a> {
     fn render(self) -> impl Html + 'a {
         let EntryView { idx, entry, ctx } = self;
 
-        let class = match (entry.editing, entry.completed) {
-            (false, false) => "todo",
-            (true, false) => "todo editing",
-            (false, true) => "todo completed",
-            (true, true) => "todo editing completed",
-        };
-
         let input = self.entry.editing.then(move || {
             let onmouseover = ctx.bind(move |_, event| {
                 let input: HtmlInputElement = event.target();
 
-                if input.focus().is_ok() {
-                    input.select();
-                }
+                let _ = input.focus();
 
                 ShouldRender::No
             });
@@ -166,15 +149,13 @@ impl<'a> EntryView<'a> {
         });
 
         let onchange = ctx.bind(move |state, _| state.toggle(idx));
+        let editing = entry.editing.then(|| "editing");
+        let completed = entry.completed.then(|| "completed");
 
         html! {
-            <li {class}>
+            <li .todo.{editing}.{completed}>
                 <div .view>
-                    {
-                        html! {
-                            <input .toggle type="checkbox" checked={entry.completed} {onchange} />
-                        }
-                    }
+                    <input .toggle type="checkbox" checked={entry.completed} {onchange} />
                     <label ondblclick={ctx.bind(move |state, _| state.edit_entry(idx))} >
                         { &entry.description }
                     </label>

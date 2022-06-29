@@ -10,6 +10,10 @@ export function __kobold_fragment()
 	f.append(f.$begin = document.createTextNode(""), f.$end = document.createTextNode(""));
 	return f;
 };
+export function __kobold_fragment_decorate(f) {
+	f.$begin = f.firstChild;
+	f.$end = f.lastChild;
+}
 export function __kobold_fragment_append(f,c) { f.$end.before(c); }
 export function __kobold_fragment_unmount(f)
 {
@@ -42,6 +46,7 @@ export function __kobold_attr_set(n,k,v) { n.setAttribute(k, v); }
 export function __kobold_attr_update(n,v) { n.value = v; }
 
 export function __kobold_attr_checked_set(n,v) { if (n.checked !== v) n.checked = v; }
-export function __kobold_class_add(n,v) { n.classList.add(v); }
-export function __kobold_class_remove(n,v) { n.classList.remove(o,v); }
 export function __kobold_class_set(n,v) { n.className = v; }
+export function __kobold_class_add(n,v) { n.classList.add(v); }
+export function __kobold_class_remove(n,v) { n.classList.remove(v); }
+export function __kobold_class_replace(n,o,v) { n.classList.replace(o,v); }

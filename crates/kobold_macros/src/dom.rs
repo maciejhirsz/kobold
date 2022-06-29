@@ -1,142 +1,376 @@
-use proc_macro::{Delimiter, Ident, TokenTree};
-use proc_macro2::TokenStream as QuoteTokens;
-use quote::quote;
-use std::fmt::{self, Debug, Display};
+use proc_macro::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 
-use crate::parse::*;
-use crate::parser::into_quote;
+use crate::parse::prelude::*;
 use crate::syntax::CssLabel;
+use crate::tokenize::prelude::*;
 
-pub struct Field {
-    pub kind: FieldKind,
-    pub typ: QuoteTokens,
-    pub name: QuoteTokens,
-    pub expr: QuoteTokens,
-}
+mod expression;
+mod shallow;
 
-impl Debug for Field {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Foo")
-            .field("kind", &self.kind)
-            .field("typ", &DisplayDebug(&self.typ))
-            .field("name", &DisplayDebug(&self.name))
-            .field("expr", &DisplayDebug(&self.expr))
-            .finish()
+pub use expression::Expression;
+pub use shallow::{ShallowNode, ShallowNodeIter, ShallowStream, TagName, TagNesting};
+
+pub fn parse(tokens: TokenStream) -> Result<Vec<Node>, ParseError> {
+    let mut stream = tokens.parse_stream().into_shallow_stream();
+
+    let mut nodes = Vec::new();
+
+    while let Some(node) = Node::parse(&mut stream)? {
+        nodes.push(node);
     }
-}
 
-struct DisplayDebug<T>(T);
-
-impl<T: Display> Debug for DisplayDebug<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        Display::fmt(&self.0, f)
+    if nodes.is_empty() {
+        return Err(ParseError::new("Empty html! invocation", Span::call_site()));
     }
-}
 
-#[derive(Debug)]
-pub enum FieldKind {
-    Html,
-    AttrNode,
-    AttrHoisted(QuoteTokens),
-    Callback(String),
+    Ok(nodes)
 }
 
 #[derive(Debug)]
 pub enum Node {
-    Element(Element),
-    Text(String),
-    Expression, // variable arg, node ref arg
-    Fragment(Vec<Node>),
-}
-
-impl Node {
-    pub fn is_expression(&self) -> bool {
-        matches!(self, Node::Expression)
-    }
-
-    pub fn is_fragment(&self) -> bool {
-        matches!(self, Node::Fragment(_))
-    }
+    HtmlElement(HtmlElement),
+    Component(Component),
+    Text(Literal),
+    Expression(Expression),
 }
 
 #[derive(Debug)]
-pub struct Element {
-    pub tag: String,
-    pub generics: Option<QuoteTokens>,
-    pub attributes: Vec<Attribute>,
-    pub children: Vec<Node>,
-    pub children_raw: Option<QuoteTokens>,
-    /// Element has been invoked with `..` spread at the end
-    pub defaults: bool,
-    /// Attribute fields that need to be hoisted into this element
-    pub hoisted_attrs: Vec<QuoteTokens>,
+pub struct Component {
+    pub name: String,
+    pub span: Span,
+    pub path: TokenStream,
+    pub generics: Option<TokenStream>,
+    pub props: Vec<Property>,
+    pub spread: Option<Expression>,
+    pub children: Option<Vec<Node>>,
 }
 
-impl Element {
-    pub fn new(tag: String) -> Self {
-        Element {
-            tag,
-            generics: None,
-            attributes: Vec::new(),
-            children: Vec::new(),
-            children_raw: None,
-            defaults: false,
-            hoisted_attrs: Vec::new(),
-        }
-    }
+#[derive(Debug)]
+pub struct HtmlElement {
+    pub name: String,
+    pub span: Span,
+    pub classes: Vec<CssValue>,
+    pub attributes: Vec<Attribute>,
+    pub children: Option<Vec<Node>>,
+}
 
-    pub fn is_component(&self) -> bool {
-        !self.tag.chars().next().unwrap().is_ascii_lowercase()
-    }
+#[derive(Debug)]
+pub struct Property {
+    pub name: Ident,
+    pub expr: Expression,
+}
+
+#[derive(Debug)]
+pub enum CssValue {
+    Literal(Literal),
+    Expression(Expression),
 }
 
 #[derive(Debug)]
 pub struct Attribute {
-    pub name: String,
-    pub ident: Ident,
+    pub name: Ident,
     pub value: AttributeValue,
 }
 
 #[derive(Debug)]
 pub enum AttributeValue {
-    Literal(QuoteTokens),
-    Hoisted(QuoteTokens, QuoteTokens),
-    Expression(QuoteTokens),
+    Literal(Literal),
+    Boolean(Ident),
+    Expression(Expression),
 }
 
-impl AttributeValue {
-    pub fn from_group(name: &str, tokens: QuoteTokens) -> Self {
-        // TODO: if the `tokens contains just a single literal,
-        //       make it a literal value then as well.
-        match name {
-            "checked" => AttributeValue::Hoisted(
-                quote! { bool },
-                quote! { ::kobold::attribute::Checked(#tokens) },
-            ),
-            _ => AttributeValue::Expression(tokens),
-        }
+impl From<Expression> for AttributeValue {
+    fn from(expr: Expression) -> AttributeValue {
+        AttributeValue::Expression(expr)
     }
+}
 
-    pub fn css_attribute_value(name: &str, stream: &mut ParseStream) -> Result<Self, ParseError> {
-        let value = match stream.peek() {
-            Some(TokenTree::Ident(_)) => {
-                let css_label: CssLabel = stream.parse()?;
+impl Node {
+    fn parse(stream: &mut ShallowStream) -> Result<Option<Self>, ParseError> {
+        let tag = match stream.next() {
+            Some(Ok(ShallowNode::Tag(tag))) => tag,
+            Some(Ok(ShallowNode::Literal(lit))) => {
+                return Ok(Some(Node::Text(lit)));
+            }
+            Some(Ok(ShallowNode::Expression(expr))) => {
+                return Ok(Some(Expression::from(expr).into()));
+            }
+            Some(Err(error)) => {
+                return Err(error.msg("Expected a tag, a string literal, or an {expression}"))
+            }
+            None => return Ok(None),
+        };
 
-                AttributeValue::Literal(into_quote(css_label.into_literal()))
-            }
-            Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
-                let group = group.stream();
-                stream.next();
-                AttributeValue::from_group(name, group.into())
-            }
-            _ => {
+        let children = match tag.nesting {
+            TagNesting::SelfClosing => None,
+            TagNesting::Opening => Some(Node::parse_children(&tag.name, stream)?),
+            TagNesting::Closing => {
                 return Err(ParseError::new(
-                    "Expected identifier or an {expression}",
-                    stream.next(),
-                ))
+                    format!("Unexpected closing tag {}", tag.name),
+                    tag.name,
+                ));
             }
         };
 
-        Ok(value)
+        match tag.name {
+            TagName::Component {
+                name,
+                span,
+                path,
+                generics,
+            } => {
+                let mut content = tag.content.parse_stream();
+                let mut spread = None;
+                let mut props = Vec::new();
+
+                while !content.end() {
+                    if content.allow_consume(('.', Spacing::Joint)).is_some() {
+                        content.expect('.')?;
+
+                        if let Some(TokenTree::Group(expr)) = content.allow_consume('{') {
+                            spread = Some(Expression::from(expr));
+                        } else {
+                            let expr = Expression::from("Default::default()");
+
+                            spread = Some(expr);
+                        }
+
+                        if let Some(tt) = content.next() {
+                            return Err(ParseError::new("Not allowed after the .. spread", tt));
+                        }
+
+                        break;
+                    }
+
+                    props.push(content.parse()?);
+                }
+
+                Ok(Some(Node::Component(Component {
+                    name,
+                    span,
+                    path,
+                    generics,
+                    props,
+                    spread,
+                    children,
+                })))
+            }
+            TagName::HtmlElement { name, span } => {
+                let mut content = tag.content.parse_stream();
+                let mut classes = Vec::new();
+                let mut attributes = Vec::new();
+
+                loop {
+                    if content.allow_consume('.').is_some() {
+                        classes.push(content.parse()?);
+                    } else if let Some(hash) = content.allow_consume('#') {
+                        let name = Ident::new("id", hash.span());
+                        let value: CssValue = content.parse()?;
+
+                        attributes.push(Attribute {
+                            name,
+                            value: value.into(),
+                        })
+                    } else {
+                        break;
+                    }
+                }
+
+                while !content.end() {
+                    let attr: Attribute = content.parse()?;
+
+                    if attr.name.eq("class") {
+                        classes.push(CssValue::try_from(attr.value)?);
+                    } else {
+                        attributes.push(attr);
+                    }
+                }
+
+                Ok(Some(Node::HtmlElement(HtmlElement {
+                    name,
+                    span,
+                    classes,
+                    attributes,
+                    children,
+                })))
+            }
+        }
+    }
+
+    fn parse_children(name: &TagName, stream: &mut ShallowStream) -> Result<Vec<Node>, ParseError> {
+        let mut children = Vec::new();
+
+        loop {
+            if let Some(Ok(ShallowNode::Tag(tag))) = stream.peek() {
+                if tag.is_closing(name) {
+                    stream.next();
+                    break;
+                }
+            }
+
+            match Node::parse(stream)? {
+                Some(node) => children.push(node),
+                None => {
+                    return Err(ParseError::new(
+                        format!("Missing closing tag for {name}"),
+                        name.span(),
+                    ))
+                }
+            }
+        }
+
+        Ok(children)
+    }
+}
+
+impl Parse for Property {
+    fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
+        // Allow expression shorthand
+        if let Some(TokenTree::Group(expr)) = stream.allow_consume(Delimiter::Brace) {
+            let mut inner = expr.stream().parse_stream();
+
+            let name = inner.parse()?;
+
+            if let Some(tt) = inner.next() {
+                return Err(ParseError::new(
+                    "Shorthand expressions can only contain a single identifier",
+                    tt,
+                ));
+            }
+
+            return Ok(Property {
+                name,
+                expr: Expression::from(expr),
+            });
+        }
+
+        let name = stream.parse()?;
+
+        stream.expect('=')?;
+
+        match stream.next() {
+            Some(tt) if tt.is('{') || tt.is(Lit) => Ok(Property {
+                name,
+                expr: Expression::from(tt),
+            }),
+            Some(TokenTree::Ident(b)) if b.one_of(["true", "false"]) => Ok(Property {
+                name,
+                expr: Expression::from(TokenTree::from(b)),
+            }),
+            _ => Err(ParseError::new(
+                "Component properties must contain {expressions} or literals",
+                name.span(),
+            )),
+        }
+    }
+}
+
+impl CssValue {
+    pub fn as_literal(&self) -> Option<&Literal> {
+        match self {
+            CssValue::Literal(lit) => Some(lit),
+            CssValue::Expression(_) => None,
+        }
+    }
+
+    pub fn is_literal(&self) -> bool {
+        !self.is_expression()
+    }
+
+    pub fn is_expression(&self) -> bool {
+        match self {
+            CssValue::Literal(_) => false,
+            CssValue::Expression(_) => true,
+        }
+    }
+}
+
+impl Parse for CssValue {
+    fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
+        if let Some(expr) = stream.allow_consume('{') {
+            return Ok(CssValue::Expression(Expression::from(expr)));
+        }
+
+        let css_label: CssLabel = stream
+            .parse()
+            .map_err(|err| err.msg("Expected identifier or an {expression}"))?;
+
+        Ok(CssValue::Literal(css_label.into_literal()))
+    }
+}
+
+impl TryFrom<AttributeValue> for CssValue {
+    type Error = ParseError;
+
+    fn try_from(value: AttributeValue) -> Result<CssValue, ParseError> {
+        match value {
+            AttributeValue::Literal(lit) => Ok(CssValue::Literal(lit)),
+            AttributeValue::Expression(expr) => Ok(CssValue::Expression(expr)),
+            AttributeValue::Boolean(b) => Err(ParseError::new(
+                "Cannot assign bool to this attribute",
+                b.span(),
+            )),
+        }
+    }
+}
+
+impl From<CssValue> for AttributeValue {
+    fn from(value: CssValue) -> AttributeValue {
+        match value {
+            CssValue::Literal(lit) => AttributeValue::Literal(lit),
+            CssValue::Expression(expr) => AttributeValue::Expression(expr),
+        }
+    }
+}
+
+impl Parse for Attribute {
+    fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
+        if let Some(TokenTree::Group(expr)) = stream.allow_consume('{') {
+            let mut inner = expr.stream().parse_stream();
+
+            let name = inner.parse()?;
+
+            if let Some(tt) = inner.next() {
+                return Err(ParseError::new(
+                    "Shorthand expressions can only contain a single identifier",
+                    tt,
+                ));
+            }
+
+            return Ok(Attribute {
+                name,
+                value: Expression::from(expr).into(),
+            });
+        }
+
+        if stream.allow('.') || stream.allow('#') {
+            return Err(ParseError::new(
+                "CSS-like class and id attributes must be defined before other attributes",
+                stream.next(),
+            ));
+        }
+
+        let name = stream.parse()?;
+
+        stream.expect('=')?;
+
+        match stream.next() {
+            Some(TokenTree::Literal(lit)) => Ok(Attribute {
+                name,
+                value: AttributeValue::Literal(lit),
+            }),
+            Some(TokenTree::Ident(b)) if b.one_of(["true", "false"]) => Ok(Attribute {
+                name,
+                value: AttributeValue::Boolean(b),
+            }),
+            Some(tt) if tt.is('{') => Ok(Attribute {
+                name,
+                value: Expression::from(tt).into(),
+            }),
+            _ => Err(ParseError::new(
+                "Element attributes must contain {expressions} or literals",
+                name.span(),
+            )),
+        }
     }
 }

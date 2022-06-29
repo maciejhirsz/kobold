@@ -26,7 +26,6 @@ pub trait ListIteratorExt: Sized {
 impl<T> ListIteratorExt for T
 where
     T: Iterator,
-    <T as Iterator>::Item: Html,
 {
     fn list(self) -> List<Self> {
         List(self)

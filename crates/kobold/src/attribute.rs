@@ -112,6 +112,76 @@ where
     }
 }
 
+/// A class that interacts with `classList` property of an element
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/API/Element/classList>
+pub struct Class(&'static str);
+
+impl From<&'static str> for Class {
+    fn from(class: &'static str) -> Self {
+        debug_assert!(!class.chars().any(|c| c == ' '), "Class name cannot contain spaces, offending class: \"{class}\"");
+
+        Class(class)
+    }
+}
+
+impl From<Option<&'static str>> for Class {
+    fn from(class: Option<&'static str>) -> Self {
+        Class::from(class.unwrap_or_default())
+    }
+}
+
+impl Attribute for Class {
+    type Product = &'static str;
+
+    fn build(self) -> Self::Product {
+        self.0
+    }
+
+    fn update(self, p: &mut Self::Product, js: &JsValue) {
+        match (self.0, *p) {
+            (new, old) if new == old => return,
+            (new, "") => util::__kobold_class_add(js, new),
+            ("", old) => util::__kobold_class_remove(js, old),
+            (new, old) => util::__kobold_class_replace(js, old, new),
+        }
+        *p = self.0;
+    }
+}
+
+/// A single `className` attribute, spaces are permitted
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/API/Element/className>
+pub struct ClassName(&'static str);
+
+impl From<&'static str> for ClassName {
+    fn from(class: &'static str) -> Self {
+        ClassName(class)
+    }
+}
+
+impl From<Option<&'static str>> for ClassName {
+    fn from(class: Option<&'static str>) -> Self {
+        ClassName(class.unwrap_or_default())
+    }
+}
+
+impl Attribute for ClassName {
+    type Product = &'static str;
+
+    fn build(self) -> Self::Product {
+        self.0
+    }
+
+    fn update(self, p: &mut Self::Product, js: &JsValue) {
+        if self.0 != *p {
+            util::__kobold_class_set(js, self.0);
+            *p = self.0;
+        }
+    }
+}
+
+/// The `checked` attribute for `<input>` elements
 pub struct Checked(pub bool);
 
 impl Attribute for Checked {
@@ -128,74 +198,6 @@ impl Attribute for Checked {
         // Best to do the diff in DOM directly.
         util::__kobold_attr_checked_set(js, self.0);
     }
-}
-
-macro_rules! create_named_attrs {
-    ($($name:ident => $fun:ident,)*) => {$(
-        pub struct $name<V>(pub V);
-
-        impl Html for $name<String> {
-            type Product = AttributeNodeProduct<String>;
-
-            fn build(self) -> Self::Product {
-                let node = util::$fun(&self.0);
-                let el = Element::new(node);
-
-                AttributeNodeProduct { value: self.0, el }
-            }
-
-            fn update(self, p: &mut Self::Product) {
-                if self.0 != p.value {
-                    util::__kobold_attr_update(&p.el.node, &self.0);
-                    p.value = self.0;
-                }
-            }
-        }
-
-        impl Html for $name<&String> {
-            type Product = AttributeNodeProduct<String>;
-
-            fn build(self) -> Self::Product {
-                let node = util::$fun(self.0);
-                let el = Element::new(node);
-
-                AttributeNodeProduct { value: self.0.clone(), el }
-            }
-
-            fn update(self, p: &mut Self::Product) {
-                if *self.0 != p.value {
-                    util::__kobold_attr_update(&p.el.node, self.0);
-                    p.value.clone_from(self.0);
-                }
-            }
-        }
-
-        impl<S> Html for $name<S>
-        where
-            S: Stringify + Eq + Copy + 'static,
-        {
-            type Product = AttributeNodeProduct<S>;
-
-            fn build(self) -> Self::Product {
-                let node = self.0.stringify(util::$fun);
-                let el = Element::new(node);
-
-                AttributeNodeProduct { value: self.0, el }
-            }
-
-            fn update(self, p: &mut Self::Product) {
-                if self.0 != p.value {
-                    self.0.stringify(|s| util::__kobold_attr_update(&p.el.node, s));
-                    p.value = self.0;
-                }
-            }
-        }
-    )*};
-}
-
-create_named_attrs! {
-    Class => __kobold_attr_class,
-    Style => __kobold_attr_style,
 }
 
 pub struct AttributeNodeProduct<V> {
