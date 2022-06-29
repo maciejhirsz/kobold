@@ -3,7 +3,9 @@ use std::fmt::{Arguments, Write};
 use proc_macro::TokenStream;
 
 use crate::dom::{Attribute, AttributeValue, CssValue, HtmlElement};
-use crate::gen::{append, DomNode, Generator, IntoGenerator, JsArgument, Short, TokenStreamExt};
+use crate::gen::{
+    append, Abi, DomNode, Generator, IntoGenerator, JsArgument, Short, TokenStreamExt,
+};
 use crate::itertools::IteratorExt;
 use crate::parse::{IdentExt, Parse};
 use crate::syntax::InlineBind;
@@ -34,7 +36,7 @@ impl JsElement {
     fn add_class_expression(&mut self, expr: TokenStream, gen: &mut Generator) -> Short {
         let class = gen.add_attribute(
             self.var,
-            "&'static str",
+            Abi::Borrowed("&'abi str"),
             call("::kobold::attribute::Class", expr),
         );
 
@@ -135,7 +137,7 @@ impl IntoGenerator for HtmlElement {
                         el.hoisted = true;
                         let value = gen.add_attribute(
                             var,
-                            "bool",
+                            Abi::Owned("bool"),
                             call("::kobold::attribute::Checked", expr.stream),
                         );
 

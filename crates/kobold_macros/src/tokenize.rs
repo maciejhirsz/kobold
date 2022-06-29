@@ -7,7 +7,7 @@ use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenSt
 use crate::parse::ParseStream;
 
 pub mod prelude {
-    pub use super::{call, block, each, group, ident, string, TokenStreamExt, Tokenize};
+    pub use super::{block, call, each, group, ident, string, TokenStreamExt, Tokenize};
 }
 
 pub fn group(delim: char, tokens: impl Tokenize) -> Group {

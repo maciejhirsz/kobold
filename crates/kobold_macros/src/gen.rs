@@ -15,7 +15,7 @@ mod transient;
 
 pub use element::JsElement;
 pub use fragment::{append, JsFragment};
-pub use transient::{Field, JsArgument, JsFnName, JsFunction, JsModule, JsString, Transient};
+pub use transient::{Abi, Field, JsArgument, JsFnName, JsFunction, JsModule, JsString, Transient};
 
 // Short string for auto-generated variable names
 pub type Short = ArrayString<4>;
@@ -55,7 +55,7 @@ impl Generator {
         name
     }
 
-    fn add_attribute(&mut self, el: Short, abi: &'static str, value: TokenStream) -> Short {
+    fn add_attribute(&mut self, el: Short, abi: Abi, value: TokenStream) -> Short {
         let name = self.names.next();
 
         self.out.fields.push(Field::Attribute {

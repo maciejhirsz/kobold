@@ -1,4 +1,5 @@
 use std::fmt::{self, Debug, Display, Write};
+use std::ops::Deref;
 
 use arrayvec::ArrayString;
 use proc_macro::{Literal, TokenStream};
@@ -24,6 +25,12 @@ impl Tokenize for Transient {
                 Field::Html { value, .. } | Field::Attribute { value, .. } => value,
             };
         }
+
+        let abi_lifetime = if self.fields.iter().any(Field::borrows) {
+            "'abi,"
+        } else {
+            ""
+        };
 
         let mut generics = String::new();
         let mut generics_product = String::new();
@@ -89,7 +96,7 @@ impl Tokenize for Transient {
                         {declare_els}\
                     }}\
                     \
-                    impl<{generics}> ::kobold::Html for Transient<{generics}>\
+                    impl<{abi_lifetime}{generics}> ::kobold::Html for Transient<{generics}>\
                     where \
                         {bounds}\
                     {{\
@@ -217,9 +224,25 @@ pub enum Field {
     Attribute {
         name: Short,
         el: Short,
-        abi: &'static str,
+        abi: Abi,
         value: TokenStream,
     },
+}
+
+pub enum Abi {
+    Owned(&'static str),
+    Borrowed(&'static str),
+}
+
+impl Deref for Abi {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        match self {
+            Abi::Owned(abi) => abi,
+            Abi::Borrowed(abi) => abi,
+        }
+    }
 }
 
 impl Debug for Field {
@@ -234,6 +257,8 @@ impl Debug for Field {
                 abi,
                 value,
             } => {
+                let abi = abi.deref();
+
                 write!(f, "{name} <Attribute({abi} -> {el})>: {value}")
             }
         }
@@ -241,6 +266,16 @@ impl Debug for Field {
 }
 
 impl Field {
+    fn borrows(&self) -> bool {
+        matches!(
+            self,
+            Field::Attribute {
+                abi: Abi::Borrowed(_),
+                ..
+            }
+        )
+    }
+
     fn name_value(&self) -> (&Short, &TokenStream) {
         match self {
             Field::Html { name, value } | Field::Attribute { name, value, .. } => (name, value),
@@ -266,6 +301,8 @@ impl Field {
             Field::Attribute { name, abi, .. } => {
                 let mut typ = *name;
                 typ.make_ascii_uppercase();
+
+                let abi = abi.deref();
 
                 let _ = write!(
                     buf,
