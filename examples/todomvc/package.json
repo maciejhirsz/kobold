@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "esbuild": "^0.14.47"
+  },
+  "scripts": {
+    "minify": "mv ./dist/kobold_todomvc_example.js ./dist/kobold_todomvc_example_large.js && esbuild --bundle ./dist/kobold_todomvc_example_large.js --outfile=./dist/kobold_todomvc_example.js --minify --format=esm"
+  }
+}
