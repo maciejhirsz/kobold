@@ -1,6 +1,4 @@
-use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Filter {
     All,
     Active,
