@@ -13,7 +13,8 @@ members = [
 kobold_macros = { path = "crates/kobold_macros" }
 
 [profile.release]
-lto = true
+lto = "fat"
+codegen-units = 1
 
 [profile.bench]
 lto = "fat"

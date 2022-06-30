@@ -288,7 +288,7 @@ pub mod stateful;
 
 /// The prelude module with most commonly used types
 pub mod prelude {
-    pub use crate::event::Event;
+    pub use crate::event::{Event, MouseEvent, KeyboardEvent};
     pub use crate::list::ListIteratorExt;
     pub use crate::stateful::{Context, ShouldRender, Stateful};
     pub use crate::{html, Html};

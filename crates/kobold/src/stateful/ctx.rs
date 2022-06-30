@@ -4,7 +4,7 @@ use std::rc::Weak;
 
 use wasm_bindgen::prelude::*;
 
-use crate::event::Event;
+use crate::event::UntypedEvent;
 use crate::stateful::{Inner, ShouldRender};
 use crate::{Element, Html, Mountable};
 
@@ -65,9 +65,9 @@ where
         self.inner as *const Inner<S, P>
     }
 
-    pub fn bind<T, F, A>(self, cb: F) -> Callback<'state, T, F, S>
+    pub fn bind<E, T, F, A>(self, cb: F) -> Callback<'state, E, T, F, S>
     where
-        F: Fn(&mut S, &Event<T>) -> A + 'static,
+        F: Fn(&mut S, &UntypedEvent<E, T>) -> A + 'static,
         A: Into<ShouldRender>,
     {
         Callback {
@@ -78,10 +78,10 @@ where
     }
 }
 
-pub struct Callback<'state, T, F, S> {
+pub struct Callback<'state, E, T, F, S> {
     cb: F,
     ctx: Context<'state, S>,
-    _target: PhantomData<T>,
+    _target: PhantomData<(E, T)>,
 }
 
 pub struct CallbackProduct<F> {
@@ -104,9 +104,9 @@ where
     }
 }
 
-impl<T, F, A, S> Html for Callback<'_, T, F, S>
+impl<E, T, F, A, S> Html for Callback<'_, E, T, F, S>
 where
-    F: Fn(&mut S, &Event<T>) -> A + 'static,
+    F: Fn(&mut S, &UntypedEvent<E, T>) -> A + 'static,
     A: Into<ShouldRender>,
     S: 'static,
 {
@@ -118,7 +118,7 @@ where
         let cb = Box::new(UnsafeCell::new(cb));
 
         let closure = Closure::wrap((ctx.make_closure)(ctx.inner, unsafe {
-            let weak: &UnsafeCell<dyn CallbackFn<S, Event<T>>> = &*cb;
+            let weak: &UnsafeCell<dyn CallbackFn<S, UntypedEvent<E, T>>> = &*cb;
 
             // Safety: This is casting `*const dyn CallbackFn<S, Event<T>>` to
             //         to `*const dyn CallbackFn<S, web_sys::Event>` which is safe

@@ -99,14 +99,23 @@ impl IntoGenerator for HtmlElement {
                 }
                 AttributeValue::Expression(expr) => name.with_str(|attr| {
                     let arg = if attr.starts_with("on") && attr.len() > 2 {
+                        let event = &attr[2..];
                         let target = element_js_type(el.tag.as_str());
+                        let event_type = event_js_type(event);
 
                         let mut inner = expr.stream.clone().parse_stream();
 
                         let callback = if let Ok(bind) = InlineBind::parse(&mut inner) {
                             (
                                 bind.invocation,
-                                format_args!("::<::kobold::reexport::web_sys::{target}, _, _>"),
+                                format_args!(
+                                    "::<\
+                                        ::kobold::reexport::web_sys::{event_type},\
+                                        ::kobold::reexport::web_sys::{target},\
+                                        _,\
+                                        _,\
+                                    >"
+                                ),
                                 bind.arg,
                             )
                                 .tokenize()
@@ -114,6 +123,7 @@ impl IntoGenerator for HtmlElement {
                             block((
                                 format_args!(
                                     "let constrained: ::kobold::stateful::Callback<\
+                                        ::kobold::reexport::web_sys::{event_type},\
                                         ::kobold::reexport::web_sys::{target},\
                                         _,\
                                         _,\
@@ -125,7 +135,6 @@ impl IntoGenerator for HtmlElement {
                             .tokenize()
                         };
 
-                        let event = &attr[2..];
                         let value = gen.add_expression(callback);
 
                         writeln!(el, "{var}.addEventListener(\"{event}\",{value});");
@@ -164,6 +173,26 @@ impl IntoGenerator for HtmlElement {
         }
 
         DomNode::Element(el)
+    }
+}
+
+#[rustfmt::skip]
+fn event_js_type(event: &str) -> &'static str {
+    match event {
+        "click"
+        | "dblclick"
+        | "mousedown"
+        | "mouseup"
+        | "mouseover"
+        | "mousemove"
+        | "mouseout"
+        | "mouseenter"
+        | "mouseleave" => "MouseEvent",
+
+        "keydown"
+        | "keyup"
+        | "keypress" => "KeyboardEvent",
+        _ => "Event",
     }
 }
 

@@ -1,5 +1,3 @@
-use kobold::prelude::*;
-
 use crate::filter::Filter;
 
 pub struct State {
@@ -66,13 +64,11 @@ impl State {
         self.entries.remove(idx);
     }
 
-    pub fn update(&mut self, idx: usize, description: String) -> ShouldRender {
+    pub fn update(&mut self, idx: usize, description: String) {
         let entry = &mut self.entries[idx];
 
         entry.description = description;
         entry.editing = false;
-
-        ShouldRender::Yes
     }
 
     pub fn toggle(&mut self, idx: usize) {

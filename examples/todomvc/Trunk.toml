@@ -3,4 +3,6 @@ wasm_bindgen = "0.2.81"
 
 [build]
 filehash = false
+
+# Does not work with `trunk serve`
 # public_url = "./"

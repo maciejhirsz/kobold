@@ -1,5 +1,5 @@
 use kobold::prelude::*;
-use web_sys::HtmlInputElement;
+use web_sys::HtmlInputElement as InputElement;
 
 mod filter;
 mod state;
@@ -91,26 +91,20 @@ struct EntryInput<'a> {
     ctx: Context<'a, State>,
 }
 
-mod wat {
-    use super::*;
+impl<'a> EntryInput<'a> {
+    pub fn render(self) -> impl Html + 'a {
+        html! {
+            <input
+                .new-todo
+                placeholder="What needs to be done?"
+                onchange={self.ctx.bind(|state, event| {
+                    let input = event.target();
+                    let value = input.value();
 
-    impl<'a> EntryInput<'a> {
-        pub fn render(self) -> impl Html + 'a {
-            html! {
-                <input
-                    .new-todo
-                    placeholder="What needs to be done?"
-                    onchange={self.ctx.bind(|state, event| {
-                        let input = event.target();
-                        let value = input.value();
-
-                        input.set_value("");
-                        state.add(value);
-
-                        ShouldRender::Yes
-                    })}
-                />
-            }
+                    input.set_value("");
+                    state.add(value);
+                })}
+            />
         }
     }
 }
@@ -121,21 +115,25 @@ struct EntryView<'a> {
     ctx: Context<'a, State>,
 }
 
-fn test(checked: bool) -> impl Html {
-    html! { <p><input {checked} value="foo" width={ 42 } /></p><strong>"TEST"</strong> }
-}
-
 impl<'a> EntryView<'a> {
     fn render(self) -> impl Html + 'a {
         let EntryView { idx, entry, ctx } = self;
 
         let input = self.entry.editing.then(move || {
-            let onmouseover = ctx.bind(move |_, event| {
-                let input: HtmlInputElement = event.target();
-
-                let _ = input.focus();
+            let onmouseover = ctx.bind(move |_, event: &MouseEvent<InputElement>| {
+                let _ = event.target().focus();
 
                 ShouldRender::No
+            });
+
+            let onkeypress = ctx.bind(move |state, event: &KeyboardEvent<InputElement>| {
+                if event.key() == "Enter" {
+                    state.update(idx, event.target().value());
+
+                    ShouldRender::Yes
+                } else {
+                    ShouldRender::No
+                }
             });
 
             html! {
@@ -143,7 +141,8 @@ impl<'a> EntryView<'a> {
                     type="text"
                     value={&self.entry.description}
                     {onmouseover}
-                    onchange={ctx.bind(move |state, event| state.update(idx, event.target().value()))}
+                    {onkeypress}
+                    onblur={ctx.bind(move |state, event| state.update(idx, event.target().value()))}
                 />
             }
         });
