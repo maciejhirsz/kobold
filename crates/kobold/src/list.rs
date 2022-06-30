@@ -20,18 +20,13 @@ impl<T: 'static> Mountable for ListProduct<T> {
     }
 }
 
-pub trait ListIteratorExt: Sized {
-    fn list(self) -> List<Self>;
-}
-
-impl<T> ListIteratorExt for T
-where
-    T: Iterator,
-{
+pub trait ListIteratorExt: Iterator + Sized {
     fn list(self) -> List<Self> {
         List(self)
     }
 }
+
+impl<T: Iterator> ListIteratorExt for T {}
 
 impl<T> Html for List<T>
 where
