@@ -13,11 +13,7 @@ impl Stateful for App {
     type State = State;
 
     fn init(self) -> State {
-        State {
-            entries: Vec::new(),
-            filter: Filter::All,
-            editing: None,
-        }
+        State::load()
     }
 
     fn update(self, _: &mut State) -> ShouldRender {
