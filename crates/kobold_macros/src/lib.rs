@@ -137,7 +137,7 @@ pub fn html(mut body: TokenStream) -> TokenStream {
 
     // panic!("{out}");
 
-    return out;
+    out
 }
 
 #[proc_macro_derive(Stateful)]

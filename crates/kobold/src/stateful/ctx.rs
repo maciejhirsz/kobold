@@ -1,6 +1,5 @@
 use std::cell::UnsafeCell;
 use std::marker::PhantomData;
-use std::rc::Weak;
 
 use wasm_bindgen::prelude::*;
 use web_sys::Event as RawEvent;
@@ -41,11 +40,10 @@ where
                     let callback = unsafe { &*(*callback).get() };
                     let inner = unsafe { &*(inner as *const Inner<S, P>) };
 
-                    if callback
-                        .call(&mut inner.state.borrow_mut(), event)
-                        .should_render()
-                    {
-                        inner.update();
+                    let mut state = inner.state.borrow_mut();
+
+                    if callback.call(&mut state, event).should_render() {
+                        inner.rerender(&state);
                     }
                 })
             },

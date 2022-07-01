@@ -70,7 +70,7 @@ impl ParseError {
 impl Tokenize for ParseError {
     fn tokenize(self) -> TokenStream {
         let msg = self.msg.as_ref();
-        let span = self.span.into();
+        let span = self.span;
 
         let err = call("compile_error!", string(msg))
             .into_iter()

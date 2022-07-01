@@ -130,8 +130,8 @@ use crate::{Element, Html, Mountable};
 mod ctx;
 mod hook;
 
-pub use hook::Hook;
 pub use ctx::{Callback, Context};
+pub use hook::Hook;
 
 /// Describes whether or not a component should be rendered after state changes.
 /// For uses see:
@@ -193,12 +193,12 @@ struct Inner<S, P> {
     state: RefCell<S>,
     product: UnsafeCell<P>,
     render: RenderFn<S, P>,
-    update: fn(RenderFn<S, P>, Context<S>),
+    update: fn(RenderFn<S, P>, &S, Context<S>),
 }
 
 impl<S: 'static, P: 'static> Inner<S, P> {
-    fn update(&self) {
-        (self.update)(self.render, Context::new(self))
+    fn rerender(&self, state: &S) {
+        (self.update)(self.render, state, Context::new(self))
     }
 }
 
@@ -228,14 +228,13 @@ where
                 state: RefCell::new(state),
                 product: UnsafeCell::new(product),
                 render: self.render,
-                update: |render, ctx| {
+                update: |render, state, ctx| {
                     // Safety: this is safe as long as `S` and `H` are the same types that
                     // were used to create this `RenderFn` instance.
                     let render = unsafe { render.cast::<H>() };
                     let inner = unsafe { &*ctx.inner() };
 
-                    (render)(&inner.state.borrow(), ctx)
-                        .update(unsafe { &mut *inner.product.get() });
+                    (render)(state, ctx).update(unsafe { &mut *inner.product.get() });
                 },
             }
         });
@@ -246,12 +245,10 @@ where
     }
 
     fn update(self, p: &mut Self::Product) {
-        if self
-            .stateful
-            .update(&mut p.inner.state.borrow_mut())
-            .should_render()
-        {
-            p.inner.update();
+        let mut state = p.inner.state.borrow_mut();
+
+        if self.stateful.update(&mut state).should_render() {
+            p.inner.rerender(&state);
         }
     }
 }
