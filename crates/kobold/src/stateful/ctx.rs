@@ -107,13 +107,13 @@ where
 
         let cb = Box::new(UnsafeCell::new(cb));
 
-        let closure = Closure::wrap((ctx.make_closure)(ctx.inner, unsafe {
-            let weak: &UnsafeCell<dyn CallbackFn<S, UntypedEvent<E, T>>> = &*cb;
+        let closure = Closure::wrap((ctx.make_closure)(ctx.inner, {
+            let cb: *const UnsafeCell<dyn CallbackFn<S, UntypedEvent<E, T>>> = &*cb;
 
-            // Safety: This is casting `*&UnsafeCell<dyn CallbackFn<S, UntypedEvent<E, T>>>`
-            //         to `UnsafeCallback<S>` which is safe since `UntypedEvent<E, T>`
-            //         is `#[repr(transparent)]` wrapper for `RawEvent`.
-            std::mem::transmute(weak)
+            // Casting `*const UnsafeCell<dyn CallbackFn<S, UntypedEvent<E, T>>>`
+            // to `UnsafeCallback<S>`, which is safe since `UntypedEvent<E, T>`
+            // is `#[repr(transparent)]` wrapper for `RawEvent`.
+            cb as UnsafeCallback<S>
         }));
 
         CallbackProduct { closure, cb }
