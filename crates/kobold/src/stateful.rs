@@ -128,7 +128,9 @@ use crate::render_fn::RenderFn;
 use crate::{Element, Html, Mountable};
 
 mod ctx;
+mod hook;
 
+pub use hook::Hook;
 pub use ctx::{Callback, Context};
 
 /// Describes whether or not a component should be rendered after state changes.
@@ -213,10 +215,9 @@ where
     type Product = WithStateProduct<S::State, H::Product>;
 
     fn build(self) -> Self::Product {
-        let state = self.stateful.init();
-
         let inner = Rc::new_cyclic(move |inner| {
-            let ctx = Context::from_weak(inner);
+            let state = self.stateful.init();
+            let ctx = Context::new(inner.as_ptr());
 
             // Safety: this is safe as long as `S` and `H` are the same types that
             // were used to create this `RenderFn` instance.
@@ -262,5 +263,44 @@ where
 {
     fn el(&self) -> &Element {
         &self.el
+    }
+}
+
+impl<S, H> WithState<S, H>
+where
+    S: Stateful,
+    H: Html,
+{
+    pub fn then<F>(self, handler: F) -> WithHook<S, H, F> {
+        WithHook {
+            with_state: self,
+            handler,
+        }
+    }
+}
+
+pub struct WithHook<S: Stateful, H: Html, F> {
+    with_state: WithState<S, H>,
+    handler: F,
+}
+
+impl<S, H, F> Html for WithHook<S, H, F>
+where
+    S: Stateful,
+    H: Html,
+    F: FnOnce(Hook<S::State>),
+{
+    type Product = WithStateProduct<S::State, H::Product>;
+
+    fn build(self) -> Self::Product {
+        let product = self.with_state.build();
+
+        (self.handler)(Hook::new::<H>(&product.inner));
+
+        product
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        self.with_state.update(p);
     }
 }

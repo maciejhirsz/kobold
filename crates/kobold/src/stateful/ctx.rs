@@ -3,17 +3,17 @@ use std::marker::PhantomData;
 use std::rc::Weak;
 
 use wasm_bindgen::prelude::*;
+use web_sys::Event as RawEvent;
 
 use crate::event::UntypedEvent;
 use crate::stateful::{Inner, ShouldRender};
 use crate::{Element, Html, Mountable};
 
+type UnsafeCallback<S> = *const UnsafeCell<dyn CallbackFn<S, RawEvent>>;
+
 pub struct Context<'state, S> {
     inner: *const (),
-    make_closure: fn(
-        *const (),
-        cb: *const UnsafeCell<dyn CallbackFn<S, web_sys::Event>>,
-    ) -> Box<dyn Fn(&web_sys::Event)>,
+    make_closure: fn(*const (), cb: UnsafeCallback<S>) -> Box<dyn Fn(&RawEvent)>,
     _marker: PhantomData<&'state S>,
 }
 
@@ -33,15 +33,7 @@ impl<'state, S> Context<'state, S>
 where
     S: 'static,
 {
-    pub(super) fn new<P: 'static>(inner: &'state Inner<S, P>) -> Self {
-        Self::new_raw(inner)
-    }
-
-    pub(super) fn from_weak<P: 'static>(weak: &'state Weak<Inner<S, P>>) -> Self {
-        Self::new_raw(weak.as_ptr())
-    }
-
-    fn new_raw<P: 'static>(inner: *const Inner<S, P>) -> Self {
+    pub(super) fn new<P: 'static>(inner: *const Inner<S, P>) -> Self {
         Context {
             inner: inner as *const _,
             make_closure: |inner, callback| {
@@ -85,7 +77,7 @@ pub struct Callback<'state, E, T, F, S> {
 }
 
 pub struct CallbackProduct<F> {
-    closure: Closure<dyn Fn(&web_sys::Event)>,
+    closure: Closure<dyn Fn(&RawEvent)>,
     cb: Box<UnsafeCell<F>>,
 }
 
@@ -120,9 +112,9 @@ where
         let closure = Closure::wrap((ctx.make_closure)(ctx.inner, unsafe {
             let weak: &UnsafeCell<dyn CallbackFn<S, UntypedEvent<E, T>>> = &*cb;
 
-            // Safety: This is casting `*const dyn CallbackFn<S, Event<T>>` to
-            //         to `*const dyn CallbackFn<S, web_sys::Event>` which is safe
-            //         since `Event<T>` is `#[repr(transparent)]` for `web_sys::Event`.
+            // Safety: This is casting `*&UnsafeCell<dyn CallbackFn<S, UntypedEvent<E, T>>>`
+            //         to `UnsafeCallback<S>` which is safe since `UntypedEvent<E, T>`
+            //         is `#[repr(transparent)]` wrapper for `RawEvent`.
             std::mem::transmute(weak)
         }));
 
