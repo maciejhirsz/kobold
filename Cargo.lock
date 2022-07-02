@@ -58,6 +58,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "gloo-timers"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fb7d06c1c8cc2a29bee7ec961009a0b2caa0793ee4900c2ffb348734ba1c8f9"
+dependencies = [
+ "js-sys",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "gloo-utils"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -106,6 +116,14 @@ dependencies = [
 name = "kobold_hello_world_example"
 version = "0.1.0"
 dependencies = [
+ "kobold",
+]
+
+[[package]]
+name = "kobold_interval_example"
+version = "0.1.0"
+dependencies = [
+ "gloo-timers",
  "kobold",
 ]
 

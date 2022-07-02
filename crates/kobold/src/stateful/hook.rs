@@ -6,6 +6,7 @@ use std::rc::{Rc, Weak};
 use crate::stateful::{Inner, ShouldRender};
 use crate::Html;
 
+#[derive(Debug)]
 pub enum UpdateError {
     StateDropped,
     AlreadyBorrowed,
@@ -27,6 +28,8 @@ impl Display for UpdateError {
         }
     }
 }
+
+impl std::error::Error for UpdateError {}
 
 struct HookVTable<S> {
     state: unsafe fn(*const ()) -> Option<*const RefCell<S>>,
@@ -87,12 +90,15 @@ impl<S> Hook<S>
 where
     S: 'static,
 {
-    pub fn update(&self, mutator: impl FnOnce(&mut S) -> ShouldRender) -> Result<(), UpdateError> {
+    pub fn update<R>(&self, mutator: impl FnOnce(&mut S) -> R) -> Result<(), UpdateError>
+    where
+        R: Into<ShouldRender>,
+    {
         let state = unsafe { (self.vtable.state)(self.inner) }.ok_or(UpdateError::StateDropped)?;
         let mut state = unsafe { (*state).try_borrow_mut()? };
         let result = mutator(&mut state);
 
-        if result.should_render() {
+        if result.into().should_render() {
             unsafe { (self.vtable.rerender)(&state, self.inner) }
         }
 

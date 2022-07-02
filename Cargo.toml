@@ -6,6 +6,7 @@ members = [
     "examples/hello_world",
     "examples/list",
     "examples/stateful",
+    "examples/interval",
     "examples/todomvc",
 ]
 

@@ -268,7 +268,10 @@ where
     S: Stateful,
     H: Html,
 {
-    pub fn then<F>(self, handler: F) -> WithHook<S, H, F> {
+    pub fn then<F>(self, handler: F) -> WithHook<S, H, F>
+    where
+        F: FnOnce(Hook<S::State>),
+    {
         WithHook {
             with_state: self,
             handler,
