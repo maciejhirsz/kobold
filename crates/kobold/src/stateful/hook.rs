@@ -6,15 +6,20 @@ use std::rc::{Rc, Weak};
 use crate::stateful::{Inner, ShouldRender};
 use crate::Html;
 
+/// Error type returned by [`Hook::update`](Hook::update).
 #[derive(Debug)]
 pub enum UpdateError {
+    /// Returned if the state has already been dropped, happens if the attempted
+    /// update is applied to a component that has been removed from view.
     StateDropped,
-    AlreadyBorrowed,
+
+    /// Attempted update while the state is mutably borrowed for another update.
+    CycleDetected,
 }
 
 impl From<BorrowMutError> for UpdateError {
     fn from(_: BorrowMutError) -> Self {
-        UpdateError::AlreadyBorrowed
+        UpdateError::CycleDetected
     }
 }
 
@@ -22,8 +27,8 @@ impl Display for UpdateError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             UpdateError::StateDropped => f.write_str("Could not update state: State was dropped"),
-            UpdateError::AlreadyBorrowed => {
-                f.write_str("Could not update state: State was already borrowed")
+            UpdateError::CycleDetected => {
+                f.write_str("Cycle detected: Attempting to update state during an ongoing update")
             }
         }
     }
