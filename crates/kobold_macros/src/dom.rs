@@ -103,7 +103,7 @@ impl Node {
 
         let children = match tag.nesting {
             TagNesting::SelfClosing => None,
-            TagNesting::Opening => Some(Node::parse_children(&tag.name, stream)?),
+            TagNesting::Opening => Node::parse_children(&tag.name, stream)?,
             TagNesting::Closing => {
                 return Err(ParseError::new(
                     format!("Unexpected closing tag {}", tag.name),
@@ -197,7 +197,7 @@ impl Node {
         }
     }
 
-    fn parse_children(name: &TagName, stream: &mut ShallowStream) -> Result<Vec<Node>, ParseError> {
+    fn parse_children(name: &TagName, stream: &mut ShallowStream) -> Result<Option<Vec<Node>>, ParseError> {
         let mut children = Vec::new();
 
         loop {
@@ -219,7 +219,11 @@ impl Node {
             }
         }
 
-        Ok(children)
+        if children.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(children))
+        }
     }
 }
 
