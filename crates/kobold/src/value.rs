@@ -129,11 +129,67 @@ macro_rules! impl_stringify {
     };
 }
 
+#[derive(PartialEq, Eq)]
+pub struct StrCmp {
+    hash: u64,
+}
+
+impl From<&str> for StrCmp {
+    fn from(s: &str) -> StrCmp {
+
+        let hash = if s.len() > 32 {
+            (s.len() as u64) | ((s.as_ptr() as u64) << 32)
+        } else {
+            use std::hash::{Hash, Hasher};
+
+            let mut hasher = fnv::FnvHasher::default();
+
+            s.hash(&mut hasher);
+
+            hasher.finish()
+        };
+
+        StrCmp {
+            hash,
+        }
+    }
+}
+
+impl Html for &str {
+    type Product = ValueProduct<StrCmp>;
+
+    fn build(self) -> Self::Product {
+        let el = Element::new_text(self);
+
+        ValueProduct { value: self.into(), el }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        let new = self.into();
+
+        if p.value != new {
+            p.value = new;
+            p.el.set_text(self);
+        }
+    }
+}
+
+impl Html for &&str {
+    type Product = ValueProduct<StrCmp>;
+
+    fn build(self) -> Self::Product {
+        (*self).build()
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        (*self).update(p);
+    }
+}
+
 stringify_int!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, usize, isize);
 stringify_float!(f32, f64);
 
 impl_stringify!(
-    &'static str,
     bool,
     u8,
     u16,

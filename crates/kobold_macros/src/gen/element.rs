@@ -192,7 +192,7 @@ fn event_js_type(event: &str) -> &'static str {
         "keydown"
         | "keyup"
         | "keypress" => "KeyboardEvent",
-        _ => "Event",
+        _ => "UntypedEvent",
     }
 }
 

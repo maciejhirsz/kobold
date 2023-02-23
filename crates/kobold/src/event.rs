@@ -2,21 +2,21 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 
 use wasm_bindgen::JsCast;
-use web_sys::{HtmlElement, Event as RawEvent};
+use web_sys::HtmlElement;
 
 #[repr(transparent)]
-pub struct UntypedEvent<E, T> {
-    event: RawEvent,
+pub struct Event<E, T> {
+    event: web_sys::Event,
     _target: PhantomData<(E, T)>,
 }
 
-pub type Event<T = HtmlElement> = UntypedEvent<RawEvent, T>;
+pub type UntypedEvent<T = HtmlElement> = Event<web_sys::Event, T>;
 
-pub type MouseEvent<T = HtmlElement> = UntypedEvent<web_sys::MouseEvent, T>;
+pub type MouseEvent<T = HtmlElement> = Event<web_sys::MouseEvent, T>;
 
-pub type KeyboardEvent<T = HtmlElement> = UntypedEvent<web_sys::KeyboardEvent, T>;
+pub type KeyboardEvent<T = HtmlElement> = Event<web_sys::KeyboardEvent, T>;
 
-impl<E, T> Deref for UntypedEvent<E, T>
+impl<E, T> Deref for Event<E, T>
 where
     E: JsCast,
 {
@@ -27,7 +27,7 @@ where
     }
 }
 
-impl<E, T> UntypedEvent<E, T> {
+impl<E, T> Event<E, T> {
     pub fn target(&self) -> T
     where
         T: JsCast,

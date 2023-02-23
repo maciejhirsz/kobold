@@ -30,15 +30,10 @@
 //! ```no_run
 //! use kobold::prelude::*;
 //!
-//! struct Hello {
-//!     name: &'static str,
-//! }
-//!
-//! impl Hello {
-//!     fn render(self) -> impl Html {
-//!         html! {
-//!             <h1>"Hello "{ self.name }"!"</h1>
-//!         }
+//! #[component]
+//! fn Hello(name: &str) -> impl Html {
+//!     html! {
+//!         <h1>"Hello "{ name }"!"</h1>
 //!     }
 //! }
 //!
@@ -75,34 +70,25 @@
 //! ```no_run
 //! use kobold::prelude::*;
 //!
-//! // To derive `Stateful` the component must also implement `PartialEq`.
-//! #[derive(Stateful, PartialEq, Default)]
-//! struct Counter {
-//!     count: u32,
-//! }
+//! #[component]
+//! fn Counter() -> impl Html {
+//!     stateful(0, |count, ctx| {
+//!         let onclick = ctx.bind(|count, _event| *count += 1);
 //!
-//! impl Counter {
-//!     fn render(self) -> impl Html {
-//!         self.stateful(|state, ctx| {
-//!             let onclick = ctx.bind(|state, _event| state.count += 1);
-//!
-//!             html! {
-//!                 <p>
-//!                     "You clicked on the "
-//!                     // `{onclick}` here is shorthand for `onclick={onclick}`
-//!                     <button {onclick}>"Button"</button>
-//!                     " "{ state.count }" times."
-//!                 </p>
-//!             }
-//!         })
-//!     }
+//!         html! {
+//!             <p>
+//!                 "You clicked on the "
+//!                 // `{onclick}` here is shorthand for `onclick={onclick}`
+//!                 <button {onclick}>"Button"</button>
+//!                 " "{ *count }" times."
+//!             </p>
+//!         }
+//!     })
 //! }
 //!
 //! fn main() {
 //!     kobold::start(html! {
-//!         // The `..` notation fills in the rest of the component with
-//!         // values from the `Default` impl.
-//!         <Counter ../>
+//!         <Counter />
 //!     });
 //! }
 //! ```

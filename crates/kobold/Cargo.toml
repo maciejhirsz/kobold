@@ -12,6 +12,7 @@ repository = "https://github.com/maciejhirsz/kobold"
 documentation = "https://docs.rs/kobold"
 
 [dependencies]
+fnv = { version = "1.0.7", default-features = false }
 wasm-bindgen = "0.2.84"
 itoa = "1.0.1"
 ryu = "1.0.12"

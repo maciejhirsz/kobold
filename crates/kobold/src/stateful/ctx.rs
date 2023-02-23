@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use wasm_bindgen::prelude::*;
 use web_sys::Event as RawEvent;
 
-use crate::event::UntypedEvent;
+use crate::event::Event;
 use crate::stateful::{Inner, ShouldRender};
 use crate::{Element, Html, Mountable};
 
@@ -57,7 +57,7 @@ where
 
     pub fn bind<E, T, F, A>(self, cb: F) -> Callback<'state, E, T, F, S>
     where
-        F: Fn(&mut S, &UntypedEvent<E, T>) -> A + 'static,
+        F: Fn(&mut S, &Event<E, T>) -> A + 'static,
         A: Into<ShouldRender>,
     {
         Callback {
@@ -96,7 +96,7 @@ where
 
 impl<E, T, F, A, S> Html for Callback<'_, E, T, F, S>
 where
-    F: Fn(&mut S, &UntypedEvent<E, T>) -> A + 'static,
+    F: Fn(&mut S, &Event<E, T>) -> A + 'static,
     A: Into<ShouldRender>,
     S: 'static,
 {
@@ -108,7 +108,7 @@ where
         let cb = Box::new(UnsafeCell::new(cb));
 
         let closure = Closure::wrap((ctx.make_closure)(ctx.inner, {
-            let cb: *const UnsafeCell<dyn CallbackFn<S, UntypedEvent<E, T>>> = &*cb;
+            let cb: *const UnsafeCell<dyn CallbackFn<S, Event<E, T>>> = &*cb;
 
             // Casting `*const UnsafeCell<dyn CallbackFn<S, UntypedEvent<E, T>>>`
             // to `UnsafeCallback<S>`, which is safe since `UntypedEvent<E, T>`

@@ -42,6 +42,7 @@ impl From<FnSignature> for FnComponent {
 struct Field {
     name: Ident,
     ty: TokenStream,
+    lifetime: bool,
 }
 
 impl Parse for FnSignature {
@@ -78,18 +79,26 @@ impl Parse for Field {
     fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
         let name = stream.parse()?;
         let mut ty = TokenStream::new();
+        let mut lifetime = false;
 
         stream.expect(':')?;
 
-        for token in stream {
+        while let Some(token) = stream.next() {
             if token.is(',') {
                 break;
+            }
+
+            if token.is('&') {
+                lifetime = true;
+
+                ty.write((token, "'a"));
+                continue;
             }
 
             ty.write(token);
         }
 
-        Ok(Field { name, ty })
+        Ok(Field { name, ty, lifetime })
     }
 }
 
@@ -101,21 +110,27 @@ impl Tokenize for FnComponent {
             write!(&mut destruct, "let {} = self.{};", field.name, field.name);
         }
 
-        let fields = if self.fields.is_empty() {
-            ';'.tokenize()
+        let mut struct_name = self.name.tokenize();
+
+        let (imp, sig) = if self.fields.iter().any(|field| field.lifetime) {
+            write!(struct_name, "<'a>");
+
+            ("impl<'a>", "fn render(self) -> impl Html + 'a")
         } else {
-            block(each(self.fields)).tokenize()
+            ("impl", "fn render(self) -> impl Html")
         };
 
-        (
-            "struct",
-            self.name.clone(),
-            fields,
-            "impl",
-            self.name,
-            block(("fn render(self) -> impl Html", block((destruct, self.render)))),
-        )
-            .tokenize()
+        let mut out = ("struct", struct_name.clone()).tokenize();
+
+        if self.fields.is_empty() {
+            ';'.tokenize_in(&mut out);
+        } else {
+            block(each(self.fields)).tokenize_in(&mut out);
+        };
+
+        (imp, struct_name, block((sig, block((destruct, self.render))))).tokenize_in(&mut out);
+
+        out
     }
 }
 

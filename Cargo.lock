@@ -100,6 +100,7 @@ name = "kobold"
 version = "0.4.1"
 dependencies = [
  "console_error_panic_hook",
+ "fnv",
  "itoa",
  "kobold_macros",
  "ryu",
