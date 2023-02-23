@@ -12,9 +12,9 @@ repository = "https://github.com/maciejhirsz/kobold"
 documentation = "https://docs.rs/kobold"
 
 [dependencies]
-wasm-bindgen = "0.2.81"
+wasm-bindgen = "0.2.84"
 itoa = "1.0.1"
-ryu = "1.0.10"
+ryu = "1.0.12"
 kobold_macros = "0.4.1"
 console_error_panic_hook = "0.1.7"
 
