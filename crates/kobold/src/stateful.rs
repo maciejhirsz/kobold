@@ -183,6 +183,40 @@ pub trait Stateful: Sized {
     }
 }
 
+pub struct PartialEqState<S> {
+    state: S,
+}
+
+impl<S: PartialEq + 'static> Stateful for PartialEqState<S> {
+    type State = S;
+
+    fn init(self) -> Self::State {
+        self.state
+    }
+
+    fn update(self, state: &mut Self::State) -> ShouldRender {
+        if &self.state != state {
+            *state = self.state;
+
+            ShouldRender::Yes
+        } else {
+            ShouldRender::No
+        }
+    }
+}
+
+pub fn stateful<'a, S, H>(state: S, render: fn(&'a S, Context<'a, S>) -> H) -> WithState<PartialEqState<S>, H>
+where
+    S: PartialEq + 'static,
+    H: Html + 'a,
+{
+    WithState {
+        stateful: PartialEqState { state },
+        render: RenderFn::new(render),
+        _marker: PhantomData,
+    }
+}
+
 pub struct WithState<S: Stateful, H: Html> {
     stateful: S,
     render: RenderFn<S::State, H::Product>,

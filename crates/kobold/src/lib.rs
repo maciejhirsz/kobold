@@ -291,8 +291,8 @@ pub mod stateful;
 pub mod prelude {
     pub use crate::event::{Event, KeyboardEvent, MouseEvent};
     pub use crate::list::ListIteratorExt;
-    pub use crate::stateful::{Context, Hook, ShouldRender, Stateful};
-    pub use crate::{html, Html};
+    pub use crate::stateful::{stateful, Context, Hook, ShouldRender, Stateful};
+    pub use crate::{html, component, Html};
 }
 
 use dom::Element;

@@ -1,14 +1,9 @@
 use kobold::prelude::*;
 
-struct Hello {
-    name: &'static str,
-}
-
-impl Hello {
-    fn render(self) -> impl Html {
-        html! {
-            <h1>"Hello "{ self.name }"!"</h1>
-        }
+#[component]
+fn Hello(name: &'static str) -> impl Html {
+    html! {
+        <h1>"Hello "{ name }"!"</h1>
     }
 }
 

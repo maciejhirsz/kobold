@@ -9,6 +9,8 @@ pub fn fn_component(stream: TokenStream) -> Result<TokenStream, ParseError> {
     let sig: FnSignature = stream.parse()?;
     let component = FnComponent::from(sig).tokenize();
 
+    // panic!("{component}");
+
     Ok(component)
 }
 
@@ -99,10 +101,16 @@ impl Tokenize for FnComponent {
             write!(&mut destruct, "let {} = self.{};", field.name, field.name);
         }
 
+        let fields = if self.fields.is_empty() {
+            ';'.tokenize()
+        } else {
+            block(each(self.fields)).tokenize()
+        };
+
         (
             "struct",
             self.name.clone(),
-            block(each(self.fields)),
+            fields,
             "impl",
             self.name,
             block(("fn render(self) -> impl Html", block((destruct, self.render)))),
