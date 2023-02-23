@@ -12,6 +12,7 @@ mod itertools;
 mod parse;
 mod syntax;
 mod tokenize;
+mod fn_component;
 
 use parse::prelude::*;
 use tokenize::prelude::*;
@@ -28,6 +29,11 @@ macro_rules! unwrap_err {
 #[proc_macro_attribute]
 pub fn branching(_: TokenStream, input: TokenStream) -> TokenStream {
     do_branching(input)
+}
+
+#[proc_macro_attribute]
+pub fn component(_: TokenStream, input: TokenStream) -> TokenStream {
+    unwrap_err!(fn_component::fn_component(input))
 }
 
 fn do_branching(input: TokenStream) -> TokenStream {

@@ -41,14 +41,9 @@ impl ListExample {
     }
 }
 
-struct ListItem {
-    n: u32,
-}
-
-impl ListItem {
-    fn render(self) -> impl Html {
-        html! { <li>"Item #"{ self.n }</li> }
-    }
+#[kobold::component]
+fn ListItem(n: u32) -> impl Html {
+    html! { <li>"Item #"{ n }</li> }
 }
 
 fn main() {

@@ -270,6 +270,7 @@
 
 /// Macro for resolving branching issues with the [`html!`](html) macro. See the [`branching` module documentation](mod@branching) for details.
 pub use kobold_macros::branching;
+pub use kobold_macros::component;
 /// Macro for creating transient [`Html`](Html) types. See the [main documentation](crate) for details.
 pub use kobold_macros::html;
 
