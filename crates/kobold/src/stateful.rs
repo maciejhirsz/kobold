@@ -121,17 +121,14 @@ use std::cell::{RefCell, UnsafeCell};
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-/// Derive macro for the [`Stateful`](Stateful) trait, see the [module documentation](crate::stateful) for details.
-pub use kobold_macros::Stateful;
-
 use crate::render_fn::RenderFn;
 use crate::{Element, Html, Mountable};
 
-mod ctx;
 mod hook;
+mod owned_hook;
 
-pub use ctx::{Callback, Context};
-pub use hook::Hook;
+pub use hook::{Callback, Hook};
+pub use owned_hook::OwnedHook;
 
 /// Describes whether or not a component should be rendered after state changes.
 /// For uses see:
@@ -164,26 +161,15 @@ impl ShouldRender {
 }
 
 /// Trait used to create stateful components, see the [module documentation](crate::stateful) for details.
-pub trait Stateful: Sized {
+pub trait IntoState: Sized {
     type State: 'static;
 
     fn init(self) -> Self::State;
 
     fn update(self, state: &mut Self::State) -> ShouldRender;
-
-    fn stateful<'a, H: Html + 'a>(
-        self,
-        render: fn(&'a Context<Self::State>) -> H,
-    ) -> WithState<Self, H> {
-        WithState {
-            stateful: self,
-            render: RenderFn::new(render),
-            _marker: PhantomData,
-        }
-    }
 }
 
-impl<F, S> Stateful for F
+impl<F, S> IntoState for F
 where
     S: 'static,
     F: FnOnce() -> S,
@@ -203,7 +189,7 @@ pub struct PartialEqState<S> {
     state: S,
 }
 
-impl<S: PartialEq + 'static> Stateful for PartialEqState<S> {
+impl<S: PartialEq + 'static> IntoState for PartialEqState<S> {
     type State = S;
 
     fn init(self) -> Self::State {
@@ -233,89 +219,89 @@ impl<S: PartialEq + 'static> Stateful for PartialEqState<S> {
 //     }
 // }
 
-pub fn stateful<'a, S, H>(init: S, render: fn(&'a Context<S::State>) -> H) -> WithState<S, H>
+pub fn stateful<'a, S, H>(init: S, render: fn(&'a Hook<S::State>) -> H) -> Stateful<S, H>
 where
-    S: Stateful,
+    S: IntoState,
     H: Html + 'a,
 {
-    WithState {
+    Stateful {
         stateful: init,
         render: RenderFn::new(render),
         _marker: PhantomData,
     }
 }
 
-pub struct WithState<S: Stateful, H: Html> {
+pub struct Stateful<S: IntoState, H: Html> {
     stateful: S,
     render: RenderFn<S::State, H::Product>,
     _marker: PhantomData<H>,
 }
 
 struct Inner<S, P> {
-    ctx: RefCell<Context<S>>,
+    hook: RefCell<Hook<S>>,
     product: UnsafeCell<P>,
     render: RenderFn<S, P>,
-    update: fn(RenderFn<S, P>, &Context<S>),
+    update: fn(RenderFn<S, P>, &Hook<S>),
 }
 
 impl<S: 'static, P: 'static> Inner<S, P> {
-    fn rerender(&self, ctx: &Context<S>) {
-        (self.update)(self.render, ctx)
+    fn rerender(&self, hook: &Hook<S>) {
+        (self.update)(self.render, hook)
     }
 }
 
-pub struct WithStateProduct<S: 'static, P> {
+pub struct StatefulProduct<S: 'static, P> {
     inner: Rc<Inner<S, P>>,
     el: Element,
 }
 
-impl<S, H> Html for WithState<S, H>
+impl<S, H> Html for Stateful<S, H>
 where
-    S: Stateful,
+    S: IntoState,
     H: Html,
 {
-    type Product = WithStateProduct<S::State, H::Product>;
+    type Product = StatefulProduct<S::State, H::Product>;
 
     fn build(self) -> Self::Product {
         let inner = Rc::new_cyclic(move |inner| {
             let state = self.stateful.init();
-            let ctx = Context::new(state, inner.as_ptr());
+            let hook = Hook::new(state, inner.as_ptr());
 
             // Safety: this is safe as long as `S` and `H` are the same types that
             // were used to create this `RenderFn` instance.
             let render_fn = unsafe { self.render.cast::<H>() };
-            let product = (render_fn)(&ctx).build();
+            let product = (render_fn)(&hook).build();
 
             Inner {
-                ctx: RefCell::new(ctx),
+                hook: RefCell::new(hook),
                 product: UnsafeCell::new(product),
                 render: self.render,
-                update: |render, ctx| {
+                update: |render, hook| {
                     // Safety: this is safe as long as `S` and `H` are the same types that
                     // were used to create this `RenderFn` instance.
                     let render = unsafe { render.cast::<H>() };
-                    let inner = unsafe { &*ctx.inner() };
+                    let inner = unsafe { &*hook.inner() };
 
-                    (render)(ctx).update(unsafe { &mut *inner.product.get() });
+                    (render)(hook).update(unsafe { &mut *inner.product.get() });
                 },
             }
         });
 
         let el = unsafe { &*inner.product.get() }.el().clone();
 
-        WithStateProduct { inner, el }
+        StatefulProduct { inner, el }
     }
 
     fn update(self, p: &mut Self::Product) {
-        let mut ctx = p.inner.ctx.borrow_mut();
+        let mut hook = p.inner.hook.borrow_mut();
 
-        if self.stateful.update(&mut ctx.state).should_render() {
-            p.inner.rerender(&ctx);
+        if self.stateful.update(&mut hook.state).should_render() {
+            p.inner.rerender(&hook);
         }
     }
 }
 
-impl<S, P> Mountable for WithStateProduct<S, P>
+impl<S, P> Mountable for StatefulProduct<S, P>
 where
     S: 'static,
     P: Mountable,
@@ -325,39 +311,39 @@ where
     }
 }
 
-impl<S, H> WithState<S, H>
+impl<S, H> Stateful<S, H>
 where
-    S: Stateful,
+    S: IntoState,
     H: Html,
 {
-    pub fn then<F>(self, handler: F) -> WithHook<S, H, F>
+    pub fn once<F>(self, handler: F) -> WithOwnedHook<S, H, F>
     where
-        F: FnOnce(Hook<S::State>),
+        F: FnOnce(OwnedHook<S::State>),
     {
-        WithHook {
+        WithOwnedHook {
             with_state: self,
             handler,
         }
     }
 }
 
-pub struct WithHook<S: Stateful, H: Html, F> {
-    with_state: WithState<S, H>,
+pub struct WithOwnedHook<S: IntoState, H: Html, F> {
+    with_state: Stateful<S, H>,
     handler: F,
 }
 
-impl<S, H, F> Html for WithHook<S, H, F>
+impl<S, H, F> Html for WithOwnedHook<S, H, F>
 where
-    S: Stateful,
+    S: IntoState,
     H: Html,
-    F: FnOnce(Hook<S::State>),
+    F: FnOnce(OwnedHook<S::State>),
 {
-    type Product = WithStateProduct<S::State, H::Product>;
+    type Product = StatefulProduct<S::State, H::Product>;
 
     fn build(self) -> Self::Product {
         let product = self.with_state.build();
 
-        (self.handler)(Hook::new::<H>(&product.inner));
+        (self.handler)(OwnedHook::new::<H>(&product.inner));
 
         product
     }

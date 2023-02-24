@@ -68,7 +68,7 @@ fn App() -> impl Html {
 }
 
 #[component]
-fn EntryInput(state: &Context<State>) -> impl Html {
+fn EntryInput(state: &Hook<State>) -> impl Html {
     html! {
         <input
             .new-todo
@@ -85,7 +85,7 @@ fn EntryInput(state: &Context<State>) -> impl Html {
 }
 
 #[component]
-fn EntryView(idx: usize, entry: &Entry, state: &Context<State>) -> impl Html {
+fn EntryView(idx: usize, entry: &Entry, state: &Hook<State>) -> impl Html {
     let input = entry.editing.then(move || {
         let onmouseover = state.bind(move |_, event: &MouseEvent<InputElement>| {
             let _ = event.target().focus();
@@ -133,7 +133,7 @@ fn EntryView(idx: usize, entry: &Entry, state: &Context<State>) -> impl Html {
 }
 
 #[component]
-fn FilterView(filter: Filter, selected: Filter, state: &Context<State>) -> impl Html {
+fn FilterView(filter: Filter, selected: Filter, state: &Hook<State>) -> impl Html {
     let class = if selected == filter {
         "selected"
     } else {

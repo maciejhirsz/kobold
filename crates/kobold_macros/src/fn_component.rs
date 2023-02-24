@@ -1,4 +1,4 @@
-use proc_macro::{Ident, TokenStream, TokenTree};
+use proc_macro::{Group, Ident, TokenStream, TokenTree};
 
 use crate::parse::prelude::*;
 use crate::tokenize::prelude::*;
@@ -78,25 +78,38 @@ impl Parse for FnSignature {
 impl Parse for Field {
     fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
         let name = stream.parse()?;
-        let mut ty = TokenStream::new();
         let mut lifetime = false;
 
         stream.expect(':')?;
 
-        while let Some(token) = stream.next() {
-            if token.is(',') {
-                break;
+        fn substitute_lifetimes(stream: &mut ParseStream, lifetime: &mut bool) -> TokenStream {
+            let mut out = TokenStream::new();
+
+            while let Some(mut token) = stream.next() {
+                if token.is(',') {
+                    break;
+                }
+
+                if token.is('&') && !stream.allow('\'') {
+                    *lifetime = true;
+
+                    out.write((token, "'a"));
+                    continue;
+                }
+
+                if let TokenTree::Group(g) = &mut token {
+                    let mut group_stream = g.stream().parse_stream();
+
+                    *g = Group::new(g.delimiter(), substitute_lifetimes(&mut group_stream, lifetime));
+                }
+
+                out.write(token);
             }
 
-            if token.is('&') {
-                lifetime = true;
-
-                ty.write((token, "'a"));
-                continue;
-            }
-
-            ty.write(token);
+            out
         }
+
+        let ty = substitute_lifetimes(stream, &mut lifetime);
 
         Ok(Field { name, ty, lifetime })
     }
@@ -128,7 +141,12 @@ impl Tokenize for FnComponent {
             block(each(self.fields)).tokenize_in(&mut out);
         };
 
-        (imp, struct_name, block((sig, block((destruct, self.render))))).tokenize_in(&mut out);
+        (
+            imp,
+            struct_name,
+            block((sig, block((destruct, self.render)))),
+        )
+            .tokenize_in(&mut out);
 
         out
     }

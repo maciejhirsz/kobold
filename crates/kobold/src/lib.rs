@@ -64,7 +64,7 @@
 //!
 //! ### Stateful Components
 //!
-//! The [`Stateful`](stateful::Stateful) trait can be used to create components that own and manipulate
+//! The [`stateful`](stateful::stateful) function can be used to create components that own and manipulate
 //! their state:
 //!
 //! ```no_run
@@ -93,22 +93,15 @@
 //! }
 //! ```
 //!
-//! The [`stateful`](stateful::Stateful::stateful) method above accepts a non-capturing anonymous render function
-//! matching the signature:
+//! The [`stateful`](stateful::stateful) function above takes two parameters:
 //!
-//! ```text
-//! fn(&State, Context<State>) -> impl Html
-//! ```
+//! * State constructor that implements the [`IntoState`](stateful::IntoState) trait. **Kobold** comes with default
+//!   implementations for most primitive types, so we can use `u32` here.
+//! * The anonymous render function that uses the constructed state, in our case `fn(&Hook<u32>) -> impl Html`.
 //!
-//! The [`State`](stateful::Stateful::State) here is an associated type which for all components that
-//! use derived [`Stateful`](stateful::Stateful) implementation defaults to `Self`, so in the example above
-//! it is the `Counter` itself.
-//!
-//! The [`Context`](stateful::Context) can be used to create event callbacks that take a `&mut` reference to the
-//! state and a `&` reference to a DOM [`Event`](web_sys::Event) (ignored above). If the callback closure has no
-//! return type (the return type is `()`) each invocation of it will update the component. If you would
-//! rather perform a "silent" update, or if the callback does not always modify the state, return the provided
-//! [`ShouldRender`](stateful::ShouldRender) enum instead.
+//! The [`Hook`](stateful::Hook) here is a smart pointer to the state itself that allows non-mutable access to the
+//! state, as well as the [`bind`](stateful::Hook::bind) method for creating event callbacks. These take a `&mut`
+//! reference to the state and a `&` reference to a DOM [`Event`](event::Event) (ignored above).
 //!
 //! For more details visit the [`stateful` module documentation](stateful).
 //!
@@ -140,7 +133,8 @@
 //! // `ListIteratorExt` is included in the prelude
 //! use kobold::prelude::*;
 //!
-//! fn make_list(count: u32) -> impl Html {
+//! #[component]
+//! fn IterateNumbers(count: u32) -> impl Html {
 //!     html! {
 //!         <ul>
 //!         {
@@ -154,7 +148,7 @@
 //! ```
 //!
 //! This wraps the iterator in the transparent [`List<_>`](list::List) type that implements [`Html`](Html).
-//! On updates the iterator is consumed once and all items are diffed with previous version.
+//! On updates the iterator is consumed once and all items are diffed with the previous version.
 //! No allocations are made by **Kobold** unless the rendered list needs to grow past its original capacity.
 //!
 //! ### Borrowed Values
@@ -165,9 +159,8 @@
 //!
 //! ```
 //! # use kobold::prelude::*;
-//! // Need to mark the return type with an elided lifetime
-//! // to tell the compiler that we borrow from `names` here
-//! fn render_names(names: &[String]) -> impl Html + '_ {
+//! #[component]
+//! fn Users(names: &[&str]) -> impl Html {
 //!     html! {
 //!         <ul>
 //!         {
@@ -277,7 +270,7 @@ pub mod stateful;
 pub mod prelude {
     pub use crate::event::{UntypedEvent, KeyboardEvent, MouseEvent};
     pub use crate::list::ListIteratorExt;
-    pub use crate::stateful::{stateful, Context, Hook, ShouldRender, Stateful};
+    pub use crate::stateful::{stateful, Hook, OwnedHook, ShouldRender, IntoState};
     pub use crate::{html, component, Html};
 }
 

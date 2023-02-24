@@ -4,7 +4,7 @@
 
 extern crate proc_macro;
 
-use proc_macro::{Ident, TokenStream, TokenTree};
+use proc_macro::{TokenStream, TokenTree};
 
 mod dom;
 mod gen;
@@ -144,43 +144,4 @@ pub fn html(mut body: TokenStream) -> TokenStream {
     // panic!("{out}");
 
     out
-}
-
-#[proc_macro_derive(Stateful)]
-pub fn stateful(tokens: TokenStream) -> TokenStream {
-    unwrap_err!(do_stateful(tokens))
-}
-
-fn do_stateful(tokens: TokenStream) -> Result<TokenStream, ParseError> {
-    let mut parser = tokens.into_iter().peekable();
-
-    let _: Ident = parser.parse()?;
-    let name: Ident = parser.parse()?;
-
-    let tokens = (
-        "impl ::kobold::stateful::Stateful for ",
-        name,
-        "where Self: PartialEq,",
-        "
-        {
-            type State = Self;
-
-            fn init(self) -> Self::State {
-                self
-            }
-
-            fn update(self, state: &mut Self::State) -> ::kobold::stateful::ShouldRender {
-                if self != *state {
-                    *state = self;
-                    ::kobold::stateful::ShouldRender::Yes
-                } else {
-                    ::kobold::stateful::ShouldRender::No
-                }
-            }
-        }
-        ",
-    )
-        .tokenize();
-
-    Ok(tokens)
 }

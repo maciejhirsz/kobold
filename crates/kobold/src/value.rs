@@ -1,5 +1,5 @@
 use crate::{Element, Html, Mountable};
-use crate::prelude::{ShouldRender, Stateful};
+use crate::prelude::{ShouldRender, IntoState};
 use std::str;
 
 pub struct ValueProduct<T> {
@@ -127,7 +127,7 @@ macro_rules! impl_stringify {
                 }
             }
 
-            impl Stateful for $t {
+            impl IntoState for $t {
                 type State = Self;
 
                 fn init(self) -> Self {
@@ -148,12 +148,12 @@ macro_rules! impl_stringify {
 }
 
 #[derive(PartialEq, Eq)]
-pub struct StrCmp {
+pub struct StringHash {
     hash: u64,
 }
 
-impl From<&str> for StrCmp {
-    fn from(s: &str) -> StrCmp {
+impl From<&str> for StringHash {
+    fn from(s: &str) -> StringHash {
 
         let hash = if s.len() > 32 {
             (s.len() as u64) | ((s.as_ptr() as u64) << 32)
@@ -167,14 +167,14 @@ impl From<&str> for StrCmp {
             hasher.finish()
         };
 
-        StrCmp {
+        StringHash {
             hash,
         }
     }
 }
 
 impl Html for &str {
-    type Product = ValueProduct<StrCmp>;
+    type Product = ValueProduct<StringHash>;
 
     fn build(self) -> Self::Product {
         let el = Element::new_text(self);
@@ -193,7 +193,7 @@ impl Html for &str {
 }
 
 impl Html for &&str {
-    type Product = ValueProduct<StrCmp>;
+    type Product = ValueProduct<StringHash>;
 
     fn build(self) -> Self::Product {
         (*self).build()

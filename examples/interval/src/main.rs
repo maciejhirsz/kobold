@@ -14,7 +14,7 @@ fn Elapsed() -> impl Html {
             </p>
         }
     })
-    .then(|hook| {
+    .once(|hook| {
         Interval::new(1000, move || {
             hook.update(|seconds| *seconds += 1).unwrap();
         })
