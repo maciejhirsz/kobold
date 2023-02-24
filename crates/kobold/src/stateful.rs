@@ -90,12 +90,10 @@
 //!     }
 //! }
 //!
-//! fn main() {
-//!     kobold::start(html! {
-//!         // Constructing the component only requires a `&str` slice.
-//!         <Borrowing name="Bob" />
-//!     });
-//! }
+//! kobold::start(html! {
+//!     // Constructing the component only requires a `&str` slice.
+//!     <Borrowing name="Bob" />
+//! });
 //! ```
 
 use std::cell::{RefCell, UnsafeCell};

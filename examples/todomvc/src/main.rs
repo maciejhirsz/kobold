@@ -10,7 +10,7 @@ use state::*;
 #[component]
 fn App() -> impl Html {
     stateful(State::load, |state| {
-        let hidden = state.entries.is_empty().then(|| "hidden");
+        let hidden = state.entries.is_empty().then_some("hidden");
 
         let active_count = state.count_active();
         let completed_count = state.entries.len() - active_count;
@@ -115,8 +115,8 @@ fn EntryView(idx: usize, entry: &Entry, state: &Hook<State>) -> impl Html {
     });
 
     let onchange = state.bind(move |state, _| state.toggle(idx));
-    let editing = entry.editing.then(|| "editing");
-    let completed = entry.completed.then(|| "completed");
+    let editing = entry.editing.then_some("editing");
+    let completed = entry.completed.then_some("completed");
 
     html! {
         <li .todo.{editing}.{completed}>

@@ -56,7 +56,7 @@ pub trait Stringify {
 
 impl Stringify for &'static str {
     fn stringify<F: FnOnce(&str) -> R, R>(&self, f: F) -> R {
-        f(*self)
+        f(self)
     }
 }
 
