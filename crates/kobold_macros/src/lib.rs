@@ -32,8 +32,10 @@ pub fn branching(_: TokenStream, input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn component(_: TokenStream, input: TokenStream) -> TokenStream {
-    unwrap_err!(fn_component::fn_component(input))
+pub fn component(args: TokenStream, input: TokenStream) -> TokenStream {
+    let args = unwrap_err!(fn_component::args(args));
+
+    unwrap_err!(fn_component::component(args, input))
 }
 
 fn do_branching(input: TokenStream) -> TokenStream {

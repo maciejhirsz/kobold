@@ -1,34 +1,15 @@
 //! # Utilities for building stateful components
 //!
-//! **Kobold** has a very simple notion of a component: any struct that has a `render` method
-//! is a component. These components are by default transient, meaning they can include borrowed
-//! and are discarded on each render call. They are also stateless, meaning **Kobold** doesn't
-//! allocate any memory on the heap for them, and there is no way to update them short of
-//! the parent component re-creating them on its state update.
-//!
-//! If you're familiar with [React](https://reactjs.org/) or [Yew](https://yew.rs/) a good way to
-//! think about it is that the component structs in **Kobold** are more like _property lists_ or
-//! _pure functional components_. They are meant to be fast to write, run, and understand.
+//! **Kobold** uses _functional components_ that are _transient_, meaning they can include
+//! borrowed values and are discarded on each render call. **Kobold** doesn't
+//! allocate any memory on the heap for its simple components, and there is no way to update them
+//! short of the parent component re-rendering them.
 //!
 //! However an app built entirely from such components wouldn't be very useful, as all it
-//! could ever do is render itself once. To get around this the [`Stateful`](Stateful) trait can be
-//! implemented on any type either manually, or with `#[derive(Stateful)]` as in the simple example
-//! in the [main documentation](crate#stateful-components).
+//! could ever do is render itself once. To get around this the [`stateful`](stateful) function can
+//! be used to give a component ownership over some arbitrary mutable state.
 //!
-//! ### When to manually implement `Stateful`?
-//!
-//! The derived version of a stateful component will be good enough for many cases, however
-//! to use the derive the component needs to fulfill few main criteria:
-//!
-//! 1. It must also implement [`PartialEq<Self>`](PartialEq) so that it can be compared to itself.
-//! 2. It must live for a `'static` lifetime.
-//! 3. All the fields of the state must be constructed every time parent component performs an update.
-//!
-//! While the first criterion isn't so bad, the second and third can be a real performance killer in
-//! case you'd want to use any heap allocated containers such as a [`String`](String), [`Vec`](Vec),
-//! or [`HashMap`](std::collections::HashMap).
-//!
-//! ### Implementing `Stateful`
+//! ### The `IntoState` trait
 //!
 //! The [`Stateful`](Stateful) trait allows you to define an associated `State` type which can be
 //! different from the component itself. That state is put in a heap allocation so that it can be
@@ -133,8 +114,8 @@ pub use owned_hook::OwnedHook;
 /// Describes whether or not a component should be rendered after state changes.
 /// For uses see:
 ///
-/// * [Context::bind](Context::bind)
-/// * [Stateful::update](Stateful::update)
+/// * [`Hook::bind`](Hook::bind)
+/// * [`IntoState::update`](IntoState::update)
 pub enum ShouldRender {
     /// This is a silent update
     No,
@@ -184,40 +165,6 @@ where
         ShouldRender::No
     }
 }
-
-pub struct PartialEqState<S> {
-    state: S,
-}
-
-impl<S: PartialEq + 'static> IntoState for PartialEqState<S> {
-    type State = S;
-
-    fn init(self) -> Self::State {
-        self.state
-    }
-
-    fn update(self, state: &mut Self::State) -> ShouldRender {
-        if &self.state != state {
-            *state = self.state;
-
-            ShouldRender::Yes
-        } else {
-            ShouldRender::No
-        }
-    }
-}
-
-// pub fn stateful<'a, S, H>(state: S, render: fn(&'a S, Context<'a, S>) -> H) -> WithState<PartialEqState<S>, H>
-// where
-//     S: PartialEq + 'static,
-//     H: Html + 'a,
-// {
-//     WithState {
-//         stateful: PartialEqState { state },
-//         render: RenderFn::new(render),
-//         _marker: PhantomData,
-//     }
-// }
 
 pub fn stateful<'a, S, H>(init: S, render: fn(&'a Hook<S::State>) -> H) -> Stateful<S, H>
 where
@@ -316,23 +263,23 @@ where
     S: IntoState,
     H: Html,
 {
-    pub fn once<F>(self, handler: F) -> WithOwnedHook<S, H, F>
+    pub fn once<F>(self, handler: F) -> Once<S, H, F>
     where
         F: FnOnce(OwnedHook<S::State>),
     {
-        WithOwnedHook {
+        Once {
             with_state: self,
             handler,
         }
     }
 }
 
-pub struct WithOwnedHook<S: IntoState, H: Html, F> {
+pub struct Once<S: IntoState, H: Html, F> {
     with_state: Stateful<S, H>,
     handler: F,
 }
 
-impl<S, H, F> Html for WithOwnedHook<S, H, F>
+impl<S, H, F> Html for Once<S, H, F>
 where
     S: IntoState,
     H: Html,

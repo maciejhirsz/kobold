@@ -196,11 +196,28 @@ impl Html for &&str {
     type Product = ValueProduct<StringHash>;
 
     fn build(self) -> Self::Product {
-        (*self).build()
+        Html::build(*self)
     }
 
     fn update(self, p: &mut Self::Product) {
-        (*self).update(p);
+        Html::update(*self, p);
+    }
+}
+
+impl IntoState for &str {
+    type State = String;
+
+    fn init(self) -> String {
+        self.into()
+    }
+
+    fn update(self, state: &mut String) -> ShouldRender {
+        if *state != self {
+            state.replace_range(.., self);
+            ShouldRender::Yes
+        } else {
+            ShouldRender::No
+        }
     }
 }
 

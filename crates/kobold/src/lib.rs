@@ -5,7 +5,7 @@
 //! **Kobold** uses macros to deliver familiar HTML-esque syntax for building declarative web interfaces,
 //! while leveraging Rust's powerful type system for safety and performance.
 //!
-//! ### Zero-Cost static HTML
+//! ### Zero-cost static HTML
 //!
 //! Like in [React](https://reactjs.org/) or [Yew](https://yew.rs/) updates are done by repeating calls
 //! to a render function whenever the state changes. However, unlike either, **Kobold** does not produce a
@@ -23,7 +23,7 @@
 //! type will be zero-sized, and its [`Html::update`](Html::update) method will be empty, making updates of static
 //! HTML quite literally zero-cost._
 //!
-//! ### Hello World
+//! ### Hello World!
 //!
 //! Any struct that implements a `render` method can be used as a component:
 //!
@@ -62,7 +62,7 @@
 //! You can even use [rust-analyzer](https://rust-analyzer.github.io/) to refactor component or field names,
 //! and it will change the invocations inside the macros for you.
 //!
-//! ### Stateful Components
+//! ### Stateful components
 //!
 //! The [`stateful`](stateful::stateful) function can be used to create components that own and manipulate
 //! their state:
@@ -105,7 +105,7 @@
 //!
 //! For more details visit the [`stateful` module documentation](stateful).
 //!
-//! ### Conditional Rendering
+//! ### Conditional rendering
 //!
 //! Because the [`html!`](html) macro produces unique transient types, `if` and `match` expressions that invoke
 //! the macro will naturally fail to compile. To fix this annotate a function with [`#[kobold::branching]`](macro@branching):
@@ -151,7 +151,7 @@
 //! On updates the iterator is consumed once and all items are diffed with the previous version.
 //! No allocations are made by **Kobold** unless the rendered list needs to grow past its original capacity.
 //!
-//! ### Borrowed Values
+//! ### Borrowed values
 //!
 //! [`Html`](Html) types are truly transient and only need to live for the duration of the initial render,
 //! or for the duration of the subsequent update. This means that you can easily and cheaply render borrowed
@@ -176,19 +176,16 @@
 //!
 //! ### Components with children
 //!
-//! If you wish to capture children from parent [`html!`](html) invocation, simply implement
-//! a `render_with` method on the component:
+//! If you wish to capture children from parent [`html!`](html) invocation, simply change
+//! `#[component]` to `#[component(children)]`:
 //!
 //! ```no_run
 //! use kobold::prelude::*;
 //!
-//! struct Header;
-//!
-//! impl Header {
-//!     fn render_with(self, children: impl Html) -> impl Html {
-//!         html! {
-//!             <header><h1>{ children }</h1></header>
-//!         }
+//! #[component(children)]
+//! fn Header(children: impl Html) -> impl Html {
+//!     html! {
+//!         <header><h1>{ children }</h1></header>
 //!     }
 //! }
 //!
@@ -199,18 +196,16 @@
 //! }
 //! ```
 //!
-//! If you know or expect children to be of a specific type, you can do that too:
+//! You can change the name of the function argument used, or even set a concrete type:
 //!
 //! ```no_run
 //! use kobold::prelude::*;
 //!
-//! struct AddTen;
-//!
-//! impl AddTen {
+//! // Capture children into the argument `n`
+//! #[component(children: n)]
+//! fn AddTen(n: i32) -> impl Html {
 //!     // integers implement `Html` so they can be passed by value
-//!     fn render_with(self, n: i32) -> i32 {
-//!         n + 10
-//!     }
+//!     n + 10
 //! }
 //!
 //! fn main() {

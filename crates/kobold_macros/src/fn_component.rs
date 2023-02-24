@@ -3,21 +3,40 @@ use proc_macro::{Group, Ident, TokenStream, TokenTree};
 use crate::parse::prelude::*;
 use crate::tokenize::prelude::*;
 
-pub fn fn_component(stream: TokenStream) -> Result<TokenStream, ParseError> {
+pub fn component(children: Option<Ident>, stream: TokenStream) -> Result<TokenStream, ParseError> {
     let mut stream = stream.parse_stream();
 
     let sig: FnSignature = stream.parse()?;
-    let component = FnComponent::from(sig).tokenize();
+    let component = FnComponent::new(children, sig)?.tokenize();
 
     // panic!("{component}");
 
     Ok(component)
 }
 
+pub fn args(stream: TokenStream) -> Result<Option<Ident>, ParseError> {
+    let mut stream = stream.parse_stream();
+
+    if stream.end() {
+        return Ok(None);
+    }
+
+    let mut children = match stream.expect("children")? {
+        TokenTree::Ident(ident) => ident,
+        _ => panic!(),
+    };
+
+    if stream.allow_consume(':').is_some() {
+        children = stream.parse()?;
+    }
+
+    Ok(Some(children))
+}
+
 #[derive(Debug)]
 struct FnSignature {
     name: Ident,
-    arguments: Vec<Field>,
+    arguments: Vec<Arg>,
     body: TokenTree,
 }
 
@@ -25,17 +44,51 @@ struct FnSignature {
 struct FnComponent {
     name: Ident,
     fields: Vec<Field>,
-    render: TokenTree,
+    render: TokenStream,
+    children: Option<Field>,
 }
 
-impl From<FnSignature> for FnComponent {
-    fn from(sig: FnSignature) -> FnComponent {
-        FnComponent {
+impl FnComponent {
+    fn new(children: Option<Ident>, mut sig: FnSignature) -> Result<FnComponent, ParseError> {
+        let children = match &children {
+            Some(children) => {
+                let ident = children.to_string();
+
+                let children_idx = sig.arguments.iter().position(|arg| arg.name.eq(&ident));
+
+                match children_idx {
+                    Some(idx) => Some(sig.arguments.remove(idx).into()),
+                    None => {
+                        return Err(ParseError::new(
+                            format!(
+                                "Missing argument `{ident}` required to capture component children"
+                            ),
+                            children.span(),
+                        ));
+                    }
+                }
+            }
+            None => None,
+        };
+
+        let render = match sig.body {
+            TokenTree::Group(group) => group.stream(),
+            tt => tt.into(),
+        };
+
+        Ok(FnComponent {
             name: sig.name,
-            fields: sig.arguments,
-            render: sig.body,
-        }
+            fields: sig.arguments.into_iter().map(Into::into).collect(),
+            render,
+            children,
+        })
     }
+}
+
+#[derive(Debug)]
+struct Arg {
+    name: Ident,
+    ty: TokenStream,
 }
 
 #[derive(Debug)]
@@ -75,12 +128,21 @@ impl Parse for FnSignature {
     }
 }
 
-impl Parse for Field {
+impl Parse for Arg {
     fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
         let name = stream.parse()?;
-        let mut lifetime = false;
 
         stream.expect(':')?;
+
+        let ty = stream.take_while(|token| !token.is(',')).collect();
+
+        Ok(Arg { name, ty })
+    }
+}
+
+impl From<Arg> for Field {
+    fn from(arg: Arg) -> Field {
+        let mut lifetime = false;
 
         fn substitute_lifetimes(stream: &mut ParseStream, lifetime: &mut bool) -> TokenStream {
             let mut out = TokenStream::new();
@@ -100,7 +162,10 @@ impl Parse for Field {
                 if let TokenTree::Group(g) = &mut token {
                     let mut group_stream = g.stream().parse_stream();
 
-                    *g = Group::new(g.delimiter(), substitute_lifetimes(&mut group_stream, lifetime));
+                    *g = Group::new(
+                        g.delimiter(),
+                        substitute_lifetimes(&mut group_stream, lifetime),
+                    );
                 }
 
                 out.write(token);
@@ -109,28 +174,46 @@ impl Parse for Field {
             out
         }
 
-        let ty = substitute_lifetimes(stream, &mut lifetime);
+        let ty = substitute_lifetimes(&mut arg.ty.parse_stream(), &mut lifetime);
 
-        Ok(Field { name, ty, lifetime })
+        Field {
+            name: arg.name,
+            ty,
+            lifetime,
+        }
     }
 }
 
 impl Tokenize for FnComponent {
     fn tokenize(self) -> TokenStream {
         let mut destruct = TokenStream::new();
+        let mut field_iter = self.fields.iter();
 
-        for field in &self.fields {
-            write!(&mut destruct, "let {} = self.{};", field.name, field.name);
+        if let Some(first) = field_iter.next() {
+            destruct.write(first.name.clone());
+
+            for field in field_iter {
+                destruct.write((',', field.name.clone()));
+            }
+
+            destruct = ("let", self.name.clone(), block(destruct), " = self;").tokenize();
         }
 
         let mut struct_name = self.name.tokenize();
 
-        let (imp, sig) = if self.fields.iter().any(|field| field.lifetime) {
+        let (fn_render, args) = match self.children {
+            Some(children) => (
+                "pub fn render_with",
+                group('(', ("self,", children)).tokenize(),
+            ),
+            None => ("pub fn render", "(self)".tokenize()),
+        };
+        let (imp, ret) = if self.fields.iter().any(|field| field.lifetime) {
             write!(struct_name, "<'a>");
 
-            ("impl<'a>", "fn render(self) -> impl Html + 'a")
+            ("impl<'a>", "-> impl Html + 'a")
         } else {
-            ("impl", "fn render(self) -> impl Html")
+            ("impl", "-> impl Html")
         };
 
         let mut out = ("struct", struct_name.clone()).tokenize();
@@ -144,7 +227,7 @@ impl Tokenize for FnComponent {
         (
             imp,
             struct_name,
-            block((sig, block((destruct, self.render)))),
+            block((fn_render, args, ret, block((destruct, self.render)))),
         )
             .tokenize_in(&mut out);
 
