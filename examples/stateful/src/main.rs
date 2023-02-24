@@ -1,52 +1,25 @@
 use kobold::prelude::*;
 
-// // This is our component struct, note that it can take arbitrary lifetimes.
-// struct Borrowing<'a> {
-//     name: &'a str,
-// }
+struct State {
+    name: String,
+    age: u32,
+}
 
-// // This is our owned state, it must live for a `'static` lifetime, and may
-// // contain different fields than those on the component.
-// struct OwnedState {
-//     name: String,
-// }
-
-// impl Stateful for Borrowing<'_> {
-//     // We define that `OwnedState` is the state for this component
-//     type State = OwnedState;
-
-//     // Create `OwnedState` from this component
-//     fn init(self) -> OwnedState {
-//         OwnedState {
-//             name: self.name.into(),
-//         }
-//     }
-
-//     // Update the pre-existing state
-//     fn update(self, state: &mut Self::State) -> ShouldRender {
-//         if self.name != state.name {
-//             // `state.name = self.name.into()` would have been fine too,
-//             // but this saves an allocation if the original `String` has
-//             // enough capacity
-//             state.name.replace_range(.., self.name);
-
-//             ShouldRender::Yes
-//         } else {
-//             // If the name hasn't change there is no need to do anything
-//             ShouldRender::No
-//         }
-//     }
-// }
+impl State {
+    fn new() -> Self {
+        State {
+            name: "Bob".to_owned(),
+            age: 42,
+        }
+    }
+}
 
 #[component]
-fn Borrowing(name: &str) -> impl Html {
-    // Types here are:
-    // * `name`: `&String`,
-    // * `ctx`: `Context<String>`,
-    stateful(move || name.to_owned(), |name| {
+fn App() -> impl Html {
+    stateful(State::new, |state| {
         // Since we work with a state that owns a `String`,
         // callbacks can mutate it at will.
-        let exclaim = name.bind(|name, _| name.push('!'));
+        let exclaim = state.bind(|state, _| state.name.push('!'));
 
         // Repeatedly clicking the Alice button does not have to do anything.
         //
@@ -59,22 +32,27 @@ fn Borrowing(name: &str) -> impl Html {
         //
         // For any more robust states and renders logic `ShouldRender::No`
         // when no changes in DOM are necessary is always a good idea.
-        let alice = name.bind(|name, _| {
-            if name != "Alice" {
-                name.replace_range(.., "Alice");
-
+        let alice = state.bind(|state, _| {
+            if state.name != "Alice" {
+                state.name.replace_range(.., "Alice");
                 ShouldRender::Yes
             } else {
                 ShouldRender::No
             }
         });
 
+        let inc_age = state.bind(|state, _| state.age += 1);
+        let adult = state.bind(|state, _| state.age = 18);
+
         html! {
             <div>
                 // Render can borrow `name` from state, no need for clones
-                <h1>"Hello: "{ name.as_str() }</h1>
+                <h1>{ &state.name }" is "{ state.age }" years old."</h1>
                 <button onclick={alice}>"Alice"</button>
                 <button onclick={exclaim}>"!"</button>
+                " "
+                <button onclick={adult}>"18"</button>
+                <button onclick={inc_age}>"+"</button>
             </div>
         }
     })
@@ -82,7 +60,6 @@ fn Borrowing(name: &str) -> impl Html {
 
 fn main() {
     kobold::start(html! {
-        // Constructing the component only requires a `&str` slice.
-        <Borrowing name="Bob" />
+        <App />
     });
 }
