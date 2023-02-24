@@ -1,4 +1,5 @@
 use crate::{Element, Html, Mountable};
+use crate::prelude::{ShouldRender, Stateful};
 use std::str;
 
 pub struct ValueProduct<T> {
@@ -122,7 +123,24 @@ macro_rules! impl_stringify {
                 }
 
                 fn update(self, p: &mut Self::Product) {
-                    (*self).update(p);
+                    Html::update(*self, p);
+                }
+            }
+
+            impl Stateful for $t {
+                type State = Self;
+
+                fn init(self) -> Self {
+                    self
+                }
+
+                fn update(self, state: &mut Self) -> ShouldRender {
+                    if *state != self {
+                        *state = self;
+                        ShouldRender::Yes
+                    } else {
+                        ShouldRender::No
+                    }
                 }
             }
         )*

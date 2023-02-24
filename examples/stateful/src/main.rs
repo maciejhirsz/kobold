@@ -41,12 +41,12 @@ use kobold::prelude::*;
 #[component]
 fn Borrowing(name: &str) -> impl Html {
     // Types here are:
-    // name: &String,
-    // ctx: Context<String>,
-    stateful(name.to_owned(), |name, ctx| {
+    // * `name`: `&String`,
+    // * `ctx`: `Context<String>`,
+    stateful(move || name.to_owned(), |name| {
         // Since we work with a state that owns a `String`,
         // callbacks can mutate it at will.
-        let exclaim = ctx.bind(|name, _| name.push('!'));
+        let exclaim = name.bind(|name, _| name.push('!'));
 
         // Repeatedly clicking the Alice button does not have to do anything.
         //
@@ -59,7 +59,7 @@ fn Borrowing(name: &str) -> impl Html {
         //
         // For any more robust states and renders logic `ShouldRender::No`
         // when no changes in DOM are necessary is always a good idea.
-        let alice = ctx.bind(|name, _| {
+        let alice = name.bind(|name, _| {
             if name != "Alice" {
                 name.replace_range(.., "Alice");
 

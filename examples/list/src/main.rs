@@ -2,9 +2,9 @@ use kobold::prelude::*;
 
 #[component]
 fn ListExample(count: u32) -> impl Html {
-    stateful(count, |count, ctx| {
-        let dec = ctx.bind(|count, _| *count = count.saturating_sub(1));
-        let inc = ctx.bind(|count, _| *count += 1);
+    stateful(count, |count| {
+        let dec = count.bind(|count, _| *count = count.saturating_sub(1));
+        let inc = count.bind(|count, _| *count += 1);
 
         html! {
             <div>
@@ -12,7 +12,7 @@ fn ListExample(count: u32) -> impl Html {
                 <p>
                     "This component dynamically creates a list from a range iterator ending at "
                     <button onclick={dec}>"-"</button>
-                    " "{ *count }" "
+                    " "{ count }" "
                     <button onclick={inc}>"+"</button>
                 </p>
                 <ul>
@@ -23,7 +23,7 @@ fn ListExample(count: u32) -> impl Html {
                     // by iterators, avoiding allocations unless new items are added.
                     //
                     // `{n}` is just shorthand for `n={n}`.
-                    (1..=*count)
+                    (1..=count.get())
                         .map(|n| html! { <ListItem {n} /> })
                         .list()
                 }

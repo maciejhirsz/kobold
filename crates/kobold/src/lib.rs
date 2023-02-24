@@ -53,9 +53,9 @@
 //!
 //! ```text
 //! error[E0560]: struct `Hello` has no field named `nam`
-//!   --> examples/hello_world/src/main.rs:17:16
+//!   --> examples/hello_world/src/main.rs:12:16
 //!    |
-//! 17 |         <Hello nam="Kobold" />
+//! 12 |         <Hello nam="Kobold" />
 //!    |                ^^^ help: a field with a similar name exists: `name`
 //! ```
 //!
@@ -72,15 +72,15 @@
 //!
 //! #[component]
 //! fn Counter() -> impl Html {
-//!     stateful(0, |count, ctx| {
-//!         let onclick = ctx.bind(|count, _event| *count += 1);
+//!     stateful(0_u32, |count| {
+//!         let onclick = count.bind(|count, _event| *count += 1);
 //!
 //!         html! {
 //!             <p>
 //!                 "You clicked on the "
 //!                 // `{onclick}` here is shorthand for `onclick={onclick}`
 //!                 <button {onclick}>"Button"</button>
-//!                 " "{ *count }" times."
+//!                 " "{ count }" times."
 //!             </p>
 //!         }
 //!     })
@@ -275,7 +275,7 @@ pub mod stateful;
 
 /// The prelude module with most commonly used types
 pub mod prelude {
-    pub use crate::event::{Event, KeyboardEvent, MouseEvent};
+    pub use crate::event::{UntypedEvent, KeyboardEvent, MouseEvent};
     pub use crate::list::ListIteratorExt;
     pub use crate::stateful::{stateful, Context, Hook, ShouldRender, Stateful};
     pub use crate::{html, component, Html};

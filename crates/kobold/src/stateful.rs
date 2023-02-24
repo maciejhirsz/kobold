@@ -173,13 +173,29 @@ pub trait Stateful: Sized {
 
     fn stateful<'a, H: Html + 'a>(
         self,
-        render: fn(&'a Self::State, Context<'a, Self::State>) -> H,
+        render: fn(&'a Context<Self::State>) -> H,
     ) -> WithState<Self, H> {
         WithState {
             stateful: self,
             render: RenderFn::new(render),
             _marker: PhantomData,
         }
+    }
+}
+
+impl<F, S> Stateful for F
+where
+    S: 'static,
+    F: FnOnce() -> S,
+{
+    type State = S;
+
+    fn init(self) -> Self::State {
+        (self)()
+    }
+
+    fn update(self, _: &mut Self::State) -> ShouldRender {
+        ShouldRender::No
     }
 }
 
@@ -205,13 +221,25 @@ impl<S: PartialEq + 'static> Stateful for PartialEqState<S> {
     }
 }
 
-pub fn stateful<'a, S, H>(state: S, render: fn(&'a S, Context<'a, S>) -> H) -> WithState<PartialEqState<S>, H>
+// pub fn stateful<'a, S, H>(state: S, render: fn(&'a S, Context<'a, S>) -> H) -> WithState<PartialEqState<S>, H>
+// where
+//     S: PartialEq + 'static,
+//     H: Html + 'a,
+// {
+//     WithState {
+//         stateful: PartialEqState { state },
+//         render: RenderFn::new(render),
+//         _marker: PhantomData,
+//     }
+// }
+
+pub fn stateful<'a, S, H>(init: S, render: fn(&'a Context<S::State>) -> H) -> WithState<S, H>
 where
-    S: PartialEq + 'static,
+    S: Stateful,
     H: Html + 'a,
 {
     WithState {
-        stateful: PartialEqState { state },
+        stateful: init,
         render: RenderFn::new(render),
         _marker: PhantomData,
     }
@@ -224,15 +252,15 @@ pub struct WithState<S: Stateful, H: Html> {
 }
 
 struct Inner<S, P> {
-    state: RefCell<S>,
+    ctx: RefCell<Context<S>>,
     product: UnsafeCell<P>,
     render: RenderFn<S, P>,
-    update: fn(RenderFn<S, P>, &S, Context<S>),
+    update: fn(RenderFn<S, P>, &Context<S>),
 }
 
 impl<S: 'static, P: 'static> Inner<S, P> {
-    fn rerender(&self, state: &S) {
-        (self.update)(self.render, state, Context::new(self))
+    fn rerender(&self, ctx: &Context<S>) {
+        (self.update)(self.render, ctx)
     }
 }
 
@@ -251,24 +279,24 @@ where
     fn build(self) -> Self::Product {
         let inner = Rc::new_cyclic(move |inner| {
             let state = self.stateful.init();
-            let ctx = Context::new(inner.as_ptr());
+            let ctx = Context::new(state, inner.as_ptr());
 
             // Safety: this is safe as long as `S` and `H` are the same types that
             // were used to create this `RenderFn` instance.
             let render_fn = unsafe { self.render.cast::<H>() };
-            let product = (render_fn)(&state, ctx).build();
+            let product = (render_fn)(&ctx).build();
 
             Inner {
-                state: RefCell::new(state),
+                ctx: RefCell::new(ctx),
                 product: UnsafeCell::new(product),
                 render: self.render,
-                update: |render, state, ctx| {
+                update: |render, ctx| {
                     // Safety: this is safe as long as `S` and `H` are the same types that
                     // were used to create this `RenderFn` instance.
                     let render = unsafe { render.cast::<H>() };
                     let inner = unsafe { &*ctx.inner() };
 
-                    (render)(state, ctx).update(unsafe { &mut *inner.product.get() });
+                    (render)(ctx).update(unsafe { &mut *inner.product.get() });
                 },
             }
         });
@@ -279,10 +307,10 @@ where
     }
 
     fn update(self, p: &mut Self::Product) {
-        let mut state = p.inner.state.borrow_mut();
+        let mut ctx = p.inner.ctx.borrow_mut();
 
-        if self.stateful.update(&mut state).should_render() {
-            p.inner.rerender(&state);
+        if self.stateful.update(&mut ctx.state).should_render() {
+            p.inner.rerender(&ctx);
         }
     }
 }

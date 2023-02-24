@@ -3,12 +3,12 @@ use kobold::prelude::*;
 
 #[component]
 fn Elapsed() -> impl Html {
-    stateful(0, |seconds, ctx| {
-        let onclick = ctx.bind(|seconds, _event| *seconds = 0);
+    stateful(0_u32, |seconds| {
+        let onclick = seconds.bind(|seconds, _event| *seconds = 0);
 
         html! {
             <p>
-                "Elapsed seconds: "{ *seconds }" "
+                "Elapsed seconds: "{ seconds }" "
                 // `{onclick}` here is shorthand for `onclick={onclick}`
                 <button {onclick}>"Reset"</button>
             </p>

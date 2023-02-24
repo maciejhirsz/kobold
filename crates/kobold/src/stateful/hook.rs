@@ -3,7 +3,7 @@ use std::fmt::{self, Display};
 use std::mem::ManuallyDrop;
 use std::rc::{Rc, Weak};
 
-use crate::stateful::{Inner, ShouldRender};
+use crate::stateful::{Inner, ShouldRender, Context};
 use crate::Html;
 
 /// Error type returned by [`Hook::update`](Hook::update).
@@ -37,8 +37,8 @@ impl Display for UpdateError {
 impl std::error::Error for UpdateError {}
 
 struct HookVTable<S> {
-    state: unsafe fn(*const ()) -> Option<*const RefCell<S>>,
-    rerender: unsafe fn(&S, *const ()),
+    state: unsafe fn(*const ()) -> Option<*const RefCell<Context<S>>>,
+    rerender: unsafe fn(&Context<S>, *const ()),
     clone: unsafe fn(*const ()) -> *const (),
     drop: unsafe fn(*const ()),
 }
@@ -66,15 +66,15 @@ where
                     let weak = ManuallyDrop::new(Weak::from_raw(inner));
 
                     if weak.strong_count() > 0 {
-                        Some(&(*inner).state)
+                        Some(&(*inner).ctx)
                     } else {
                         None
                     }
                 },
-                rerender: |state, inner| unsafe {
+                rerender: |ctx, inner| unsafe {
                     let inner = inner as *const Inner<S, H::Product>;
 
-                    (*inner).rerender(state);
+                    (*inner).rerender(ctx);
                 },
                 clone: |inner| {
                     let weak = ManuallyDrop::new(unsafe {
@@ -100,11 +100,11 @@ where
         R: Into<ShouldRender>,
     {
         let state = unsafe { (self.vtable.state)(self.inner) }.ok_or(UpdateError::StateDropped)?;
-        let mut state = unsafe { (*state).try_borrow_mut()? };
-        let result = mutator(&mut state);
+        let mut ctx = unsafe { (*state).try_borrow_mut()? };
+        let result = mutator(&mut ctx.state);
 
         if result.into().should_render() {
-            unsafe { (self.vtable.rerender)(&state, self.inner) }
+            unsafe { (self.vtable.rerender)(&ctx, self.inner) }
         }
 
         Ok(())

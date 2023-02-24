@@ -22,7 +22,7 @@ impl<S, P> Clone for RenderFn<S, P> {
 impl<S, P> Copy for RenderFn<S, P> {}
 
 impl<S, P> RenderFn<S, P> {
-    pub fn new<'a, H>(render: fn(&'a S, Context<'a, S>) -> H) -> Self
+    pub fn new<'a, H>(render: fn(&'a Context<S>) -> H) -> Self
     where
         H: Html<Product = P> + 'a,
     {
@@ -35,7 +35,7 @@ impl<S, P> RenderFn<S, P> {
     /// This is _mostly_ a safe call as long as the `H` type is the same
     /// `H` that was used in `new`. Since two different types can implement
     /// `Html` with the same `Product` associated type this needs to be unsafe.
-    pub unsafe fn cast<'a, H>(self) -> fn(&'a S, Context<'a, S>) -> H
+    pub unsafe fn cast<'a, H>(self) -> fn(&'a Context<S>) -> H
     where
         H: Html<Product = P> + 'a,
     {
