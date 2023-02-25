@@ -71,10 +71,10 @@ where
                         None
                     }
                 },
-                rerender: |ctx, inner| unsafe {
+                rerender: |hook, inner| unsafe {
                     let inner = inner as *const Inner<S, H::Product>;
 
-                    (*inner).rerender(ctx);
+                    (*inner).rerender(hook);
                 },
                 clone: |inner| {
                     let weak = ManuallyDrop::new(unsafe {
@@ -100,11 +100,11 @@ where
         R: Into<ShouldRender>,
     {
         let state = unsafe { (self.vtable.state)(self.inner) }.ok_or(UpdateError::StateDropped)?;
-        let mut ctx = unsafe { (*state).try_borrow_mut()? };
-        let result = mutator(&mut ctx.state);
+        let mut hook = unsafe { (*state).try_borrow_mut()? };
+        let result = mutator(&mut hook.state);
 
         if result.into().should_render() {
-            unsafe { (self.vtable.rerender)(&ctx, self.inner) }
+            unsafe { (self.vtable.rerender)(&hook, self.inner) }
         }
 
         Ok(())

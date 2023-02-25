@@ -3,18 +3,17 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 
 use wasm_bindgen::prelude::*;
-use web_sys::Event as RawEvent;
 
 use crate::event::Event;
 use crate::stateful::{Inner, ShouldRender};
 use crate::{Element, Html, Mountable};
 
-type UnsafeCallback<S> = *const UnsafeCell<dyn CallbackFn<S, RawEvent>>;
+type UnsafeCallback<S> = *const UnsafeCell<dyn CallbackFn<S, web_sys::Event>>;
 
 pub struct Hook<S> {
     pub(super) state: S,
     inner: *const (),
-    make_closure: fn(*const (), cb: UnsafeCallback<S>) -> Box<dyn Fn(&RawEvent)>,
+    make_closure: fn(*const (), cb: UnsafeCallback<S>) -> Box<dyn Fn(&web_sys::Event)>,
 }
 
 impl<S> Deref for Hook<S> {
@@ -25,7 +24,7 @@ impl<S> Deref for Hook<S> {
     }
 }
 
-impl<'state, S> Hook<S>
+impl<S> Hook<S>
 where
     S: 'static,
 {
@@ -52,7 +51,7 @@ where
         self.inner as *const Inner<S, P>
     }
 
-    pub fn bind<E, T, F, A>(&'state self, cb: F) -> Callback<'state, E, T, F, S>
+    pub fn bind<E, T, F, A>(&self, cb: F) -> Callback<E, T, F, S>
     where
         F: Fn(&mut S, &Event<E, T>) -> A + 'static,
         A: Into<ShouldRender>,
@@ -78,7 +77,7 @@ pub struct Callback<'state, E, T, F, S> {
 }
 
 pub struct CallbackProduct<F> {
-    closure: Closure<dyn Fn(&RawEvent)>,
+    closure: Closure<dyn Fn(&web_sys::Event)>,
     cb: Box<UnsafeCell<F>>,
 }
 
@@ -113,9 +112,9 @@ where
         let closure = Closure::wrap((hook.make_closure)(hook.inner, {
             let cb: *const UnsafeCell<dyn CallbackFn<S, Event<E, T>>> = &*cb;
 
-            // Casting `*const UnsafeCell<dyn CallbackFn<S, UntypedEvent<E, T>>>`
-            // to `UnsafeCallback<S>`, which is safe since `UntypedEvent<E, T>`
-            // is `#[repr(transparent)]` wrapper for `RawEvent`.
+            // Casting `*const UnsafeCell<dyn CallbackFn<S, Event<E, T>>>`
+            // to `UnsafeCallback<S>`, which is safe since `Event<E, T>`
+            // is a `#[repr(transparent)]` wrapper for `web_sys::Event`.
             cb as UnsafeCallback<S>
         }));
 
