@@ -8,7 +8,7 @@ extern crate proc_macro;
 #[cfg(test)]
 extern crate proc_macro2 as proc_macro;
 
-use proc_macro::{TokenStream, TokenTree};
+use proc_macro::TokenStream;
 
 mod branching;
 mod component;
@@ -19,7 +19,7 @@ mod parse;
 mod syntax;
 mod tokenize;
 
-use parse::prelude::*;
+use parse::TokenTreeExt;
 use tokenize::prelude::*;
 
 macro_rules! unwrap_err {
@@ -44,83 +44,9 @@ pub fn component(args: TokenStream, input: TokenStream) -> TokenStream {
 }
 
 fn do_branching(input: TokenStream) -> TokenStream {
-    let (input, count) = count_branches(input);
+    use branching::Scope;
 
-    let out = if count > 1 {
-        let ident = format!("Branch{count}");
-        let mut variant = b'A';
-
-        mark_branches(input, &ident, &mut variant)
-    } else {
-        input
-    };
-
-    out
-}
-
-fn count_branches(stream: TokenStream) -> (TokenStream, usize) {
-    let mut out = TokenStream::new();
-    let mut iter = stream.into_iter();
-    let mut count = 0;
-
-    while let Some(mut tt) = iter.next() {
-        if let TokenTree::Group(group) = &tt {
-            let (_, subcount) = count_branches(group.stream());
-
-            count += subcount;
-        } else if tt.is("html") {
-            out.write(tt);
-
-            tt = match iter.next() {
-                Some(tt) => {
-                    if tt.is('!') {
-                        count += 1;
-                    }
-                    tt
-                }
-                None => break,
-            }
-        }
-
-        out.write(tt);
-    }
-
-    (out, count)
-}
-
-fn mark_branches(stream: TokenStream, branch_ty: &str, n: &mut u8) -> TokenStream {
-    use proc_macro::Group;
-
-    let mut out = TokenStream::new();
-    let mut iter = stream.parse_stream();
-
-    while let Some(tt) = iter.next() {
-        if let TokenTree::Group(group) = tt {
-            let stream = mark_branches(group.stream(), branch_ty, n);
-
-            out.write(Group::new(group.delimiter(), stream));
-
-            continue;
-        } else if tt.is("html") {
-            if let Some(bang) = iter.allow_consume('!') {
-                let variant = [*n];
-                let variant = std::str::from_utf8(&variant).unwrap();
-
-                *n += 1;
-
-                out.write(call(
-                    format_args!("::kobold::branching::{branch_ty}::{variant}"),
-                    (tt, bang, iter.next().unwrap()),
-                ));
-
-                continue;
-            }
-        }
-
-        out.write(tt);
-    }
-
-    out
+    unwrap_err!(parse::parse::<Scope>(input)).tokenize()
 }
 
 #[allow(clippy::let_and_return)]
@@ -134,14 +60,13 @@ pub fn html(mut body: TokenStream) -> TokenStream {
     body.extend(first.clone());
     body.extend(iter);
 
-    if matches!(&first, Some(TokenTree::Ident(ident)) if ["match", "if"].contains(&&*ident.to_string()))
-    {
+    if first.is("match") || first.is("if") {
         return do_branching(body);
     }
 
     // --
 
-    let nodes = unwrap_err!(dom::parse(body.clone()));
+    let nodes = unwrap_err!(dom::parse(body));
 
     // panic!("{nodes:#?}");
 

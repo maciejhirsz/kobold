@@ -7,7 +7,7 @@ use proc_macro::{Group, TokenStream, TokenTree};
 use crate::parse::prelude::*;
 use crate::tokenize::TokenStreamExt;
 
-use super::ast::{Scope, Code, Html, Nested};
+use super::ast::{Code, Html, Nested, Scope};
 
 #[derive(Default)]
 struct CodeBuilder {
@@ -49,21 +49,38 @@ impl CodeBuilder {
 
 enum Token {
     Html,
+    If,
 }
 
 impl Token {
     fn from_str(ident: &str) -> Option<Token> {
         match ident {
             "html" => Some(Token::Html),
+            "if" => Some(Token::If),
             _ => None,
         }
     }
 }
 
-fn parse_code(
-    stream: &mut ParseStream,
-    branches: &Rc<Cell<usize>>,
-) -> Result<Vec<Code>, ParseError> {
+type Branches<'a> = Option<&'a Rc<Cell<u8>>>;
+
+struct ShallowParser<'a> {
+    stream: &'a mut ParseStream,
+}
+
+impl Iterator for ShallowParser<'_> {
+    type Item = TokenTree;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.stream.allow('{') {
+            return None;
+        }
+
+        self.stream.next()
+    }
+}
+
+fn parse_code(stream: &mut ParseStream, scope: Branches) -> Result<Vec<Code>, ParseError> {
     let mut code = CodeBuilder::default();
 
     while let Some(tt) = stream.next() {
@@ -82,14 +99,49 @@ fn parse_code(
 
                         match maybe_html.into_inner() {
                             Ok(html) => {
-                                code.push(Code::Html(Html {
-                                    tokens: html.into_iter().collect(),
-                                    branch: branches.get(),
-                                    branches: branches.clone(),
-                                }));
-                                branches.set(branches.get() + 1);
+                                let branches = scope.map(Clone::clone);
+
+                                code.push(Code::Html(Html::new(
+                                    html.into_iter().collect(),
+                                    branches,
+                                )));
                             }
                             Err(tokens) => code.extend(tokens),
+                        }
+
+                        continue;
+                    }
+                    Some(Token::If) => {
+                        let scope = Rc::new(Cell::new(0));
+                        let scope = Some(&scope);
+
+                        code.collect(tt);
+                        code.extend(ShallowParser { stream });
+
+                        if let TokenTree::Group(group) = stream.expect('{')? {
+                            code.push(Code::Nested(Nested::parse(group, scope)?));
+                        }
+
+                        loop {
+                            if let Some(tt) = stream.allow_consume("else") {
+                                code.collect(tt);
+
+                                let else_if = stream.allow_consume("if");
+                                let stop = else_if.is_none();
+
+                                if let Some(tt) = else_if {
+                                    code.collect(tt);
+                                    code.extend(ShallowParser { stream });
+                                }
+
+                                if let TokenTree::Group(group) = stream.expect('{')? {
+                                    code.push(Code::Nested(Nested::parse(group, scope)?));
+                                }
+
+                                if stop {
+                                    break;
+                                }
+                            }
                         }
 
                         continue;
@@ -100,7 +152,7 @@ fn parse_code(
                 code.collect(tt);
             }
             TokenTree::Group(group) => {
-                code.push(Code::Nested(Nested::parse(group, &branches)?));
+                code.push(Code::Nested(Nested::parse(group, scope)?));
             }
             tt => {
                 code.collect(tt);
@@ -113,18 +165,15 @@ fn parse_code(
 
 impl Parse for Scope {
     fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
-        let branches = Rc::new(Cell::new(0));
-
         Ok(Scope {
-            code: parse_code(stream, &branches)?,
-            branches,
+            code: parse_code(stream, None)?,
         })
     }
 }
 
 impl Nested {
-    fn parse(group: Group, branches: &Rc<Cell<usize>>) -> Result<Self, ParseError> {
-        let code = parse_code(&mut group.stream().parse_stream(), branches)?;
+    fn parse(group: Group, scope: Branches) -> Result<Self, ParseError> {
+        let code = parse_code(&mut group.stream().parse_stream(), scope)?;
 
         Ok(Nested {
             delimiter: group.delimiter(),

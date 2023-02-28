@@ -15,12 +15,14 @@ pub fn component(args: ComponentArgs, stream: TokenStream) -> Result<TokenStream
     let mut stream = stream.parse_stream();
 
     let sig: FnSignature = stream.parse()?;
-    let component = FnComponent::new(&args, sig)?;
+    let mut component = FnComponent::new(&args, sig)?;
 
     if args.branching.is_some() {
         let scope: Scope = parse(component.render)?;
 
-        panic!("{scope:#?}");
+        // panic!("{scope:#?}");
+
+        component.render = scope.tokenize();
     }
 
     Ok(component.tokenize())

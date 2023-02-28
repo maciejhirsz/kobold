@@ -1,5 +1,4 @@
 use kobold::prelude::*;
-use kobold::branching::Branch3;
 
 #[component]
 fn Counter() -> impl Html {
@@ -8,11 +7,10 @@ fn Counter() -> impl Html {
 
         html! {
             <p>
+                <ShowCount count={count.get()} />
+
                 // `{onclick}` here is shorthand for `onclick={onclick}`
                 <button {onclick}>"Click me!"</button>
-                <p>
-                    <ShowCount count={**count} />
-                </p>
                 <button onclick={count.bind(|count, _| *count = 0)}>"Reset"</button>
             </p>
         }
@@ -21,17 +19,19 @@ fn Counter() -> impl Html {
 
 #[component(branching)]
 fn ShowCount(count: u32) -> impl Html {
-    if count == 0 {
-        html! { "The counter is empty." }
+    let count = if count == 0 {
+        html! { "zero times." }
     } else if count == 1 {
-        html! { "You've clicked the button once." }
+        html! { "once." }
     } else {
-        html! { "You've clicked the button "{ count }" times." }
-    }
+        html! { { count }" times." }
+    };
+
+    html! { <h3>"You've clicked the button "{ count }</h3> }
 }
 
 // #[component(branching)]
-// fn ShowCountMatch(count: u32) -> impl Html {
+// fn ShowCount(count: u32) -> impl Html {
 //     match count {
 //         0 => html! { "The counter is empty." },
 //         1 => html! { "You've clicked the button once." },
@@ -40,7 +40,7 @@ fn ShowCount(count: u32) -> impl Html {
 // }
 
 // #[component(branching)]
-// fn ShowCountReturns(count: u32) -> impl Html {
+// fn ShowCount(count: u32) -> impl Html {
 //     if count == 0 {
 //         return html! { "The counter is empty." };
 //     }
@@ -51,7 +51,6 @@ fn ShowCount(count: u32) -> impl Html {
 
 //     html! { "You've clicked the button "{ count }" times." }
 // }
-
 
 fn main() {
     kobold::start(html! {
