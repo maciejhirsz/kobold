@@ -239,27 +239,22 @@ impl Tokenize for FnComponent {
                 destruct.write((',', field.name.clone()));
             }
 
-            destruct = ("let", self.name.clone(), block(destruct), " = self;").tokenize();
+            destruct = ("let Self", block(destruct), " = self;").tokenize();
         }
 
-        let mut struct_name = self.name.tokenize();
+        let name = self.name;
 
         let (fn_render, args) = match self.children {
-            Some(children) => (
-                "pub fn render_with",
-                group('(', ("self,", children)).tokenize(),
-            ),
-            None => ("pub fn render", "(self)".tokenize()),
+            Some(children) => ("pub fn render_with", ("self,", children).tokenize()),
+            None => ("pub fn render", "self".tokenize()),
         };
-        let (imp, ret) = if self.fields.iter().any(|field| field.lifetime) {
-            write!(struct_name, "<'a>");
-
-            ("impl<'a>", "-> impl Html + 'a")
+        let (lifetime, ret) = if self.fields.iter().any(|field| field.lifetime) {
+            ("<'a>", "-> impl Html + 'a")
         } else {
-            ("impl", "-> impl Html")
+            ("", "-> impl Html")
         };
 
-        out.write(("struct", struct_name.clone()));
+        write!(out, "struct {name}{lifetime}");
 
         if self.fields.is_empty() {
             out.write(';');
@@ -267,11 +262,14 @@ impl Tokenize for FnComponent {
             out.write(block(each(self.fields)));
         };
 
-        out.write((
-            imp,
-            struct_name,
-            block((fn_render, args, ret, block((destruct, self.render)))),
-        ));
+        write!(out, "impl{lifetime} {name}{lifetime}");
+
+        out.write(block((
+            fn_render,
+            group('(', args),
+            ret,
+            block((destruct, self.render)),
+        )));
     }
 }
 
