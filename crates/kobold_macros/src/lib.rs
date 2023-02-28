@@ -2,17 +2,22 @@
 #![recursion_limit = "196"]
 #![warn(clippy::all, clippy::cast_possible_truncation, clippy::unused_self)]
 
+#[cfg(not(test))]
 extern crate proc_macro;
+
+#[cfg(test)]
+extern crate proc_macro2 as proc_macro;
 
 use proc_macro::{TokenStream, TokenTree};
 
+mod branching;
+mod component;
 mod dom;
 mod gen;
 mod itertools;
 mod parse;
 mod syntax;
 mod tokenize;
-mod fn_component;
 
 use parse::prelude::*;
 use tokenize::prelude::*;
@@ -33,9 +38,9 @@ pub fn branching(_: TokenStream, input: TokenStream) -> TokenStream {
 
 #[proc_macro_attribute]
 pub fn component(args: TokenStream, input: TokenStream) -> TokenStream {
-    let args = unwrap_err!(fn_component::args(args));
+    let args = unwrap_err!(component::args(args));
 
-    unwrap_err!(fn_component::component(args, input))
+    unwrap_err!(component::component(args, input))
 }
 
 fn do_branching(input: TokenStream) -> TokenStream {
@@ -118,6 +123,7 @@ fn mark_branches(stream: TokenStream, branch_ty: &str, n: &mut u8) -> TokenStrea
     out
 }
 
+#[allow(clippy::let_and_return)]
 #[proc_macro]
 pub fn html(mut body: TokenStream) -> TokenStream {
     let mut iter = body.into_iter();

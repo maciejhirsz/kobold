@@ -19,10 +19,12 @@ pub struct Transient {
 }
 
 impl Tokenize for Transient {
-    fn tokenize(mut self) -> TokenStream {
+    fn tokenize_in(mut self, stream: &mut TokenStream) {
         if self.els.is_empty() {
             return match self.fields.remove(0) {
-                Field::Html { value, .. } | Field::Attribute { value, .. } => value,
+                Field::Html { value, .. } | Field::Attribute { value, .. } => {
+                    value.tokenize_in(stream)
+                }
             };
         }
 
@@ -58,7 +60,11 @@ impl Tokenize for Transient {
         let mut declare_els = String::new();
 
         for (jsfn, el) in self.js.functions.iter().zip(self.els) {
-            let JsFunction { name, constructor, args } = jsfn;
+            let JsFunction {
+                name,
+                constructor,
+                args,
+            } = jsfn;
 
             let _ = write!(declare_els, "{el}: ::kobold::dom::Element,");
 
@@ -129,7 +135,7 @@ impl Tokenize for Transient {
             ),
             block(each(self.fields.iter().map(Field::invoke))),
         ))
-        .tokenize()
+        .tokenize_in(stream)
     }
 }
 
@@ -140,12 +146,12 @@ pub struct JsModule {
 }
 
 impl Tokenize for JsModule {
-    fn tokenize(self) -> TokenStream {
+    fn tokenize_in(self, stream: &mut TokenStream) {
         if self.functions.is_empty() {
-            return TokenStream::new();
+            return;
         }
 
-        (
+        stream.write((
             '#',
             group(
                 '[',
@@ -156,8 +162,7 @@ impl Tokenize for JsModule {
             ),
             "extern \"C\"",
             block(each(self.functions)),
-        )
-            .tokenize()
+        ))
     }
 }
 
@@ -177,14 +182,13 @@ pub struct JsFunction {
 }
 
 impl Tokenize for JsFunction {
-    fn tokenize(self) -> TokenStream {
+    fn tokenize_in(self, stream: &mut TokenStream) {
         let name = self.name;
 
-        (
+        stream.write((
             call(format_args!("fn {name}"), each(self.args)),
             "-> ::kobold::reexport::web_sys::Node;",
-        )
-            .tokenize()
+        ));
     }
 }
 

@@ -16,6 +16,9 @@ arrayvec = "0.7.2"
 beef = "0.5.2"
 fnv = "1.0.7"
 
+[dev-dependencies]
+proc-macro2 = "1.0.51"
+
 [lib]
 proc-macro = true
 

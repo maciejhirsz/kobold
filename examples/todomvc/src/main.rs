@@ -14,7 +14,6 @@ fn App() -> impl Html {
 
         let active_count = state.count_active();
         let completed_count = state.entries.len() - active_count;
-        let is_all_completed = active_count == 0;
         let selected = state.filter;
 
         html! {
@@ -25,14 +24,7 @@ fn App() -> impl Html {
                         <EntryInput {state} />
                     </header>
                     <section .main.{hidden}>
-                        <input
-                            #toggle-all
-                            .toggle-all
-                            type="checkbox"
-                            checked={is_all_completed}
-                            onclick={state.bind(move |state, _| state.set_all(!is_all_completed))}
-                        />
-                        <label for="toggle-all" />
+                        <ToggleAll {active_count} {state} />
                         <ul .todo-list>
                             {
                                 state
@@ -81,6 +73,17 @@ fn EntryInput(state: &Hook<State>) -> impl Html {
                 state.add(value);
             })}
         />
+    }
+}
+
+#[component]
+fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl Html {
+    let is_all_completed = active_count == 0;
+    let onclick = state.bind(move |state, _| state.set_all(!is_all_completed));
+
+    html! {
+        <input #toggle-all.toggle-all type="checkbox" checked={is_all_completed} onclick={onclick} />
+        <label for="toggle-all" />
     }
 }
 

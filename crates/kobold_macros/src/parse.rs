@@ -2,15 +2,25 @@
 //! token streams without `syn` or `quote`.
 
 use beef::Cow;
-use proc_macro::{Delimiter, Ident, Spacing, Span, TokenStream, TokenTree};
+use proc_macro::{Delimiter, Group, Ident, Spacing, Span, TokenStream, TokenTree};
 
 use crate::dom::{ShallowNodeIter, ShallowStream};
 use crate::tokenize::prelude::*;
 
+pub fn parse<T: Parse>(stream: TokenStream) -> Result<T, ParseError> {
+    let mut stream = stream.parse_stream();
+
+    let out = stream.parse()?;
+
+    stream.parse::<()>()?;
+
+    Ok(out)
+}
+
 pub type ParseStream = std::iter::Peekable<proc_macro::token_stream::IntoIter>;
 
 pub mod prelude {
-    pub use super::{IdentExt, IteratorExt, TokenTreeExt};
+    pub use super::{parse, IdentExt, IteratorExt, TokenTreeExt};
     pub use super::{IntoSpan, Lit, Parse, ParseError, ParseStream};
 }
 
@@ -68,7 +78,7 @@ impl ParseError {
 }
 
 impl Tokenize for ParseError {
-    fn tokenize(self) -> TokenStream {
+    fn tokenize_in(self, stream: &mut TokenStream) {
         let msg = self.msg.as_ref();
         let span = self.span;
 
@@ -80,7 +90,7 @@ impl Tokenize for ParseError {
             })
             .collect::<TokenStream>();
 
-        ("fn _parse_error()", block(err)).tokenize()
+        ("fn _parse_error()", block(err)).tokenize_in(stream)
     }
 }
 
@@ -99,6 +109,15 @@ impl Parse for Ident {
         match stream.next() {
             Some(TokenTree::Ident(ident)) => Ok(ident),
             tt => Err(ParseError::new("Expected an identifier", tt)),
+        }
+    }
+}
+
+impl Parse for Group {
+    fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
+        match stream.next() {
+            Some(TokenTree::Group(group)) => Ok(group),
+            tt => Err(ParseError::new("Expected {, [, or (", tt)),
         }
     }
 }
@@ -128,7 +147,7 @@ impl Pattern for Lit {
 impl Pattern for &str {
     fn matches(self, tt: &TokenTree) -> bool {
         match tt {
-            TokenTree::Ident(ident) => ident.eq(self),
+            TokenTree::Ident(ident) => ident.eq_str(self),
             _ => false,
         }
     }
@@ -239,17 +258,41 @@ impl IteratorExt for ParseStream {
 
 pub trait TokenTreeExt {
     fn is(&self, pattern: impl Pattern) -> bool;
+
+    fn map_ident<F, R>(&self, f: F) -> Option<R>
+    where
+        F: Fn(&str) -> R;
 }
 
 impl TokenTreeExt for TokenTree {
     fn is(&self, pattern: impl Pattern) -> bool {
         pattern.matches(self)
     }
+
+    fn map_ident<F, R>(&self, f: F) -> Option<R>
+    where
+        F: Fn(&str) -> R,
+    {
+        match self {
+            TokenTree::Ident(ident) => Some(ident.with_str(f)),
+            _ => None,
+        }
+    }
 }
 
 impl TokenTreeExt for Option<TokenTree> {
     fn is(&self, pattern: impl Pattern) -> bool {
         self.as_ref().map(|tt| pattern.matches(tt)).unwrap_or(false)
+    }
+
+    fn map_ident<F, R>(&self, f: F) -> Option<R>
+    where
+        F: Fn(&str) -> R,
+    {
+        match self {
+            Some(TokenTree::Ident(ident)) => Some(ident.with_str(f)),
+            _ => None,
+        }
     }
 }
 
@@ -284,7 +327,7 @@ mod util {
             })
         }
 
-        fn eq(&self, other: &str) -> bool {
+        fn eq_str(&self, other: &str) -> bool {
             self.with_str(|s| s == other)
         }
 

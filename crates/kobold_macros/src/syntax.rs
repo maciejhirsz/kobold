@@ -102,11 +102,12 @@ impl Parse for InlineBind {
 
             ident = stream.parse()?;
 
-            if ident.eq("bind") {
+            if ident.eq_str("bind") {
                 invocation.write(ident);
 
                 let arg = stream.expect('(')?;
-                let _: () = stream.parse()?;
+
+                stream.parse()?;
 
                 return Ok(InlineBind { invocation, arg });
             }

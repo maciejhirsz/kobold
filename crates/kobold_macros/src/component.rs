@@ -3,34 +3,77 @@ use proc_macro::{Group, Ident, TokenStream, TokenTree};
 use crate::parse::prelude::*;
 use crate::tokenize::prelude::*;
 
-pub fn component(children: Option<Ident>, stream: TokenStream) -> Result<TokenStream, ParseError> {
+use crate::branching::Scope;
+
+#[derive(Default)]
+pub struct ComponentArgs {
+    branching: Option<Ident>,
+    children: Option<Ident>,
+}
+
+pub fn component(args: ComponentArgs, stream: TokenStream) -> Result<TokenStream, ParseError> {
     let mut stream = stream.parse_stream();
 
     let sig: FnSignature = stream.parse()?;
-    let component = FnComponent::new(children, sig)?.tokenize();
+    let component = FnComponent::new(&args, sig)?;
 
-    // panic!("{component}");
+    if args.branching.is_some() {
+        let scope: Scope = parse(component.render)?;
 
-    Ok(component)
+        panic!("{scope:#?}");
+    }
+
+    Ok(component.tokenize())
 }
 
-pub fn args(stream: TokenStream) -> Result<Option<Ident>, ParseError> {
+pub fn args(stream: TokenStream) -> Result<ComponentArgs, ParseError> {
     let mut stream = stream.parse_stream();
+    let mut args = ComponentArgs::default();
 
     if stream.end() {
-        return Ok(None);
+        return Ok(args);
     }
 
-    let mut children = match stream.expect("children")? {
-        TokenTree::Ident(ident) => ident,
-        _ => panic!(),
-    };
-
-    if stream.allow_consume(':').is_some() {
-        children = stream.parse()?;
+    enum Token {
+        Children,
+        Branching,
     }
 
-    Ok(Some(children))
+    loop {
+        let ident: Ident = stream.parse()?;
+
+        let token = ident.with_str(|s| match s {
+            "children" => Ok(Token::Children),
+            "branching" => Ok(Token::Branching),
+            _ => Err(ParseError::new(
+                "Unknown attribute, allowed: branching, children",
+                ident.span(),
+            )),
+        })?;
+
+        match token {
+            Token::Branching => args.branching = Some(ident),
+            Token::Children => {
+                args.children = Some(ident);
+
+                if stream.allow_consume(':').is_some() {
+                    args.children = Some(stream.parse()?);
+                }
+            }
+        }
+
+        if stream.end() {
+            break;
+        }
+
+        stream.expect(',')?;
+
+        if stream.end() {
+            break;
+        }
+    }
+
+    Ok(args)
 }
 
 #[derive(Debug)]
@@ -49,12 +92,12 @@ struct FnComponent {
 }
 
 impl FnComponent {
-    fn new(children: Option<Ident>, mut sig: FnSignature) -> Result<FnComponent, ParseError> {
-        let children = match &children {
+    fn new(args: &ComponentArgs, mut sig: FnSignature) -> Result<FnComponent, ParseError> {
+        let children = match &args.children {
             Some(children) => {
                 let ident = children.to_string();
 
-                let children_idx = sig.arguments.iter().position(|arg| arg.name.eq(&ident));
+                let children_idx = sig.arguments.iter().position(|arg| arg.name.eq_str(&ident));
 
                 match children_idx {
                     Some(idx) => Some(sig.arguments.remove(idx).into()),
@@ -185,7 +228,7 @@ impl From<Arg> for Field {
 }
 
 impl Tokenize for FnComponent {
-    fn tokenize(self) -> TokenStream {
+    fn tokenize_in(self, out: &mut TokenStream) {
         let mut destruct = TokenStream::new();
         let mut field_iter = self.fields.iter();
 
@@ -216,27 +259,24 @@ impl Tokenize for FnComponent {
             ("impl", "-> impl Html")
         };
 
-        let mut out = ("struct", struct_name.clone()).tokenize();
+        out.write(("struct", struct_name.clone()));
 
         if self.fields.is_empty() {
-            ';'.tokenize_in(&mut out);
+            out.write(';');
         } else {
-            block(each(self.fields)).tokenize_in(&mut out);
+            out.write(block(each(self.fields)));
         };
 
-        (
+        out.write((
             imp,
             struct_name,
             block((fn_render, args, ret, block((destruct, self.render)))),
-        )
-            .tokenize_in(&mut out);
-
-        out
+        ));
     }
 }
 
 impl Tokenize for Field {
-    fn tokenize(self) -> TokenStream {
-        (self.name, ':', self.ty, ',').tokenize()
+    fn tokenize_in(self, stream: &mut TokenStream) {
+        stream.write((self.name, ':', self.ty, ','))
     }
 }
