@@ -143,11 +143,14 @@ fn parse_code(stream: &mut ParseStream, scope: Branches) -> Result<Vec<Code>, Pa
                 let mut maybe_html = ArrayVec::<_, 3>::new();
 
                 maybe_html.push(tt);
-                maybe_html.extend(
-                    ['!', '{']
-                        .into_iter()
-                        .map_while(|p| stream.allow_consume(p)),
-                );
+
+                if let Some(tt) = stream.allow_consume('!') {
+                    maybe_html.push(tt);
+
+                    if let Some(tt) = stream.next_if(|tt| matches!(tt, TokenTree::Group(_))) {
+                        maybe_html.push(tt);
+                    }
+                }
 
                 match maybe_html.into_inner() {
                     Ok(html) => {

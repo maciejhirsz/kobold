@@ -7,14 +7,20 @@ mod state;
 use filter::Filter;
 use state::*;
 
-#[component]
+#[component(auto_branch)]
 fn App() -> impl Html {
     stateful(State::load, |state| {
         let hidden = state.entries.is_empty().then_some("hidden");
 
         let active_count = state.count_active();
-        let completed_count = state.entries.len() - active_count;
-        let selected = state.filter;
+        let completed_hidden = (state.entries.len() == active_count).then_some("hidden");
+
+        let left = match active_count {
+            1 => html!(" item left"),
+            _ => html!(" items left"),
+        };
+
+        let clear = state.bind(|state, _| state.entries.retain(|entry| !entry.completed));
 
         html! {
             <div .todomvc-wrapper>
@@ -37,15 +43,15 @@ fn App() -> impl Html {
                     <footer .footer.{hidden}>
                         <span .todo-count>
                             <strong>{ active_count }</strong>
-                            { if active_count == 1 { " item left" } else { " items left" } }
+                            { left }
                         </span>
                         <ul .filters>
-                            <FilterView filter={Filter::All} {selected} {state} />
-                            <FilterView filter={Filter::Active} {selected} {state} />
-                            <FilterView filter={Filter::Completed} {selected} {state} />
+                            <FilterView filter={Filter::All} {state}>"All"</FilterView>
+                            <FilterView filter={Filter::Active} {state}>"Active"</FilterView>
+                            <FilterView filter={Filter::Completed} {state}>"Completed"</FilterView>
                         </ul>
-                        <button .clear-completed onclick={state.bind(|state, _| state.entries.retain(|entry| !entry.completed))}>
-                            "Clear completed ("{ completed_count }")"
+                        <button .clear-completed.{completed_hidden} onclick={clear}>
+                            "Clear completed"
                         </button>
                     </footer>
                 </section>
@@ -78,11 +84,10 @@ fn EntryInput(state: &Hook<State>) -> impl Html {
 
 #[component]
 fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl Html {
-    let is_all_completed = active_count == 0;
-    let onclick = state.bind(move |state, _| state.set_all(!is_all_completed));
+    let onclick = state.bind(move |state, _| state.set_all(active_count != 0));
 
     html! {
-        <input #toggle-all.toggle-all type="checkbox" checked={is_all_completed} onclick={onclick} />
+        <input #toggle-all.toggle-all type="checkbox" checked={active_count == 0} onclick={onclick} />
         <label for="toggle-all" />
     }
 }
@@ -135,8 +140,10 @@ fn EntryView(idx: usize, entry: &Entry, state: &Hook<State>) -> impl Html {
     }
 }
 
-#[component]
-fn FilterView(filter: Filter, selected: Filter, state: &Hook<State>) -> impl Html {
+#[component(children)]
+fn FilterView(filter: Filter, state: &Hook<State>, children: impl Html + 'static) -> impl Html {
+    let selected = state.filter;
+
     let class = if selected == filter {
         "selected"
     } else {
@@ -147,7 +154,7 @@ fn FilterView(filter: Filter, selected: Filter, state: &Hook<State>) -> impl Htm
 
     html! {
         <li>
-            <a {class} {href} {onclick}>{ filter.to_label() }</a>
+            <a {class} {href} {onclick}>{ children }</a>
         </li>
     }
 }

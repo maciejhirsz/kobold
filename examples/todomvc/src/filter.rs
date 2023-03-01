@@ -13,12 +13,4 @@ impl Filter {
             Filter::Completed => "#/completed",
         }
     }
-
-    pub fn to_label(self) -> &'static str {
-        match self {
-            Filter::All => "All",
-            Filter::Active => "Active",
-            Filter::Completed => "Completed",
-        }
-    }
 }

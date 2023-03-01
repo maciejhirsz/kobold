@@ -26,8 +26,8 @@ impl Entry {
     }
 
     fn read(from: &str) -> Option<Self> {
-        let description = from.get(2..).map(Into::into)?;
-        let completed = from.starts_with('+');
+        let description = from.get(1..).map(Into::into)?;
+        let completed = from.starts_with("+");
 
         Some(Entry {
             description,
@@ -38,7 +38,7 @@ impl Entry {
 
     fn write(&self, storage: &mut String) {
         storage.extend([
-            if self.completed { "+ " } else { "- " },
+            if self.completed { "+" } else { "-" },
             &self.description,
             "\n",
         ]);
