@@ -4,7 +4,8 @@
 //!
 //! ```compile_fail
 //! # use kobold::prelude::*;
-//! fn conditional(illuminatus: bool) -> impl Html {
+//! #[component]
+//! fn Conditional(illuminatus: bool) -> impl Html {
 //!     if illuminatus {
 //!         html! { <p>"It was the year when they finally immanentized the Eschaton."</p> }
 //!     } else {
@@ -13,7 +14,7 @@
 //! }
 //! ```
 //!
-//! Here Rust will inform you:
+//! Here Rust will inform you that:
 //!
 //! ```text
 //! /     if illuminatus {
@@ -21,19 +22,19 @@
 //! |         ------------------------------------------------------------------------------- expected because of this
 //! |     } else {
 //! |         html! { <blockquote>"It was love at first sight."</blockquote> }
-//! |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `conditional::Transient`, found a different struct `conditional::Transient`
+//! |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `Conditional::render::Transient`, found a different struct `Conditional::render::Transient`
 //! |     }
 //! |_____- `if` and `else` have incompatible types
 //! ```
 //!
 //! While both types are _named_ `Transient`, they are in fact different types defined inline by the macro.
 //!
-//! To fix this, all you have to do is annotate the function with [`#[kobold::branching]`](macro@crate::branching):
+//! In most cases all you have to do is annotate such component with [`#[component(auto_branch)]`](crate::component#componentauto_branch):
 //!
 //! ```
 //! # use kobold::prelude::*;
-//! #[kobold::branching]
-//! fn conditional(illuminatus: bool) -> impl Html {
+//! #[component(auto_branch)]
+//! fn Conditional(illuminatus: bool) -> impl Html {
 //!     if illuminatus {
 //!         html! { <p>"It was the year when they finally immanentized the Eschaton."</p> }
 //!     } else {
@@ -42,14 +43,19 @@
 //! }
 //! ```
 //!
-//! This is still a somewhat experimental feature and **Kobold** doesn't (yet) perform control flow analysis here.
-//! A safe, if more laborious, way is to manually use one of the enums from this module:
+//! This flag is not enabled by default, yet, as there might be situations [`auto_branch`](crate::component#componentauto_branch)
+//! doesn't handle correctly.
+//!
+//! ## Manual branching
+//!
+//! An always safe if more laborious way is to manually use one of the [`BranchN` enums](self#enums) from this module:
 //!
 //! ```
 //! # use kobold::prelude::*;
 //! use kobold::branching::Branch2;
 //!
-//! fn conditional(illuminatus: bool) -> impl Html {
+//! #[component]
+//! fn Conditional(illuminatus: bool) -> impl Html {
 //!     if illuminatus {
 //!         Branch2::A(html! {
 //!             <p>"It was the year when they finally immanentized the Eschaton."</p>
@@ -62,13 +68,14 @@
 //! }
 //! ```
 //!
-//! This is in fact all that `#[kobold::branching]` does for you automatically.
+//! This is in fact all that the [`auto_branch`](crate::component#componentauto_branch) flag does for you automatically.
 //!
-//! For simple optional renders you can always use standard the library `Option`:
+//! For simple optional renders you can always use the standard library [`Option`](Option):
 //!
 //! ```
 //! # use kobold::prelude::*;
-//! fn conditional(illuminatus: bool) -> impl Html {
+//! #[component]
+//! fn Conditional(illuminatus: bool) -> impl Html {
 //!     if illuminatus {
 //!         Some(html! {
 //!             <p>"It was the year when they finally immanentized the Eschaton."</p>

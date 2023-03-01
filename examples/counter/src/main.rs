@@ -17,20 +17,7 @@ fn Counter() -> impl Html {
     })
 }
 
-// #[component(branching)]
-// fn ShowCount(count: u32) -> impl Html {
-//     let count = if count == 0 {
-//         html! { "zero times." }
-//     } else if count == 1 {
-//         html! { "once." }
-//     } else {
-//         html! { { count }" times." }
-//     };
-
-//     html! { <h3>"You've clicked the button "{ count }</h3> }
-// }
-
-#[component(branching)]
+#[component(auto_branch)]
 fn ShowCount(count: u32) -> impl Html {
     let count = match count {
         0 => html! { "zero times." },
@@ -40,19 +27,6 @@ fn ShowCount(count: u32) -> impl Html {
 
     html! { <h3>"You've clicked the button "{ count }</h3> }
 }
-
-// #[component(branching)]
-// fn ShowCount(count: u32) -> impl Html {
-//     if count == 0 {
-//         return html! { "The counter is empty." };
-//     }
-
-//     if count == 1 {
-//         return html! { "You've clicked the button once." };
-//     }
-
-//     html! { "You've clicked the button "{ count }" times." }
-// }
 
 fn main() {
     kobold::start(html! {

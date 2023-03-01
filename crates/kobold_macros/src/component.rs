@@ -38,7 +38,7 @@ pub fn args(stream: TokenStream) -> Result<ComponentArgs, ParseError> {
 
     enum Token {
         Children,
-        Branching,
+        AutoBranch,
     }
 
     loop {
@@ -46,15 +46,15 @@ pub fn args(stream: TokenStream) -> Result<ComponentArgs, ParseError> {
 
         let token = ident.with_str(|s| match s {
             "children" => Ok(Token::Children),
-            "branching" => Ok(Token::Branching),
+            "auto_branch" => Ok(Token::AutoBranch),
             _ => Err(ParseError::new(
-                "Unknown attribute, allowed: branching, children",
+                "Unknown attribute, allowed: auto_branch, children",
                 ident.span(),
             )),
         })?;
 
         match token {
-            Token::Branching => args.branching = Some(ident),
+            Token::AutoBranch => args.branching = Some(ident),
             Token::Children => {
                 args.children = Some(ident);
 

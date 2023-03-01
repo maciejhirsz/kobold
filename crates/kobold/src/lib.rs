@@ -108,12 +108,17 @@
 //! ### Conditional rendering
 //!
 //! Because the [`html!`](html) macro produces unique transient types, `if` and `match` expressions that invoke
-//! the macro will naturally fail to compile. To fix this annotate a function with [`#[kobold::branching]`](macro@branching):
+//! the macro will naturally fail to compile.
+//!
+//! Using the [`auto_branch`](component#componentauto_branch) flag on the [`#[component]`](component) attribute
+//! **Kobold** will scan the body of of your component render function, and make all [`html!`](html) macro invocations
+//! inside an `if` or `match` expression, and wrap them in an enum making them the same type:
+//!
 //!
 //! ```
 //! # use kobold::prelude::*;
-//! #[kobold::branching]
-//! fn conditional(illuminatus: bool) -> impl Html {
+//! #[component(auto_branch)]
+//! fn Conditional(illuminatus: bool) -> impl Html {
 //!     if illuminatus {
 //!         html! { <p>"It was the year when they finally immanentized the Eschaton."</p> }
 //!     } else {
@@ -122,7 +127,7 @@
 //! }
 //! ```
 //!
-//! For more details visit the [`branching` module documentation](mod@branching).
+//! For more details visit the [`branching` module documentation](branching).
 //!
 //! ### Lists and Iterators
 //!
@@ -242,9 +247,41 @@
 //! trunk serve
 //! ```
 
-/// Macro for resolving branching issues with the [`html!`](html) macro. See the [`branching` module documentation](mod@branching) for details.
-pub use kobold_macros::branching;
+#![doc(html_logo_url = "https://maciej.codes/kosz/kobold.png")]
+
+/// The `#[component]` attribute macro that transforms functions into proper components.
+///
+/// ## Example
+/// ```
+/// # use kobold::prelude::*;
+/// #[component]
+/// fn MyComponent() -> impl Html {
+///     html! {
+///         <p>"Hello, world!"</p>
+///     }
+/// }
+/// ```
+///
+/// ## Flags
+///
+/// The `#[component]` attribute accepts a few optional flags using syntax: `#[component(<flag>)]`.
+/// Multiple comma-separated flags can be used at once.
+///
+/// ### `#[component(auto_branch)]`
+///
+/// Automatically resolve all invocations of the [`html!`](html) macro inside `if` and `match` expressions
+/// to the same type.
+///
+/// For more details visit the [`branching` module documentation](branching).
+///
+/// ### `#[component(children)]`
+///
+/// Turns the component into a component that accepts children. Available syntax:
+///
+/// * `#[component(children)]`: children will be captured by the `children` argument on the function.
+/// * `#[component(children: my_name)]`: children will be captured by the `my_name` argument on the function.
 pub use kobold_macros::component;
+
 /// Macro for creating transient [`Html`](Html) types. See the [main documentation](crate) for details.
 pub use kobold_macros::html;
 
