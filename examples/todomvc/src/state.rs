@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use gloo_storage::{LocalStorage, Storage};
+use serde::{Deserialize, Serialize};
 
 use crate::filter::Filter;
 

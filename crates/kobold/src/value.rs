@@ -1,5 +1,5 @@
+use crate::prelude::{IntoState, ShouldRender};
 use crate::{Element, Html, Mountable};
-use crate::prelude::{ShouldRender, IntoState};
 use std::str;
 
 pub struct ValueProduct<T> {
@@ -154,7 +154,6 @@ pub struct StringHash {
 
 impl From<&str> for StringHash {
     fn from(s: &str) -> StringHash {
-
         let hash = if s.len() > 32 {
             (s.len() as u64) | ((s.as_ptr() as u64) << 32)
         } else {
@@ -167,9 +166,7 @@ impl From<&str> for StringHash {
             hasher.finish()
         };
 
-        StringHash {
-            hash,
-        }
+        StringHash { hash }
     }
 }
 
@@ -179,7 +176,10 @@ impl Html for &str {
     fn build(self) -> Self::Product {
         let el = Element::new_text(self);
 
-        ValueProduct { value: self.into(), el }
+        ValueProduct {
+            value: self.into(),
+            el,
+        }
     }
 
     fn update(self, p: &mut Self::Product) {
@@ -224,20 +224,4 @@ impl IntoState for &str {
 stringify_int!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, usize, isize);
 stringify_float!(f32, f64);
 
-impl_stringify!(
-    bool,
-    u8,
-    u16,
-    u32,
-    u64,
-    u128,
-    i8,
-    i16,
-    i32,
-    i64,
-    i128,
-    usize,
-    isize,
-    f32,
-    f64
-);
+impl_stringify!(bool, u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, usize, isize, f32, f64);

@@ -298,10 +298,10 @@ pub mod stateful;
 
 /// The prelude module with most commonly used types
 pub mod prelude {
-    pub use crate::event::{UntypedEvent, KeyboardEvent, MouseEvent};
+    pub use crate::event::{KeyboardEvent, MouseEvent, UntypedEvent};
     pub use crate::list::ListIteratorExt;
-    pub use crate::stateful::{stateful, Hook, OwnedHook, ShouldRender, IntoState};
-    pub use crate::{html, component, Html};
+    pub use crate::stateful::{stateful, Hook, IntoState, OwnedHook, ShouldRender};
+    pub use crate::{component, html, Html};
 }
 
 use dom::Element;

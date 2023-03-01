@@ -11,8 +11,8 @@ extern crate proc_macro2 as proc_macro;
 use proc_macro::TokenStream;
 
 mod branching;
-mod component;
 mod dom;
+mod fn_component;
 mod gen;
 mod itertools;
 mod parse;
@@ -32,9 +32,9 @@ macro_rules! unwrap_err {
 
 #[proc_macro_attribute]
 pub fn component(args: TokenStream, input: TokenStream) -> TokenStream {
-    let args = unwrap_err!(component::args(args));
+    let args = unwrap_err!(fn_component::args(args));
 
-    unwrap_err!(component::component(args, input))
+    unwrap_err!(fn_component::component(args, input))
 }
 
 #[allow(clippy::let_and_return)]

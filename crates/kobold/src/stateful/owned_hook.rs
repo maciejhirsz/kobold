@@ -3,7 +3,7 @@ use std::fmt::{self, Display};
 use std::mem::ManuallyDrop;
 use std::rc::{Rc, Weak};
 
-use crate::stateful::{Inner, ShouldRender, Hook};
+use crate::stateful::{Hook, Inner, ShouldRender};
 use crate::Html;
 
 /// Error type returned by [`Hook::update`](Hook::update).
