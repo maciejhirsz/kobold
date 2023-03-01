@@ -241,7 +241,7 @@ rustup target add wasm32-unknown-unknown
 Then just run an example:
 ```sh
 ## Go to an example
-cd examples/counter
+cd examples/todomvc
 
 ## Run with trunk
 trunk serve
