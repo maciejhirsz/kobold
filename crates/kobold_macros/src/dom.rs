@@ -197,7 +197,10 @@ impl Node {
         }
     }
 
-    fn parse_children(name: &TagName, stream: &mut ShallowStream) -> Result<Option<Vec<Node>>, ParseError> {
+    fn parse_children(
+        name: &TagName,
+        stream: &mut ShallowStream,
+    ) -> Result<Option<Vec<Node>>, ParseError> {
         let mut children = Vec::new();
 
         loop {

@@ -11,7 +11,7 @@ pub struct Scope {
 
 pub enum Code {
     Segment(TokenStream),
-    Html(Html),
+    Scoped(Scoped),
     Nested(Nested),
 }
 
@@ -19,9 +19,9 @@ impl Debug for Code {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Code::Segment(segment) => write!(f, "Segment({segment})"),
-            Code::Html(html) => {
-                f.write_str("Html(")?;
-                html.fmt(f)?;
+            Code::Scoped(scoped) => {
+                f.write_str("Scoped(")?;
+                scoped.fmt(f)?;
                 f.write_str(")")
             }
             Code::Nested(nested) => {
@@ -33,13 +33,13 @@ impl Debug for Code {
     }
 }
 
-pub struct Html {
+pub struct Scoped {
     pub tokens: TokenStream,
     pub branch: u8,
     pub branches: Option<Rc<Cell<u8>>>,
 }
 
-impl Html {
+impl Scoped {
     pub fn new(tokens: TokenStream, branches: Option<Rc<Cell<u8>>>) -> Self {
         let branch = match branches {
             Some(ref branches) => {
@@ -50,7 +50,7 @@ impl Html {
             None => 0,
         };
 
-        Html {
+        Scoped {
             tokens,
             branch,
             branches,
@@ -58,7 +58,7 @@ impl Html {
     }
 }
 
-impl Debug for Html {
+impl Debug for Scoped {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(ref branches) = self.branches {
             let branch = self.branch + 1;

@@ -7,7 +7,7 @@ use proc_macro::{Group, TokenStream, TokenTree};
 use crate::parse::prelude::*;
 use crate::tokenize::TokenStreamExt;
 
-use super::ast::{Code, Html, Nested, Scope};
+use super::ast::{Code, Nested, Scope, Scoped};
 
 #[derive(Default)]
 struct CodeBuilder {
@@ -55,6 +55,8 @@ enum Token {
     If,
     /// The `else` keyword
     Else,
+    /// The `match` keyword,
+    Match,
     /// The `{ ... }` block
     Block,
     /// Any `Group` other than `{ ... }` block
@@ -67,6 +69,7 @@ impl Token {
             "html" => Some(Token::Html),
             "if" => Some(Token::If),
             "else" => Some(Token::Else),
+            "match" => Some(Token::Match),
             _ => None,
         }
     }
@@ -96,6 +99,12 @@ fn parse_code(stream: &mut ParseStream, scope: Branches) -> Result<Vec<Code>, Pa
 
     struct State(Token, Mode, Rc<Cell<u8>>);
 
+    impl State {
+        fn scope(self) -> Rc<Cell<u8>> {
+            self.2
+        }
+    }
+
     let mut states = Vec::<State>::new();
 
     while let Some(tt) = stream.next() {
@@ -106,24 +115,27 @@ fn parse_code(stream: &mut ParseStream, scope: Branches) -> Result<Vec<Code>, Pa
                 continue;
             }
         };
-        let state = match states.last() {
-            Some(State(expect, mode, _)) => {
-                if *expect == token {
-                    // Match! Get owned state
-                    states.pop()
-                } else {
-                    match mode {
-                        // No match, discard state
-                        Mode::Eager => {
-                            let _ = states.pop();
+
+        let state = loop {
+            match states.last() {
+                Some(State(expect, mode, _)) => {
+                    if *expect == token {
+                        // Match! Get owned state
+                        break states.pop();
+                    } else {
+                        match mode {
+                            // No match, discard state
+                            Mode::Eager => {
+                                let _ = states.pop();
+                                continue;
+                            }
+                            // No match, retain state
+                            Mode::Lazy => break None,
                         }
-                        // No match, retain state
-                        Mode::Lazy => (),
                     }
-                    None
                 }
+                _ => break None,
             }
-            _ => None,
         };
 
         match token {
@@ -141,7 +153,10 @@ fn parse_code(stream: &mut ParseStream, scope: Branches) -> Result<Vec<Code>, Pa
                     Ok(html) => {
                         let branches = scope.map(Clone::clone);
 
-                        code.push(Code::Html(Html::new(html.into_iter().collect(), branches)));
+                        code.push(Code::Scoped(Scoped::new(
+                            html.into_iter().collect(),
+                            branches,
+                        )));
                     }
                     Err(tokens) => code.extend(tokens),
                 }
@@ -149,33 +164,23 @@ fn parse_code(stream: &mut ParseStream, scope: Branches) -> Result<Vec<Code>, Pa
                 continue;
             }
             Token::If => {
-                let scope = Rc::new(Cell::new(0));
+                let scope = state.map(State::scope).unwrap_or_default();
 
                 states.push(State(Token::Else, Mode::Eager, scope.clone()));
                 states.push(State(Token::Block, Mode::Lazy, scope));
-
-                code.collect(tt);
-
-                continue;
             }
             Token::Else => {
-                if let Some(State(_, _, scope)) = state {
-                    code.collect(tt);
-
-                    if let Some(tt) = stream.allow_consume("if") {
-                        code.collect(tt);
-
-                        states.push(State(Token::Else, Mode::Eager, scope.clone()));
-                        states.push(State(Token::Block, Mode::Lazy, scope));
-                    } else {
-                        states.push(State(Token::Block, Mode::Eager, scope));
-                    };
-
-                    continue;
+                if let Some(scope) = state.map(State::scope) {
+                    states.push(State(Token::If, Mode::Eager, scope.clone()));
+                    states.push(State(Token::Block, Mode::Eager, scope));
                 }
             }
+            Token::Match => {
+                states.push(State(Token::Block, Mode::Lazy, Rc::default()));
+            }
             Token::Block | Token::Group => {
-                let scope = state.as_ref().map(|State(_, _, ref scope)| scope).or(scope);
+                let state_scope = state.map(State::scope);
+                let scope = state_scope.as_ref().or(scope);
 
                 match tt {
                     TokenTree::Group(group) => {

@@ -1,8 +1,8 @@
-use proc_macro::{TokenStream, Group};
+use proc_macro::{Group, TokenStream};
 
 use crate::tokenize::prelude::*;
 
-use super::ast::{Scope, Code, Html, Nested};
+use super::ast::{Code, Nested, Scope, Scoped};
 
 impl Tokenize for Scope {
     fn tokenize_in(self, stream: &mut TokenStream) {
@@ -22,13 +22,13 @@ impl Tokenize for Code {
     fn tokenize_in(self, stream: &mut TokenStream) {
         match self {
             Code::Segment(segment) => segment.tokenize_in(stream),
-            Code::Html(html) => html.tokenize_in(stream),
+            Code::Scoped(scoped) => scoped.tokenize_in(stream),
             Code::Nested(nested) => nested.tokenize_in(stream),
         }
     }
 }
 
-impl Tokenize for Html {
+impl Tokenize for Scoped {
     fn tokenize_in(self, stream: &mut TokenStream) {
         let branches = self.branches.map(|b| b.get()).unwrap_or(0);
 

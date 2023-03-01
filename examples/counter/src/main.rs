@@ -17,27 +17,29 @@ fn Counter() -> impl Html {
     })
 }
 
+// #[component(branching)]
+// fn ShowCount(count: u32) -> impl Html {
+//     let count = if count == 0 {
+//         html! { "zero times." }
+//     } else if count == 1 {
+//         html! { "once." }
+//     } else {
+//         html! { { count }" times." }
+//     };
+
+//     html! { <h3>"You've clicked the button "{ count }</h3> }
+// }
+
 #[component(branching)]
 fn ShowCount(count: u32) -> impl Html {
-    let count = if count == 0 {
-        html! { "zero times." }
-    } else if count == 1 {
-        html! { "once." }
-    } else {
-        html! { { count }" times." }
+    let count = match count {
+        0 => html! { "zero times." },
+        1 => html! { "once." },
+        n => html! { { n }" times." },
     };
 
     html! { <h3>"You've clicked the button "{ count }</h3> }
 }
-
-// #[component(branching)]
-// fn ShowCount(count: u32) -> impl Html {
-//     match count {
-//         0 => html! { "The counter is empty." },
-//         1 => html! { "You've clicked the button once." },
-//         _ => html! { "You've clicked the button "{ count }" times." },
-//     }
-// }
 
 // #[component(branching)]
 // fn ShowCount(count: u32) -> impl Html {
