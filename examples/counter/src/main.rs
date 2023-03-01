@@ -1,31 +1,35 @@
 use kobold::prelude::*;
 
-// To derive `Stateful` the component must also implement `PartialEq`.
-#[derive(Stateful, PartialEq, Default)]
-struct Counter {
-    count: u32,
+#[component]
+fn Counter() -> impl Html {
+    stateful(0_u32, |count| {
+        let onclick = count.bind(|count, _event| *count += 1);
+
+        html! {
+            <p>
+                <ShowCount count={count.get()} />
+
+                // `{onclick}` here is shorthand for `onclick={onclick}`
+                <button {onclick}>"Click me!"</button>
+                <button onclick={count.bind(|count, _| *count = 0)}>"Reset"</button>
+            </p>
+        }
+    })
 }
 
-impl Counter {
-    fn render(self) -> impl Html {
-        self.stateful(|state, ctx| {
-            let onclick = ctx.bind(|state, _event| state.count += 1);
+#[component(auto_branch)]
+fn ShowCount(count: u32) -> impl Html {
+    let count = match count {
+        0 => html! { "zero times." },
+        1 => html! { "once." },
+        n => html! { { n }" times." },
+    };
 
-            html! {
-                <p>
-                    "You clicked on the "
-                    // `{onclick}` here is shorthand for `onclick={onclick}`
-                    <button {onclick}>"Button"</button>
-                    " "{ state.count }" times."
-                </p>
-            }
-        })
-    }
+    html! { <h3>"You've clicked the button "{ count }</h3> }
 }
 
 fn main() {
     kobold::start(html! {
-        // The `..` notation fills in the rest of the component with values from the `Default` impl.
-        <Counter ../>
+        <Counter />
     });
 }

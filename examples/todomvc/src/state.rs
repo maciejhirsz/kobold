@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use gloo_storage::{LocalStorage, Storage};
 
 use crate::filter::Filter;
@@ -11,7 +10,6 @@ pub struct State {
     pub editing: Option<usize>,
 }
 
-#[derive(Deserialize, Serialize)]
 pub struct Entry {
     pub description: String,
     pub completed: bool,
@@ -26,11 +24,34 @@ impl Entry {
             Filter::Completed => self.completed,
         }
     }
+
+    fn read(from: &str) -> Option<Self> {
+        let description = from.get(1..).map(Into::into)?;
+        let completed = from.starts_with("+");
+
+        Some(Entry {
+            description,
+            completed,
+            editing: false,
+        })
+    }
+
+    fn write(&self, storage: &mut String) {
+        storage.extend([
+            if self.completed { "+" } else { "-" },
+            &self.description,
+            "\n",
+        ]);
+    }
 }
 
 impl State {
     pub fn load() -> Self {
-        let entries = LocalStorage::get(KEY).unwrap_or_default();
+        let mut entries = Vec::new();
+
+        if let Some(storage) = LocalStorage::raw().get_item(KEY).ok().flatten() {
+            entries.extend(storage.lines().map_while(Entry::read));
+        }
 
         State {
             entries,
@@ -41,7 +62,19 @@ impl State {
 
     #[inline(never)]
     pub fn store(&self) {
-        LocalStorage::set(KEY, &self.entries).expect("failed to set");
+        let capacity = self
+            .entries
+            .iter()
+            .map(|entry| entry.description.len() + 3)
+            .sum();
+
+        let mut storage = String::with_capacity(capacity);
+
+        for entry in &self.entries {
+            entry.write(&mut storage);
+        }
+
+        LocalStorage::raw().set_item(KEY, &storage).ok();
     }
 
     pub fn count_active(&self) -> usize {

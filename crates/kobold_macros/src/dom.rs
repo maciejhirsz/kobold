@@ -179,7 +179,7 @@ impl Node {
                 while !content.end() {
                     let attr: Attribute = content.parse()?;
 
-                    if attr.name.eq("class") {
+                    if attr.name.eq_str("class") {
                         classes.push(CssValue::try_from(attr.value)?);
                     } else {
                         attributes.push(attr);
@@ -197,7 +197,10 @@ impl Node {
         }
     }
 
-    fn parse_children(name: &TagName, stream: &mut ShallowStream) -> Result<Option<Vec<Node>>, ParseError> {
+    fn parse_children(
+        name: &TagName,
+        stream: &mut ShallowStream,
+    ) -> Result<Option<Vec<Node>>, ParseError> {
         let mut children = Vec::new();
 
         loop {

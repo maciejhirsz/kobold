@@ -5,7 +5,7 @@
 //! **Kobold** uses macros to deliver familiar HTML-esque syntax for building declarative web interfaces,
 //! while leveraging Rust's powerful type system for safety and performance.
 //!
-//! ### Zero-Cost static HTML
+//! ### Zero-cost static HTML
 //!
 //! Like in [React](https://reactjs.org/) or [Yew](https://yew.rs/) updates are done by repeating calls
 //! to a render function whenever the state changes. However, unlike either, **Kobold** does not produce a
@@ -23,22 +23,17 @@
 //! type will be zero-sized, and its [`Html::update`](Html::update) method will be empty, making updates of static
 //! HTML quite literally zero-cost._
 //!
-//! ### Hello World
+//! ### Hello World!
 //!
-//! Any struct that implements a `render` method can be used as a component:
+//! Components in **Kobold** are created by annotating a _render function_ with a [`#[component]`](component) attribute.
 //!
 //! ```no_run
 //! use kobold::prelude::*;
 //!
-//! struct Hello {
-//!     name: &'static str,
-//! }
-//!
-//! impl Hello {
-//!     fn render(self) -> impl Html {
-//!         html! {
-//!             <h1>"Hello "{ self.name }"!"</h1>
-//!         }
+//! #[component]
+//! fn Hello(name: &str) -> impl Html {
+//!     html! {
+//!         <h1>"Hello "{ name }"!"</h1>
 //!     }
 //! }
 //!
@@ -49,92 +44,81 @@
 //! }
 //! ```
 //!
-//! The `render` method here will return a transient type that contains _only_ the `&'static str` from
-//! the `{ self.name }` expression. Kobold will create a text node for that string, and then send it to
-//! a compiled JavaScript function that will build the `h1` element with the static text around it.
+//! The _render function_ must return a type that implements the [`Html`](Html) trait. Since the [`html!`](html) macro
+//! produces _transient types_, or [_Voldemort types_](https://wiki.dlang.org/Voldemort_types), the best approach
+//! here is to always use the `impl Html` return type.
 //!
-//! Everything is statically typed and the macro doesn't delete any information when manipulating the
-//! token stream, so the Rust compiler can tell you if you've made a mistake:
+//! Everything here is statically typed and the macro doesn't delete any information when manipulating the
+//! token stream, so the Rust compiler can tell you when you've made a mistake:
 //!
 //! ```text
 //! error[E0560]: struct `Hello` has no field named `nam`
-//!   --> examples/hello_world/src/main.rs:17:16
+//!   --> examples/hello_world/src/main.rs:12:16
 //!    |
-//! 17 |         <Hello nam="Kobold" />
+//! 12 |         <Hello nam="Kobold" />
 //!    |                ^^^ help: a field with a similar name exists: `name`
 //! ```
 //!
 //! You can even use [rust-analyzer](https://rust-analyzer.github.io/) to refactor component or field names,
 //! and it will change the invocations inside the macros for you.
 //!
-//! ### Stateful Components
+//! ### Stateful components
 //!
-//! The [`Stateful`](stateful::Stateful) trait can be used to create components that own and manipulate
+//! The [`stateful`](stateful::stateful) function can be used to create components that own and manipulate
 //! their state:
 //!
 //! ```no_run
 //! use kobold::prelude::*;
 //!
-//! // To derive `Stateful` the component must also implement `PartialEq`.
-//! #[derive(Stateful, PartialEq, Default)]
-//! struct Counter {
-//!     count: u32,
-//! }
+//! #[component]
+//! fn Counter() -> impl Html {
+//!     stateful(0_u32, |count| {
+//!         let onclick = count.bind(|count, _event| *count += 1);
 //!
-//! impl Counter {
-//!     fn render(self) -> impl Html {
-//!         self.stateful(|state, ctx| {
-//!             let onclick = ctx.bind(|state, _event| state.count += 1);
-//!
-//!             html! {
-//!                 <p>
-//!                     "You clicked on the "
-//!                     // `{onclick}` here is shorthand for `onclick={onclick}`
-//!                     <button {onclick}>"Button"</button>
-//!                     " "{ state.count }" times."
-//!                 </p>
-//!             }
-//!         })
-//!     }
+//!         html! {
+//!             <p>
+//!                 "You clicked on the "
+//!                 // `{onclick}` here is shorthand for `onclick={onclick}`
+//!                 <button {onclick}>"Button"</button>
+//!                 " "{ count }" times."
+//!             </p>
+//!         }
+//!     })
 //! }
 //!
 //! fn main() {
 //!     kobold::start(html! {
-//!         // The `..` notation fills in the rest of the component with
-//!         // values from the `Default` impl.
-//!         <Counter ../>
+//!         <Counter />
 //!     });
 //! }
 //! ```
 //!
-//! The [`stateful`](stateful::Stateful::stateful) method above accepts a non-capturing anonymous render function
-//! matching the signature:
+//! The [`stateful`](stateful::stateful) function takes two parameters:
 //!
-//! ```text
-//! fn(&State, Context<State>) -> impl Html
-//! ```
+//! * State constructor that implements the [`IntoState`](stateful::IntoState) trait. **Kobold** comes with default
+//!   implementations for most primitive types, so we can use `u32` here.
+//! * The anonymous render function that uses the constructed state, in our case `fn(&Hook<u32>) -> impl Html`.
 //!
-//! The [`State`](stateful::Stateful::State) here is an associated type which for all components that
-//! use derived [`Stateful`](stateful::Stateful) implementation defaults to `Self`, so in the example above
-//! it is the `Counter` itself.
-//!
-//! The [`Context`](stateful::Context) can be used to create event callbacks that take a `&mut` reference to the
-//! state and a `&` reference to a DOM [`Event`](web_sys::Event) (ignored above). If the callback closure has no
-//! return type (the return type is `()`) each invocation of it will update the component. If you would
-//! rather perform a "silent" update, or if the callback does not always modify the state, return the provided
-//! [`ShouldRender`](stateful::ShouldRender) enum instead.
+//! The [`Hook`](stateful::Hook) here is a smart pointer to the state itself that allows non-mutable access to the
+//! state, as well as the [`bind`](stateful::Hook::bind) method for creating event callbacks. These take a `&mut`
+//! reference to the state and a `&` reference to a DOM [`Event`](event::Event) (ignored above).
 //!
 //! For more details visit the [`stateful` module documentation](stateful).
 //!
-//! ### Conditional Rendering
+//! ### Conditional rendering
 //!
 //! Because the [`html!`](html) macro produces unique transient types, `if` and `match` expressions that invoke
-//! the macro will naturally fail to compile. To fix this annotate a function with [`#[kobold::branching]`](macro@branching):
+//! the macro will naturally fail to compile.
+//!
+//! Using the [`auto_branch`](component#componentauto_branch) flag on the [`#[component]`](component) attribute
+//! **Kobold** will scan the body of of your component render function, and make all [`html!`](html) macro invocations
+//! inside an `if` or `match` expression, and wrap them in an enum making them the same type:
+//!
 //!
 //! ```
 //! # use kobold::prelude::*;
-//! #[kobold::branching]
-//! fn conditional(illuminatus: bool) -> impl Html {
+//! #[component(auto_branch)]
+//! fn Conditional(illuminatus: bool) -> impl Html {
 //!     if illuminatus {
 //!         html! { <p>"It was the year when they finally immanentized the Eschaton."</p> }
 //!     } else {
@@ -143,7 +127,7 @@
 //! }
 //! ```
 //!
-//! For more details visit the [`branching` module documentation](mod@branching).
+//! For more details visit the [`branching` module documentation](branching).
 //!
 //! ### Lists and Iterators
 //!
@@ -154,7 +138,8 @@
 //! // `ListIteratorExt` is included in the prelude
 //! use kobold::prelude::*;
 //!
-//! fn make_list(count: u32) -> impl Html {
+//! #[component]
+//! fn IterateNumbers(count: u32) -> impl Html {
 //!     html! {
 //!         <ul>
 //!         {
@@ -168,10 +153,11 @@
 //! ```
 //!
 //! This wraps the iterator in the transparent [`List<_>`](list::List) type that implements [`Html`](Html).
-//! On updates the iterator is consumed once and all items are diffed with previous version.
-//! No allocations are made by **Kobold** unless the rendered list needs to grow past its original capacity.
+//! On updates the iterator is consumed once and all items are diffed with the previous version.
+//! No allocations are made by **Kobold** when updating such a list, unless the rendered list needs
+//! to grow past its original capacity.
 //!
-//! ### Borrowed Values
+//! ### Borrowed values
 //!
 //! [`Html`](Html) types are truly transient and only need to live for the duration of the initial render,
 //! or for the duration of the subsequent update. This means that you can easily and cheaply render borrowed
@@ -179,9 +165,8 @@
 //!
 //! ```
 //! # use kobold::prelude::*;
-//! // Need to mark the return type with an elided lifetime
-//! // to tell the compiler that we borrow from `names` here
-//! fn render_names(names: &[String]) -> impl Html + '_ {
+//! #[component]
+//! fn Users(names: &[&str]) -> impl Html {
 //!     html! {
 //!         <ul>
 //!         {
@@ -197,19 +182,16 @@
 //!
 //! ### Components with children
 //!
-//! If you wish to capture children from parent [`html!`](html) invocation, simply implement
-//! a `render_with` method on the component:
+//! If you wish to capture children from parent [`html!`](html) invocation, simply change
+//! `#[component]` to `#[component(children)]`:
 //!
 //! ```no_run
 //! use kobold::prelude::*;
 //!
-//! struct Header;
-//!
-//! impl Header {
-//!     fn render_with(self, children: impl Html) -> impl Html {
-//!         html! {
-//!             <header><h1>{ children }</h1></header>
-//!         }
+//! #[component(children)]
+//! fn Header(children: impl Html) -> impl Html {
+//!     html! {
+//!         <header><h1>{ children }</h1></header>
 //!     }
 //! }
 //!
@@ -220,18 +202,16 @@
 //! }
 //! ```
 //!
-//! If you know or expect children to be of a specific type, you can do that too:
+//! You can change the name of the function argument used, or even set a concrete type:
 //!
 //! ```no_run
 //! use kobold::prelude::*;
 //!
-//! struct AddTen;
-//!
-//! impl AddTen {
+//! // Capture children into the argument `n`
+//! #[component(children: n)]
+//! fn AddTen(n: i32) -> impl Html {
 //!     // integers implement `Html` so they can be passed by value
-//!     fn render_with(self, n: i32) -> i32 {
-//!         n + 10
-//!     }
+//!     n + 10
 //! }
 //!
 //! fn main() {
@@ -243,9 +223,6 @@
 //!     });
 //! }
 //! ```
-//!
-//! A component can have both `render` and `render_with` methods if you want to
-//! support both styles of invocation.
 //!
 //! ## More examples
 //!
@@ -262,14 +239,47 @@
 //! Then just run an example:
 //! ```sh
 //! ## Go to an example
-//! cd examples/counter
+//! cd examples/todomvc
 //!
 //! ## Run with trunk
 //! trunk serve
 //! ```
 
-/// Macro for resolving branching issues with the [`html!`](html) macro. See the [`branching` module documentation](mod@branching) for details.
-pub use kobold_macros::branching;
+#![doc(html_logo_url = "https://maciej.codes/kosz/kobold.png")]
+
+/// The `#[component]` attribute macro that transforms functions into proper components.
+///
+/// ## Example
+/// ```
+/// # use kobold::prelude::*;
+/// #[component]
+/// fn MyComponent() -> impl Html {
+///     html! {
+///         <p>"Hello, world!"</p>
+///     }
+/// }
+/// ```
+///
+/// ## Flags
+///
+/// The `#[component]` attribute accepts a few optional flags using syntax: `#[component(<flag>)]`.
+/// Multiple comma-separated flags can be used at once.
+///
+/// ### `#[component(auto_branch)]`
+///
+/// Automatically resolve all invocations of the [`html!`](html) macro inside `if` and `match` expressions
+/// to the same type.
+///
+/// For more details visit the [`branching` module documentation](branching).
+///
+/// ### `#[component(children)]`
+///
+/// Turns the component into a component that accepts children. Available syntax:
+///
+/// * `#[component(children)]`: children will be captured by the `children` argument on the function.
+/// * `#[component(children: my_name)]`: children will be captured by the `my_name` argument on the function.
+pub use kobold_macros::component;
+
 /// Macro for creating transient [`Html`](Html) types. See the [main documentation](crate) for details.
 pub use kobold_macros::html;
 
@@ -288,10 +298,10 @@ pub mod stateful;
 
 /// The prelude module with most commonly used types
 pub mod prelude {
-    pub use crate::event::{Event, KeyboardEvent, MouseEvent};
+    pub use crate::event::{KeyboardEvent, MouseEvent, UntypedEvent};
     pub use crate::list::ListIteratorExt;
-    pub use crate::stateful::{Context, Hook, ShouldRender, Stateful};
-    pub use crate::{html, Html};
+    pub use crate::stateful::{stateful, Hook, IntoState, OwnedHook, ShouldRender};
+    pub use crate::{component, html, Html};
 }
 
 use dom::Element;

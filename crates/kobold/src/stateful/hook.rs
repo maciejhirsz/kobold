@@ -1,135 +1,155 @@
-use std::cell::{BorrowMutError, RefCell};
-use std::fmt::{self, Display};
-use std::mem::ManuallyDrop;
-use std::rc::{Rc, Weak};
+use std::cell::UnsafeCell;
+use std::marker::PhantomData;
+use std::ops::Deref;
 
+use wasm_bindgen::prelude::*;
+
+use crate::event::Event;
 use crate::stateful::{Inner, ShouldRender};
-use crate::Html;
+use crate::{Element, Html, Mountable};
 
-/// Error type returned by [`Hook::update`](Hook::update).
-#[derive(Debug)]
-pub enum UpdateError {
-    /// Returned if the state has already been dropped, happens if the attempted
-    /// update is applied to a component that has been removed from view.
-    StateDropped,
+type UnsafeCallback<S> = *const UnsafeCell<dyn CallbackFn<S, web_sys::Event>>;
 
-    /// Attempted update while the state is mutably borrowed for another update.
-    CycleDetected,
-}
-
-impl From<BorrowMutError> for UpdateError {
-    fn from(_: BorrowMutError) -> Self {
-        UpdateError::CycleDetected
-    }
-}
-
-impl Display for UpdateError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            UpdateError::StateDropped => f.write_str("Could not update state: State was dropped"),
-            UpdateError::CycleDetected => {
-                f.write_str("Cycle detected: Attempting to update state during an ongoing update")
-            }
-        }
-    }
-}
-
-impl std::error::Error for UpdateError {}
-
-struct HookVTable<S> {
-    state: unsafe fn(*const ()) -> Option<*const RefCell<S>>,
-    rerender: unsafe fn(&S, *const ()),
-    clone: unsafe fn(*const ()) -> *const (),
-    drop: unsafe fn(*const ()),
-}
-
-pub struct Hook<S: 'static> {
+pub struct Hook<S> {
+    pub(super) state: S,
     inner: *const (),
-    vtable: &'static HookVTable<S>,
+    make_closure: fn(*const (), cb: UnsafeCallback<S>) -> Box<dyn Fn(&web_sys::Event)>,
+}
+
+impl<S> Deref for Hook<S> {
+    type Target = S;
+
+    fn deref(&self) -> &S {
+        &self.state
+    }
 }
 
 impl<S> Hook<S>
 where
     S: 'static,
 {
-    pub(super) fn new<H>(inner: &Rc<Inner<S, H::Product>>) -> Self
-    where
-        H: Html,
-    {
-        let inner = Rc::downgrade(inner).into_raw() as *const ();
-
+    pub(super) fn new<P: 'static>(state: S, inner: *const Inner<S, P>) -> Self {
         Hook {
-            inner,
-            vtable: &HookVTable {
-                state: |inner| unsafe {
-                    let inner = inner as *const Inner<S, H::Product>;
-                    let weak = ManuallyDrop::new(Weak::from_raw(inner));
+            state,
+            inner: inner as *const _,
+            make_closure: |inner, callback| {
+                Box::new(move |event| {
+                    let callback = unsafe { &*(*callback).get() };
+                    let inner = unsafe { &*(inner as *const Inner<S, P>) };
 
-                    if weak.strong_count() > 0 {
-                        Some(&(*inner).state)
-                    } else {
-                        None
+                    let mut state = inner.hook.borrow_mut();
+
+                    if callback.call(&mut state.state, event).should_render() {
+                        inner.rerender(&state);
                     }
-                },
-                rerender: |state, inner| unsafe {
-                    let inner = inner as *const Inner<S, H::Product>;
-
-                    (*inner).rerender(state);
-                },
-                clone: |inner| {
-                    let weak = ManuallyDrop::new(unsafe {
-                        Weak::from_raw(inner as *const Inner<S, H::Product>)
-                    });
-
-                    Weak::into_raw((*weak).clone()) as *const ()
-                },
-                drop: |inner| unsafe {
-                    Weak::from_raw(inner as *const Inner<S, H::Product>);
-                },
+                })
             },
         }
     }
-}
 
-impl<S> Hook<S>
-where
-    S: 'static,
-{
-    pub fn update<R>(&self, mutator: impl FnOnce(&mut S) -> R) -> Result<(), UpdateError>
+    pub(super) fn inner<P: 'static>(&self) -> *const Inner<S, P> {
+        self.inner as *const Inner<S, P>
+    }
+
+    pub fn bind<E, T, F, A>(&self, cb: F) -> Callback<E, T, F, S>
     where
-        R: Into<ShouldRender>,
+        F: Fn(&mut S, &Event<E, T>) -> A + 'static,
+        A: Into<ShouldRender>,
     {
-        let state = unsafe { (self.vtable.state)(self.inner) }.ok_or(UpdateError::StateDropped)?;
-        let mut state = unsafe { (*state).try_borrow_mut()? };
-        let result = mutator(&mut state);
-
-        if result.into().should_render() {
-            unsafe { (self.vtable.rerender)(&state, self.inner) }
-        }
-
-        Ok(())
-    }
-}
-
-impl<S> Clone for Hook<S>
-where
-    S: 'static,
-{
-    fn clone(&self) -> Self {
-        let inner = unsafe { (self.vtable.clone)(self.inner) };
-
-        Hook {
-            inner,
-            vtable: self.vtable,
+        Callback {
+            cb,
+            hook: self,
+            _target: PhantomData,
         }
     }
 }
 
-impl<S> Drop for Hook<S>
+impl<S: Copy> Hook<S> {
+    pub fn get(&self) -> S {
+        self.state
+    }
+}
+
+pub struct Callback<'state, E, T, F, S> {
+    cb: F,
+    hook: &'state Hook<S>,
+    _target: PhantomData<(E, T)>,
+}
+
+pub struct CallbackProduct<F> {
+    closure: Closure<dyn Fn(&web_sys::Event)>,
+    cb: Box<UnsafeCell<F>>,
+}
+
+trait CallbackFn<S, E> {
+    fn call(&self, state: &mut S, event: &E) -> ShouldRender;
+}
+
+impl<F, A, E, S> CallbackFn<S, E> for F
 where
+    F: Fn(&mut S, &E) -> A + 'static,
+    A: Into<ShouldRender>,
     S: 'static,
 {
-    fn drop(&mut self) {
-        unsafe { (self.vtable.drop)(self.inner) }
+    fn call(&self, state: &mut S, event: &E) -> ShouldRender {
+        (self)(state, event).into()
+    }
+}
+
+impl<E, T, F, A, S> Html for Callback<'_, E, T, F, S>
+where
+    F: Fn(&mut S, &Event<E, T>) -> A + 'static,
+    A: Into<ShouldRender>,
+    S: 'static,
+{
+    type Product = CallbackProduct<F>;
+
+    fn build(self) -> Self::Product {
+        let Self { hook, cb, .. } = self;
+
+        let cb = Box::new(UnsafeCell::new(cb));
+
+        let closure = Closure::wrap((hook.make_closure)(hook.inner, {
+            let cb: *const UnsafeCell<dyn CallbackFn<S, Event<E, T>>> = &*cb;
+
+            // Casting `*const UnsafeCell<dyn CallbackFn<S, Event<E, T>>>`
+            // to `UnsafeCallback<S>`, which is safe since `Event<E, T>`
+            // is a `#[repr(transparent)]` wrapper for `web_sys::Event`.
+            cb as UnsafeCallback<S>
+        }));
+
+        CallbackProduct { closure, cb }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        // Technically we could just write to this box, but since
+        // this is a shared pointer I felt some prudence with `UnsafeCell`
+        // is warranted.
+        unsafe { *p.cb.get() = self.cb }
+    }
+}
+
+impl<F: 'static> Mountable for CallbackProduct<F> {
+    fn el(&self) -> &Element {
+        panic!("Callback is not an element");
+    }
+
+    fn js(&self) -> &JsValue {
+        self.closure.as_ref()
+    }
+}
+
+impl<'a, H> Html for &'a Hook<H>
+where
+    &'a H: Html + 'a,
+{
+    type Product = <&'a H as Html>::Product;
+
+    fn build(self) -> Self::Product {
+        (**self).build()
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        (**self).update(p)
     }
 }

@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 kobold = { path = "../../crates/kobold" }
-serde = { version = "1", features = ["derive"] }
 gloo-storage = "0.2.1"
 
 [dependencies.web-sys]

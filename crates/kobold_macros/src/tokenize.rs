@@ -40,20 +40,25 @@ pub fn each<I>(iter: I) -> TokenizeIter<I> {
     TokenizeIter(iter)
 }
 
-pub trait Tokenize {
-    fn tokenize(self) -> TokenStream;
+pub trait Tokenize: Sized {
+    fn tokenize(self) -> TokenStream {
+        let mut stream = TokenStream::new();
 
-    fn tokenize_in(self, stream: &mut TokenStream)
-    where
-        Self: Sized,
-    {
-        stream.extend(self.tokenize());
+        self.tokenize_in(&mut stream);
+
+        stream
     }
+
+    fn tokenize_in(self, stream: &mut TokenStream);
 }
 
 impl Tokenize for TokenStream {
     fn tokenize(self) -> TokenStream {
         self
+    }
+
+    fn tokenize_in(self, stream: &mut TokenStream) {
+        stream.extend(self)
     }
 }
 
@@ -108,11 +113,19 @@ impl Tokenize for Arguments<'_> {
             TokenStream::from_str(&buf).unwrap()
         })
     }
+
+    fn tokenize_in(self, stream: &mut TokenStream) {
+        stream.extend(self.tokenize())
+    }
 }
 
 impl Tokenize for &str {
     fn tokenize(self) -> TokenStream {
         TokenStream::from_str(self).unwrap()
+    }
+
+    fn tokenize_in(self, stream: &mut TokenStream) {
+        stream.extend(self.tokenize())
     }
 }
 

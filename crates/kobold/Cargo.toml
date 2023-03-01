@@ -1,6 +1,6 @@
 [package]
 name = "kobold"
-version = "0.4.1"
+version = "0.5.0"
 authors = ["Maciej Hirsz <hello@maciej.codes>"]
 edition = "2021"
 license = "LGPL-3.0"
@@ -12,10 +12,11 @@ repository = "https://github.com/maciejhirsz/kobold"
 documentation = "https://docs.rs/kobold"
 
 [dependencies]
+fnv = { version = "1.0.7", default-features = false }
 wasm-bindgen = "0.2.84"
 itoa = "1.0.1"
 ryu = "1.0.12"
-kobold_macros = "0.4.1"
+kobold_macros = "0.5.0"
 console_error_panic_hook = "0.1.7"
 
 [dependencies.web-sys]
