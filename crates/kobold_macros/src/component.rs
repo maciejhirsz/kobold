@@ -256,7 +256,7 @@ impl Tokenize for FnComponent {
             ("", "-> impl Html")
         };
 
-        write!(out, "struct {name}{lifetime}");
+        out.write(("struct", name.clone(), lifetime));
 
         if self.fields.is_empty() {
             out.write(';');
@@ -264,7 +264,7 @@ impl Tokenize for FnComponent {
             out.write(block(each(self.fields)));
         };
 
-        write!(out, "impl{lifetime} {name}{lifetime}");
+        out.write(("impl", lifetime, name, lifetime));
 
         out.write(block((
             fn_render,
