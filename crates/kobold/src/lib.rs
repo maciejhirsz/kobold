@@ -25,7 +25,7 @@
 //!
 //! ### Hello World!
 //!
-//! Any struct that implements a `render` method can be used as a component:
+//! Components in **Kobold** are created by annotating a _render function_ with a [`#[component]`](component) attribute.
 //!
 //! ```no_run
 //! use kobold::prelude::*;
@@ -44,12 +44,12 @@
 //! }
 //! ```
 //!
-//! The `render` method here will return a transient type that contains _only_ the `&'static str` from
-//! the `{ self.name }` expression. Kobold will create a text node for that string, and then send it to
-//! a compiled JavaScript function that will build the `h1` element with the static text around it.
+//! The _render function_ must return a type that implements the [`Html`](Html) trait. Since the [`html!`](html) macro
+//! produces _transient types_, or [_Voldemort types_](https://wiki.dlang.org/Voldemort_types), the best approach
+//! here is to always use the `impl Html` return type.
 //!
-//! Everything is statically typed and the macro doesn't delete any information when manipulating the
-//! token stream, so the Rust compiler can tell you if you've made a mistake:
+//! Everything here is statically typed and the macro doesn't delete any information when manipulating the
+//! token stream, so the Rust compiler can tell you when you've made a mistake:
 //!
 //! ```text
 //! error[E0560]: struct `Hello` has no field named `nam`
@@ -93,7 +93,7 @@
 //! }
 //! ```
 //!
-//! The [`stateful`](stateful::stateful) function above takes two parameters:
+//! The [`stateful`](stateful::stateful) function takes two parameters:
 //!
 //! * State constructor that implements the [`IntoState`](stateful::IntoState) trait. **Kobold** comes with default
 //!   implementations for most primitive types, so we can use `u32` here.
@@ -154,7 +154,8 @@
 //!
 //! This wraps the iterator in the transparent [`List<_>`](list::List) type that implements [`Html`](Html).
 //! On updates the iterator is consumed once and all items are diffed with the previous version.
-//! No allocations are made by **Kobold** unless the rendered list needs to grow past its original capacity.
+//! No allocations are made by **Kobold** when updating such a list, unless the rendered list needs
+//! to grow past its original capacity.
 //!
 //! ### Borrowed values
 //!
@@ -222,9 +223,6 @@
 //!     });
 //! }
 //! ```
-//!
-//! A component can have both `render` and `render_with` methods if you want to
-//! support both styles of invocation.
 //!
 //! ## More examples
 //!
