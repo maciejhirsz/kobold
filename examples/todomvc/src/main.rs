@@ -66,7 +66,7 @@ fn App() -> impl Html {
 }
 
 #[component]
-fn EntryInput(state: &Hook<State>) -> impl Html {
+fn EntryInput(state: &Hook<State>) -> impl Html + '_ {
     html! {
         <input
             .new-todo
@@ -83,7 +83,7 @@ fn EntryInput(state: &Hook<State>) -> impl Html {
 }
 
 #[component]
-fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl Html {
+fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl Html + '_ {
     let onclick = state.bind(move |state, _| state.set_all(active_count != 0));
 
     html! {
@@ -93,7 +93,7 @@ fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl Html {
 }
 
 #[component]
-fn EntryView(idx: usize, entry: &Entry, state: &Hook<State>) -> impl Html {
+fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl Html + 'a {
     let input = entry.editing.then(move || {
         let onmouseover = state.bind(move |_, event: &MouseEvent<InputElement>| {
             let _ = event.target().focus();
@@ -141,7 +141,7 @@ fn EntryView(idx: usize, entry: &Entry, state: &Hook<State>) -> impl Html {
 }
 
 #[component(children)]
-fn FilterView(filter: Filter, state: &Hook<State>, children: impl Html + 'static) -> impl Html {
+fn FilterView<'a>(filter: Filter, state: &'a Hook<State>, children: impl Html + 'a) -> impl Html + 'a {
     let selected = state.filter;
 
     let class = if selected == filter {

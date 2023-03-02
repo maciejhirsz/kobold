@@ -62,6 +62,24 @@ impl Tokenize for TokenStream {
     }
 }
 
+impl<T: Tokenize> Tokenize for Option<T> {
+    fn tokenize_in(self, stream: &mut TokenStream) {
+        if let Some(item) = self {
+            item.tokenize_in(stream)
+        }
+    }
+}
+
+impl<T: Tokenize + Clone> Tokenize for &T {
+    fn tokenize(self) -> TokenStream {
+        self.clone().tokenize()
+    }
+
+    fn tokenize_in(self, stream: &mut TokenStream) {
+        self.clone().tokenize_in(stream);
+    }
+}
+
 pub struct TokenizeIter<I>(I);
 
 impl<I> Tokenize for TokenizeIter<I>

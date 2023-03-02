@@ -1,7 +1,7 @@
 use kobold::prelude::*;
 
 #[component]
-fn Hello(name: &str) -> impl Html {
+fn Hello(name: &str) -> impl Html + '_ {
     html! {
         <h1>"Hello "{ name }"!"</h1>
     }

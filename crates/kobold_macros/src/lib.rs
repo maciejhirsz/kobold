@@ -34,7 +34,11 @@ macro_rules! unwrap_err {
 pub fn component(args: TokenStream, input: TokenStream) -> TokenStream {
     let args = unwrap_err!(fn_component::args(args));
 
-    unwrap_err!(fn_component::component(args, input))
+    let out = unwrap_err!(fn_component::component(args, input));
+
+    // panic!("{out}");
+
+    out
 }
 
 #[allow(clippy::let_and_return)]

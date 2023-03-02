@@ -31,7 +31,7 @@
 //! use kobold::prelude::*;
 //!
 //! #[component]
-//! fn Hello(name: &str) -> impl Html {
+//! fn Hello(name: &str) -> impl Html + '_ {
 //!     html! {
 //!         <h1>"Hello "{ name }"!"</h1>
 //!     }
@@ -166,7 +166,7 @@
 //! ```
 //! # use kobold::prelude::*;
 //! #[component]
-//! fn Users(names: &[&str]) -> impl Html {
+//! fn Users<'a>(names: &'a [&'a str]) -> impl Html + 'a {
 //!     html! {
 //!         <ul>
 //!         {
