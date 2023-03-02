@@ -141,7 +141,11 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl H
 }
 
 #[component(children)]
-fn FilterView<'a>(filter: Filter, state: &'a Hook<State>, children: impl Html + 'a) -> impl Html + 'a {
+fn FilterView<'a>(
+    filter: Filter,
+    state: &'a Hook<State>,
+    children: impl Html + 'a,
+) -> impl Html + 'a {
     let selected = state.filter;
 
     let class = if selected == filter {
