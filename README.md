@@ -33,7 +33,7 @@ Components in **Kobold** are created by annotating a _render function_ with a `#
 use kobold::prelude::*;
 
 #[component]
-fn Hello(name: &str) -> impl Html {
+fn Hello(name: &str) -> impl Html + '_ {
     html! {
         <h1>"Hello "{ name }"!"</h1>
     }
@@ -168,7 +168,7 @@ state without unnecessary clones:
 ```rust
 # use kobold::prelude::*;
 #[component]
-fn Users(names: &[&str]) -> impl Html {
+fn Users<'a>(names: &'a [&'a str]) -> impl Html + 'a {
     html! {
         <ul>
         {
@@ -211,7 +211,7 @@ use kobold::prelude::*;
 
 // Capture children into the argument `n`
 #[component(children: n)]
-fn AddTen(n: i32) -> impl Html {
+fn AddTen(n: i32) -> i32 {
     // integers implement `Html` so they can be passed by value
     n + 10
 }

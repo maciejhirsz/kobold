@@ -1,9 +1,10 @@
-use proc_macro::{Group, Ident, TokenStream, TokenTree};
+use proc_macro::{Ident, TokenStream, TokenTree};
 
 use crate::parse::prelude::*;
 use crate::tokenize::prelude::*;
 
 use crate::branching::Scope;
+use crate::syntax::Generics;
 
 #[derive(Default)]
 pub struct ComponentArgs {
@@ -78,19 +79,21 @@ pub fn args(stream: TokenStream) -> Result<ComponentArgs, ParseError> {
     Ok(args)
 }
 
-#[derive(Debug)]
 struct FnSignature {
     name: Ident,
+    generics: Option<Generics>,
     arguments: Vec<Arg>,
+    ret: TokenStream,
     body: TokenTree,
 }
 
-#[derive(Debug)]
 struct FnComponent {
     name: Ident,
-    fields: Vec<Field>,
+    generics: Option<Generics>,
+    arguments: Vec<Arg>,
+    ret: TokenStream,
     render: TokenStream,
-    children: Option<Field>,
+    children: Option<Arg>,
 }
 
 impl FnComponent {
@@ -102,7 +105,7 @@ impl FnComponent {
                 let children_idx = sig.arguments.iter().position(|arg| arg.name.eq_str(&ident));
 
                 match children_idx {
-                    Some(idx) => Some(sig.arguments.remove(idx).into()),
+                    Some(idx) => Some(sig.arguments.remove(idx)),
                     None => {
                         return Err(ParseError::new(
                             format!(
@@ -123,24 +126,18 @@ impl FnComponent {
 
         Ok(FnComponent {
             name: sig.name,
-            fields: sig.arguments.into_iter().map(Into::into).collect(),
+            generics: sig.generics,
+            arguments: sig.arguments,
+            ret: sig.ret,
             render,
             children,
         })
     }
 }
 
-#[derive(Debug)]
 struct Arg {
     name: Ident,
     ty: TokenStream,
-}
-
-#[derive(Debug)]
-struct Field {
-    name: Ident,
-    ty: TokenStream,
-    lifetime: bool,
 }
 
 impl Parse for FnSignature {
@@ -148,6 +145,13 @@ impl Parse for FnSignature {
         stream.expect("fn")?;
 
         let name = stream.parse()?;
+
+        let generics = if stream.allow('<') {
+            Some(stream.parse()?)
+        } else {
+            None
+        };
+
         let mut arguments = Vec::new();
 
         if let TokenTree::Group(args) = stream.expect('(')? {
@@ -158,18 +162,30 @@ impl Parse for FnSignature {
             }
         }
 
-        stream.expect('-')?;
-        stream.expect('>')?;
-        stream.expect("impl")?;
-        stream.expect("Html")?;
+        let mut body = None;
 
-        let body = stream.expect('{')?;
+        let ret = stream
+            .map_while(|tt| {
+                if tt.is('{') {
+                    body = Some(tt);
 
-        Ok(FnSignature {
-            name,
-            arguments,
-            body,
-        })
+                    None
+                } else {
+                    Some(tt)
+                }
+            })
+            .collect();
+
+        match body {
+            Some(body) => Ok(FnSignature {
+                name,
+                generics,
+                arguments,
+                ret,
+                body,
+            }),
+            None => Err(ParseError::new("Missing body for function", name.span())),
+        }
     }
 }
 
@@ -185,97 +201,71 @@ impl Parse for Arg {
     }
 }
 
-impl From<Arg> for Field {
-    fn from(arg: Arg) -> Field {
-        let mut lifetime = false;
-
-        fn substitute_lifetimes(stream: &mut ParseStream, lifetime: &mut bool) -> TokenStream {
-            let mut out = TokenStream::new();
-
-            while let Some(mut token) = stream.next() {
-                if token.is(',') {
-                    break;
-                }
-
-                if token.is('&') && !stream.allow('\'') {
-                    *lifetime = true;
-
-                    out.write((token, "'a"));
-                    continue;
-                }
-
-                if let TokenTree::Group(g) = &mut token {
-                    let mut group_stream = g.stream().parse_stream();
-
-                    *g = Group::new(
-                        g.delimiter(),
-                        substitute_lifetimes(&mut group_stream, lifetime),
-                    );
-                }
-
-                out.write(token);
-            }
-
-            out
-        }
-
-        let ty = substitute_lifetimes(&mut arg.ty.parse_stream(), &mut lifetime);
-
-        Field {
-            name: arg.name,
-            ty,
-            lifetime,
-        }
-    }
-}
-
 impl Tokenize for FnComponent {
     fn tokenize_in(self, out: &mut TokenStream) {
-        let mut destruct = TokenStream::new();
-        let mut field_iter = self.fields.iter();
+        let name = &self.name;
 
-        if let Some(first) = field_iter.next() {
-            destruct.write(first.name.clone());
-
-            for field in field_iter {
-                destruct.write((',', field.name.clone()));
-            }
-
-            destruct = ("let Self", block(destruct), " = self;").tokenize();
-        }
-
-        let name = self.name;
-
-        let (fn_render, args) = match self.children {
-            Some(children) => ("pub fn render_with", ("self,", children).tokenize()),
-            None => ("pub fn render", "self".tokenize()),
-        };
-        let (lifetime, ret) = if self.fields.iter().any(|field| field.lifetime) {
-            ("<'a>", "-> impl Html + 'a")
+        let mut args = if self.arguments.is_empty() {
+            ("_:", name).tokenize()
         } else {
-            ("", "-> impl Html")
+            let destruct = (name, block(each(self.arguments.iter().map(Arg::name))));
+            let props_ty = (name, '<', each(self.arguments.iter().map(Arg::ty)), '>');
+
+            (destruct, ':', props_ty).tokenize()
         };
 
-        out.write(("struct", name.clone(), lifetime));
+        let fn_render = match self.children {
+            Some(children) => {
+                args.write((',', children));
+                "pub fn render_with"
+            }
+            None => "pub fn render",
+        };
 
-        if self.fields.is_empty() {
+        out.write(("#[allow(non_camel_case_types)]", "struct", name));
+
+        if self.arguments.is_empty() {
             out.write(';');
         } else {
-            out.write(block(each(self.fields)));
+            out.write((
+                '<',
+                each(self.arguments.iter().map(Arg::generic)).tokenize(),
+                '>',
+                block(each(self.arguments.iter().map(Arg::field))),
+            ));
         };
 
-        out.write(("impl", lifetime, name, lifetime));
+        out.write(("impl", name));
 
         out.write(block((
             fn_render,
+            self.generics,
             group('(', args),
-            ret,
-            block((destruct, self.render)),
+            self.ret,
+            block(self.render),
         )));
     }
 }
 
-impl Tokenize for Field {
+impl Arg {
+    fn ty(&self) -> impl Tokenize + '_ {
+        (&self.ty, ',')
+    }
+
+    fn name(&self) -> impl Tokenize + '_ {
+        (&self.name, ',')
+    }
+
+    fn generic(&self) -> impl Tokenize + '_ {
+        (&self.name, "=(),")
+    }
+
+    fn field(&self) -> impl Tokenize + '_ {
+        (&self.name, ':', &self.name, ',')
+    }
+}
+
+impl Tokenize for Arg {
     fn tokenize_in(self, stream: &mut TokenStream) {
         stream.write((self.name, ':', self.ty, ','))
     }

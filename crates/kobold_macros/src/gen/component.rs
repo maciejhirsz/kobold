@@ -6,12 +6,19 @@ use crate::tokenize::prelude::*;
 
 impl Component {
     fn into_expression(self) -> TokenStream {
-        let mut stream = self.path;
+        let mut render = self.path.clone();
+
+        render.write(if self.children.is_some() {
+            "::render_with"
+        } else {
+            "::render"
+        });
 
         if let Some(generics) = self.generics {
-            stream.write(("::", generics));
+            render.write(("::", generics));
         }
 
+        let mut params = self.path;
         let mut props = None;
 
         for Property { name, expr } in self.props {
@@ -27,18 +34,16 @@ impl Component {
         }
 
         if let Some(props) = props {
-            stream.write(block(props));
+            params.write(block(props));
         }
 
         if let Some(children) = self.children {
             let children = crate::gen::generate(children);
 
-            stream.write(call(".render_with", children));
-        } else {
-            stream.write(".render()");
+            params.write((',', children));
         }
 
-        stream
+        call(render, params)
     }
 }
 

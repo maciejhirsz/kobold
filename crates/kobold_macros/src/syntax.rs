@@ -43,6 +43,16 @@ impl Parse for Generics {
     }
 }
 
+impl Tokenize for Generics {
+    fn tokenize(self) -> TokenStream {
+        self.tokens
+    }
+
+    fn tokenize_in(self, stream: &mut TokenStream) {
+        stream.extend(self.tokens);
+    }
+}
+
 /// CSS-style label, matches sequences of identifiers with dashes allowed.
 pub struct CssLabel {
     pub label: String,
