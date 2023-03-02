@@ -209,7 +209,7 @@
 //!
 //! // Capture children into the argument `n`
 //! #[component(children: n)]
-//! fn AddTen(n: i32) -> impl Html {
+//! fn AddTen(n: i32) -> i32 {
 //!     // integers implement `Html` so they can be passed by value
 //!     n + 10
 //! }
