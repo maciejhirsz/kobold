@@ -15,7 +15,7 @@ pub struct ComponentArgs {
 pub fn component(args: ComponentArgs, stream: TokenStream) -> Result<TokenStream, ParseError> {
     let mut stream = stream.parse_stream();
 
-    let sig: FnSignature = stream.parse()?;
+    let sig: Function = stream.parse()?;
     let mut component = FnComponent::new(&args, sig)?;
 
     if args.branching.is_some() {
@@ -79,33 +79,35 @@ pub fn args(stream: TokenStream) -> Result<ComponentArgs, ParseError> {
     Ok(args)
 }
 
-struct FnSignature {
+struct Function {
+    public: Option<TokenStream>,
     name: Ident,
     generics: Option<Generics>,
-    arguments: Vec<Arg>,
+    arguments: Vec<Argument>,
     ret: TokenStream,
     body: TokenTree,
 }
 
 struct FnComponent {
+    public: Option<TokenStream>,
     name: Ident,
     generics: Option<Generics>,
-    arguments: Vec<Arg>,
+    arguments: Vec<Argument>,
     ret: TokenStream,
     render: TokenStream,
-    children: Option<Arg>,
+    children: Option<Argument>,
 }
 
 impl FnComponent {
-    fn new(args: &ComponentArgs, mut sig: FnSignature) -> Result<FnComponent, ParseError> {
+    fn new(args: &ComponentArgs, mut fun: Function) -> Result<FnComponent, ParseError> {
         let children = match &args.children {
             Some(children) => {
                 let ident = children.to_string();
 
-                let children_idx = sig.arguments.iter().position(|arg| arg.name.eq_str(&ident));
+                let children_idx = fun.arguments.iter().position(|arg| arg.name.eq_str(&ident));
 
                 match children_idx {
-                    Some(idx) => Some(sig.arguments.remove(idx)),
+                    Some(idx) => Some(fun.arguments.remove(idx)),
                     None => {
                         return Err(ParseError::new(
                             format!(
@@ -119,29 +121,36 @@ impl FnComponent {
             None => None,
         };
 
-        let render = match sig.body {
+        let render = match fun.body {
             TokenTree::Group(group) => group.stream(),
             tt => tt.into(),
         };
 
         Ok(FnComponent {
-            name: sig.name,
-            generics: sig.generics,
-            arguments: sig.arguments,
-            ret: sig.ret,
+            public: fun.public,
+            name: fun.name,
+            generics: fun.generics,
+            arguments: fun.arguments,
+            ret: fun.ret,
             render,
             children,
         })
     }
 }
 
-struct Arg {
+struct Argument {
     name: Ident,
     ty: TokenStream,
 }
 
-impl Parse for FnSignature {
+impl Parse for Function {
     fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
+        let public = stream.allow_consume("pub").map(|tt| {
+            let mut public = TokenStream::from(tt);
+            public.extend(stream.allow_consume('('));
+            public
+        });
+
         stream.expect("fn")?;
 
         let name = stream.parse()?;
@@ -177,7 +186,8 @@ impl Parse for FnSignature {
             .collect();
 
         match body {
-            Some(body) => Ok(FnSignature {
+            Some(body) => Ok(Function {
+                public,
                 name,
                 generics,
                 arguments,
@@ -189,7 +199,7 @@ impl Parse for FnSignature {
     }
 }
 
-impl Parse for Arg {
+impl Parse for Argument {
     fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
         let name = stream.parse()?;
 
@@ -197,7 +207,7 @@ impl Parse for Arg {
 
         let ty = stream.take_while(|token| !token.is(',')).collect();
 
-        Ok(Arg { name, ty })
+        Ok(Argument { name, ty })
     }
 }
 
@@ -208,8 +218,13 @@ impl Tokenize for FnComponent {
         let mut args = if self.arguments.is_empty() {
             ("_:", name).tokenize()
         } else {
-            let destruct = (name, block(each(self.arguments.iter().map(Arg::name))));
-            let props_ty = (name, '<', each(self.arguments.iter().map(Arg::ty)), '>');
+            let destruct = (name, block(each(self.arguments.iter().map(Argument::name))));
+            let props_ty = (
+                name,
+                '<',
+                each(self.arguments.iter().map(Argument::ty)),
+                '>',
+            );
 
             (destruct, ':', props_ty).tokenize()
         };
@@ -222,16 +237,21 @@ impl Tokenize for FnComponent {
             None => "pub fn render",
         };
 
-        out.write(("#[allow(non_camel_case_types)]", "struct", name));
+        out.write((
+            "#[allow(non_camel_case_types)]",
+            self.public,
+            "struct",
+            name,
+        ));
 
         if self.arguments.is_empty() {
             out.write(';');
         } else {
             out.write((
                 '<',
-                each(self.arguments.iter().map(Arg::generic)).tokenize(),
+                each(self.arguments.iter().map(Argument::generic)).tokenize(),
                 '>',
-                block(each(self.arguments.iter().map(Arg::field))),
+                block(each(self.arguments.iter().map(Argument::field))),
             ));
         };
 
@@ -247,7 +267,7 @@ impl Tokenize for FnComponent {
     }
 }
 
-impl Arg {
+impl Argument {
     fn ty(&self) -> impl Tokenize + '_ {
         (&self.ty, ',')
     }
@@ -261,11 +281,11 @@ impl Arg {
     }
 
     fn field(&self) -> impl Tokenize + '_ {
-        (&self.name, ':', &self.name, ',')
+        ("pub", &self.name, ':', &self.name, ',')
     }
 }
 
-impl Tokenize for Arg {
+impl Tokenize for Argument {
     fn tokenize_in(self, stream: &mut TokenStream) {
         stream.write((self.name, ':', self.ty, ','))
     }
