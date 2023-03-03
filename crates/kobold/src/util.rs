@@ -1,6 +1,20 @@
 use wasm_bindgen::prelude::*;
 use web_sys::Node;
 
+use crate::Html;
+
+pub struct Static<T>(pub T);
+
+impl<H: Html> Html for Static<H> {
+    type Product = H::Product;
+
+    fn build(self) -> H::Product {
+        self.0.build()
+    }
+
+    fn update(self, _: &mut H::Product) {}
+}
+
 #[wasm_bindgen(module = "/js/util.js")]
 extern "C" {
     pub(crate) fn __kobold_start(node: &JsValue);
@@ -22,10 +36,7 @@ extern "C" {
 
     pub(crate) fn __kobold_update_text(node: &Node, t: &str);
 
-    pub(crate) fn __kobold_create_div() -> Node;
-
     pub(crate) fn __kobold_attr(name: &str, value: &str) -> Node;
-
     pub(crate) fn __kobold_attr_class(value: &str) -> Node;
     pub(crate) fn __kobold_attr_style(value: &str) -> Node;
     pub(crate) fn __kobold_attr_update(node: &Node, value: &str);

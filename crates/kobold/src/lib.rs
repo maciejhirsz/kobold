@@ -286,7 +286,6 @@ pub use kobold_macros::html;
 use wasm_bindgen::JsValue;
 
 mod render_fn;
-mod util;
 mod value;
 
 pub mod attribute;
@@ -295,6 +294,7 @@ pub mod dom;
 pub mod event;
 pub mod list;
 pub mod stateful;
+pub mod util;
 
 /// The prelude module with most commonly used types
 pub mod prelude {

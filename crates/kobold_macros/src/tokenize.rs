@@ -62,6 +62,16 @@ impl Tokenize for TokenStream {
     }
 }
 
+impl Tokenize for ParseStream {
+    fn tokenize(self) -> TokenStream {
+        self.collect()
+    }
+
+    fn tokenize_in(self, stream: &mut TokenStream) {
+        stream.extend(self);
+    }
+}
+
 impl<T: Tokenize> Tokenize for Option<T> {
     fn tokenize_in(self, stream: &mut TokenStream) {
         if let Some(item) = self {

@@ -9,7 +9,7 @@ use state::*;
 
 #[component(auto_branch)]
 fn App() -> impl Html {
-    stateful(State::load, |state| {
+    stateful(State::default, |state| {
         let hidden = state.entries.is_empty().then_some("hidden");
 
         let active_count = state.count_active();
@@ -46,9 +46,9 @@ fn App() -> impl Html {
                             { left }
                         </span>
                         <ul .filters>
-                            <FilterView filter={Filter::All} {state}>"All"</FilterView>
-                            <FilterView filter={Filter::Active} {state}>"Active"</FilterView>
-                            <FilterView filter={Filter::Completed} {state}>"Completed"</FilterView>
+                            <FilterView filter={Filter::All} {state} />
+                            <FilterView filter={Filter::Active} {state} />
+                            <FilterView filter={Filter::Completed} {state} />
                         </ul>
                         <button .clear-completed.{completed_hidden} onclick={clear}>
                             "Clear completed"
@@ -140,21 +140,17 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl H
     }
 }
 
-#[component(children: label)]
-fn FilterView<'a>(filter: Filter, state: &'a Hook<State>, label: impl Html + 'a) -> impl Html + 'a {
+#[component]
+fn FilterView(filter: Filter, state: &Hook<State>) -> impl Html + '_ {
     let selected = state.filter;
 
-    let class = if selected == filter {
-        "selected"
-    } else {
-        "not-selected"
-    };
+    let class = (selected == filter).then_some("selected");
     let href = filter.to_href();
     let onclick = state.bind(move |state, _| state.filter = filter);
 
     html! {
         <li>
-            <a {class} {href} {onclick}>{ label }</a>
+            <a {class} {href} {onclick}>{ static filter.to_label() }</a>
         </li>
     }
 }
