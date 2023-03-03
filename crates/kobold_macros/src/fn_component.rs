@@ -1,4 +1,4 @@
-use proc_macro::{Ident, TokenStream, TokenTree, Span};
+use proc_macro::{Ident, TokenStream, TokenTree};
 
 use crate::parse::prelude::*;
 use crate::tokenize::prelude::*;
