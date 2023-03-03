@@ -147,31 +147,8 @@ macro_rules! impl_stringify {
     };
 }
 
-#[derive(PartialEq, Eq)]
-pub struct StringHash {
-    hash: u64,
-}
-
-impl From<&str> for StringHash {
-    fn from(s: &str) -> StringHash {
-        let hash = if s.len() > 32 {
-            (s.len() as u64) | ((s.as_ptr() as u64) << 32)
-        } else {
-            use std::hash::{Hash, Hasher};
-
-            let mut hasher = fnv::FnvHasher::default();
-
-            s.hash(&mut hasher);
-
-            hasher.finish()
-        };
-
-        StringHash { hash }
-    }
-}
-
 impl Html for &str {
-    type Product = ValueProduct<StringHash>;
+    type Product = ValueProduct<String>;
 
     fn build(self) -> Self::Product {
         let el = Element::new_text(self);
@@ -183,17 +160,15 @@ impl Html for &str {
     }
 
     fn update(self, p: &mut Self::Product) {
-        let new = self.into();
-
-        if p.value != new {
-            p.value = new;
+        if p.value != self {
+            p.value.replace_range(.., self);
             p.el.set_text(self);
         }
     }
 }
 
 impl Html for &&str {
-    type Product = ValueProduct<StringHash>;
+    type Product = ValueProduct<String>;
 
     fn build(self) -> Self::Product {
         Html::build(*self)
@@ -213,7 +188,7 @@ impl IntoState for &str {
 
     fn update(self, state: &mut String) -> ShouldRender {
         if *state != self {
-            state.replace_range(.., self);
+            self.clone_into(state);
             ShouldRender::Yes
         } else {
             ShouldRender::No

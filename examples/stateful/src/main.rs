@@ -34,7 +34,7 @@ fn App() -> impl Html {
         // when no changes in DOM are necessary is always a good idea.
         let alice = state.bind(|state, _| {
             if state.name != "Alice" {
-                state.name.replace_range(.., "Alice");
+                "Alice".clone_into(&mut state.name);
                 ShouldRender::Yes
             } else {
                 ShouldRender::No

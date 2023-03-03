@@ -313,7 +313,7 @@ pub mod reexport {
 }
 
 /// Trait that describes types that can be rendered in the DOM.
-pub trait Html: Sized {
+pub trait Html {
     /// HTML product of this type, this is effectively the strongly-typed
     /// virtual DOM equivalent for Kobold.
     type Product: Mountable;

@@ -5,7 +5,7 @@ use std::ops::Deref;
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
-use crate::util;
+use crate::{util, Mountable};
 
 #[derive(Clone)]
 pub struct Element {
@@ -107,6 +107,12 @@ impl Element {
             Kind::Element => util::__kobold_unmount(&self.node),
             Kind::Fragment => util::__kobold_fragment_unmount(&self.node),
         }
+    }
+}
+
+impl Mountable for Element {
+    fn el(&self) -> &Element {
+        self
     }
 }
 

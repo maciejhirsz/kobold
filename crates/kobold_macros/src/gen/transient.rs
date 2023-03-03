@@ -18,8 +18,40 @@ pub struct Transient {
     pub els: Vec<Short>,
 }
 
+impl Transient {
+    fn is_const(&self) -> bool {
+        let jsfn = match self.js.functions.get(0) {
+            Some(fun) => fun,
+            None => return false,
+        };
+
+        self.fields.is_empty()
+            && self.els.len() == 1
+            && self.js.functions.len() == 1
+            && jsfn.constructor == "Element::new"
+            && jsfn.args.is_empty()
+    }
+
+    fn tokenize_const(self, stream: &mut TokenStream) {
+        let JsFunction { name, .. } = self.js.functions[0];
+
+        block((
+            "use ::kobold::reexport::wasm_bindgen;",
+            self.js,
+            format_args!("::kobold::util::Const::new({name})"),
+        ))
+        .tokenize_in(stream)
+    }
+}
+
 impl Tokenize for Transient {
     fn tokenize_in(mut self, stream: &mut TokenStream) {
+        if self.is_const() {
+            self.tokenize_const(stream);
+            return;
+        }
+        // self.el_product();
+
         if self.els.is_empty() {
             return match self.fields.remove(0) {
                 Field::Html { value, .. } | Field::Attribute { value, .. } => {
@@ -93,13 +125,22 @@ impl Tokenize for Transient {
             self.js,
             format_args!(
                 "\
-                    struct Transient <{generics}> {{\
-                        {declare}\
-                    }}\
-                    \
                     struct TransientProduct <{generics}> {{\
                         {declare}\
                         {declare_els}\
+                    }}\
+                    \
+                    impl<{generics}> ::kobold::Mountable for TransientProduct<{generics}>\
+                    where \
+                        Self: 'static,\
+                    {{\
+                        fn el(&self) -> &::kobold::dom::Element {{\
+                            &self.e0\
+                        }}\
+                    }}\
+                    \
+                    struct Transient <{generics}> {{\
+                        {declare}\
                     }}\
                     \
                     impl<{abi_lifetime}{generics}> ::kobold::Html for Transient<{generics}>\
@@ -118,15 +159,6 @@ impl Tokenize for Transient {
                         \
                         fn update(self, p: &mut Self::Product) {{\
                             {update}\
-                        }}\
-                    }}\
-                    \
-                    impl<{generics}> ::kobold::Mountable for TransientProduct<{generics}>\
-                    where \
-                        Self: 'static,\
-                    {{\
-                        fn el(&self) -> &::kobold::dom::Element {{\
-                            &self.e0\
                         }}\
                     }}\
                     \
