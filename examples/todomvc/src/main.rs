@@ -10,10 +10,12 @@ use state::*;
 #[component]
 fn App() -> impl Html {
     stateful(State::default, |state| {
-        let hidden = state.entries.is_empty().then_some("hidden");
+        let hidden = state.entries.is_empty().class("hidden").no_diff();
 
         let active_count = state.count_active();
-        let completed_hidden = (state.entries.len() == active_count).then_some("hidden");
+        let completed_hidden = (state.entries.len() == active_count)
+            .class("hidden")
+            .no_diff();
 
         let clear = state.bind(|state, _| state.entries.retain(|entry| !entry.completed));
 
@@ -124,8 +126,8 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl H
     });
 
     let onchange = state.bind(move |state, _| state.toggle(idx));
-    let editing = entry.editing.then_some("editing");
-    let completed = entry.completed.then_some("completed");
+    let editing = entry.editing.class("editing").no_diff();
+    let completed = entry.completed.class("completed").no_diff();
 
     html! {
         <li .todo.{editing}.{completed}>
@@ -145,7 +147,7 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl H
 fn FilterView(filter: Filter, state: &Hook<State>) -> impl Html + '_ {
     let selected = state.filter;
 
-    let class = (selected == filter).then_some("selected");
+    let class = (selected == filter).class("selected").no_diff();
     let href = filter.href().no_diff();
     let onclick = state.bind(move |state, _| state.filter = filter);
 

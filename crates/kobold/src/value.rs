@@ -55,8 +55,9 @@ pub trait Stringify {
     }
 }
 
+#[derive(Clone, Copy)]
 #[repr(transparent)]
-pub struct NoDiff<T>(T);
+pub struct NoDiff<T>(pub(crate) T);
 
 impl<T> Deref for NoDiff<T> {
     type Target = T;

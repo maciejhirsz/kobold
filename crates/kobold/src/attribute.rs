@@ -1,5 +1,4 @@
 //! Utilities for dealing with DOM attributes
-
 use wasm_bindgen::convert::IntoWasmAbi;
 use wasm_bindgen::JsValue;
 
@@ -137,9 +136,10 @@ impl Html for AttributeNode<FastDiff<'_>> {
 /// A class that interacts with `classList` property of an element
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/API/Element/classList>
-pub struct Class(&'static str);
+#[repr(transparent)]
+pub struct Class<T>(T);
 
-impl From<&'static str> for Class {
+impl From<&'static str> for Class<&'static str> {
     fn from(class: &'static str) -> Self {
         debug_assert!(
             !class.chars().any(|c| c == ' '),
@@ -150,13 +150,58 @@ impl From<&'static str> for Class {
     }
 }
 
-impl From<Option<&'static str>> for Class {
+impl From<Option<&'static str>> for Class<&'static str> {
     fn from(class: Option<&'static str>) -> Self {
         Class::from(class.unwrap_or_default())
     }
 }
 
-impl Attribute for Class {
+#[derive(Clone, Copy)]
+pub struct OptionalClass<'a> {
+    on: bool,
+    class: &'a str,
+}
+
+impl<'a> OptionalClass<'a> {
+    pub const fn no_diff(self) -> NoDiff<Self> {
+        NoDiff(self)
+    }
+
+    fn get(&self) -> &'a str {
+        if self.on {
+            self.class
+        } else {
+            ""
+        }
+    }
+}
+
+pub trait BoolExt {
+    fn class(self, class: &str) -> OptionalClass;
+}
+
+impl BoolExt for bool {
+    fn class(self, class: &str) -> OptionalClass {
+        OptionalClass {
+            on: self,
+            class,
+        }
+    }
+}
+
+impl<'a> From<OptionalClass<'a>> for Class<OptionalClass<'a>> {
+    fn from(class: OptionalClass<'a>) -> Self {
+        Class(class)
+    }
+}
+
+impl<'a> From<NoDiff<OptionalClass<'a>>> for Class<NoDiff<OptionalClass<'a>>> {
+    fn from(class: NoDiff<OptionalClass<'a>>) -> Self {
+        Class(class)
+    }
+}
+
+impl Attribute for Class<&'static str> {
     type Abi = &'static str;
     type Product = &'static str;
 
@@ -179,24 +224,52 @@ impl Attribute for Class {
     }
 }
 
+impl<'a> Attribute for Class<NoDiff<OptionalClass<'a>>> {
+    type Abi = &'a str;
+    type Product = bool;
+
+    fn js(&self) -> Self::Abi {
+        self.0.get()
+    }
+
+    fn build(self) -> Self::Product {
+        self.0.on
+    }
+
+    fn update(self, p: &mut Self::Product, js: &JsValue) {
+        match (self.0.0.on, *p) {
+            (true, true) | (false, false) => return,
+            (true, false) => util::__kobold_class_add(js, self.0.class),
+            (false, true) => util::__kobold_class_remove(js, self.0.class),
+        }
+        *p = self.0.0.on;
+    }
+}
+
 /// A single `className` attribute, spaces are permitted
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/API/Element/className>
-pub struct ClassName(&'static str);
+pub struct ClassName<T>(T);
 
-impl From<&'static str> for ClassName {
+impl From<&'static str> for ClassName<&'static str> {
     fn from(class: &'static str) -> Self {
         ClassName(class)
     }
 }
 
-impl From<Option<&'static str>> for ClassName {
+impl From<Option<&'static str>> for ClassName<&'static str> {
     fn from(class: Option<&'static str>) -> Self {
         ClassName(class.unwrap_or_default())
     }
 }
 
-impl Attribute for ClassName {
+impl<'a> From<NoDiff<OptionalClass<'a>>> for ClassName<NoDiff<OptionalClass<'a>>> {
+    fn from(class: NoDiff<OptionalClass<'a>>) -> Self {
+        ClassName(class)
+    }
+}
+
+impl Attribute for ClassName<&'static str> {
     type Abi = &'static str;
     type Product = &'static str;
 
@@ -212,6 +285,26 @@ impl Attribute for ClassName {
         if self.0 != *p {
             util::__kobold_class_set(js, self.0);
             *p = self.0;
+        }
+    }
+}
+
+impl<'a> Attribute for ClassName<NoDiff<OptionalClass<'a>>> {
+    type Abi = &'a str;
+    type Product = bool;
+
+    fn js(&self) -> Self::Abi {
+        self.0.get()
+    }
+
+    fn build(self) -> Self::Product {
+        self.0.on
+    }
+
+    fn update(self, p: &mut Self::Product, js: &JsValue) {
+        if self.0.on != *p {
+            util::__kobold_class_set(js, self.0.get());
+            *p = self.0.on;
         }
     }
 }
