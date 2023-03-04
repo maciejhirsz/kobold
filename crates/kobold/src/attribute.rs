@@ -11,29 +11,13 @@ pub use crate::stateful::Callback;
 
 pub trait Attribute {
     type Abi: IntoWasmAbi;
+    type Product: 'static;
 
-    type Product: AttributeProduct<Abi = Self::Abi>;
+    fn js(&self) -> Self::Abi;
 
     fn build(self) -> Self::Product;
 
     fn update(self, p: &mut Self::Product, el: &JsValue);
-}
-
-pub trait AttributeProduct: 'static {
-    type Abi: IntoWasmAbi;
-
-    fn js(&self) -> Self::Abi;
-}
-
-impl<T> AttributeProduct for T
-where
-    T: IntoWasmAbi + Copy + 'static,
-{
-    type Abi = Self;
-
-    fn js(&self) -> Self::Abi {
-        *self
-    }
 }
 
 pub struct AttributeNode<V> {
@@ -174,8 +158,11 @@ impl From<Option<&'static str>> for Class {
 
 impl Attribute for Class {
     type Abi = &'static str;
-
     type Product = &'static str;
+
+    fn js(&self) -> Self::Abi {
+        self.0
+    }
 
     fn build(self) -> Self::Product {
         self.0
@@ -211,8 +198,11 @@ impl From<Option<&'static str>> for ClassName {
 
 impl Attribute for ClassName {
     type Abi = &'static str;
-
     type Product = &'static str;
+
+    fn js(&self) -> Self::Abi {
+        self.0
+    }
 
     fn build(self) -> Self::Product {
         self.0
@@ -231,8 +221,11 @@ pub struct Checked(pub bool);
 
 impl Attribute for Checked {
     type Abi = bool;
-
     type Product = bool;
+
+    fn js(&self) -> Self::Abi {
+        self.0
+    }
 
     fn build(self) -> Self::Product {
         self.0

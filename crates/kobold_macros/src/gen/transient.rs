@@ -75,7 +75,6 @@ impl Tokenize for Transient {
         let mut vars = String::new();
 
         for field in self.fields.iter() {
-            let (name, _) = field.name_value();
             let typ = field.make_type();
 
             let _ = write!(generics, "{typ},");
@@ -85,8 +84,7 @@ impl Tokenize for Transient {
             field.build(&mut build);
             field.update(&mut update);
             field.declare(&mut declare);
-
-            let _ = write!(vars, "{name},");
+            field.var(&mut vars);
         }
 
         let mut declare_els = String::new();
@@ -119,7 +117,6 @@ impl Tokenize for Transient {
         block((
             "\
                 use ::kobold::{Mountable as _};\
-                use ::kobold::attribute::{AttributeProduct as _};\
                 use ::kobold::reexport::wasm_bindgen;\
                 ",
             self.js,
@@ -354,9 +351,25 @@ impl Field {
     }
 
     fn build(&self, buf: &mut String) {
-        let (name, _) = self.name_value();
+        match self {
+            Field::Html { name, .. } => {
+                let _ = write!(buf, "let {name} = self.{name}.build();");
+            }
+            Field::Attribute { name, .. } => {
+                let _ = write!(buf, "let {name} = self.{name};");
+            }
+        }
+    }
 
-        let _ = write!(buf, "let {name} = self.{name}.build();");
+    fn var(&self, buf: &mut String) {
+        match self {
+            Field::Html { name, .. } => {
+                let _ = write!(buf, "{name},");
+            }
+            Field::Attribute { name, .. } => {
+                let _ = write!(buf, "{name}: {name}.build(),");
+            }
+        }
     }
 
     fn update(&self, buf: &mut String) {
