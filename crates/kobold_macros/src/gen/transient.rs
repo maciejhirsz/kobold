@@ -341,11 +341,7 @@ impl Field {
 
                 let abi = abi.deref();
 
-                let _ = write!(
-                    buf,
-                    "{typ}: ::kobold::attribute::Attribute,\
-                    {typ}::Product: ::kobold::attribute::AttributeProduct<Abi = {abi}>,"
-                );
+                let _ = write!(buf, "{typ}: ::kobold::attribute::Attribute<Abi = {abi}>,");
             }
         }
     }

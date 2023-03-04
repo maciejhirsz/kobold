@@ -10,7 +10,9 @@ use crate::{Element, Html, Mountable};
 pub use crate::stateful::Callback;
 
 pub trait Attribute {
-    type Product: AttributeProduct;
+    type Abi: IntoWasmAbi;
+
+    type Product: AttributeProduct<Abi = Self::Abi>;
 
     fn build(self) -> Self::Product;
 
@@ -171,6 +173,8 @@ impl From<Option<&'static str>> for Class {
 }
 
 impl Attribute for Class {
+    type Abi = &'static str;
+
     type Product = &'static str;
 
     fn build(self) -> Self::Product {
@@ -206,6 +210,8 @@ impl From<Option<&'static str>> for ClassName {
 }
 
 impl Attribute for ClassName {
+    type Abi = &'static str;
+
     type Product = &'static str;
 
     fn build(self) -> Self::Product {
@@ -224,6 +230,8 @@ impl Attribute for ClassName {
 pub struct Checked(pub bool);
 
 impl Attribute for Checked {
+    type Abi = bool;
+
     type Product = bool;
 
     fn build(self) -> Self::Product {
