@@ -3,7 +3,6 @@ use std::fmt::{self, Debug};
 use proc_macro::{Group, Span, TokenStream, TokenTree};
 
 use crate::dom::Node;
-use crate::parse::IteratorExt;
 use crate::tokenize::prelude::*;
 
 pub struct Expression {
@@ -38,16 +37,8 @@ impl From<TokenTree> for Expression {
 
 impl From<Group> for Expression {
     fn from(group: Group) -> Self {
-        let mut stream = group.stream().parse_stream();
-
-        let stream = if stream.allow_consume("static").is_some() {
-            call("::kobold::util::Static", stream).tokenize()
-        } else {
-            stream.collect()
-        };
-
         Expression {
-            stream,
+            stream: group.stream(),
             span: group.span(),
         }
     }

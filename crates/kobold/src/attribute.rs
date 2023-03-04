@@ -4,7 +4,7 @@ use wasm_bindgen::convert::IntoWasmAbi;
 use wasm_bindgen::JsValue;
 
 use crate::util;
-use crate::value::Stringify;
+use crate::value::{FastDiff, NoDiff, Stringify};
 use crate::{Element, Html, Mountable};
 
 pub use crate::stateful::Callback;
@@ -108,6 +108,42 @@ where
             self.value
                 .stringify(|s| util::__kobold_attr_update(&p.el.node, s));
             p.value = self.value;
+        }
+    }
+}
+
+impl<S> Html for AttributeNode<NoDiff<S>>
+where
+    S: Stringify,
+{
+    type Product = Element;
+
+    fn build(self) -> Self::Product {
+        let node = self.value.stringify(|s| util::__kobold_attr(self.name, s));
+
+        Element::new(node)
+    }
+
+    fn update(self, _: &mut Self::Product) {}
+}
+
+impl Html for AttributeNode<FastDiff<'_>> {
+    type Product = AttributeNodeProduct<usize>;
+
+    fn build(self) -> Self::Product {
+        let node = util::__kobold_attr(self.name, &self.value);
+        let el = Element::new(node);
+
+        AttributeNodeProduct {
+            value: self.value.as_ptr() as usize,
+            el,
+        }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        if p.value != self.value.as_ptr() as usize {
+            util::__kobold_attr_update(&p.el.node, &self.value);
+            p.value = self.value.as_ptr() as usize;
         }
     }
 }

@@ -299,8 +299,9 @@ pub mod util;
 /// The prelude module with most commonly used types
 pub mod prelude {
     pub use crate::event::{KeyboardEvent, MouseEvent, UntypedEvent};
-    pub use crate::list::ListIteratorExt;
+    pub use crate::list::ListIteratorExt as _;
     pub use crate::stateful::{stateful, Hook, IntoState, OwnedHook, ShouldRender};
+    pub use crate::value::{StrExt as _, Stringify as _};
     pub use crate::{component, html, Html};
 }
 

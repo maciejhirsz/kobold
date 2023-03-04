@@ -1,8 +1,8 @@
 use wasm_bindgen::prelude::*;
 use web_sys::Node;
 
-use crate::{Html, Mountable};
 use crate::dom::Element;
+use crate::{Html, Mountable};
 
 pub struct Const<F>(F);
 
@@ -52,7 +52,6 @@ impl Html for fn() -> Node {
             p.el = new;
             p.render = self;
         }
-
     }
 }
 

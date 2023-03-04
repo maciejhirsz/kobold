@@ -7,18 +7,13 @@ mod state;
 use filter::Filter;
 use state::*;
 
-#[component(auto_branch)]
+#[component]
 fn App() -> impl Html {
     stateful(State::default, |state| {
         let hidden = state.entries.is_empty().then_some("hidden");
 
         let active_count = state.count_active();
         let completed_hidden = (state.entries.len() == active_count).then_some("hidden");
-
-        let left = match active_count {
-            1 => html!(" item left"),
-            _ => html!(" items left"),
-        };
 
         let clear = state.bind(|state, _| state.entries.retain(|entry| !entry.completed));
 
@@ -43,7 +38,13 @@ fn App() -> impl Html {
                     <footer .footer.{hidden}>
                         <span .todo-count>
                             <strong>{ active_count }</strong>
-                            { left }
+                            {
+                                match active_count {
+                                    1 => " item left",
+                                    _ => " items left",
+                                }
+                                .fast_diff()
+                            }
                         </span>
                         <ul .filters>
                             <FilterView filter={Filter::All} {state} />
@@ -114,7 +115,7 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl H
         html! {
             <input .edit
                 type="text"
-                value={&entry.description}
+                value={entry.description.fast_diff()}
                 {onmouseover}
                 {onkeypress}
                 onblur={state.bind(move |state, event| state.update(idx, event.target().value()))}
@@ -131,7 +132,7 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl H
             <div .view>
                 <input .toggle type="checkbox" checked={entry.completed} {onchange} />
                 <label ondblclick={state.bind(move |state, _| state.edit_entry(idx))} >
-                    { &entry.description }
+                    { entry.description.fast_diff() }
                 </label>
                 <button .destroy onclick={state.bind(move |state, _| state.remove(idx))} />
             </div>
@@ -145,12 +146,12 @@ fn FilterView(filter: Filter, state: &Hook<State>) -> impl Html + '_ {
     let selected = state.filter;
 
     let class = (selected == filter).then_some("selected");
-    let href = filter.to_href();
+    let href = filter.href().no_diff();
     let onclick = state.bind(move |state, _| state.filter = filter);
 
     html! {
         <li>
-            <a {class} {href} {onclick}>{ static filter.to_label() }</a>
+            <a {class} {href} {onclick}>{ filter.label().no_diff() }</a>
         </li>
     }
 }
