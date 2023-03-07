@@ -81,21 +81,15 @@ impl Generator {
             }
             DomNode::Element(JsElement {
                 tag,
-                ns,
                 var,
                 code,
                 args,
                 hoisted: _,
             }) => {
-                let create = match ns {
-                    Some(ns) => format!("document.createElementNS(\"{ns}\", \"{tag}\")"),
-                    None => format!("document.createElement(\"{tag}\")"),
-                };
-
                 let body = if code.is_empty() {
-                    format!("return {create};\n")
+                    format!("return document.createElement(\"{tag}\");\n")
                 } else {
-                    format!("let {var}={create};\n{code}return {var};\n")
+                    format!("let {var}=document.createElement(\"{tag}\");\n{code}return {var};\n")
                 };
 
                 (var, body, args, "Element::new")

@@ -60,18 +60,7 @@ pub fn append(
 
                     args.push(JsArgument::new(var));
                 } else {
-                    let _ = match el.ns {
-                        Some(ns) => {
-                            writeln!(
-                                js,
-                                "let {}=document.createElementNS(\"{ns}\", \"{}\");",
-                                el.var, el.tag
-                            )
-                        }
-                        None => {
-                            writeln!(js, "let {}=document.createElement(\"{}\");", el.var, el.tag)
-                        }
-                    };
+                    let _ = writeln!(js, "let {}=document.createElement(\"{}\");", el.var, el.tag);
 
                     js.push_str(&el.code);
 
