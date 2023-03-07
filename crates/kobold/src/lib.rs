@@ -283,7 +283,7 @@ pub use kobold_macros::component;
 /// Macro for creating transient [`Html`](Html) types. See the [main documentation](crate) for details.
 pub use kobold_macros::html;
 
-use wasm_bindgen::JsValue;
+use wasm_bindgen::{JsCast, JsValue};
 
 mod render_fn;
 mod value;
@@ -328,10 +328,21 @@ pub trait Html {
 
     fn on_mount<F>(self, handler: F) -> OnMount<Self, F>
     where
-        F: FnOnce(&Element),
+        F: FnOnce(&<Self::Product as Mountable>::Js),
         Self: Sized,
     {
         OnMount {
+            html: self,
+            handler,
+        }
+    }
+
+    fn on_render<F>(self, handler: F) -> OnRender<Self, F>
+    where
+        F: FnOnce(&<Self::Product as Mountable>::Js),
+        Self: Sized,
+    {
+        OnRender {
             html: self,
             handler,
         }
@@ -346,14 +357,39 @@ pub struct OnMount<H, F> {
 impl<H, F> Html for OnMount<H, F>
 where
     H: Html,
-    F: FnOnce(&Element),
+    F: FnOnce(&<H::Product as Mountable>::Js),
 {
     type Product = H::Product;
 
     fn build(self) -> Self::Product {
         let prod = self.html.build();
 
-        (self.handler)(prod.el());
+        (self.handler)(prod.el().unchecked_ref());
+
+        prod
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        self.html.update(p);
+    }
+}
+
+pub struct OnRender<H, F> {
+    html: H,
+    handler: F,
+}
+
+impl<H, F> Html for OnRender<H, F>
+where
+    H: Html,
+    F: FnOnce(&<H::Product as Mountable>::Js),
+{
+    type Product = H::Product;
+
+    fn build(self) -> Self::Product {
+        let prod = self.html.build();
+
+        (self.handler)(prod.el().unchecked_ref());
 
         prod
     }
@@ -361,12 +397,14 @@ where
     fn update(self, p: &mut Self::Product) {
         self.html.update(p);
 
-        (self.handler)(p.el());
+        (self.handler)(p.el().unchecked_ref());
     }
 }
 
 /// A type that can be mounted in the DOM
 pub trait Mountable: 'static {
+    type Js: JsCast;
+
     fn el(&self) -> &Element;
 
     fn js(&self) -> &JsValue {

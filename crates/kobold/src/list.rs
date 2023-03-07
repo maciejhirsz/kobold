@@ -1,5 +1,7 @@
 //! Utilities for rendering lists
 
+use web_sys::Node;
+
 use crate::dom::Fragment;
 use crate::{Element, Html, Mountable};
 
@@ -15,6 +17,8 @@ pub struct ListProduct<T> {
 }
 
 impl<T: 'static> Mountable for ListProduct<T> {
+    type Js = Node;
+
     fn el(&self) -> &Element {
         &self.fragment
     }

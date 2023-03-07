@@ -86,6 +86,8 @@
 //! }
 //! ```
 
+use web_sys::Node;
+
 use crate::{Element, Html, Mountable};
 
 macro_rules! branch {
@@ -135,6 +137,8 @@ macro_rules! branch {
                 $var: Mountable,
             )*
         {
+            type Js = Node;
+
             fn el(&self) -> &Element {
                 match self {
                     $(
@@ -161,6 +165,8 @@ pub struct EmptyNode(Element);
 pub struct Empty;
 
 impl Mountable for EmptyNode {
+    type Js = Node;
+
     fn el(&self) -> &Element {
         &self.0
     }

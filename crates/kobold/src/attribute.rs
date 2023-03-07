@@ -339,6 +339,8 @@ pub struct AttributeNodeProduct<V> {
 }
 
 impl<V: 'static> Mountable for AttributeNodeProduct<V> {
+    type Js = JsValue;
+
     fn el(&self) -> &Element {
         &self.el
     }

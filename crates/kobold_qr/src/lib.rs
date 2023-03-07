@@ -2,24 +2,20 @@ use kobold::prelude::*;
 use wasm_bindgen::prelude::*;
 
 use fast_qr::qr::QRBuilder;
-use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
+use web_sys::CanvasRenderingContext2d;
 
 #[component]
 pub fn KoboldQR(data: &str) -> impl Html {
     let qr = QRBuilder::new(data).build().ok()?;
-
     let size = qr.size * 8;
 
     Some(
         html! {
             <canvas width={size} height={size} style="width: 200px; height: 200px;" />
         }
-        .on_mount(move |canvas| {
-            let ctx: CanvasRenderingContext2d = match canvas
-                .unchecked_ref::<HtmlCanvasElement>()
-                .get_context("2d")
-            {
-                Ok(Some(ctx)) => ctx.unchecked_into(),
+        .on_render(move |canvas| {
+            let ctx = match canvas.get_context("2d") {
+                Ok(Some(ctx)) => ctx.unchecked_into::<CanvasRenderingContext2d>(),
                 _ => return,
             };
 

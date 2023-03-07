@@ -111,6 +111,8 @@ impl Element {
 }
 
 impl Mountable for Element {
+    type Js = Node;
+
     fn el(&self) -> &Element {
         self
     }

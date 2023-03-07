@@ -36,6 +36,8 @@ impl IntoGenerator for HtmlElement {
     fn into_gen(mut self, gen: &mut Generator) -> DomNode {
         let var = gen.names.next_el();
 
+        gen.set_js_type(element_js_type(&self.name));
+
         let mut el = JsElement {
             tag: self.name,
             var,
@@ -199,6 +201,7 @@ fn event_js_type(event: &str) -> &'static str {
 fn element_js_type(tag: &str) -> &'static str {
     match tag {
         "a" => "HtmlLinkElement",
+        "canvas" => "HtmlCanvasElement",
         "form" => "HtmlFormElement",
         "img" => "HtmlImageElement",
         "input" => "HtmlInputElement",

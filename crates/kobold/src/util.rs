@@ -61,6 +61,8 @@ pub struct StaticFnProduct {
 }
 
 impl Mountable for StaticFnProduct {
+    type Js = JsValue;
+
     fn el(&self) -> &Element {
         &self.el
     }
