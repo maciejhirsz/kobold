@@ -14,6 +14,7 @@ pub type JsFnName = ArrayString<24>;
 #[derive(Default, Debug)]
 pub struct Transient {
     pub js: JsModule,
+    pub js_type: Option<&'static str>,
     pub fields: Vec<Field>,
     pub els: Vec<Short>,
 }
@@ -50,7 +51,6 @@ impl Tokenize for Transient {
             self.tokenize_const(stream);
             return;
         }
-        // self.el_product();
 
         if self.els.is_empty() {
             return match self.fields.remove(0) {
@@ -65,6 +65,7 @@ impl Tokenize for Transient {
         } else {
             ""
         };
+        let js_type = self.js_type.unwrap_or("Node");
 
         let mut generics = String::new();
         let mut generics_product = String::new();
@@ -131,6 +132,8 @@ impl Tokenize for Transient {
                     where \
                         Self: 'static,\
                     {{\
+                        type Js = ::kobold::reexport::web_sys::{js_type};\
+                        \
                         fn el(&self) -> &::kobold::dom::Element {{\
                             &self.e0\
                         }}\

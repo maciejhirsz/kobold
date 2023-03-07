@@ -130,6 +130,8 @@ where
 }
 
 impl<F: 'static> Mountable for CallbackProduct<F> {
+    type Js = JsValue;
+
     fn el(&self) -> &Element {
         panic!("Callback is not an element");
     }

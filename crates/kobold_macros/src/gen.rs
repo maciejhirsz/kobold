@@ -47,6 +47,14 @@ pub struct Generator {
 }
 
 impl Generator {
+    fn set_js_type(&mut self, ty: &'static str) {
+        if self.out.js_type.is_some() {
+            return;
+        }
+
+        self.out.js_type = Some(ty);
+    }
+
     fn add_expression(&mut self, value: TokenStream) -> Short {
         let name = self.names.next();
 

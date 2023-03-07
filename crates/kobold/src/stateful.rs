@@ -254,6 +254,8 @@ where
     S: 'static,
     P: Mountable,
 {
+    type Js = P::Js;
+
     fn el(&self) -> &Element {
         &self.el
     }

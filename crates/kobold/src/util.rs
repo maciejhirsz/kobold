@@ -61,6 +61,8 @@ pub struct StaticFnProduct {
 }
 
 impl Mountable for StaticFnProduct {
+    type Js = JsValue;
+
     fn el(&self) -> &Element {
         &self.el
     }
@@ -90,6 +92,7 @@ extern "C" {
     pub(crate) fn __kobold_attr(name: &str, value: &str) -> Node;
     pub(crate) fn __kobold_attr_class(value: &str) -> Node;
     pub(crate) fn __kobold_attr_style(value: &str) -> Node;
+    pub(crate) fn __kobold_attr_set(node: &JsValue, name: &str, value: &str) -> Node;
     pub(crate) fn __kobold_attr_update(node: &Node, value: &str);
 
     pub(crate) fn __kobold_attr_checked_set(el: &JsValue, value: bool);

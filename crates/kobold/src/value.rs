@@ -1,5 +1,7 @@
 use std::ops::Deref;
 
+use web_sys::Text;
+
 use crate::prelude::{IntoState, ShouldRender};
 use crate::{Element, Html, Mountable};
 
@@ -9,6 +11,8 @@ pub struct ValueProduct<T> {
 }
 
 impl<T: 'static> Mountable for ValueProduct<T> {
+    type Js = Text;
+
     fn el(&self) -> &Element {
         &self.el
     }

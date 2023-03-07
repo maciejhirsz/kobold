@@ -19,6 +19,16 @@ pub trait Attribute {
     fn update(self, p: &mut Self::Product, el: &JsValue);
 }
 
+#[inline]
+fn update(el: &Element, value: &str) {
+    util::__kobold_attr_update(&el.node, value);
+}
+
+#[inline]
+fn create(name: &str, value: &str) -> Element {
+    Element::new(util::__kobold_attr(name, value))
+}
+
 pub struct AttributeNode<V> {
     name: &'static str,
     value: V,
@@ -34,8 +44,7 @@ impl Html for AttributeNode<String> {
     type Product = AttributeNodeProduct<String>;
 
     fn build(self) -> Self::Product {
-        let node = util::__kobold_attr(self.name, &self.value);
-        let el = Element::new(node);
+        let el = create(self.name, &self.value);
 
         AttributeNodeProduct {
             value: self.value,
@@ -45,7 +54,7 @@ impl Html for AttributeNode<String> {
 
     fn update(self, p: &mut Self::Product) {
         if *self.value != p.value {
-            util::__kobold_attr_update(&p.el.node, &self.value);
+            update(&p.el, &self.value);
             p.value = self.value;
         }
     }
@@ -55,8 +64,7 @@ impl Html for AttributeNode<&String> {
     type Product = AttributeNodeProduct<String>;
 
     fn build(self) -> Self::Product {
-        let node = util::__kobold_attr(self.name, self.value);
-        let el = Element::new(node);
+        let el = create(self.name, self.value);
 
         AttributeNodeProduct {
             value: self.value.clone(),
@@ -66,7 +74,7 @@ impl Html for AttributeNode<&String> {
 
     fn update(self, p: &mut Self::Product) {
         if *self.value != p.value {
-            util::__kobold_attr_update(&p.el.node, self.value);
+            update(&p.el, self.value);
             p.value.clone_from(self.value)
         }
     }
@@ -79,8 +87,7 @@ where
     type Product = AttributeNodeProduct<S>;
 
     fn build(self) -> Self::Product {
-        let node = self.value.stringify(|s| util::__kobold_attr(self.name, s));
-        let el = Element::new(node);
+        let el = self.value.stringify(|s| create(self.name, s));
 
         AttributeNodeProduct {
             value: self.value,
@@ -90,8 +97,7 @@ where
 
     fn update(self, p: &mut Self::Product) {
         if self.value != p.value {
-            self.value
-                .stringify(|s| util::__kobold_attr_update(&p.el.node, s));
+            self.value.stringify(|s| update(&p.el, s));
             p.value = self.value;
         }
     }
@@ -104,9 +110,7 @@ where
     type Product = Element;
 
     fn build(self) -> Self::Product {
-        let node = self.value.stringify(|s| util::__kobold_attr(self.name, s));
-
-        Element::new(node)
+        self.value.stringify(|s| create(self.name, s))
     }
 
     fn update(self, _: &mut Self::Product) {}
@@ -116,8 +120,7 @@ impl Html for AttributeNode<FastDiff<'_>> {
     type Product = AttributeNodeProduct<usize>;
 
     fn build(self) -> Self::Product {
-        let node = util::__kobold_attr(self.name, &self.value);
-        let el = Element::new(node);
+        let el = create(self.name, &self.value);
 
         AttributeNodeProduct {
             value: self.value.as_ptr() as usize,
@@ -127,7 +130,7 @@ impl Html for AttributeNode<FastDiff<'_>> {
 
     fn update(self, p: &mut Self::Product) {
         if p.value != self.value.as_ptr() as usize {
-            util::__kobold_attr_update(&p.el.node, &self.value);
+            update(&p.el, &self.value);
             p.value = self.value.as_ptr() as usize;
         }
     }
@@ -336,6 +339,8 @@ pub struct AttributeNodeProduct<V> {
 }
 
 impl<V: 'static> Mountable for AttributeNodeProduct<V> {
+    type Js = JsValue;
+
     fn el(&self) -> &Element {
         &self.el
     }
