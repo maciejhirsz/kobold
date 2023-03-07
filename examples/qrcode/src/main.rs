@@ -7,13 +7,13 @@ fn QRExample() -> impl Html {
         html! {
             <h1>"QR code example"</h1>
             <KoboldQR data={data.as_str()} />
-                <textarea
-                    onkeyup={data.bind(move |data, event| {
-                        *data = event.target().value();
-                    })}
-                >
-                { data.as_str().no_diff() }
-                </textarea>
+            <textarea
+                onkeyup={data.bind(move |data, event| {
+                    *data = event.target().value();
+                })}
+            >
+            { data.as_str().no_diff() }
+            </textarea>
         }
     })
 }
