@@ -1,37 +1,22 @@
 //! Utilities for dealing with DOM attributes
-
 use wasm_bindgen::convert::IntoWasmAbi;
 use wasm_bindgen::JsValue;
 
 use crate::util;
-use crate::value::Stringify;
+use crate::value::{FastDiff, NoDiff, Stringify};
 use crate::{Element, Html, Mountable};
 
 pub use crate::stateful::Callback;
 
 pub trait Attribute {
-    type Product: AttributeProduct;
+    type Abi: IntoWasmAbi;
+    type Product: 'static;
+
+    fn js(&self) -> Self::Abi;
 
     fn build(self) -> Self::Product;
 
     fn update(self, p: &mut Self::Product, el: &JsValue);
-}
-
-pub trait AttributeProduct: 'static {
-    type Abi: IntoWasmAbi;
-
-    fn js(&self) -> Self::Abi;
-}
-
-impl<T> AttributeProduct for T
-where
-    T: IntoWasmAbi + Copy + 'static,
-{
-    type Abi = Self;
-
-    fn js(&self) -> Self::Abi {
-        *self
-    }
 }
 
 pub struct AttributeNode<V> {
@@ -112,12 +97,49 @@ where
     }
 }
 
+impl<S> Html for AttributeNode<NoDiff<S>>
+where
+    S: Stringify,
+{
+    type Product = Element;
+
+    fn build(self) -> Self::Product {
+        let node = self.value.stringify(|s| util::__kobold_attr(self.name, s));
+
+        Element::new(node)
+    }
+
+    fn update(self, _: &mut Self::Product) {}
+}
+
+impl Html for AttributeNode<FastDiff<'_>> {
+    type Product = AttributeNodeProduct<usize>;
+
+    fn build(self) -> Self::Product {
+        let node = util::__kobold_attr(self.name, &self.value);
+        let el = Element::new(node);
+
+        AttributeNodeProduct {
+            value: self.value.as_ptr() as usize,
+            el,
+        }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        if p.value != self.value.as_ptr() as usize {
+            util::__kobold_attr_update(&p.el.node, &self.value);
+            p.value = self.value.as_ptr() as usize;
+        }
+    }
+}
+
 /// A class that interacts with `classList` property of an element
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/API/Element/classList>
-pub struct Class(&'static str);
+#[repr(transparent)]
+pub struct Class<T>(T);
 
-impl From<&'static str> for Class {
+impl From<&'static str> for Class<&'static str> {
     fn from(class: &'static str) -> Self {
         debug_assert!(
             !class.chars().any(|c| c == ' '),
@@ -128,14 +150,61 @@ impl From<&'static str> for Class {
     }
 }
 
-impl From<Option<&'static str>> for Class {
+impl From<Option<&'static str>> for Class<&'static str> {
     fn from(class: Option<&'static str>) -> Self {
         Class::from(class.unwrap_or_default())
     }
 }
 
-impl Attribute for Class {
+#[derive(Clone, Copy)]
+pub struct OptionalClass<'a> {
+    on: bool,
+    class: &'a str,
+}
+
+impl<'a> OptionalClass<'a> {
+    pub const fn no_diff(self) -> NoDiff<Self> {
+        NoDiff(self)
+    }
+
+    fn get(&self) -> &'a str {
+        if self.on {
+            self.class
+        } else {
+            ""
+        }
+    }
+}
+
+pub trait BoolExt {
+    fn class(self, class: &str) -> OptionalClass;
+}
+
+impl BoolExt for bool {
+    fn class(self, class: &str) -> OptionalClass {
+        OptionalClass { on: self, class }
+    }
+}
+
+impl<'a> From<OptionalClass<'a>> for Class<OptionalClass<'a>> {
+    fn from(class: OptionalClass<'a>) -> Self {
+        Class(class)
+    }
+}
+
+impl<'a> From<NoDiff<OptionalClass<'a>>> for Class<NoDiff<OptionalClass<'a>>> {
+    fn from(class: NoDiff<OptionalClass<'a>>) -> Self {
+        Class(class)
+    }
+}
+
+impl Attribute for Class<&'static str> {
+    type Abi = &'static str;
     type Product = &'static str;
+
+    fn js(&self) -> Self::Abi {
+        self.0
+    }
 
     fn build(self) -> Self::Product {
         self.0
@@ -152,25 +221,58 @@ impl Attribute for Class {
     }
 }
 
+impl<'a> Attribute for Class<NoDiff<OptionalClass<'a>>> {
+    type Abi = &'a str;
+    type Product = bool;
+
+    fn js(&self) -> Self::Abi {
+        self.0.get()
+    }
+
+    fn build(self) -> Self::Product {
+        self.0.on
+    }
+
+    fn update(self, p: &mut Self::Product, js: &JsValue) {
+        match (self.0 .0.on, *p) {
+            (true, true) | (false, false) => return,
+            (true, false) => util::__kobold_class_add(js, self.0.class),
+            (false, true) => util::__kobold_class_remove(js, self.0.class),
+        }
+        *p = self.0 .0.on;
+    }
+}
+
 /// A single `className` attribute, spaces are permitted
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/API/Element/className>
-pub struct ClassName(&'static str);
+pub struct ClassName<T>(T);
 
-impl From<&'static str> for ClassName {
+impl From<&'static str> for ClassName<&'static str> {
     fn from(class: &'static str) -> Self {
         ClassName(class)
     }
 }
 
-impl From<Option<&'static str>> for ClassName {
+impl From<Option<&'static str>> for ClassName<&'static str> {
     fn from(class: Option<&'static str>) -> Self {
         ClassName(class.unwrap_or_default())
     }
 }
 
-impl Attribute for ClassName {
+impl<'a> From<NoDiff<OptionalClass<'a>>> for ClassName<NoDiff<OptionalClass<'a>>> {
+    fn from(class: NoDiff<OptionalClass<'a>>) -> Self {
+        ClassName(class)
+    }
+}
+
+impl Attribute for ClassName<&'static str> {
+    type Abi = &'static str;
     type Product = &'static str;
+
+    fn js(&self) -> Self::Abi {
+        self.0
+    }
 
     fn build(self) -> Self::Product {
         self.0
@@ -184,11 +286,36 @@ impl Attribute for ClassName {
     }
 }
 
+impl<'a> Attribute for ClassName<NoDiff<OptionalClass<'a>>> {
+    type Abi = &'a str;
+    type Product = bool;
+
+    fn js(&self) -> Self::Abi {
+        self.0.get()
+    }
+
+    fn build(self) -> Self::Product {
+        self.0.on
+    }
+
+    fn update(self, p: &mut Self::Product, js: &JsValue) {
+        if self.0.on != *p {
+            util::__kobold_class_set(js, self.0.get());
+            *p = self.0.on;
+        }
+    }
+}
+
 /// The `checked` attribute for `<input>` elements
 pub struct Checked(pub bool);
 
 impl Attribute for Checked {
+    type Abi = bool;
     type Product = bool;
+
+    fn js(&self) -> Self::Abi {
+        self.0
+    }
 
     fn build(self) -> Self::Product {
         self.0

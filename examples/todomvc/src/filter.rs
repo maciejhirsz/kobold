@@ -6,11 +6,19 @@ pub enum Filter {
 }
 
 impl Filter {
-    pub fn to_href(self) -> &'static str {
+    pub fn href(self) -> &'static str {
         match self {
             Filter::All => "#/",
             Filter::Active => "#/active",
             Filter::Completed => "#/completed",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Filter::All => "All",
+            Filter::Active => "Active",
+            Filter::Completed => "Completed",
         }
     }
 }

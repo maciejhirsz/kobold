@@ -1,6 +1,7 @@
+use std::ops::Deref;
+
 use crate::prelude::{IntoState, ShouldRender};
 use crate::{Element, Html, Mountable};
-use std::str;
 
 pub struct ValueProduct<T> {
     value: T,
@@ -34,24 +35,46 @@ impl Html for &String {
     type Product = ValueProduct<String>;
 
     fn build(self) -> Self::Product {
-        let el = Element::new_text(self);
-
-        ValueProduct {
-            value: self.clone(),
-            el,
-        }
+        self.as_str().build()
     }
 
     fn update(self, p: &mut Self::Product) {
-        if &p.value != self {
-            p.value.clone_from(self);
-            p.el.set_text(&p.value);
-        }
+        Html::update(self.as_str(), p)
     }
 }
 
 pub trait Stringify {
     fn stringify<F: FnOnce(&str) -> R, R>(&self, f: F) -> R;
+
+    #[inline]
+    fn no_diff(self) -> NoDiff<Self>
+    where
+        Self: Sized,
+    {
+        NoDiff(self)
+    }
+}
+
+#[derive(Clone, Copy)]
+#[repr(transparent)]
+pub struct NoDiff<T>(pub(crate) T);
+
+impl<T> Deref for NoDiff<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        &self.0
+    }
+}
+
+impl<T: Stringify> Html for NoDiff<T> {
+    type Product = Element;
+
+    fn build(self) -> Self::Product {
+        self.0.stringify(Element::new_text)
+    }
+
+    fn update(self, _: &mut Self::Product) {}
 }
 
 impl Stringify for &'static str {
@@ -147,31 +170,8 @@ macro_rules! impl_stringify {
     };
 }
 
-#[derive(PartialEq, Eq)]
-pub struct StringHash {
-    hash: u64,
-}
-
-impl From<&str> for StringHash {
-    fn from(s: &str) -> StringHash {
-        let hash = if s.len() > 32 {
-            (s.len() as u64) | ((s.as_ptr() as u64) << 32)
-        } else {
-            use std::hash::{Hash, Hasher};
-
-            let mut hasher = fnv::FnvHasher::default();
-
-            s.hash(&mut hasher);
-
-            hasher.finish()
-        };
-
-        StringHash { hash }
-    }
-}
-
 impl Html for &str {
-    type Product = ValueProduct<StringHash>;
+    type Product = ValueProduct<String>;
 
     fn build(self) -> Self::Product {
         let el = Element::new_text(self);
@@ -183,17 +183,15 @@ impl Html for &str {
     }
 
     fn update(self, p: &mut Self::Product) {
-        let new = self.into();
-
-        if p.value != new {
-            p.value = new;
+        if p.value != self {
+            self.clone_into(&mut p.value);
             p.el.set_text(self);
         }
     }
 }
 
 impl Html for &&str {
-    type Product = ValueProduct<StringHash>;
+    type Product = ValueProduct<String>;
 
     fn build(self) -> Self::Product {
         Html::build(*self)
@@ -213,10 +211,51 @@ impl IntoState for &str {
 
     fn update(self, state: &mut String) -> ShouldRender {
         if *state != self {
-            state.replace_range(.., self);
+            self.clone_into(state);
             ShouldRender::Yes
         } else {
             ShouldRender::No
+        }
+    }
+}
+
+pub trait StrExt {
+    fn fast_diff(&self) -> FastDiff<'_>;
+}
+
+impl StrExt for str {
+    fn fast_diff(&self) -> FastDiff<'_> {
+        FastDiff(self)
+    }
+}
+
+#[repr(transparent)]
+pub struct FastDiff<'a>(&'a str);
+
+impl Deref for FastDiff<'_> {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.0
+    }
+}
+
+impl Html for FastDiff<'_> {
+    type Product = ValueProduct<usize>;
+
+    fn build(self) -> Self::Product {
+        let el = Element::new_text(self.0);
+
+        ValueProduct {
+            value: self.0.as_ptr() as usize,
+            el,
+        }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        if p.value != self.0.as_ptr() as usize {
+            p.value = self.0.as_ptr() as usize;
+            p.el.set_text(self.0);
         }
     }
 }

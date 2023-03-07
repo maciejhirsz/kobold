@@ -18,8 +18,40 @@ pub struct Transient {
     pub els: Vec<Short>,
 }
 
+impl Transient {
+    fn is_const(&self) -> bool {
+        let jsfn = match self.js.functions.get(0) {
+            Some(fun) => fun,
+            None => return false,
+        };
+
+        self.fields.is_empty()
+            && self.els.len() == 1
+            && self.js.functions.len() == 1
+            && jsfn.constructor == "Element::new"
+            && jsfn.args.is_empty()
+    }
+
+    fn tokenize_const(self, stream: &mut TokenStream) {
+        let JsFunction { name, .. } = self.js.functions[0];
+
+        block((
+            "use ::kobold::reexport::wasm_bindgen;",
+            self.js,
+            format_args!("::kobold::util::Const::new({name})"),
+        ))
+        .tokenize_in(stream)
+    }
+}
+
 impl Tokenize for Transient {
     fn tokenize_in(mut self, stream: &mut TokenStream) {
+        if self.is_const() {
+            self.tokenize_const(stream);
+            return;
+        }
+        // self.el_product();
+
         if self.els.is_empty() {
             return match self.fields.remove(0) {
                 Field::Html { value, .. } | Field::Attribute { value, .. } => {
@@ -43,7 +75,6 @@ impl Tokenize for Transient {
         let mut vars = String::new();
 
         for field in self.fields.iter() {
-            let (name, _) = field.name_value();
             let typ = field.make_type();
 
             let _ = write!(generics, "{typ},");
@@ -53,8 +84,7 @@ impl Tokenize for Transient {
             field.build(&mut build);
             field.update(&mut update);
             field.declare(&mut declare);
-
-            let _ = write!(vars, "{name},");
+            field.var(&mut vars);
         }
 
         let mut declare_els = String::new();
@@ -87,19 +117,27 @@ impl Tokenize for Transient {
         block((
             "\
                 use ::kobold::{Mountable as _};\
-                use ::kobold::attribute::{AttributeProduct as _};\
                 use ::kobold::reexport::wasm_bindgen;\
                 ",
             self.js,
             format_args!(
                 "\
-                    struct Transient <{generics}> {{\
-                        {declare}\
-                    }}\
-                    \
                     struct TransientProduct <{generics}> {{\
                         {declare}\
                         {declare_els}\
+                    }}\
+                    \
+                    impl<{generics}> ::kobold::Mountable for TransientProduct<{generics}>\
+                    where \
+                        Self: 'static,\
+                    {{\
+                        fn el(&self) -> &::kobold::dom::Element {{\
+                            &self.e0\
+                        }}\
+                    }}\
+                    \
+                    struct Transient <{generics}> {{\
+                        {declare}\
                     }}\
                     \
                     impl<{abi_lifetime}{generics}> ::kobold::Html for Transient<{generics}>\
@@ -118,15 +156,6 @@ impl Tokenize for Transient {
                         \
                         fn update(self, p: &mut Self::Product) {{\
                             {update}\
-                        }}\
-                    }}\
-                    \
-                    impl<{generics}> ::kobold::Mountable for TransientProduct<{generics}>\
-                    where \
-                        Self: 'static,\
-                    {{\
-                        fn el(&self) -> &::kobold::dom::Element {{\
-                            &self.e0\
                         }}\
                     }}\
                     \
@@ -309,11 +338,7 @@ impl Field {
 
                 let abi = abi.deref();
 
-                let _ = write!(
-                    buf,
-                    "{typ}: ::kobold::attribute::Attribute,\
-                    {typ}::Product: ::kobold::attribute::AttributeProduct<Abi = {abi}>,"
-                );
+                let _ = write!(buf, "{typ}: ::kobold::attribute::Attribute<Abi = {abi}>,");
             }
         }
     }
@@ -326,9 +351,25 @@ impl Field {
     }
 
     fn build(&self, buf: &mut String) {
-        let (name, _) = self.name_value();
+        match self {
+            Field::Html { name, .. } => {
+                let _ = write!(buf, "let {name} = self.{name}.build();");
+            }
+            Field::Attribute { name, .. } => {
+                let _ = write!(buf, "let {name} = self.{name};");
+            }
+        }
+    }
 
-        let _ = write!(buf, "let {name} = self.{name}.build();");
+    fn var(&self, buf: &mut String) {
+        match self {
+            Field::Html { name, .. } => {
+                let _ = write!(buf, "{name},");
+            }
+            Field::Attribute { name, .. } => {
+                let _ = write!(buf, "{name}: {name}.build(),");
+            }
+        }
     }
 
     fn update(&self, buf: &mut String) {

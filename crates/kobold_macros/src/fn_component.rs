@@ -80,16 +80,18 @@ pub fn args(stream: TokenStream) -> Result<ComponentArgs, ParseError> {
 }
 
 struct Function {
-    public: Option<TokenStream>,
+    r#fn: TokenTree,
+    r#pub: Option<TokenStream>,
     name: Ident,
     generics: Option<Generics>,
     arguments: Vec<Argument>,
-    ret: TokenStream,
+    r#return: TokenStream,
     body: TokenTree,
 }
 
 struct FnComponent {
-    public: Option<TokenStream>,
+    r#struct: Ident,
+    r#pub: Option<TokenStream>,
     name: Ident,
     generics: Option<Generics>,
     arguments: Vec<Argument>,
@@ -126,12 +128,15 @@ impl FnComponent {
             tt => tt.into(),
         };
 
+        let r#struct = Ident::new("struct", fun.r#fn.span());
+
         Ok(FnComponent {
-            public: fun.public,
+            r#struct,
+            r#pub: fun.r#pub,
             name: fun.name,
             generics: fun.generics,
             arguments: fun.arguments,
-            ret: fun.ret,
+            ret: fun.r#return,
             render,
             children,
         })
@@ -145,14 +150,13 @@ struct Argument {
 
 impl Parse for Function {
     fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
-        let public = stream.allow_consume("pub").map(|tt| {
+        let r#pub = stream.allow_consume("pub").map(|tt| {
             let mut public = TokenStream::from(tt);
             public.extend(stream.allow_consume('('));
             public
         });
 
-        stream.expect("fn")?;
-
+        let r#fn = stream.expect("fn")?;
         let name = stream.parse()?;
 
         let generics = if stream.allow('<') {
@@ -187,11 +191,12 @@ impl Parse for Function {
 
         match body {
             Some(body) => Ok(Function {
-                public,
+                r#fn,
+                r#pub,
                 name,
                 generics,
                 arguments,
-                ret,
+                r#return: ret,
                 body,
             }),
             None => Err(ParseError::new("Missing body for function", name.span())),
@@ -239,8 +244,8 @@ impl Tokenize for FnComponent {
 
         out.write((
             "#[allow(non_camel_case_types)]",
-            self.public,
-            "struct",
+            self.r#pub,
+            self.r#struct,
             name,
         ));
 

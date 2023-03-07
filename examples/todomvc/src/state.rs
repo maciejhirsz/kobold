@@ -45,8 +45,8 @@ impl Entry {
     }
 }
 
-impl State {
-    pub fn load() -> Self {
+impl Default for State {
+    fn default() -> Self {
         let mut entries = Vec::new();
 
         if let Some(storage) = LocalStorage::raw().get_item(KEY).ok().flatten() {
@@ -59,7 +59,9 @@ impl State {
             editing: None,
         }
     }
+}
 
+impl State {
     #[inline(never)]
     pub fn store(&self) {
         let capacity = self

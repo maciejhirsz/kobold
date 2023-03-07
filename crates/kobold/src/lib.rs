@@ -286,7 +286,6 @@ pub use kobold_macros::html;
 use wasm_bindgen::JsValue;
 
 mod render_fn;
-mod util;
 mod value;
 
 pub mod attribute;
@@ -295,12 +294,15 @@ pub mod dom;
 pub mod event;
 pub mod list;
 pub mod stateful;
+pub mod util;
 
 /// The prelude module with most commonly used types
 pub mod prelude {
+    pub use crate::attribute::BoolExt as _;
     pub use crate::event::{KeyboardEvent, MouseEvent, UntypedEvent};
-    pub use crate::list::ListIteratorExt;
+    pub use crate::list::ListIteratorExt as _;
     pub use crate::stateful::{stateful, Hook, IntoState, OwnedHook, ShouldRender};
+    pub use crate::value::{StrExt as _, Stringify as _};
     pub use crate::{component, html, Html};
 }
 
@@ -313,7 +315,7 @@ pub mod reexport {
 }
 
 /// Trait that describes types that can be rendered in the DOM.
-pub trait Html: Sized {
+pub trait Html {
     /// HTML product of this type, this is effectively the strongly-typed
     /// virtual DOM equivalent for Kobold.
     type Product: Mountable;

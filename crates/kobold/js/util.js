@@ -40,7 +40,6 @@ export function __kobold_fragment_drop(f)
 }
 export function __kobold_text_node(t) { return document.createTextNode(t); }
 export function __kobold_update_text(n,t) { n.textContent = t; }
-export function __kobold_create_div() { return document.createElement('div'); }
 
 export function __kobold_attr(n,v) { let a = document.createAttribute(n); a.value = v; return a; }
 export function __kobold_attr_class(v) { let a = document.createAttribute('class'); a.value = v; return a; }

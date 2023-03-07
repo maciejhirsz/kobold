@@ -7,18 +7,15 @@ mod state;
 use filter::Filter;
 use state::*;
 
-#[component(auto_branch)]
+#[component]
 fn App() -> impl Html {
-    stateful(State::load, |state| {
-        let hidden = state.entries.is_empty().then_some("hidden");
+    stateful(State::default, |state| {
+        let hidden = state.entries.is_empty().class("hidden").no_diff();
 
         let active_count = state.count_active();
-        let completed_hidden = (state.entries.len() == active_count).then_some("hidden");
-
-        let left = match active_count {
-            1 => html!(" item left"),
-            _ => html!(" items left"),
-        };
+        let completed_hidden = (state.entries.len() == active_count)
+            .class("hidden")
+            .no_diff();
 
         let clear = state.bind(|state, _| state.entries.retain(|entry| !entry.completed));
 
@@ -43,12 +40,18 @@ fn App() -> impl Html {
                     <footer .footer.{hidden}>
                         <span .todo-count>
                             <strong>{ active_count }</strong>
-                            { left }
+                            {
+                                match active_count {
+                                    1 => " item left",
+                                    _ => " items left",
+                                }
+                                .fast_diff()
+                            }
                         </span>
                         <ul .filters>
-                            <FilterView filter={Filter::All} {state}>"All"</FilterView>
-                            <FilterView filter={Filter::Active} {state}>"Active"</FilterView>
-                            <FilterView filter={Filter::Completed} {state}>"Completed"</FilterView>
+                            <FilterView filter={Filter::All} {state} />
+                            <FilterView filter={Filter::Active} {state} />
+                            <FilterView filter={Filter::Completed} {state} />
                         </ul>
                         <button .clear-completed.{completed_hidden} onclick={clear}>
                             "Clear completed"
@@ -114,7 +117,7 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl H
         html! {
             <input .edit
                 type="text"
-                value={&entry.description}
+                value={entry.description.fast_diff()}
                 {onmouseover}
                 {onkeypress}
                 onblur={state.bind(move |state, event| state.update(idx, event.target().value()))}
@@ -123,15 +126,15 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl H
     });
 
     let onchange = state.bind(move |state, _| state.toggle(idx));
-    let editing = entry.editing.then_some("editing");
-    let completed = entry.completed.then_some("completed");
+    let editing = entry.editing.class("editing").no_diff();
+    let completed = entry.completed.class("completed").no_diff();
 
     html! {
         <li .todo.{editing}.{completed}>
             <div .view>
                 <input .toggle type="checkbox" checked={entry.completed} {onchange} />
                 <label ondblclick={state.bind(move |state, _| state.edit_entry(idx))} >
-                    { &entry.description }
+                    { entry.description.fast_diff() }
                 </label>
                 <button .destroy onclick={state.bind(move |state, _| state.remove(idx))} />
             </div>
@@ -140,21 +143,17 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl H
     }
 }
 
-#[component(children: label)]
-fn FilterView<'a>(filter: Filter, state: &'a Hook<State>, label: impl Html + 'a) -> impl Html + 'a {
+#[component]
+fn FilterView(filter: Filter, state: &Hook<State>) -> impl Html + '_ {
     let selected = state.filter;
 
-    let class = if selected == filter {
-        "selected"
-    } else {
-        "not-selected"
-    };
-    let href = filter.to_href();
+    let class = (selected == filter).class("selected").no_diff();
+    let href = filter.href().no_diff();
     let onclick = state.bind(move |state, _| state.filter = filter);
 
     html! {
         <li>
-            <a {class} {href} {onclick}>{ label }</a>
+            <a {class} {href} {onclick}>{ filter.label().no_diff() }</a>
         </li>
     }
 }
