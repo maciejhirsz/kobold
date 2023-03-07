@@ -325,6 +325,44 @@ pub trait Html {
 
     /// Update the product and apply changes to the DOM if necessary.
     fn update(self, p: &mut Self::Product);
+
+    fn on_mount<F>(self, handler: F) -> OnMount<Self, F>
+    where
+        F: FnOnce(&Element),
+        Self: Sized,
+    {
+        OnMount {
+            html: self,
+            handler,
+        }
+    }
+}
+
+pub struct OnMount<H, F> {
+    html: H,
+    handler: F,
+}
+
+impl<H, F> Html for OnMount<H, F>
+where
+    H: Html,
+    F: FnOnce(&Element),
+{
+    type Product = H::Product;
+
+    fn build(self) -> Self::Product {
+        let prod = self.html.build();
+
+        (self.handler)(prod.el());
+
+        prod
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        self.html.update(p);
+
+        (self.handler)(p.el());
+    }
 }
 
 /// A type that can be mounted in the DOM

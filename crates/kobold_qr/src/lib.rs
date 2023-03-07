@@ -1,84 +1,43 @@
-use std::ops::Deref;
-
-use fast_qr::qr::{QRBuilder, QRCode};
 use kobold::prelude::*;
+use wasm_bindgen::prelude::*;
 
-struct State {
-    input: Vec<u8>,
-    qr: Option<QRCode>,
-}
-
-struct Data<D>(D);
-
-impl<D> Deref for Data<D>
-where
-    D: AsRef<[u8]>,
-{
-    type Target = [u8];
-
-    fn deref(&self) -> &Self::Target {
-        self.0.as_ref()
-    }
-}
-
-impl<D> IntoState for Data<D>
-where
-    D: AsRef<[u8]>,
-{
-    type State = State;
-
-    fn init(self) -> State {
-        // let qr = QRBuilder::new(&*self).build().ok();
-        // let vb = qr.as_ref().map(|qr| format!("0 0 {0} {0}", qr.size)).unwrap_or_default();
-
-        State {
-            input: self.to_vec(),
-            qr: QRBuilder::new(&*self).build().ok(),
-        }
-    }
-
-    fn update(self, state: &mut State) -> ShouldRender {
-        if state.input == self.as_ref() {
-            return ShouldRender::No;
-        }
-
-        state.input = self.to_vec();
-        state.qr = QRBuilder::new(&*self).build().ok();
-
-        ShouldRender::Yes
-    }
-}
+use fast_qr::qr::QRBuilder;
+use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
 
 #[component]
-pub fn KoboldQR(data: &str) -> impl Html + '_ {
-    stateful(Data(data), |state| {
-        let qr = state.qr.as_ref()?;
-        let vb = format!("0 0 {0} {0}", qr.size);
+pub fn KoboldQR(data: &str) -> impl Html {
+    let qr = QRBuilder::new(data).build().ok()?;
 
-        let list = qr.data[..qr.size * qr.size]
-            .iter()
-            .enumerate()
-            .map(|(i, m)| {
-                m.value().then(|| {
-                    let y = i / qr.size;
-                    let x = i % qr.size;
+    let size = qr.size * 8;
 
-                    html! { <rect x={x} y={y} width="1" height="1" /> }
-                })
-            })
-            .list();
+    Some(
+        html! {
+            <canvas width={size} height={size} style="width: 200px; height: 200px;" />
+        }
+        .on_mount(move |canvas| {
+            let ctx: CanvasRenderingContext2d = match canvas
+                .unchecked_ref::<HtmlCanvasElement>()
+                .get_context("2d")
+            {
+                Ok(Some(ctx)) => ctx.unchecked_into(),
+                _ => return,
+            };
 
-        Some(html! {
-            <svg viewBox={vb} style="width: 200px; display: block;" xmlns="http://www.w3.org/2000/svg">{ list }</svg>
-        })
-    })
+            ctx.clear_rect(0., 0., size as f64, size as f64);
+
+            for (y, row) in qr.data.chunks(qr.size).take(qr.size).enumerate() {
+                let mut row = row.iter().enumerate();
+
+                while let Some((x, m)) = row.next() {
+                    if !m.value() {
+                        continue;
+                    }
+
+                    let w = 1 + (&mut row).take_while(|(_, m)| m.value()).count();
+
+                    ctx.fill_rect((8 * x) as f64, (8 * y) as f64, (w * 8) as f64, 8.)
+                }
+            }
+        }),
+    )
 }
-
-// fn main() {
-//     // QRBuilder::new can fail if content is too big for version,
-//     // please check before unwrapping.
-//     let qrcode = QRBuilder::new("https://example.com/").build().unwrap();
-
-//     let str = qrcode.to_str(); // .print() exists
-//     println!("{}", str);
-// }
