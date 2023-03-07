@@ -9,8 +9,7 @@ keywords = ["web", "wasm", "javascript", "qr"]
 description = "QR code component for Kobold"
 
 [dependencies]
-# fast_qr = "0.8.4"
-fast_qr = { path = "../../../fast_qr" }
+fast_qr = "0.8.4"
 kobold = "0.5.0"
 wasm-bindgen = "0.2.84"
 
