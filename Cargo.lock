@@ -37,6 +37,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "fast_qr"
+version = "0.8.4"
+dependencies = [
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -144,6 +151,23 @@ dependencies = [
  "beef",
  "fnv",
  "proc-macro2",
+]
+
+[[package]]
+name = "kobold_qr"
+version = "0.5.0"
+dependencies = [
+ "fast_qr",
+ "kobold",
+]
+
+[[package]]
+name = "kobold_qrcode_example"
+version = "0.1.0"
+dependencies = [
+ "kobold",
+ "kobold_qr",
+ "web-sys",
 ]
 
 [[package]]

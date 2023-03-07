@@ -13,6 +13,11 @@ pub struct JsElement {
     /// Tag name of the element such as `div`
     pub tag: String,
 
+    /// Namespace for the element, None plain HTML.
+    ///
+    /// https://developer.mozilla.org/en-US/docs/Web/API/Document/createElementNS
+    pub ns: Option<&'static str>,
+
     /// Variable name of the element, such as `e0`
     pub var: Short,
 
@@ -36,8 +41,14 @@ impl IntoGenerator for HtmlElement {
     fn into_gen(mut self, gen: &mut Generator) -> DomNode {
         let var = gen.names.next_el();
 
+        let ns = match self.name.as_str() {
+            "svg" | "rect" => Some("http://www.w3.org/2000/svg"),
+            _ => None,
+        };
+
         let mut el = JsElement {
             tag: self.name,
+            ns,
             var,
             code: String::new(),
             args: Vec::new(),
@@ -151,9 +162,20 @@ impl IntoGenerator for HtmlElement {
                         writeln!(el, "{var}.{attr}={value};");
 
                         JsArgument::with_abi(value, "bool")
+                    } else if attr == "viewBox" {
+                        el.hoisted = true;
+                        let value = gen.add_attribute(
+                            var,
+                            Abi::Owned("String"),
+                            call("::kobold::attribute::Named", ("\"viewBox\",",expr.stream)),
+                        );
+
+                        writeln!(el, "{var}.setAttribute(\"{attr}\", {value});");
+
+                        JsArgument::with_abi(value, "String")
                     } else {
                         let value = gen.add_expression(call(
-                            "::kobold::attribute::AttributeNode::new",
+                            "::kobold::attribute::AttributeNode::<_, ::kobold::attribute::NoNamespace>::new",
                             (string(attr), ',', expr.stream),
                         ));
 

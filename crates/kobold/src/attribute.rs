@@ -1,4 +1,6 @@
 //! Utilities for dealing with DOM attributes
+use std::marker::PhantomData;
+
 use wasm_bindgen::convert::IntoWasmAbi;
 use wasm_bindgen::JsValue;
 
@@ -19,23 +21,76 @@ pub trait Attribute {
     fn update(self, p: &mut Self::Product, el: &JsValue);
 }
 
-pub struct AttributeNode<V> {
-    name: &'static str,
-    value: V,
-}
+pub trait Namespace {
+    fn create(name: &str, value: &str) -> Element;
 
-impl<V> AttributeNode<V> {
-    pub fn new(name: &'static str, value: V) -> Self {
-        AttributeNode { name, value }
+    #[inline]
+    fn update(el: &Element, value: &str) {
+        util::__kobold_attr_update(&el.node, value);
     }
 }
 
-impl Html for AttributeNode<String> {
+pub struct NoNamespace;
+pub struct Svg;
+
+impl Namespace for NoNamespace {
+    #[inline]
+    fn create(name: &str, value: &str) -> Element {
+        Element::new(util::__kobold_attr(name, value))
+    }
+}
+
+impl Namespace for Svg {
+    #[inline]
+    fn create(name: &str, value: &str) -> Element {
+        Element::new(util::__kobold_attr_svg(name, value))
+    }
+}
+
+pub struct Named<S>(pub &'static str, pub S);
+
+impl Attribute for Named<String> {
+    type Abi = String;
+    type Product = String;
+
+    fn js(&self) -> Self::Abi {
+        self.1.clone()
+    }
+
+    fn build(self) -> Self::Product {
+        self.1
+    }
+
+    fn update(self, _: &mut Self::Product, el: &JsValue) {
+        util::__kobold_attr_set(el, self.0, &self.1);
+    }
+}
+// pub type AttributeNodeSvg<V> = AttributeNode<V, Svg>;
+
+pub struct AttributeNode<V, N = NoNamespace> {
+    name: &'static str,
+    value: V,
+    _ns: PhantomData<N>,
+}
+
+impl<V, N> AttributeNode<V, N> {
+    pub fn new(name: &'static str, value: V) -> Self {
+        AttributeNode {
+            name,
+            value,
+            _ns: PhantomData,
+        }
+    }
+}
+
+impl<N> Html for AttributeNode<String, N>
+where
+    N: Namespace,
+{
     type Product = AttributeNodeProduct<String>;
 
     fn build(self) -> Self::Product {
-        let node = util::__kobold_attr(self.name, &self.value);
-        let el = Element::new(node);
+        let el = N::create(self.name, &self.value);
 
         AttributeNodeProduct {
             value: self.value,
@@ -45,18 +100,20 @@ impl Html for AttributeNode<String> {
 
     fn update(self, p: &mut Self::Product) {
         if *self.value != p.value {
-            util::__kobold_attr_update(&p.el.node, &self.value);
+            N::update(&p.el, &self.value);
             p.value = self.value;
         }
     }
 }
 
-impl Html for AttributeNode<&String> {
+impl<N> Html for AttributeNode<&String, N>
+where
+    N: Namespace,
+{
     type Product = AttributeNodeProduct<String>;
 
     fn build(self) -> Self::Product {
-        let node = util::__kobold_attr(self.name, self.value);
-        let el = Element::new(node);
+        let el = N::create(self.name, self.value);
 
         AttributeNodeProduct {
             value: self.value.clone(),
@@ -66,21 +123,21 @@ impl Html for AttributeNode<&String> {
 
     fn update(self, p: &mut Self::Product) {
         if *self.value != p.value {
-            util::__kobold_attr_update(&p.el.node, self.value);
+            N::update(&p.el, self.value);
             p.value.clone_from(self.value)
         }
     }
 }
 
-impl<S> Html for AttributeNode<S>
+impl<S, N> Html for AttributeNode<S, N>
 where
     S: Stringify + Eq + Copy + 'static,
+    N: Namespace,
 {
     type Product = AttributeNodeProduct<S>;
 
     fn build(self) -> Self::Product {
-        let node = self.value.stringify(|s| util::__kobold_attr(self.name, s));
-        let el = Element::new(node);
+        let el = self.value.stringify(|s| N::create(self.name, s));
 
         AttributeNodeProduct {
             value: self.value,
@@ -90,34 +147,34 @@ where
 
     fn update(self, p: &mut Self::Product) {
         if self.value != p.value {
-            self.value
-                .stringify(|s| util::__kobold_attr_update(&p.el.node, s));
+            self.value.stringify(|s| N::update(&p.el, s));
             p.value = self.value;
         }
     }
 }
 
-impl<S> Html for AttributeNode<NoDiff<S>>
+impl<S, N> Html for AttributeNode<NoDiff<S>, N>
 where
     S: Stringify,
+    N: Namespace,
 {
     type Product = Element;
 
     fn build(self) -> Self::Product {
-        let node = self.value.stringify(|s| util::__kobold_attr(self.name, s));
-
-        Element::new(node)
+        self.value.stringify(|s| N::create(self.name, s))
     }
 
     fn update(self, _: &mut Self::Product) {}
 }
 
-impl Html for AttributeNode<FastDiff<'_>> {
+impl<N> Html for AttributeNode<FastDiff<'_>, N>
+where
+    N: Namespace,
+{
     type Product = AttributeNodeProduct<usize>;
 
     fn build(self) -> Self::Product {
-        let node = util::__kobold_attr(self.name, &self.value);
-        let el = Element::new(node);
+        let el = N::create(self.name, &self.value);
 
         AttributeNodeProduct {
             value: self.value.as_ptr() as usize,
@@ -127,7 +184,7 @@ impl Html for AttributeNode<FastDiff<'_>> {
 
     fn update(self, p: &mut Self::Product) {
         if p.value != self.value.as_ptr() as usize {
-            util::__kobold_attr_update(&p.el.node, &self.value);
+            N::update(&p.el, &self.value);
             p.value = self.value.as_ptr() as usize;
         }
     }
@@ -182,10 +239,7 @@ pub trait BoolExt {
 
 impl BoolExt for bool {
     fn class(self, class: &str) -> OptionalClass {
-        OptionalClass {
-            on: self,
-            class,
-        }
+        OptionalClass { on: self, class }
     }
 }
 
@@ -237,12 +291,12 @@ impl<'a> Attribute for Class<NoDiff<OptionalClass<'a>>> {
     }
 
     fn update(self, p: &mut Self::Product, js: &JsValue) {
-        match (self.0.0.on, *p) {
+        match (self.0 .0.on, *p) {
             (true, true) | (false, false) => return,
             (true, false) => util::__kobold_class_add(js, self.0.class),
             (false, true) => util::__kobold_class_remove(js, self.0.class),
         }
-        *p = self.0.0.on;
+        *p = self.0 .0.on;
     }
 }
 

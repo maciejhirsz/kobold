@@ -1,0 +1,14 @@
+[package]
+name = "kobold_qr"
+version = "0.5.0"
+authors = ["Maciej Hirsz <hello@maciej.codes>"]
+edition = "2021"
+license = "LGPL-3.0"
+readme = "../../README.md"
+keywords = ["web", "wasm", "javascript", "qr"]
+description = "QR code component for Kobold"
+
+[dependencies]
+# fast_qr = "0.8.4"
+fast_qr = {path = "../../../fast_qr"}
+kobold = "0.5.0"
