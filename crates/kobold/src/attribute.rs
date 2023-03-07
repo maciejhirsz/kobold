@@ -182,10 +182,7 @@ pub trait BoolExt {
 
 impl BoolExt for bool {
     fn class(self, class: &str) -> OptionalClass {
-        OptionalClass {
-            on: self,
-            class,
-        }
+        OptionalClass { on: self, class }
     }
 }
 
@@ -237,12 +234,12 @@ impl<'a> Attribute for Class<NoDiff<OptionalClass<'a>>> {
     }
 
     fn update(self, p: &mut Self::Product, js: &JsValue) {
-        match (self.0.0.on, *p) {
+        match (self.0 .0.on, *p) {
             (true, true) | (false, false) => return,
             (true, false) => util::__kobold_class_add(js, self.0.class),
             (false, true) => util::__kobold_class_remove(js, self.0.class),
         }
-        *p = self.0.0.on;
+        *p = self.0 .0.on;
     }
 }
 
