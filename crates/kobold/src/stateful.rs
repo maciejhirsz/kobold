@@ -300,5 +300,7 @@ where
 
     fn update(self, p: &mut Self::Product) {
         self.with_state.update(p);
+
+        (self.handler)(OwnedHook::new::<H>(&p.inner));
     }
 }

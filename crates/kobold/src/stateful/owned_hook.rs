@@ -1,4 +1,4 @@
-use std::cell::{BorrowMutError, RefCell};
+use std::cell::{BorrowMutError, BorrowError, RefCell};
 use std::fmt::{self, Display};
 use std::mem::ManuallyDrop;
 use std::rc::{Rc, Weak};
@@ -19,6 +19,12 @@ pub enum UpdateError {
 
 impl From<BorrowMutError> for UpdateError {
     fn from(_: BorrowMutError) -> Self {
+        UpdateError::CycleDetected
+    }
+}
+
+impl From<BorrowError> for UpdateError {
+    fn from(_: BorrowError) -> Self {
         UpdateError::CycleDetected
     }
 }
@@ -108,6 +114,14 @@ where
         }
 
         Ok(())
+    }
+
+    pub fn with<R: 'static>(&self, getter: impl FnOnce(&S) -> R) -> Result<R, UpdateError> {
+        let state = unsafe { (self.vtable.state)(self.inner) }.ok_or(UpdateError::StateDropped)?;
+        let hook = unsafe { (*state).try_borrow()? };
+
+        Ok(getter(&hook.state))
+
     }
 }
 
