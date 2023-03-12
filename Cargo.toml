@@ -1,15 +1,7 @@
 [workspace]
 members = [
-    "crates/kobold",
-    "crates/kobold_macros",
-    "crates/kobold_qr",
-    "examples/counter",
-    "examples/hello_world",
-    "examples/list",
-    "examples/stateful",
-    "examples/interval",
-    "examples/qrcode",
-    "examples/todomvc",
+    "crates/*",
+    "examples/*",
 ]
 
 [patch.crates-io]
