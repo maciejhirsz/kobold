@@ -87,7 +87,7 @@ fn parse_row(lex: &mut Lexer<Token>) -> Option<Vec<CompactString>> {
     }
 }
 
-async fn read_file(file: File, hook: OwnedHook<Table>) {
+async fn read_file(file: File, hook: WeakHook<Table>) {
     let text = match JsFuture::from(file.text()).await.map(|t| t.as_string()) {
         Ok(Some(text)) => text,
         _ => return,

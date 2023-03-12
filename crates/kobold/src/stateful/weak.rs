@@ -49,12 +49,12 @@ struct HookVTable<S: 'static> {
     drop: unsafe fn(*const ()),
 }
 
-pub struct OwnedHook<S: 'static> {
+pub struct WeakHook<S: 'static> {
     inner: *const (),
     vtable: &'static HookVTable<S>,
 }
 
-impl<S> OwnedHook<S>
+impl<S> WeakHook<S>
 where
     S: 'static,
 {
@@ -68,7 +68,7 @@ where
     pub(super) fn from_weak<P: 'static>(inner: Weak<Inner<S, P>>) -> Self {
         let inner = inner.into_raw() as *const ();
 
-        OwnedHook {
+        WeakHook {
             inner,
             vtable: &HookVTable {
                 state: |inner| unsafe {
@@ -101,7 +101,7 @@ where
     }
 }
 
-impl<S> OwnedHook<S>
+impl<S> WeakHook<S>
 where
     S: 'static,
 {
@@ -129,21 +129,21 @@ where
     }
 }
 
-impl<S> Clone for OwnedHook<S>
+impl<S> Clone for WeakHook<S>
 where
     S: 'static,
 {
     fn clone(&self) -> Self {
         let inner = unsafe { (self.vtable.clone)(self.inner) };
 
-        OwnedHook {
+        WeakHook {
             inner,
             vtable: self.vtable,
         }
     }
 }
 
-impl<S> Drop for OwnedHook<S>
+impl<S> Drop for WeakHook<S>
 where
     S: 'static,
 {

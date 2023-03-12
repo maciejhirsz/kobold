@@ -9,7 +9,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
 use crate::event::Event;
-use crate::stateful::{Inner, ShouldRender, OwnedHook};
+use crate::stateful::{Inner, ShouldRender, WeakHook};
 use crate::{Element, Html, Mountable};
 
 type UnsafeCallback<S> = *const UnsafeCell<dyn CallbackFn<S, web_sys::Event>>;
@@ -20,7 +20,6 @@ pub struct Hook<S: 'static> {
     inner: *const (),
     make_closure: fn(*const (), cb: UnsafeCallback<S>) -> Box<dyn Fn(web_sys::Event)>,
     make_async_closure: fn(*const (), cb: UnsafeAsyncCallback<S>) -> Box<dyn Fn(web_sys::Event)>,
-    to_owned: fn(*const ()) -> OwnedHook<S>,
 }
 
 impl<S> Deref for Hook<S> {
@@ -56,16 +55,12 @@ where
                     let callback = unsafe { &*(*callback).get() };
                     let inner = unsafe { &*(inner as *const Inner<S, P>) };
 
-                    let state = inner.hook.borrow().to_owned();
+                    let transient = ManuallyDrop::new(unsafe { Weak::from_raw(inner as *const Inner<S, P>) });
+                    let weak = WeakHook::from_weak((*transient).clone());
 
-                    callback.call(state, event);
+                    callback.call(weak, event);
                 })
             },
-            to_owned: |inner| {
-                let transient = ManuallyDrop::new(unsafe { Weak::from_raw(inner as *const Inner<S, P>) });
-
-                OwnedHook::from_weak((*transient).clone())
-            }
         }
     }
 
@@ -87,7 +82,7 @@ where
 
     pub fn bind_async<E, T, F, A>(&self, cb: F) -> Callback<E, T, Async<F>, S>
     where
-        F: Fn(OwnedHook<S>, Event<E, T>) -> A + 'static,
+        F: Fn(WeakHook<S>, Event<E, T>) -> A + 'static,
         A: Future<Output = ()> + 'static,
     {
         Callback {
@@ -101,12 +96,6 @@ where
 impl<S: Copy> Hook<S> {
     pub fn get(&self) -> S {
         self.state
-    }
-}
-
-impl<S: 'static> Hook<S> {
-    pub fn to_owned(&self) -> OwnedHook<S> {
-        (self.to_owned)(self.inner)
     }
 }
 
@@ -128,7 +117,7 @@ trait CallbackFn<S, E> {
 }
 
 trait AsyncCallbackFn<S, E> {
-    fn call(&self, weak: OwnedHook<S>, event: E);
+    fn call(&self, weak: WeakHook<S>, event: E);
 }
 
 impl<F, A, E, S> CallbackFn<S, E> for F
@@ -144,11 +133,11 @@ where
 
 impl<F, A, E, S> AsyncCallbackFn<S, E> for F
 where
-    F: Fn(OwnedHook<S>, E) -> A + 'static,
+    F: Fn(WeakHook<S>, E) -> A + 'static,
     A: Future<Output = ()> + 'static,
     S: 'static,
 {
-    fn call(&self, state: OwnedHook<S>, event: E) {
+    fn call(&self, state: WeakHook<S>, event: E) {
         spawn_local((self)(state, event));
     }
 }
@@ -180,15 +169,14 @@ where
 
     fn update(self, p: &mut Self::Product) {
         // Technically we could just write to this box, but since
-        // this is a shared pointer I felt some prudence with `UnsafeCell`
-        // is warranted.
+        // this is a shared pointer `UnsafeCell` should help avoid any UB
         unsafe { *p.cb.get() = self.cb }
     }
 }
 
 impl<E, T, F, A, S> Html for Callback<'_, E, T, Async<F>, S>
 where
-    F: Fn(OwnedHook<S>, Event<E, T>) -> A + 'static,
+    F: Fn(WeakHook<S>, Event<E, T>) -> A + 'static,
     A: Future<Output = ()> + 'static,
     S: 'static,
 {
@@ -202,9 +190,7 @@ where
         let closure = Closure::wrap((hook.make_async_closure)(hook.inner, {
             let cb: *const UnsafeCell<dyn AsyncCallbackFn<S, Event<E, T>>> = &*cb;
 
-            // Casting `*const UnsafeCell<dyn CallbackFn<S, Event<E, T>>>`
-            // to `UnsafeCallback<S>`, which is safe since `Event<E, T>`
-            // is a `#[repr(transparent)]` wrapper for `web_sys::Event`.
+            // Same as non-async when it comes to event casting
             cb as UnsafeAsyncCallback<S>
         }));
 
@@ -212,6 +198,8 @@ where
     }
 
     fn update(self, p: &mut Self::Product) {
+        // Technically we could just write to this box, but since
+        // this is a shared pointer `UnsafeCell` should help avoid any UB
         unsafe { *p.cb.get() = self.cb.0 }
     }
 }

@@ -9,96 +9,6 @@
 //! could ever do is render itself once. To get around this the [`stateful`](stateful) function can
 //! be used to give a component ownership over some arbitrary mutable state.
 //!
-
-// TODO: missing docs!
-//
-// ### The `IntoState` trait
-//
-// The [`Stateful`](Stateful) trait allows you to define an associated `State` type which can be
-// different from the component itself. That state is put in a heap allocation so that it can be
-// referenced from callbacks. It also allows you to define how and if the state should be updated
-// when the parent component updates:
-//
-// ```no_run
-// use kobold::prelude::*;
-//
-// // This is our component struct, note that it can take arbitrary lifetimes.
-// struct Borrowing<'a> {
-//     name: &'a str,
-// }
-//
-// // This is our owned state, it must live for a `'static` lifetime, and may
-// // contain different fields than those on the component.
-// struct OwnedState {
-//     name: String,
-// }
-//
-// impl Stateful for Borrowing<'_> {
-//     // We define that `OwnedState` is the state for this component
-//     type State = OwnedState;
-//
-//     // Create `OwnedState` from this component
-//     fn init(self) -> OwnedState {
-//         OwnedState {
-//             name: self.name.into(),
-//         }
-//     }
-//
-//     // Update the pre-existing state
-//     fn update(self, state: &mut Self::State) -> ShouldRender {
-//         if self.name != state.name {
-//             // `state.name = self.name.into()` would have been fine too,
-//             // but this saves an allocation if the original `String` has
-//             // enough capacity
-//             state.name.replace_range(.., self.name);
-//
-//             ShouldRender::Yes
-//         } else {
-//             // If the name hasn't change there is no need to do anything
-//             ShouldRender::No
-//         }
-//     }
-// }
-//
-// impl<'a> Borrowing<'a> {
-//     fn render(self) -> impl Html + 'a {
-//         // Types here are:
-//         // state: &OwnedState,
-//         // ctx: Context<OwnedState>,
-//         self.stateful(|state, ctx| {
-//             // Since we work with a state that owns a `String`,
-//             // callbacks can mutate it at will.
-//             let exclaim = ctx.bind(|state, _| state.name.push('!'));
-//
-//             // Repeatedly clicking the Alice button does not have to do anything.
-//             let alice = ctx.bind(|state, _| {
-//                 if state.name != "Alice" {
-//                     state.name.replace_range(.., "Alice");
-//
-//                     ShouldRender::Yes
-//                 } else {
-//                     ShouldRender::No
-//                 }
-//             });
-//
-//             html! {
-//                 <div>
-//                     // Render can borrow `name` from state, no need for clones
-//                     <h1>"Hello: "{ &state.name }</h1>
-//                     <button onclick={alice}>"Alice"</button>
-//                     <button onclick={exclaim}>"!"</button>
-//                 </div>
-//             }
-//         })
-//     }
-// }
-//
-// kobold::start(html! {
-//     // Constructing the component only requires a `&str` slice.
-//     <Borrowing name="Bob" />
-// });
-// ```
-
 use std::cell::{RefCell, UnsafeCell};
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -107,10 +17,10 @@ use crate::render_fn::RenderFn;
 use crate::{Element, Html, Mountable};
 
 mod hook;
-mod owned_hook;
+mod weak;
 
 pub use hook::{Callback, Hook};
-pub use owned_hook::OwnedHook;
+pub use weak::WeakHook;
 
 /// Describes whether or not a component should be rendered after state changes.
 /// For uses see:
@@ -268,7 +178,7 @@ where
 {
     pub fn once<F>(self, handler: F) -> Once<S, H, F>
     where
-        F: FnOnce(OwnedHook<S::State>),
+        F: FnOnce(WeakHook<S::State>),
     {
         Once {
             with_state: self,
@@ -286,14 +196,14 @@ impl<S, H, F> Html for Once<S, H, F>
 where
     S: IntoState,
     H: Html,
-    F: FnOnce(OwnedHook<S::State>),
+    F: FnOnce(WeakHook<S::State>),
 {
     type Product = StatefulProduct<S::State, H::Product>;
 
     fn build(self) -> Self::Product {
         let product = self.with_state.build();
 
-        (self.handler)(OwnedHook::new::<H>(&product.inner));
+        (self.handler)(WeakHook::new::<H>(&product.inner));
 
         product
     }
