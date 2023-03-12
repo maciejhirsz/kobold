@@ -1,19 +1,27 @@
 use std::cell::UnsafeCell;
+use std::future::Future;
 use std::marker::PhantomData;
+use std::mem::ManuallyDrop;
 use std::ops::Deref;
+use std::rc::Weak;
 
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::spawn_local;
 
 use crate::event::Event;
-use crate::stateful::{Inner, ShouldRender};
+use crate::stateful::{Inner, ShouldRender, WeakHook};
 use crate::{Element, Html, Mountable};
 
 type UnsafeCallback<S> = *const UnsafeCell<dyn CallbackFn<S, web_sys::Event>>;
+type UnsafeAsyncCallback<S> = *const UnsafeCell<dyn AsyncCallbackFn<S, web_sys::Event>>;
 
-pub struct Hook<S> {
+/// A hook to some state `S`. A reference to `Hook` is obtained by using the [`stateful`](crate::stateful::stateful)
+/// function.
+pub struct Hook<S: 'static> {
     pub(super) state: S,
     inner: *const (),
-    make_closure: fn(*const (), cb: UnsafeCallback<S>) -> Box<dyn Fn(&web_sys::Event)>,
+    make_closure: fn(*const (), cb: UnsafeCallback<S>) -> Box<dyn Fn(web_sys::Event)>,
+    make_async_closure: fn(*const (), cb: UnsafeAsyncCallback<S>) -> Box<dyn Fn(web_sys::Event)>,
 }
 
 impl<S> Deref for Hook<S> {
@@ -44,6 +52,18 @@ where
                     }
                 })
             },
+            make_async_closure: |inner, callback| {
+                Box::new(move |event| {
+                    let callback = unsafe { &*(*callback).get() };
+                    let inner = unsafe { &*(inner as *const Inner<S, P>) };
+
+                    let transient =
+                        ManuallyDrop::new(unsafe { Weak::from_raw(inner as *const Inner<S, P>) });
+                    let weak = WeakHook::from_weak((*transient).clone());
+
+                    callback.call(weak, event);
+                })
+            },
         }
     }
 
@@ -53,11 +73,23 @@ where
 
     pub fn bind<E, T, F, A>(&self, cb: F) -> Callback<E, T, F, S>
     where
-        F: Fn(&mut S, &Event<E, T>) -> A + 'static,
+        F: Fn(&mut S, Event<E, T>) -> A + 'static,
         A: Into<ShouldRender>,
     {
         Callback {
             cb,
+            hook: self,
+            _target: PhantomData,
+        }
+    }
+
+    pub fn bind_async<E, T, F, A>(&self, cb: F) -> Callback<E, T, Async<F>, S>
+    where
+        F: Fn(WeakHook<S>, Event<E, T>) -> A + 'static,
+        A: Future<Output = ()> + 'static,
+    {
+        Callback {
+            cb: Async(cb),
             hook: self,
             _target: PhantomData,
         }
@@ -70,35 +102,52 @@ impl<S: Copy> Hook<S> {
     }
 }
 
-pub struct Callback<'state, E, T, F, S> {
+pub struct Callback<'state, E, T, F, S: 'static> {
     cb: F,
     hook: &'state Hook<S>,
     _target: PhantomData<(E, T)>,
 }
 
+pub struct Async<F>(F);
+
 pub struct CallbackProduct<F> {
-    closure: Closure<dyn Fn(&web_sys::Event)>,
+    closure: Closure<dyn Fn(web_sys::Event)>,
     cb: Box<UnsafeCell<F>>,
 }
 
 trait CallbackFn<S, E> {
-    fn call(&self, state: &mut S, event: &E) -> ShouldRender;
+    fn call(&self, state: &mut S, event: E) -> ShouldRender;
+}
+
+trait AsyncCallbackFn<S, E> {
+    fn call(&self, weak: WeakHook<S>, event: E);
 }
 
 impl<F, A, E, S> CallbackFn<S, E> for F
 where
-    F: Fn(&mut S, &E) -> A + 'static,
+    F: Fn(&mut S, E) -> A + 'static,
     A: Into<ShouldRender>,
     S: 'static,
 {
-    fn call(&self, state: &mut S, event: &E) -> ShouldRender {
+    fn call(&self, state: &mut S, event: E) -> ShouldRender {
         (self)(state, event).into()
+    }
+}
+
+impl<F, A, E, S> AsyncCallbackFn<S, E> for F
+where
+    F: Fn(WeakHook<S>, E) -> A + 'static,
+    A: Future<Output = ()> + 'static,
+    S: 'static,
+{
+    fn call(&self, state: WeakHook<S>, event: E) {
+        spawn_local((self)(state, event));
     }
 }
 
 impl<E, T, F, A, S> Html for Callback<'_, E, T, F, S>
 where
-    F: Fn(&mut S, &Event<E, T>) -> A + 'static,
+    F: Fn(&mut S, Event<E, T>) -> A + 'static,
     A: Into<ShouldRender>,
     S: 'static,
 {
@@ -123,9 +172,50 @@ where
 
     fn update(self, p: &mut Self::Product) {
         // Technically we could just write to this box, but since
-        // this is a shared pointer I felt some prudence with `UnsafeCell`
-        // is warranted.
+        // this is a shared pointer `UnsafeCell` should help avoid any UB
         unsafe { *p.cb.get() = self.cb }
+    }
+}
+
+impl<E, T, F, A, S> Html for Callback<'_, E, T, Async<F>, S>
+where
+    F: Fn(WeakHook<S>, Event<E, T>) -> A + 'static,
+    A: Future<Output = ()> + 'static,
+    S: 'static,
+{
+    type Product = CallbackProduct<F>;
+
+    fn build(self) -> Self::Product {
+        let Self { hook, cb, .. } = self;
+
+        let cb = Box::new(UnsafeCell::new(cb.0));
+
+        let closure = Closure::wrap((hook.make_async_closure)(hook.inner, {
+            let cb: *const UnsafeCell<dyn AsyncCallbackFn<S, Event<E, T>>> = &*cb;
+
+            // Same as non-async when it comes to event casting
+            cb as UnsafeAsyncCallback<S>
+        }));
+
+        CallbackProduct { closure, cb }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        // Technically we could just write to this box, but since
+        // this is a shared pointer `UnsafeCell` should help avoid any UB
+        unsafe { *p.cb.get() = self.cb.0 }
+    }
+}
+
+impl Mountable for Async<JsValue> {
+    type Js = JsValue;
+
+    fn el(&self) -> &Element {
+        panic!("Callback is not an element");
+    }
+
+    fn js(&self) -> &JsValue {
+        &self.0
     }
 }
 

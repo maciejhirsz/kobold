@@ -1,0 +1,24 @@
+[package]
+name = "kobold_csv_editor_example"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+compact_str = "0.7.0"
+gloo-console = "0.2.3"
+kobold = "0.5"
+logos = "0.12.1"
+wasm-bindgen-futures = "0.4.34"
+
+[dependencies.web-sys]
+version = "0.3.61"
+features = [
+	"console",
+	"HtmlInputElement",
+	"File",
+	"FileList",
+]
+
+[patch.crates-io]
+kobold = { path = "../kobold/crates/kobold" }
+kobold_macros = { path = "../kobold/crates/kobold_macros" }
