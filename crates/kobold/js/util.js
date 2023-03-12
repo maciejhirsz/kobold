@@ -1,5 +1,3 @@
-// import * as wasm from './pkg';
-
 const fragmentDecorators = new WeakMap();
 
 export function __kobold_start(n) { document.body.appendChild(n); }
