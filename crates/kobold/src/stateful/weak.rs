@@ -1,4 +1,4 @@
-use std::cell::{BorrowMutError, BorrowError, RefCell};
+use std::cell::{BorrowError, BorrowMutError, RefCell};
 use std::fmt::{self, Display};
 use std::mem::ManuallyDrop;
 use std::rc::{Rc, Weak};
@@ -6,9 +6,9 @@ use std::rc::{Rc, Weak};
 use crate::stateful::{Hook, Inner, ShouldRender};
 use crate::Html;
 
-/// Error type returned by [`Hook::update`](Hook::update).
+/// Error type returned by [`WeakHook::update`](WeakHook::update) and [`WeakHook::with`](WeakHook::with).
 #[derive(Debug)]
-pub enum UpdateError {
+pub enum HookError {
     /// Returned if the state has already been dropped, happens if the attempted
     /// update is applied to a component that has been removed from view.
     StateDropped,
@@ -17,30 +17,30 @@ pub enum UpdateError {
     CycleDetected,
 }
 
-impl From<BorrowMutError> for UpdateError {
+impl From<BorrowMutError> for HookError {
     fn from(_: BorrowMutError) -> Self {
-        UpdateError::CycleDetected
+        HookError::CycleDetected
     }
 }
 
-impl From<BorrowError> for UpdateError {
+impl From<BorrowError> for HookError {
     fn from(_: BorrowError) -> Self {
-        UpdateError::CycleDetected
+        HookError::CycleDetected
     }
 }
 
-impl Display for UpdateError {
+impl Display for HookError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            UpdateError::StateDropped => f.write_str("Could not update state: State was dropped"),
-            UpdateError::CycleDetected => {
+            HookError::StateDropped => f.write_str("Could not update state: State was dropped"),
+            HookError::CycleDetected => {
                 f.write_str("Cycle detected: Attempting to update state during an ongoing update")
             }
         }
     }
 }
 
-impl std::error::Error for UpdateError {}
+impl std::error::Error for HookError {}
 
 struct HookVTable<S: 'static> {
     state: unsafe fn(*const ()) -> Option<*const RefCell<Hook<S>>>,
@@ -49,6 +49,14 @@ struct HookVTable<S: 'static> {
     drop: unsafe fn(*const ()),
 }
 
+/// Similar to [`Hook`](crate::stateful::Hook), the `WeakHook` is a smart pointer to
+/// some state `S` that allows mutation of said state, and which will trigger a re-render
+/// of components using that state. Unlike `Hook` however, `WeakHook` is passed by value
+/// and can be freely cloned.
+///
+/// As the name suggests, this is a _weak_ reference, meaning that the state can be dropped
+/// while a `WeakHook` to it exists, at which point interacting with this `WeakHook` will
+/// produce errors.
 pub struct WeakHook<S: 'static> {
     inner: *const (),
     vtable: &'static HookVTable<S>,
@@ -87,9 +95,8 @@ where
                     (*inner).rerender(hook);
                 },
                 clone: |inner| {
-                    let weak = ManuallyDrop::new(unsafe {
-                        Weak::from_raw(inner as *const Inner<S, P>)
-                    });
+                    let weak =
+                        ManuallyDrop::new(unsafe { Weak::from_raw(inner as *const Inner<S, P>) });
 
                     Weak::into_raw((*weak).clone()) as *const ()
                 },
@@ -105,11 +112,11 @@ impl<S> WeakHook<S>
 where
     S: 'static,
 {
-    pub fn update<R>(&self, mutator: impl FnOnce(&mut S) -> R) -> Result<(), UpdateError>
+    pub fn update<R>(&self, mutator: impl FnOnce(&mut S) -> R) -> Result<(), HookError>
     where
         R: Into<ShouldRender>,
     {
-        let state = unsafe { (self.vtable.state)(self.inner) }.ok_or(UpdateError::StateDropped)?;
+        let state = unsafe { (self.vtable.state)(self.inner) }.ok_or(HookError::StateDropped)?;
         let mut hook = unsafe { (*state).try_borrow_mut()? };
         let result = mutator(&mut hook.state);
 
@@ -120,12 +127,14 @@ where
         Ok(())
     }
 
-    pub fn with<R: 'static>(&self, getter: impl FnOnce(&S) -> R) -> Result<R, UpdateError> {
-        let state = unsafe { (self.vtable.state)(self.inner) }.ok_or(UpdateError::StateDropped)?;
+    pub fn with<R>(&self, getter: impl FnOnce(&S) -> R) -> Result<R, HookError>
+    where
+        R: 'static,
+    {
+        let state = unsafe { (self.vtable.state)(self.inner) }.ok_or(HookError::StateDropped)?;
         let hook = unsafe { (*state).try_borrow()? };
 
         Ok(getter(&hook.state))
-
     }
 }
 

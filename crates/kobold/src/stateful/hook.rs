@@ -1,9 +1,9 @@
 use std::cell::UnsafeCell;
+use std::future::Future;
 use std::marker::PhantomData;
+use std::mem::ManuallyDrop;
 use std::ops::Deref;
 use std::rc::Weak;
-use std::mem::ManuallyDrop;
-use std::future::Future;
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
@@ -15,6 +15,8 @@ use crate::{Element, Html, Mountable};
 type UnsafeCallback<S> = *const UnsafeCell<dyn CallbackFn<S, web_sys::Event>>;
 type UnsafeAsyncCallback<S> = *const UnsafeCell<dyn AsyncCallbackFn<S, web_sys::Event>>;
 
+/// A hook to some state `S`. A reference to `Hook` is obtained by using the [`stateful`](crate::stateful::stateful)
+/// function.
 pub struct Hook<S: 'static> {
     pub(super) state: S,
     inner: *const (),
@@ -55,7 +57,8 @@ where
                     let callback = unsafe { &*(*callback).get() };
                     let inner = unsafe { &*(inner as *const Inner<S, P>) };
 
-                    let transient = ManuallyDrop::new(unsafe { Weak::from_raw(inner as *const Inner<S, P>) });
+                    let transient =
+                        ManuallyDrop::new(unsafe { Weak::from_raw(inner as *const Inner<S, P>) });
                     let weak = WeakHook::from_weak((*transient).clone());
 
                     callback.call(weak, event);

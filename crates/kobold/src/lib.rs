@@ -301,7 +301,7 @@ pub mod prelude {
     pub use crate::attribute::BoolExt as _;
     pub use crate::event::{KeyboardEvent, MouseEvent, UntypedEvent};
     pub use crate::list::ListIteratorExt as _;
-    pub use crate::stateful::{stateful, Hook, IntoState, WeakHook, ShouldRender};
+    pub use crate::stateful::{stateful, Hook, IntoState, ShouldRender, WeakHook};
     pub use crate::value::{StrExt as _, Stringify as _};
     pub use crate::{component, html, Html};
 }

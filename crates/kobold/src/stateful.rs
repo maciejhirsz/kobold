@@ -20,7 +20,7 @@ mod hook;
 mod weak;
 
 pub use hook::{Callback, Hook};
-pub use weak::WeakHook;
+pub use weak::{HookError, WeakHook};
 
 /// Describes whether or not a component should be rendered after state changes.
 /// For uses see:
