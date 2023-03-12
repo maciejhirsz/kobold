@@ -42,7 +42,7 @@ impl Display for UpdateError {
 
 impl std::error::Error for UpdateError {}
 
-struct HookVTable<S> {
+struct HookVTable<S: 'static> {
     state: unsafe fn(*const ()) -> Option<*const RefCell<Hook<S>>>,
     rerender: unsafe fn(&Hook<S>, *const ()),
     clone: unsafe fn(*const ()) -> *const (),
@@ -62,13 +62,17 @@ where
     where
         H: Html,
     {
-        let inner = Rc::downgrade(inner).into_raw() as *const ();
+        Self::from_weak(Rc::downgrade(inner))
+    }
+
+    pub(super) fn from_weak<P: 'static>(inner: Weak<Inner<S, P>>) -> Self {
+        let inner = inner.into_raw() as *const ();
 
         OwnedHook {
             inner,
             vtable: &HookVTable {
                 state: |inner| unsafe {
-                    let inner = inner as *const Inner<S, H::Product>;
+                    let inner = inner as *const Inner<S, P>;
                     let weak = ManuallyDrop::new(Weak::from_raw(inner));
 
                     if weak.strong_count() > 0 {
@@ -78,19 +82,19 @@ where
                     }
                 },
                 rerender: |hook, inner| unsafe {
-                    let inner = inner as *const Inner<S, H::Product>;
+                    let inner = inner as *const Inner<S, P>;
 
                     (*inner).rerender(hook);
                 },
                 clone: |inner| {
                     let weak = ManuallyDrop::new(unsafe {
-                        Weak::from_raw(inner as *const Inner<S, H::Product>)
+                        Weak::from_raw(inner as *const Inner<S, P>)
                     });
 
                     Weak::into_raw((*weak).clone()) as *const ()
                 },
                 drop: |inner| unsafe {
-                    Weak::from_raw(inner as *const Inner<S, H::Product>);
+                    Weak::from_raw(inner as *const Inner<S, P>);
                 },
             },
         }

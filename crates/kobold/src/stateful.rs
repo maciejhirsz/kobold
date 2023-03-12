@@ -185,7 +185,7 @@ pub struct Stateful<S: IntoState, H: Html> {
     _marker: PhantomData<H>,
 }
 
-struct Inner<S, P> {
+struct Inner<S: 'static, P> {
     hook: RefCell<Hook<S>>,
     product: UnsafeCell<P>,
     render: RenderFn<S, P>,
@@ -300,7 +300,5 @@ where
 
     fn update(self, p: &mut Self::Product) {
         self.with_state.update(p);
-
-        (self.handler)(OwnedHook::new::<H>(&p.inner));
     }
 }

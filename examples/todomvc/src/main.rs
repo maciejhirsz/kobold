@@ -98,13 +98,13 @@ fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl Html + '_ {
 #[component]
 fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl Html + 'a {
     let input = entry.editing.then(move || {
-        let onmouseover = state.bind(move |_, event: &MouseEvent<InputElement>| {
+        let onmouseover = state.bind(move |_, event: MouseEvent<InputElement>| {
             let _ = event.target().focus();
 
             ShouldRender::No
         });
 
-        let onkeypress = state.bind(move |state, event: &KeyboardEvent<InputElement>| {
+        let onkeypress = state.bind(move |state, event: KeyboardEvent<InputElement>| {
             if event.key() == "Enter" {
                 state.update(idx, event.target().value());
 
