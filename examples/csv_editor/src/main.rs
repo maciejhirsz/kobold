@@ -2,23 +2,9 @@ use std::ops::Range;
 
 use compact_str::CompactString;
 use kobold::prelude::*;
-use logos::{Lexer, Logos};
-use wasm_bindgen_futures::JsFuture;
-use web_sys::{File, HtmlInputElement};
+use web_sys::HtmlInputElement;
 
-#[derive(Logos)]
-enum Token {
-    #[error]
-    Err,
-    #[token(",")]
-    Comma,
-    #[regex(r"[\n\r]+")]
-    Newline,
-    #[regex(r#"[^"\n\r,]+"#)]
-    Value,
-    #[regex(r#""([^"]|"")+""#)]
-    QuotedValue,
-}
+mod csv;
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 enum Editing {
@@ -27,18 +13,30 @@ enum Editing {
     Cell { col: usize, row: usize },
 }
 
-struct Table {
+pub struct State {
     editing: Editing,
     name: String,
+    table: Table,
+}
+
+pub struct Table {
     columns: Vec<CompactString>,
     rows: Vec<Vec<CompactString>>,
+}
+
+impl State {
+    fn mock() -> Self {
+        State {
+            editing: Editing::None,
+            name: "<no file>".to_owned(),
+            table: Table::mock(),
+        }
+    }
 }
 
 impl Table {
     fn mock() -> Self {
         Table {
-            editing: Editing::None,
-            name: "<no file>".to_owned(),
             columns: vec!["column 1".into(), "column 2".into()],
             rows: vec![
                 vec!["A1".into(), "A2".into()],
@@ -56,89 +54,43 @@ impl Table {
     }
 }
 
-fn parse_row(lex: &mut Lexer<Token>) -> Option<Vec<CompactString>> {
-    let mut row = Vec::new();
-    let mut value = None;
-
-    while let Some(token) = lex.next() {
-        match token {
-            Token::Value => value = Some(lex.slice().trim().into()),
-            Token::QuotedValue => {
-                let v = lex.slice();
-                let v = &v[1..v.len() - 1];
-
-                value = Some(v.replace("\"\"", "\"").into());
-            }
-            Token::Comma => {
-                row.push(value.take().unwrap_or_default());
-            }
-            Token::Newline => {
-                row.push(value.take().unwrap_or_default());
-                break;
-            }
-            Token::Err => break,
-        }
-    }
-
-    if row.is_empty() {
-        None
-    } else {
-        Some(row)
-    }
-}
-
-async fn read_file(file: File, hook: WeakHook<Table>) {
-    let text = match JsFuture::from(file.text()).await.map(|t| t.as_string()) {
-        Ok(Some(text)) => text,
-        _ => return,
-    };
-
-    let mut lex = Token::lexer(&text);
-
-    let columns = parse_row(&mut lex).unwrap_or_default();
-
-    let mut rows = Vec::new();
-
-    while let Some(row) = parse_row(&mut lex) {
-        rows.push(row);
-    }
-
-    hook.update(|table| {
-        table.columns = columns;
-        table.rows = rows;
-    })
-    .unwrap();
-}
-
 #[component]
 fn Editor() -> impl Html {
-    stateful(Table::mock, |table| {
-        let onload = table.bind_async(move |hook, e: UntypedEvent<HtmlInputElement>| async move {
-            let file = e.target().files().unwrap().get(0).unwrap();
+    stateful(State::mock, |state| {
+        let onload = state.bind_async(move |hook, e: UntypedEvent<HtmlInputElement>| async move {
+            let file = match e.target().files().and_then(|list| list.get(0)) {
+                Some(file) => file,
+                None => return,
+            };
 
-            let _ = hook.update(|table| table.name = file.name());
+            let _ = hook.update(|state| state.name = file.name());
 
-            read_file(file, hook).await;
+            match csv::read_file(file).await {
+                Ok(table) => {
+                    let _ = hook.update(move |state| state.table = table);
+                }
+                Err(_) => (),
+            };
         });
 
         html! {
             <input type="file" accept="text/csv" onchange={onload} />
-            <h1>{ table.name.fast_diff() }</h1>
+            <h1>{ state.name.fast_diff() }</h1>
             <table>
                 <thead>
                     <tr>
                     {
-                        table.columns.iter().map(|c| html!{ <th>{ c.as_str() }</th> }).list()
+                        state.table.columns.iter().map(|c| html!{ <th>{ c.as_str() }</th> }).list()
                     }
                     </tr>
                 </thead>
                 <tbody>
                 {
-                    table.rows().map(move |row| html! {
+                    state.table.rows().map(move |row| html! {
                         <tr>
                         {
-                            table.columns().map(move |col| html! {
-                                <Cell {col} {row} {table} />
+                            state.table.columns().map(move |col| html! {
+                                <Cell {col} {row} {state} />
                             })
                             .list()
                         }
@@ -153,17 +105,17 @@ fn Editor() -> impl Html {
 }
 
 #[component(auto_branch)]
-fn Cell(col: usize, row: usize, table: &Hook<Table>) -> impl Html + '_ {
-    let ondblclick = table.bind(move |t, _| t.editing = Editing::Cell { row, col });
+fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl Html + '_ {
+    let ondblclick = state.bind(move |s, _| s.editing = Editing::Cell { row, col });
 
-    let onchange = table.bind(move |table, e: UntypedEvent<HtmlInputElement>| {
-        table.rows[row][col] = e.target().value().into();
-        table.editing = Editing::None;
+    let onchange = state.bind(move |state, e: UntypedEvent<HtmlInputElement>| {
+        state.table.rows[row][col] = e.target().value().into();
+        state.editing = Editing::None;
     });
 
-    let value = table.rows[row][col].as_str();
+    let value = state.table.rows[row][col].as_str();
 
-    if table.editing == (Editing::Cell { row, col }) {
+    if state.editing == (Editing::Cell { row, col }) {
         html! {
             <td.edit>
                 { value }
