@@ -32,7 +32,7 @@ fn Editor() -> impl Html {
                 <thead>
                     <tr>
                     {
-                        state.columns.iter().map(|c| html!{ <th>{ state.source.get_text(c).fast_diff() }</th> }).list()
+                        state.columns().map(|col| html! { <Head {col} {state} /> }).list()
                     }
                     </tr>
                 </thead>
@@ -54,6 +54,29 @@ fn Editor() -> impl Html {
             </table>
         }
     })
+}
+
+#[component(auto_branch)]
+fn Head(col: usize, state: &Hook<State>) -> impl Html + '_ {
+    let ondblclick = state.bind(move |s, _| s.editing = Editing::Column { col });
+
+    let onchange = state.bind(move |state, e: Event<HtmlInputElement>| {
+        state.columns[col] = Text::Owned(e.target().value().into());
+        state.editing = Editing::None;
+    });
+
+    let value = state.source.get_text(&state.columns[col]);
+
+    if state.editing == (Editing::Column { col }) {
+        html! {
+            <th.edit>
+                { value }
+                <input.edit.edit-head {onchange} value={ value.to_owned() } />
+            </th>
+        }
+    } else {
+        html! { <th {ondblclick}>{ value.fast_diff() }</th> }
+    }
 }
 
 #[component(auto_branch)]
