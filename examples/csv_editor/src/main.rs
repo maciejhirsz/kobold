@@ -1,6 +1,5 @@
 use std::ops::Range;
 
-use compact_str::CompactString;
 use kobold::prelude::*;
 use web_sys::HtmlInputElement;
 
@@ -9,8 +8,7 @@ mod csv;
 #[derive(PartialEq, Eq, Clone, Copy)]
 enum Editing {
     None,
-    Column { col: usize },
-    Cell { col: usize, row: usize },
+    Cell(usize),
 }
 
 pub struct State {
@@ -20,8 +18,9 @@ pub struct State {
 }
 
 pub struct Table {
-    columns: Vec<CompactString>,
-    rows: Vec<Vec<CompactString>>,
+    source: TextSource,
+    columns: Vec<Range<usize>>,
+    rows: Vec<Range<usize>>,
 }
 
 impl State {
@@ -34,19 +33,48 @@ impl State {
     }
 }
 
-impl Table {
-    fn mock() -> Self {
-        Table {
-            columns: vec!["column 1".into(), "column 2".into()],
-            rows: vec![
-                vec!["A1".into(), "A2".into()],
-                vec!["B1".into(), "B2".into()],
-            ],
-        }
+pub struct TextSource {
+    source: Vec<u8>,
+}
+
+impl From<String> for TextSource {
+    fn from(value: String) -> Self {
+        TextSource { source: value.into_bytes() }
+    }
+}
+
+impl TextSource {
+    pub fn get_text(&self, span: &Range<usize>) -> &str {
+        unsafe { std::str::from_utf8_unchecked(&self.source[span.clone()]) }
     }
 
-    fn rows(&self) -> Range<usize> {
-        0..self.rows.len()
+    pub fn update_text(&mut self, span: &mut Range<usize>, new: &str) {
+        *span = if new.len() <= span.end - span.start {
+            let new_span = span.start .. span.start + new.len();
+            self.source[new_span.clone()].copy_from_slice(new.as_bytes());
+
+            new_span
+        } else {
+            self.push(new)
+        };
+    }
+
+    pub fn push(&mut self, slice: &str) -> Range<usize> {
+        let new_span = self.source.len() .. self.source.len() + slice.len();
+
+        self.source.extend_from_slice(slice.as_bytes());
+
+        new_span
+    }
+}
+
+impl Table {
+    fn mock() -> Self {
+        "column 1,column 2\nA1,A2\nB1,B2".parse().unwrap()
+    }
+
+    fn rows(&self) -> impl Iterator<Item = usize> {
+        (0..self.rows.len()).step_by(self.columns.len())
     }
 
     fn columns(&self) -> Range<usize> {
@@ -73,6 +101,8 @@ fn Editor() -> impl Html {
             };
         });
 
+        let table = &state.table;
+
         html! {
             <input type="file" accept="text/csv" onchange={onload} />
             <h1>{ state.name.fast_diff() }</h1>
@@ -80,7 +110,7 @@ fn Editor() -> impl Html {
                 <thead>
                     <tr>
                     {
-                        state.table.columns.iter().map(|c| html!{ <th>{ c.as_str() }</th> }).list()
+                        table.columns.iter().map(|c| html!{ <th>{ table.source.get_text(c) }</th> }).list()
                     }
                     </tr>
                 </thead>
@@ -89,8 +119,8 @@ fn Editor() -> impl Html {
                     state.table.rows().map(move |row| html! {
                         <tr>
                         {
-                            state.table.columns().map(move |col| html! {
-                                <Cell {col} {row} {state} />
+                            table.columns().map(move |col| html! {
+                                <Cell cell={col + row} {state} />
                             })
                             .list()
                         }
@@ -105,17 +135,19 @@ fn Editor() -> impl Html {
 }
 
 #[component(auto_branch)]
-fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl Html + '_ {
-    let ondblclick = state.bind(move |s, _| s.editing = Editing::Cell { row, col });
+fn Cell(cell: usize, state: &Hook<State>) -> impl Html + '_ {
+    let ondblclick = state.bind(move |s, _| s.editing = Editing::Cell(cell));
 
     let onchange = state.bind(move |state, e: Event<HtmlInputElement>| {
-        state.table.rows[row][col] = e.target().value().into();
+        let span = &mut state.table.rows[cell];
+
+        state.table.source.update_text(span, &e.target().value());
         state.editing = Editing::None;
     });
 
-    let value = state.table.rows[row][col].as_str();
+    let value = state.table.source.get_text(&state.table.rows[cell]);
 
-    if state.editing == (Editing::Cell { row, col }) {
+    if state.editing == (Editing::Cell(cell)) {
         html! {
             <td.edit>
                 { value }

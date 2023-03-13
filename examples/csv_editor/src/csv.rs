@@ -1,11 +1,14 @@
+use std::ops::Range;
 use std::str::FromStr;
+use std::vec::IntoIter;
 
-use compact_str::CompactString;
-use logos::{Lexer, Logos};
+use logos::Logos;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::File;
 
-use super::Table;
+use crate::{Table, TextSource};
+
+type Tokens = IntoIter<(Token, Range<usize>)>;
 
 #[derive(Logos)]
 enum Token {
@@ -21,24 +24,40 @@ enum Token {
     QuotedValue,
 }
 
+#[derive(Debug)]
 pub enum Error {
     NoData,
     FailedToReadFile,
     InvalidRowLength,
 }
 
-fn parse_row(lex: &mut Lexer<Token>, columns: usize) -> Result<Option<Vec<CompactString>>, Error> {
+fn parse_row(
+    lex: &mut Tokens,
+    source: &mut Vec<u8>,
+    columns: usize,
+) -> Result<Option<Vec<Range<usize>>>, Error> {
     let mut row = Vec::with_capacity(columns);
     let mut value = None;
 
-    while let Some(token) = lex.next() {
+    while let Some((token, mut span)) = lex.next() {
         match token {
-            Token::Value => value = Some(lex.slice().trim().into()),
+            Token::Value => value = Some(span),
             Token::QuotedValue => {
-                let v = lex.slice();
-                let v = &v[1..v.len() - 1];
+                span.start += 1;
+                span.end -= 1;
 
-                value = Some(v.replace("\"\"", "\"").into());
+                let mut slice = &mut source[span.clone()];
+
+                while let Some(quote) = slice.windows(2).position(|w| w == b"\"\"") {
+                    let len = slice.len();
+
+                    slice.copy_within(quote + 1.., quote);
+                    slice = &mut slice[quote + 1..len - 1];
+
+                    span.end -= 1;
+                }
+
+                value = Some(span);
             }
             Token::Comma => {
                 row.push(value.take().unwrap_or_default());
@@ -51,14 +70,16 @@ fn parse_row(lex: &mut Lexer<Token>, columns: usize) -> Result<Option<Vec<Compac
         }
     }
 
-    const EMPTY: CompactString = CompactString::new_inline("");
+    if let Some(value) = value {
+        row.push(value);
+    }
 
     match (columns, row.len()) {
         (_, 0) => Ok(None),
         (0, _) => Ok(Some(row)),
         (n, r) => {
             if n > r {
-                row.resize_with(n, || EMPTY);
+                row.resize_with(n, Range::default);
             }
 
             if r > n {
@@ -70,21 +91,38 @@ fn parse_row(lex: &mut Lexer<Token>, columns: usize) -> Result<Option<Vec<Compac
     }
 }
 
+impl TryFrom<String> for Table {
+    type Error = Error;
+
+    fn try_from(source: String) -> Result<Self, Error> {
+        let mut tokens = Token::lexer(&source)
+            .spanned()
+            .collect::<Vec<_>>()
+            .into_iter();
+
+        let mut source = source.into_bytes();
+
+        let columns = parse_row(&mut tokens, &mut source, 0)?.ok_or(Error::NoData)?;
+
+        let mut rows = Vec::new();
+
+        while let Some(row) = parse_row(&mut tokens, &mut source, columns.len())? {
+            rows.extend(row);
+        }
+
+        Ok(Table {
+            source: TextSource { source },
+            columns,
+            rows,
+        })
+    }
+}
+
 impl FromStr for Table {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Error> {
-        let mut lex = Token::lexer(s);
-
-        let columns = parse_row(&mut lex, 0)?.ok_or(Error::NoData)?;
-
-        let mut rows = Vec::new();
-
-        while let Some(row) = parse_row(&mut lex, columns.len())? {
-            rows.push(row);
-        }
-
-        Ok(Table { columns, rows })
+        s.to_owned().try_into()
     }
 }
 
