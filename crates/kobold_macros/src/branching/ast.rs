@@ -35,12 +35,13 @@ impl Debug for Code {
 
 pub struct Scoped {
     pub tokens: TokenStream,
+    pub span: Span,
     pub branch: u8,
     pub branches: Option<Rc<Cell<u8>>>,
 }
 
 impl Scoped {
-    pub fn new(tokens: TokenStream, branches: Option<Rc<Cell<u8>>>) -> Self {
+    pub fn new(tokens: TokenStream, span: Span, branches: Option<Rc<Cell<u8>>>) -> Self {
         let branch = match branches {
             Some(ref branches) => {
                 let n = branches.get();
@@ -52,6 +53,7 @@ impl Scoped {
 
         Scoped {
             tokens,
+            span,
             branch,
             branches,
         }

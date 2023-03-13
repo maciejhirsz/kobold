@@ -1,4 +1,4 @@
-use proc_macro::{Group, TokenStream};
+use proc_macro::{Group, TokenStream, TokenTree};
 
 use crate::tokenize::prelude::*;
 
@@ -21,7 +21,7 @@ impl Tokenize for Vec<Code> {
 impl Tokenize for Code {
     fn tokenize_in(self, stream: &mut TokenStream) {
         match self {
-            Code::Segment(segment) => segment.tokenize_in(stream),
+            Code::Segment(segment) => stream.extend(segment),
             Code::Scoped(scoped) => scoped.tokenize_in(stream),
             Code::Nested(nested) => nested.tokenize_in(stream),
         }
@@ -36,9 +36,22 @@ impl Tokenize for Scoped {
             let variant = [b'A' + self.branch];
             let variant = std::str::from_utf8(&variant).unwrap();
 
-            write!(stream, "::kobold::branching::Branch{branches}::{variant}");
+            let branch = format!("::kobold::branching::Branch{branches}::{variant}").tokenize();
 
-            stream.write(group('(', self.tokens));
+            stream.extend(branch.into_iter().map(|mut tt| {
+                match &mut tt {
+                    TokenTree::Ident(ident) => ident.set_span(self.span),
+                    TokenTree::Punct(punct) => punct.set_span(self.span),
+                    _ => (),
+                }
+
+                tt
+            }));
+
+            let mut group = group('(', self.tokens);
+            group.set_span(self.span);
+
+            stream.write(group);
             return;
         }
 
@@ -48,7 +61,9 @@ impl Tokenize for Scoped {
 
 impl Tokenize for Nested {
     fn tokenize_in(self, stream: &mut TokenStream) {
-        let group = Group::new(self.delimiter, self.code.tokenize());
+        let mut group = Group::new(self.delimiter, self.code.tokenize());
+
+        group.set_span(self.span);
 
         stream.write(group)
     }
