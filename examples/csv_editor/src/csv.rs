@@ -1,14 +1,10 @@
-use std::ops::Range;
 use std::str::FromStr;
-use std::vec::IntoIter;
 
-use logos::Logos;
+use logos::{Lexer, Logos};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::File;
 
-use crate::{Table, TextSource};
-
-type Tokens = IntoIter<(Token, Range<usize>)>;
+use crate::state::{Table, Text, TextSource};
 
 #[derive(Logos)]
 enum Token {
@@ -31,33 +27,15 @@ pub enum Error {
     InvalidRowLength,
 }
 
-fn parse_row(
-    lex: &mut Tokens,
-    source: &mut Vec<u8>,
-    columns: usize,
-) -> Result<Option<Vec<Range<usize>>>, Error> {
+fn parse_row(lex: &mut Lexer<Token>, columns: usize) -> Result<Option<Vec<Text>>, Error> {
     let mut row = Vec::with_capacity(columns);
     let mut value = None;
 
-    while let Some((token, mut span)) = lex.next() {
+    while let Some(token) = lex.next() {
         match token {
-            Token::Value => value = Some(span),
+            Token::Value => value = Some(Text::Insitu(lex.span())),
             Token::QuotedValue => {
-                span.start += 1;
-                span.end -= 1;
-
-                let mut slice = &mut source[span.clone()];
-
-                while let Some(quote) = slice.windows(2).position(|w| w == b"\"\"") {
-                    let len = slice.len();
-
-                    slice.copy_within(quote + 1.., quote);
-                    slice = &mut slice[quote + 1..len - 1];
-
-                    span.end -= 1;
-                }
-
-                value = Some(span);
+                value = Some(Text::Owned(lex.slice().replace("\"\"", "\"").into()));
             }
             Token::Comma => {
                 row.push(value.take().unwrap_or_default());
@@ -79,7 +57,7 @@ fn parse_row(
         (0, _) => Ok(Some(row)),
         (n, r) => {
             if n > r {
-                row.resize_with(n, Range::default);
+                row.resize_with(n, Text::default);
             }
 
             if r > n {
@@ -95,23 +73,18 @@ impl TryFrom<String> for Table {
     type Error = Error;
 
     fn try_from(source: String) -> Result<Self, Error> {
-        let mut tokens = Token::lexer(&source)
-            .spanned()
-            .collect::<Vec<_>>()
-            .into_iter();
+        let mut lex = Token::lexer(&source);
 
-        let mut source = source.into_bytes();
-
-        let columns = parse_row(&mut tokens, &mut source, 0)?.ok_or(Error::NoData)?;
+        let columns = parse_row(&mut lex, 0)?.ok_or(Error::NoData)?;
 
         let mut rows = Vec::new();
 
-        while let Some(row) = parse_row(&mut tokens, &mut source, columns.len())? {
-            rows.extend(row);
+        while let Some(row) = parse_row(&mut lex, columns.len())? {
+            rows.push(row);
         }
 
         Ok(Table {
-            source: TextSource { source },
+            source: TextSource::from(source),
             columns,
             rows,
         })
