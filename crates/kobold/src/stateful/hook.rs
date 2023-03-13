@@ -73,7 +73,7 @@ where
 
     pub fn bind<E, T, F, A>(&self, cb: F) -> Callback<E, T, F, S>
     where
-        F: Fn(&mut S, Event<E, T>) -> A + 'static,
+        F: Fn(&mut S, Event<T, E>) -> A + 'static,
         A: Into<ShouldRender>,
     {
         Callback {
@@ -85,7 +85,7 @@ where
 
     pub fn bind_async<E, T, F, A>(&self, cb: F) -> Callback<E, T, Async<F>, S>
     where
-        F: Fn(WeakHook<S>, Event<E, T>) -> A + 'static,
+        F: Fn(WeakHook<S>, Event<T, E>) -> A + 'static,
         A: Future<Output = ()> + 'static,
     {
         Callback {
@@ -147,7 +147,7 @@ where
 
 impl<E, T, F, A, S> Html for Callback<'_, E, T, F, S>
 where
-    F: Fn(&mut S, Event<E, T>) -> A + 'static,
+    F: Fn(&mut S, Event<T, E>) -> A + 'static,
     A: Into<ShouldRender>,
     S: 'static,
 {
@@ -159,10 +159,10 @@ where
         let cb = Box::new(UnsafeCell::new(cb));
 
         let closure = Closure::wrap((hook.make_closure)(hook.inner, {
-            let cb: *const UnsafeCell<dyn CallbackFn<S, Event<E, T>>> = &*cb;
+            let cb: *const UnsafeCell<dyn CallbackFn<S, Event<T, E>>> = &*cb;
 
-            // Casting `*const UnsafeCell<dyn CallbackFn<S, Event<E, T>>>`
-            // to `UnsafeCallback<S>`, which is safe since `Event<E, T>`
+            // Casting `*const UnsafeCell<dyn CallbackFn<S, Event<T, E>>>`
+            // to `UnsafeCallback<S>`, which is safe since `Event<T, E>`
             // is a `#[repr(transparent)]` wrapper for `web_sys::Event`.
             cb as UnsafeCallback<S>
         }));
@@ -179,7 +179,7 @@ where
 
 impl<E, T, F, A, S> Html for Callback<'_, E, T, Async<F>, S>
 where
-    F: Fn(WeakHook<S>, Event<E, T>) -> A + 'static,
+    F: Fn(WeakHook<S>, Event<T, E>) -> A + 'static,
     A: Future<Output = ()> + 'static,
     S: 'static,
 {
@@ -191,7 +191,7 @@ where
         let cb = Box::new(UnsafeCell::new(cb.0));
 
         let closure = Closure::wrap((hook.make_async_closure)(hook.inner, {
-            let cb: *const UnsafeCell<dyn AsyncCallbackFn<S, Event<E, T>>> = &*cb;
+            let cb: *const UnsafeCell<dyn AsyncCallbackFn<S, Event<T, E>>> = &*cb;
 
             // Same as non-async when it comes to event casting
             cb as UnsafeAsyncCallback<S>

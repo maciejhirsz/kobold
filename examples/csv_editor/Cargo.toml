@@ -18,7 +18,3 @@ features = [
 	"File",
 	"FileList",
 ]
-
-[patch.crates-io]
-kobold = { path = "../kobold/crates/kobold" }
-kobold_macros = { path = "../kobold/crates/kobold_macros" }

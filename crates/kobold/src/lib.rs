@@ -299,7 +299,7 @@ pub mod util;
 /// The prelude module with most commonly used types
 pub mod prelude {
     pub use crate::attribute::BoolExt as _;
-    pub use crate::event::{KeyboardEvent, MouseEvent, UntypedEvent};
+    pub use crate::event::{Event, KeyboardEvent, MouseEvent};
     pub use crate::list::ListIteratorExt as _;
     pub use crate::stateful::{stateful, Hook, IntoState, ShouldRender, WeakHook};
     pub use crate::value::{StrExt as _, Stringify as _};

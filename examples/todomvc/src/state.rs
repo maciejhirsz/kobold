@@ -27,7 +27,7 @@ impl Entry {
 
     fn read(from: &str) -> Option<Self> {
         let description = from.get(1..).map(Into::into)?;
-        let completed = from.starts_with("+");
+        let completed = from.starts_with('+');
 
         Some(Entry {
             description,

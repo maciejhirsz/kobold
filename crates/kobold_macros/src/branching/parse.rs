@@ -155,9 +155,11 @@ fn parse_code(stream: &mut ParseStream, scope: Branches) -> Result<Vec<Code>, Pa
                 match maybe_html.into_inner() {
                     Ok(html) => {
                         let branches = scope.map(Clone::clone);
+                        let span = html[0].span();
 
                         code.push(Code::Scoped(Scoped::new(
                             html.into_iter().collect(),
+                            span,
                             branches,
                         )));
                     }
