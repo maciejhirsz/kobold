@@ -1,4 +1,4 @@
-use std::num::NonZeroUsize;
+use std::str::FromStr;
 
 use compact_str::CompactString;
 use logos::{Lexer, Logos};
@@ -53,15 +53,38 @@ fn parse_row(lex: &mut Lexer<Token>, columns: usize) -> Result<Option<Vec<Compac
 
     const EMPTY: CompactString = CompactString::new_inline("");
 
-    if columns > row.len() {
-        row.resize_with(columns, || EMPTY);
-    }
-
     match (columns, row.len()) {
         (_, 0) => Ok(None),
         (0, _) => Ok(Some(row)),
-        (n, r) if n == r => Ok(Some(row)),
-        _ => Err(Error::InvalidRowLength),
+        (n, r) => {
+            if n > r {
+                row.resize_with(n, || EMPTY);
+            }
+
+            if r > n {
+                Err(Error::InvalidRowLength)
+            } else {
+                Ok(Some(row))
+            }
+        }
+    }
+}
+
+impl FromStr for Table {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Error> {
+        let mut lex = Token::lexer(s);
+
+        let columns = parse_row(&mut lex, 0)?.ok_or(Error::NoData)?;
+
+        let mut rows = Vec::new();
+
+        while let Some(row) = parse_row(&mut lex, columns.len())? {
+            rows.push(row);
+        }
+
+        Ok(Table { columns, rows })
     }
 }
 
@@ -72,15 +95,5 @@ pub async fn read_file(file: File) -> Result<Table, Error> {
         .as_string()
         .ok_or(Error::FailedToReadFile)?;
 
-    let mut lex = Token::lexer(&text);
-
-    let columns = parse_row(&mut lex, 0)?.ok_or(Error::NoData)?;
-
-    let mut rows = Vec::new();
-
-    while let Some(row) = parse_row(&mut lex, columns.len())? {
-        rows.push(row);
-    }
-
-    Ok(Table { columns, rows })
+    text.parse()
 }

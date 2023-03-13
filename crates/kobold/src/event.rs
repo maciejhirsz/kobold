@@ -1,22 +1,24 @@
+//! Utilities for handling DOM events
+
 use std::marker::PhantomData;
 use std::ops::Deref;
 
 use wasm_bindgen::JsCast;
 use web_sys::HtmlElement;
 
+/// Smart wrapper around a [`web_sys::Event`](web_sys::Event) which includes type
+/// information for the target element of said event.
 #[repr(transparent)]
-pub struct Event<E, T> {
+pub struct Event<T = HtmlElement, E = web_sys::Event> {
     event: web_sys::Event,
     _target: PhantomData<(E, T)>,
 }
 
-pub type UntypedEvent<T = HtmlElement> = Event<web_sys::Event, T>;
+pub type MouseEvent<T = HtmlElement> = Event<T, web_sys::MouseEvent>;
 
-pub type MouseEvent<T = HtmlElement> = Event<web_sys::MouseEvent, T>;
+pub type KeyboardEvent<T = HtmlElement> = Event<T, web_sys::KeyboardEvent>;
 
-pub type KeyboardEvent<T = HtmlElement> = Event<web_sys::KeyboardEvent, T>;
-
-impl<E, T> Deref for Event<E, T>
+impl<T, E> Deref for Event<T, E>
 where
     E: JsCast,
 {
@@ -27,7 +29,7 @@ where
     }
 }
 
-impl<E, T> Event<E, T> {
+impl<T, E> Event<T, E> {
     pub fn target(&self) -> T
     where
         T: JsCast,

@@ -57,7 +57,7 @@ impl Table {
 #[component]
 fn Editor() -> impl Html {
     stateful(State::mock, |state| {
-        let onload = state.bind_async(move |hook, e: UntypedEvent<HtmlInputElement>| async move {
+        let onload = state.bind_async(move |hook, e: Event<HtmlInputElement>| async move {
             let file = match e.target().files().and_then(|list| list.get(0)) {
                 Some(file) => file,
                 None => return,
@@ -108,7 +108,7 @@ fn Editor() -> impl Html {
 fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl Html + '_ {
     let ondblclick = state.bind(move |s, _| s.editing = Editing::Cell { row, col });
 
-    let onchange = state.bind(move |state, e: UntypedEvent<HtmlInputElement>| {
+    let onchange = state.bind(move |state, e: Event<HtmlInputElement>| {
         state.table.rows[row][col] = e.target().value().into();
         state.editing = Editing::None;
     });
