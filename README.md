@@ -118,7 +118,6 @@ inside an `if` or `match` expression, and wrap them in an enum making them the s
 
 
 ```rust
-# use kobold::prelude::*;
 #[component(auto_branch)]
 fn Conditional(illuminatus: bool) -> impl Html {
     if illuminatus {
@@ -166,7 +165,6 @@ or for the duration of the subsequent update. This means that you can easily and
 state without unnecessary clones:
 
 ```rust
-# use kobold::prelude::*;
 #[component]
 fn Users<'a>(names: &'a [&'a str]) -> impl Html + 'a {
     html! {
