@@ -16,8 +16,10 @@ enum Token {
     Newline,
     #[regex(r#"[^"\n\r,]+"#)]
     Value,
-    #[regex(r#""([^"]|"")+""#)]
+    #[regex(r#""[^"]+""#, priority = 6)]
     QuotedValue,
+    #[regex(r#""([^"]|"")+""#)]
+    EscapedValue,
 }
 
 #[derive(Debug)]
@@ -32,13 +34,26 @@ fn parse_row(lex: &mut Lexer<Token>, columns: usize) -> Result<Option<Vec<Text>>
     let mut value = None;
 
     while let Some(token) = lex.next() {
-        match token {
-            Token::Value => value = Some(Text::Insitu(lex.span())),
+        value = match token {
+            Token::Value => Some(Text::Insitu(lex.span())),
             Token::QuotedValue => {
-                value = Some(Text::Owned(lex.slice().replace("\"\"", "\"").into()));
+                let mut span = lex.span();
+
+                span.start += 1;
+                span.end -= 1;
+
+                Some(Text::Insitu(span))
+            }
+            Token::EscapedValue => {
+                let mut slice = lex.slice();
+
+                slice = &slice[1..slice.len() - 1];
+
+                Some(Text::Owned(slice.replace("\"\"", "\"").into()))
             }
             Token::Comma => {
                 row.push(value.take().unwrap_or_default());
+                continue;
             }
             Token::Newline => {
                 row.push(value.take().unwrap_or_default());

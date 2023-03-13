@@ -1,5 +1,5 @@
 use kobold::prelude::*;
-use web_sys::HtmlInputElement;
+use web_sys::HtmlInputElement as Input;
 
 mod csv;
 mod state;
@@ -9,7 +9,7 @@ use state::{Editing, State, Text};
 #[component]
 fn Editor() -> impl Html {
     stateful(State::mock, |state| {
-        let onload = state.bind_async(move |hook, e: Event<HtmlInputElement>| async move {
+        let onload = state.bind_async(move |hook, e: Event<Input>| async move {
             let file = match e.target().files().and_then(|list| list.get(0)) {
                 Some(file) => file,
                 None => return,
@@ -17,18 +17,25 @@ fn Editor() -> impl Html {
 
             let _ = hook.update(|state| state.name = file.name());
 
-            match csv::read_file(file).await {
-                Ok(table) => {
-                    let _ = hook.update(move |state| state.table = table);
-                }
-                Err(_) => (),
-            };
+            if let Ok(table) = csv::read_file(file).await {
+                let _ = hook.update(move |state| state.table = table);
+            }
+        });
+
+        let onkeydown = state.bind(move |state, event: KeyboardEvent<_>| {
+            if matches!(event.key().as_str(), "Esc" | "Escape") {
+                state.editing = Editing::None;
+
+                ShouldRender::Yes
+            } else {
+                ShouldRender::No
+            }
         });
 
         html! {
             <input type="file" accept="text/csv" onchange={onload} />
             <h1>{ state.name.fast_diff() }</h1>
-            <table>
+            <table {onkeydown}>
                 <thead>
                     <tr>
                     {
@@ -58,39 +65,37 @@ fn Editor() -> impl Html {
 
 #[component(auto_branch)]
 fn Head(col: usize, state: &Hook<State>) -> impl Html + '_ {
-    let ondblclick = state.bind(move |s, _| s.editing = Editing::Column { col });
-
-    let onchange = state.bind(move |state, e: Event<HtmlInputElement>| {
-        state.columns[col] = Text::Owned(e.target().value().into());
-        state.editing = Editing::None;
-    });
-
     let value = state.source.get_text(&state.columns[col]);
 
     if state.editing == (Editing::Column { col }) {
+        let onchange = state.bind(move |state, e: Event<Input>| {
+            state.columns[col] = Text::Owned(e.target().value().into());
+            state.editing = Editing::None;
+        });
+
         html! {
             <th.edit>
-                { value }
-                <input.edit.edit-head {onchange} value={ value.to_owned() } />
+                { value.fast_diff() }
+                <input.edit.edit-head {onchange} value={ value.fast_diff() } />
             </th>
         }
     } else {
+        let ondblclick = state.bind(move |s, _| s.editing = Editing::Column { col });
+
         html! { <th {ondblclick}>{ value.fast_diff() }</th> }
     }
 }
 
 #[component(auto_branch)]
 fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl Html + '_ {
-    let ondblclick = state.bind(move |s, _| s.editing = Editing::Cell { row, col });
-
-    let onchange = state.bind(move |state, e: Event<HtmlInputElement>| {
-        state.rows[row][col] = Text::Owned(e.target().value().into());
-        state.editing = Editing::None;
-    });
-
     let value = state.source.get_text(&state.rows[row][col]);
 
     if state.editing == (Editing::Cell { row, col }) {
+        let onchange = state.bind(move |state, e: Event<Input>| {
+            state.rows[row][col] = Text::Owned(e.target().value().into());
+            state.editing = Editing::None;
+        });
+
         html! {
             <td.edit>
                 { value }
@@ -98,6 +103,8 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl Html + '_ {
             </td>
         }
     } else {
+        let ondblclick = state.bind(move |s, _| s.editing = Editing::Cell { row, col });
+
         html! { <td {ondblclick}>{ value.fast_diff() }</td> }
     }
 }
