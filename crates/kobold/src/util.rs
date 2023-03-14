@@ -4,6 +4,7 @@ use web_sys::Node;
 use crate::dom::Element;
 use crate::{Html, Mountable};
 
+#[repr(transparent)]
 pub struct Const<F>(F);
 
 impl<F> Const<F> {
@@ -12,7 +13,10 @@ impl<F> Const<F> {
     }
 }
 
-impl<F: Fn() -> Node> Html for Const<F> {
+impl<F> Html for Const<F>
+where
+    F: Fn() -> Node,
+{
     type Product = Element;
 
     fn build(self) -> Element {

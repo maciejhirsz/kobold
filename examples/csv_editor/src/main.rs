@@ -98,8 +98,8 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl Html + '_ {
 
         html! {
             <td.edit>
-                { value }
-                <input.edit {onchange} value={ value.to_owned() } />
+                { value.fast_diff() }
+                <input.edit {onchange} value={ value.fast_diff() } />
             </td>
         }
     } else {
