@@ -2,74 +2,21 @@ use wasm_bindgen::prelude::*;
 use web_sys::Node;
 
 use crate::dom::Element;
-use crate::{Html, Mountable};
+use crate::Html;
 
-#[repr(transparent)]
-pub struct Const<F>(F);
+pub struct Static<F>(pub F);
 
-impl<F> Const<F> {
-    pub const fn new(f: F) -> Const<F> {
-        Const(f)
-    }
-}
-
-impl<F> Html for Const<F>
+impl<F> Html for Static<F>
 where
     F: Fn() -> Node,
 {
     type Product = Element;
 
     fn build(self) -> Element {
-        Element::new((self.0)())
+        Element::new(self.0())
     }
 
     fn update(self, _: &mut Element) {}
-}
-
-pub struct Static<T>(pub T);
-
-impl<H: Html> Html for Static<H> {
-    type Product = H::Product;
-
-    fn build(self) -> H::Product {
-        self.0.build()
-    }
-
-    fn update(self, _: &mut H::Product) {}
-}
-
-impl Html for fn() -> Node {
-    type Product = StaticFnProduct;
-
-    fn build(self) -> StaticFnProduct {
-        StaticFnProduct {
-            el: Element::new((self)()),
-            render: self,
-        }
-    }
-
-    fn update(self, p: &mut StaticFnProduct) {
-        if p.render != self {
-            let new = Element::new((self)());
-
-            p.el.replace_with(new.js());
-            p.el = new;
-            p.render = self;
-        }
-    }
-}
-
-pub struct StaticFnProduct {
-    el: Element,
-    render: fn() -> Node,
-}
-
-impl Mountable for StaticFnProduct {
-    type Js = JsValue;
-
-    fn el(&self) -> &Element {
-        &self.el
-    }
 }
 
 #[wasm_bindgen(module = "/js/util.js")]
