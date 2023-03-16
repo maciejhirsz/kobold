@@ -7,7 +7,12 @@ export function __kobold_before(n,i) { n.before(i); }
 export function __kobold_unmount(n) { n.remove(); }
 export function __kobold_replace(o,n) { o.replaceWith(n); }
 export function __kobold_empty_node() { return document.createTextNode(""); }
-export function __kobold_fragment() { return document.createDocumentFragment().append("", ""); };
+export function __kobold_fragment()
+{
+	let f = document.createDocumentFragment();
+	f.append("", "");
+	return f;
+};
 export function __kobold_fragment_decorate(f) {
 	fragmentDecorators.set(f, [f.firstChild, f.lastChild]);
 	return f.lastChild;
@@ -17,16 +22,22 @@ export function __kobold_fragment_unmount(f)
 {
 	let [b, e] = fragmentDecorators.get(f);
 	while (b.nextSibling !== e) f.appendChild(b.nextSibling);
-	f.appendChild(e).insertBefore(b, f.firstChild);
+	f.appendChild(e);
+	f.insertBefore(b, f.firstChild);
 }
 export function __kobold_fragment_replace(f,n)
 {
 	let [b, e] = fragmentDecorators.get(f);
 	while (b.nextSibling !== e) f.appendChild(b.nextSibling);
 	b.replaceWith(n);
-	f.appendChild(e).insertBefore(b, f.firstChild);
+	f.appendChild(e);
+	f.insertBefore(b, f.firstChild);
 }
-export function __kobold_fragment_drop(f) { delete f.$begin & delete f.$end; }
+export function __kobold_fragment_drop(f)
+{
+	delete f.$begin;
+	delete f.$end;
+}
 export function __kobold_text_node(t) { return document.createTextNode(t); }
 export function __kobold_update_text(n,t) { n.textContent = t; }
 
