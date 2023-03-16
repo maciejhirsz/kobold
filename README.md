@@ -226,10 +226,7 @@ fn main() {
 
 ## More examples
 
-To run **Kobold** you'll need to install [`trunk`](https://trunkrs.dev/):
-```sh
-cargo install --locked trunk
-```
+To run **Kobold** you'll need to install [`trunk`](https://trunkrs.dev/).
 
 You might also need to add the Wasm target to Rust:
 ```sh
