@@ -245,6 +245,8 @@ cd examples/todomvc
 trunk serve
 ```
 
+> To run with Trunk on a remote machine use: `trunk serve --address=<REMOTE_MACHINE_IP_ADDRESS>`
+
 ## Acknowledgements
 
 + [Pedrors](https://pedrors.pt/) for the **Kobold** logo.
