@@ -298,7 +298,7 @@ pub mod util;
 
 /// The prelude module with most commonly used types
 pub mod prelude {
-    pub use crate::attribute::BoolExt as _;
+    pub use crate::class;
     pub use crate::event::{Event, KeyboardEvent, MouseEvent};
     pub use crate::list::ListIteratorExt as _;
     pub use crate::stateful::{stateful, Hook, IntoState, ShouldRender, WeakHook};
@@ -438,4 +438,12 @@ fn init_panic_hook() {
             INIT.with(|init| init.set(true));
         }
     }
+}
+
+#[macro_export]
+macro_rules! class {
+    ($class:literal if $on:expr) => { ::kobold::attribute::OptionalClass::new($class, $on).no_diff() };
+    ($class:literal) => { $class.no_diff() };
+    ($class:tt if $on:expr) => { ::kobold::attribute::OptionalClass::new($class, $on) };
+    ($class:expr) => { $class };
 }
