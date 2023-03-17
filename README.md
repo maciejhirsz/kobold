@@ -226,7 +226,7 @@ fn main() {
 
 ## More examples
 
-To run **Kobold** you'll need to install [`trunk`](https://trunkrs.dev/):
+To run **Kobold** you'll need to install [`trunk`](https://trunkrs.dev/) (check the [full instructions](https://trunkrs.dev/#install) if you have problems):
 ```sh
 cargo install --locked trunk
 ```
