@@ -5,4 +5,4 @@ edition = "2021"
 
 [dependencies]
 gloo-timers = "0.2.4"
-kobold = { path = "../../crates/kobold", version = "0.5.0" }
+kobold = { path = "../../crates/kobold" }

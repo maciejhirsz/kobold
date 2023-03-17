@@ -245,7 +245,6 @@
 //! trunk serve
 //! ```
 
-#![feature(toowned_clone_into)]
 #![doc(html_logo_url = "https://maciej.codes/kosz/kobold.png")]
 
 /// The `#[component]` attribute macro that transforms functions into proper components.

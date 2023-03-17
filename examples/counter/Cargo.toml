@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-kobold = { path = "../../crates/kobold", version = "0.5.0" }
+kobold = { path = "../../crates/kobold" }

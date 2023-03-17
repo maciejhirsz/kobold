@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 compact_str = "0.7.0"
 gloo-console = "0.2.3"
-kobold = { path = "../../crates/kobold", version = "0.5.0" }
+kobold = { path = "../../crates/kobold" }
 logos = "0.12.1"
 wasm-bindgen-futures = "0.4.34"
 

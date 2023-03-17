@@ -1,4 +1,3 @@
-#![feature(toowned_clone_into)]
 use kobold::prelude::*;
 
 struct State {
