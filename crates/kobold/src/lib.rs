@@ -299,7 +299,7 @@ pub mod util;
 
 /// The prelude module with most commonly used types
 pub mod prelude {
-    pub use crate::class;
+    pub use crate::{class, bind};
     pub use crate::event::{Event, KeyboardEvent, MouseEvent};
     pub use crate::list::ListIteratorExt as _;
     pub use crate::stateful::{stateful, Hook, IntoState, ShouldRender, WeakHook};
@@ -447,4 +447,14 @@ macro_rules! class {
     ($class:literal) => { $class.no_diff() };
     ($class:tt if $on:expr) => { ::kobold::attribute::OptionalClass::new($class, $on) };
     ($class:expr) => { $class };
+}
+
+#[macro_export]
+macro_rules! bind {
+    ($hook:ident: $(let $v:ident = move |$e:tt $(: $e_ty:ty)?| $body:expr;)+) => {
+        $(
+            #[allow(unused_variables)]
+            let $v = $hook.bind(move |$hook, $e $(: $e_ty)*| $body);
+        )*
+    };
 }

@@ -1,30 +1,29 @@
 use std::cell::{Cell, UnsafeCell};
 use std::mem::MaybeUninit;
 use std::ops::Deref;
-use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 use std::rc::{Rc, Weak};
 
 use wasm_bindgen::closure::Closure as WasmClosure;
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
-use crate::stateful::{IntoState, ShouldRender};
+use crate::stateful::IntoState;
 use crate::{dom::Element, Html, Mountable};
 
-struct WithCell<T> {
+pub(crate) struct WithCell<T> {
     borrowed: Cell<bool>,
     data: UnsafeCell<T>,
 }
 
 impl<T> WithCell<T> {
-    fn new(data: T) -> Self {
+    pub(crate) fn new(data: T) -> Self {
         WithCell {
             borrowed: Cell::new(false),
             data: UnsafeCell::new(data),
         }
     }
 
-    fn with<F>(&self, mutator: F)
+    pub(crate) fn with<F>(&self, mutator: F)
     where
         F: FnOnce(&mut T),
     {
@@ -58,11 +57,35 @@ pub struct Signal<S> {
     weak: Weak<WithCell<Inner<S>>>,
 }
 
+pub trait ShouldRender {
+    fn should_render(self) -> bool;
+}
+
+impl ShouldRender for () {
+    fn should_render(self) -> bool {
+        true
+    }
+}
+
+pub enum Then {
+    Stop,
+    Render,
+}
+
+impl ShouldRender for Then {
+    fn should_render(self) -> bool {
+        match self {
+            Then::Stop => false,
+            Then::Render => true,
+        }
+    }
+}
+
 impl<S> Signal<S> {
-    pub fn update<F, A>(&self, mutator: F)
+    pub fn update<F, O>(&self, mutator: F)
     where
-        F: FnOnce(&mut S) -> A,
-        A: Into<ShouldRender>,
+        F: FnOnce(&mut S) -> O,
+        O: ShouldRender,
     {
         if self.weak.strong_count() == 0 {
             return;
@@ -71,7 +94,7 @@ impl<S> Signal<S> {
         let inner = unsafe { &*self.weak.as_ptr() };
 
         inner.with(move |inner| {
-            if mutator(&mut inner.hook.state).into().should_render() {
+            if mutator(&mut inner.hook.state).should_render() {
                 inner.update()
             }
         });
@@ -95,42 +118,6 @@ impl<S> Signal<S> {
     }
 }
 
-impl<S, T> AddAssign<T> for Signal<S>
-where
-    S: AddAssign<T>,
-{
-    fn add_assign(&mut self, rhs: T) {
-        self.update(move |s| s.add_assign(rhs));
-    }
-}
-
-impl<S, T> SubAssign<T> for Signal<S>
-where
-    S: SubAssign<T>,
-{
-    fn sub_assign(&mut self, rhs: T) {
-        self.update(move |s| s.sub_assign(rhs));
-    }
-}
-
-impl<S, T> MulAssign<T> for Signal<S>
-where
-    S: MulAssign<T>,
-{
-    fn mul_assign(&mut self, rhs: T) {
-        self.update(move |s| s.mul_assign(rhs));
-    }
-}
-
-impl<S, T> DivAssign<T> for Signal<S>
-where
-    S: DivAssign<T>,
-{
-    fn div_assign(&mut self, rhs: T) {
-        self.update(move |s| s.div_assign(rhs));
-    }
-}
-
 impl<S> Clone for Signal<S> {
     fn clone(&self) -> Self {
         Signal {
@@ -146,14 +133,24 @@ impl<S> Hook<S> {
         }
     }
 
-    pub fn bind<E, F, A>(&self, callback: F) -> impl Fn(E) + 'static
+    pub fn bind<E, F, O>(&self, callback: F) -> impl Fn(E) + 'static
     where
         S: 'static,
-        F: Fn(&mut S, E) -> A + 'static,
-        A: Into<ShouldRender>,
+        F: Fn(&mut S, E) -> O + 'static,
+        O: ShouldRender,
     {
         let signal = self.signal();
-        move |e| signal.update(|s| callback(s, e))
+        // let signal = self.weak.as_ptr();
+        move |e| {
+            signal.update(|s| callback(s, e));
+
+            // unsafe { &* signal }.with(|inner| {
+            //     let s = &mut inner.hook.state;
+            //     if callback(s, e).should_render() {
+            //         inner.update();
+            //     }
+            // })
+        }
     }
 }
 
@@ -203,6 +200,8 @@ where
 
         let js = WasmClosure::wrap(unsafe { Box::from_raw(raw) } as Box<dyn FnMut(web_sys::Event)>)
             .into_js_value();
+
+        // `into_js_value` will _forget_ the previous Box, so we can safely reconstruct it
         let boxed = unsafe { Box::from_raw(raw) };
 
         ClosureProduct { js, boxed }

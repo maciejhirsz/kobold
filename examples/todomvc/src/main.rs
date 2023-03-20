@@ -15,7 +15,9 @@ fn App() -> impl Html {
         let active_count = state.count_active();
         let completed_hidden = class!("hidden" if state.entries.len() == active_count);
 
-        let clear = state.bind(|state, _| state.entries.retain(|entry| !entry.completed));
+        bind! { state:
+            let clear = move |_| state.entries.retain(|entry| !entry.completed);
+        }
 
         html! {
             <div .todomvc-wrapper>
@@ -85,7 +87,9 @@ fn EntryInput(state: &Hook<State>) -> impl Html + '_ {
 
 #[component]
 fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl Html + '_ {
-    let onclick = state.bind(move |state, _| state.set_all(active_count != 0));
+    bind! { state:
+        let onclick = move |_| state.set_all(active_count != 0);
+    }
 
     html! {
         <input #toggle-all.toggle-all type="checkbox" checked={active_count == 0} onclick={onclick} />
@@ -96,21 +100,25 @@ fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl Html + '_ {
 #[component]
 fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl Html + 'a {
     let input = entry.editing.then(move || {
-        let onmouseover = state.bind(move |_, event: MouseEvent<InputElement>| {
-            let _ = event.target().focus();
+        bind! { state:
+            let onmouseover = move |event: MouseEvent<InputElement>| {
+                let _ = event.target().focus();
 
-            ShouldRender::No
-        });
-
-        let onkeypress = state.bind(move |state, event: KeyboardEvent<InputElement>| {
-            if event.key() == "Enter" {
-                state.update(idx, event.target().value());
-
-                ShouldRender::Yes
-            } else {
                 ShouldRender::No
-            }
-        });
+            };
+
+            let onkeypress = move |event: KeyboardEvent<InputElement>| {
+                if event.key() == "Enter" {
+                    state.update(idx, event.target().value());
+
+                    ShouldRender::Yes
+                } else {
+                    ShouldRender::No
+                }
+            };
+
+            let onblur = move |event: Event<InputElement>| state.update(idx, event.target().value());
+        }
 
         html! {
             <input .edit
@@ -118,12 +126,17 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl H
                 value={entry.description.fast_diff()}
                 {onmouseover}
                 {onkeypress}
-                onblur={state.bind(move |state, event| state.update(idx, event.target().value()))}
+                {onblur}
             />
         }
     });
 
-    let onchange = state.bind(move |state, _| state.toggle(idx));
+    bind! {
+        state:
+        let onchange = move |_| state.toggle(idx);
+        let edit = move |_| state.edit_entry(idx);
+        let remove = move |_| state.remove(idx);
+    }
     let editing = class!("editing" if entry.editing);
     let completed = class!("completed" if entry.completed);
 
@@ -131,10 +144,10 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl H
         <li .todo.{editing}.{completed}>
             <div .view>
                 <input .toggle type="checkbox" checked={entry.completed} {onchange} />
-                <label ondblclick={state.bind(move |state, _| state.edit_entry(idx))} >
+                <label ondblclick={edit} >
                     { entry.description.fast_diff() }
                 </label>
-                <button .destroy onclick={state.bind(move |state, _| state.remove(idx))} />
+                <button .destroy onclick={remove} />
             </div>
             { input }
         </li>
@@ -147,7 +160,9 @@ fn FilterView(filter: Filter, state: &Hook<State>) -> impl Html + '_ {
 
     let class = class!("selected" if selected == filter);
     let href = filter.href().no_diff();
-    let onclick = state.bind(move |state, _| state.filter = filter);
+    bind! { state:
+        let onclick = move |_| state.filter = filter;
+    }
 
     html! {
         <li>
