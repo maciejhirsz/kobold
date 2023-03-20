@@ -1,19 +1,224 @@
-use std::cell::RefCell;
+use std::cell::{Cell, UnsafeCell};
+use std::mem::MaybeUninit;
+use std::ops::Deref;
+use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 use std::rc::{Rc, Weak};
 
+use wasm_bindgen::closure::Closure as WasmClosure;
+use wasm_bindgen::JsValue;
 use web_sys::Node;
 
+use crate::stateful::{IntoState, ShouldRender};
 use crate::{dom::Element, Html, Mountable};
 
+struct WithCell<T> {
+    borrowed: Cell<bool>,
+    data: UnsafeCell<T>,
+}
+
+impl<T> WithCell<T> {
+    fn new(data: T) -> Self {
+        WithCell {
+            borrowed: Cell::new(false),
+            data: UnsafeCell::new(data),
+        }
+    }
+
+    fn with<F>(&self, mutator: F)
+    where
+        F: FnOnce(&mut T),
+    {
+        if self.borrowed.get() {
+            return;
+        }
+
+        self.borrowed.set(true);
+        mutator(unsafe { &mut *self.data.get() });
+        self.borrowed.set(false);
+    }
+}
+
 pub struct Inner<S> {
-    hook: RefCell<Hook<S>>,
-    el: Element,
+    hook: Hook<S>,
     updater: Box<dyn FnMut(&Hook<S>)>,
+}
+
+impl<S> Inner<S> {
+    fn update(&mut self) {
+        (self.updater)(&self.hook)
+    }
 }
 
 pub struct Hook<S> {
     state: S,
-    weak: Weak<Inner<S>>,
+    weak: Weak<WithCell<Inner<S>>>,
+}
+
+pub struct Signal<S> {
+    weak: Weak<WithCell<Inner<S>>>,
+}
+
+impl<S> Signal<S> {
+    pub fn update<F, A>(&self, mutator: F)
+    where
+        F: FnOnce(&mut S) -> A,
+        A: Into<ShouldRender>,
+    {
+        if self.weak.strong_count() == 0 {
+            return;
+        }
+
+        let inner = unsafe { &*self.weak.as_ptr() };
+
+        inner.with(move |inner| {
+            if mutator(&mut inner.hook.state).into().should_render() {
+                inner.update()
+            }
+        });
+    }
+
+    pub fn update_silent<F>(&self, mutator: F)
+    where
+        F: FnOnce(&mut S),
+    {
+        if self.weak.strong_count() == 0 {
+            return;
+        }
+
+        let inner = unsafe { &*self.weak.as_ptr() };
+
+        inner.with(move |inner| mutator(&mut inner.hook.state));
+    }
+
+    pub fn set(&self, val: S) {
+        self.update(move |s| *s = val);
+    }
+}
+
+impl<S, T> AddAssign<T> for Signal<S>
+where
+    S: AddAssign<T>,
+{
+    fn add_assign(&mut self, rhs: T) {
+        self.update(move |s| s.add_assign(rhs));
+    }
+}
+
+impl<S, T> SubAssign<T> for Signal<S>
+where
+    S: SubAssign<T>,
+{
+    fn sub_assign(&mut self, rhs: T) {
+        self.update(move |s| s.sub_assign(rhs));
+    }
+}
+
+impl<S, T> MulAssign<T> for Signal<S>
+where
+    S: MulAssign<T>,
+{
+    fn mul_assign(&mut self, rhs: T) {
+        self.update(move |s| s.mul_assign(rhs));
+    }
+}
+
+impl<S, T> DivAssign<T> for Signal<S>
+where
+    S: DivAssign<T>,
+{
+    fn div_assign(&mut self, rhs: T) {
+        self.update(move |s| s.div_assign(rhs));
+    }
+}
+
+impl<S> Clone for Signal<S> {
+    fn clone(&self) -> Self {
+        Signal {
+            weak: self.weak.clone(),
+        }
+    }
+}
+
+impl<S> Hook<S> {
+    pub fn signal(&self) -> Signal<S> {
+        Signal {
+            weak: self.weak.clone(),
+        }
+    }
+
+    pub fn bind<E, F, A>(&self, callback: F) -> impl Fn(E) + 'static
+    where
+        S: 'static,
+        F: Fn(&mut S, E) -> A + 'static,
+        A: Into<ShouldRender>,
+    {
+        let signal = self.signal();
+        move |e| signal.update(|s| callback(s, e))
+    }
+}
+
+impl<F> Html for Closure<F>
+where
+    F: Fn(web_sys::Event) + 'static,
+{
+    type Product = ClosureProduct<F>;
+
+    fn build(self) -> Self::Product {
+        ClosureProduct::make(self.0)
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        p.update(self.0);
+    }
+}
+
+pub struct Closure<F>(F);
+
+impl<F> Mountable for ClosureProduct<F>
+where
+    F: 'static,
+{
+    type Js = JsValue;
+
+    fn el(&self) -> &Element {
+        panic!()
+    }
+
+    fn js(&self) -> &JsValue {
+        &self.js
+    }
+}
+
+pub struct ClosureProduct<F> {
+    js: JsValue,
+    boxed: Box<F>,
+}
+
+impl<F> ClosureProduct<F>
+where
+    F: FnMut(web_sys::Event) + 'static,
+{
+    fn make(f: F) -> Self {
+        let raw = Box::into_raw(Box::new(f));
+
+        let js = WasmClosure::wrap(unsafe { Box::from_raw(raw) } as Box<dyn FnMut(web_sys::Event)>)
+            .into_js_value();
+        let boxed = unsafe { Box::from_raw(raw) };
+
+        ClosureProduct { js, boxed }
+    }
+
+    fn update(&mut self, f: F) {
+        *self.boxed = f;
+    }
+}
+
+impl<S> Deref for Hook<S> {
+    type Target = S;
+
+    fn deref(&self) -> &S {
+        &self.state
+    }
 }
 
 pub struct Stateful<S, F> {
@@ -22,46 +227,68 @@ pub struct Stateful<S, F> {
 }
 
 pub struct StatefulProduct<S> {
-    inner: Rc<Inner<S>>,
+    inner: Rc<WithCell<Inner<S>>>,
+    el: Element,
 }
 
-pub fn stateful<S, F>(state: S, render: F) -> Stateful<S, F> {
+pub fn stateful<S, F, H>(state: S, render: F) -> Stateful<S, F>
+where
+    S: IntoState,
+    F: Fn(&Hook<S::State>) -> H + 'static,
+    H: Html,
+{
     Stateful { state, render }
 }
 
 impl<S, F, H> Html for Stateful<S, F>
 where
-    S: 'static,
-    F: Fn(&Hook<S>) -> H + 'static,
+    S: IntoState,
+    F: Fn(&Hook<S::State>) -> H + 'static,
     H: Html,
 {
-    type Product = StatefulProduct<S>;
+    type Product = StatefulProduct<S::State>;
 
     fn build(self) -> Self::Product {
+        let mut el = MaybeUninit::uninit();
+        let el_ref = &mut el;
+
         let inner = Rc::new_cyclic(move |weak| {
-            let hook = Hook { state: self.state, weak: weak.clone() };
+            let hook = Hook {
+                state: self.state.init(),
+                weak: weak.clone(),
+            };
 
             let mut product = (self.render)(&hook).build();
 
-            Inner {
-                hook: RefCell::new(hook),
-                el: product.el().clone(),
+            el_ref.write(product.el().clone());
+
+            WithCell::new(Inner {
+                hook,
                 updater: Box::new(move |hook| {
                     (self.render)(hook).update(&mut product);
-                })
-            }
+                }),
+            })
         });
 
-        StatefulProduct { inner }
+        StatefulProduct {
+            inner,
+            el: unsafe { el.assume_init() },
+        }
     }
 
-    fn update(self, p: &mut Self::Product) {}
+    fn update(self, p: &mut Self::Product) {
+        p.inner.with(|inner| {
+            self.state.update(&mut inner.hook.state);
+
+            inner.update();
+        });
+    }
 }
 
 impl<S: 'static> Mountable for StatefulProduct<S> {
     type Js = Node;
 
     fn el(&self) -> &Element {
-        &self.inner.el
+        &self.el
     }
 }

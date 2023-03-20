@@ -44,7 +44,7 @@ impl From<()> for ShouldRender {
 }
 
 impl ShouldRender {
-    fn should_render(self) -> bool {
+    pub(crate) fn should_render(self) -> bool {
         match self {
             ShouldRender::Yes => true,
             ShouldRender::No => false,
