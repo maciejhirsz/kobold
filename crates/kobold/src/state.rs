@@ -1,4 +1,3 @@
-use std::cell::{Cell, UnsafeCell};
 use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
@@ -8,34 +7,8 @@ use wasm_bindgen::JsValue;
 use web_sys::Node;
 
 use crate::stateful::IntoState;
+use crate::util::WithCell;
 use crate::{dom::Element, Html, Mountable};
-
-pub(crate) struct WithCell<T> {
-    borrowed: Cell<bool>,
-    data: UnsafeCell<T>,
-}
-
-impl<T> WithCell<T> {
-    pub(crate) fn new(data: T) -> Self {
-        WithCell {
-            borrowed: Cell::new(false),
-            data: UnsafeCell::new(data),
-        }
-    }
-
-    pub(crate) fn with<F>(&self, mutator: F)
-    where
-        F: FnOnce(&mut T),
-    {
-        if self.borrowed.get() {
-            return;
-        }
-
-        self.borrowed.set(true);
-        mutator(unsafe { &mut *self.data.get() });
-        self.borrowed.set(false);
-    }
-}
 
 pub struct Inner<S> {
     hook: Hook<S>,
@@ -151,6 +124,13 @@ impl<S> Hook<S> {
             //     }
             // })
         }
+    }
+
+    pub fn get(&self) -> S
+    where
+        S: Copy,
+    {
+        self.state
     }
 }
 
@@ -277,9 +257,9 @@ where
 
     fn update(self, p: &mut Self::Product) {
         p.inner.with(|inner| {
-            self.state.update(&mut inner.hook.state);
-
-            inner.update();
+            if self.state.update(&mut inner.hook.state).should_render() {
+                inner.update();
+            }
         });
     }
 }

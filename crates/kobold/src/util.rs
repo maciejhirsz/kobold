@@ -1,3 +1,5 @@
+use std::cell::{Cell, UnsafeCell};
+
 use wasm_bindgen::prelude::*;
 use web_sys::Node;
 
@@ -17,6 +19,33 @@ where
     }
 
     fn update(self, _: &mut Element) {}
+}
+
+pub(crate) struct WithCell<T> {
+    borrowed: Cell<bool>,
+    data: UnsafeCell<T>,
+}
+
+impl<T> WithCell<T> {
+    pub(crate) fn new(data: T) -> Self {
+        WithCell {
+            borrowed: Cell::new(false),
+            data: UnsafeCell::new(data),
+        }
+    }
+
+    pub(crate) fn with<F>(&self, mutator: F)
+    where
+        F: FnOnce(&mut T),
+    {
+        if self.borrowed.get() {
+            return;
+        }
+
+        self.borrowed.set(true);
+        mutator(unsafe { &mut *self.data.get() });
+        self.borrowed.set(false);
+    }
 }
 
 #[wasm_bindgen(module = "/js/util.js")]
