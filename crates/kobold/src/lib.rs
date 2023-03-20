@@ -293,6 +293,7 @@ pub mod branching;
 pub mod dom;
 pub mod event;
 pub mod list;
+pub mod state;
 pub mod stateful;
 pub mod util;
 
