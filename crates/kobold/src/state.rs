@@ -1,13 +1,19 @@
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use web_sys::Node;
 
 use crate::{dom::Element, Html, Mountable};
 
+pub struct Inner<S> {
+    hook: RefCell<Hook<S>>,
+    el: Element,
+    updater: Box<dyn FnMut(&Hook<S>)>,
+}
+
 pub struct Hook<S> {
-    state: RefCell<S>,
-    updater: Option<Box<dyn FnMut(&Hook<S>)>>,
+    state: S,
+    weak: Weak<Inner<S>>,
 }
 
 pub struct Stateful<S, F> {
@@ -16,8 +22,7 @@ pub struct Stateful<S, F> {
 }
 
 pub struct StatefulProduct<S> {
-    hook: Rc<Hook<S>>,
-    el: Element,
+    inner: Rc<Inner<S>>,
 }
 
 pub fn stateful<S, F>(state: S, render: F) -> Stateful<S, F> {
@@ -33,27 +38,21 @@ where
     type Product = StatefulProduct<S>;
 
     fn build(self) -> Self::Product {
-        let mut hook = Rc::new(Hook {
-            state: RefCell::new(self.state),
-            updater: None,
+        let inner = Rc::new_cyclic(move |weak| {
+            let hook = Hook { state: self.state, weak: weak.clone() };
+
+            let mut product = (self.render)(&hook).build();
+
+            Inner {
+                hook: RefCell::new(hook),
+                el: product.el().clone(),
+                updater: Box::new(move |hook| {
+                    (self.render)(hook).update(&mut product);
+                })
+            }
         });
 
-        let el = {
-            let hook = Rc::get_mut(&mut hook).unwrap();
-            let mut product = (self.render)(hook).build();
-            let el = product.el().clone();
-
-            hook.updater = Some(Box::new(move |hook| {
-                (self.render)(hook).update(&mut product);
-            }));
-
-            el
-        };
-
-        StatefulProduct {
-        	hook,
-        	el,
-        }
+        StatefulProduct { inner }
     }
 
     fn update(self, p: &mut Self::Product) {}
@@ -63,6 +62,6 @@ impl<S: 'static> Mountable for StatefulProduct<S> {
     type Js = Node;
 
     fn el(&self) -> &Element {
-        &self.el
+        &self.inner.el
     }
 }
