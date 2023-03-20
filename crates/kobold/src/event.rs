@@ -49,3 +49,9 @@ impl<T, E> Event<T, E> {
         self.event.prevent_default();
     }
 }
+
+pub fn event_handler<T, E>(handler: impl Fn(Event<T, E>)) -> EventHandler<impl Fn(Event<T, E>)> {
+    EventHandler(handler)
+}
+
+pub struct EventHandler<F>(F);
