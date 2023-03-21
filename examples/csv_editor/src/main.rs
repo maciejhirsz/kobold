@@ -1,5 +1,6 @@
 use kobold::prelude::*;
 use web_sys::HtmlInputElement as Input;
+use wasm_bindgen_futures::spawn_local;
 
 mod csv;
 mod state;
@@ -9,28 +10,38 @@ use state::{Editing, State, Text};
 #[component]
 fn Editor() -> impl Html {
     stateful(State::mock, |state| {
-        let onload = state.bind_async(move |hook, e: Event<Input>| async move {
-            let file = match e.target().files().and_then(|list| list.get(0)) {
-                Some(file) => file,
-                None => return,
+        let onload = {
+            let signal = state.signal();
+
+            move |e: Event<Input>| {
+                let file = match e.target().files().and_then(|list| list.get(0)) {
+                    Some(file) => file,
+                    None => return,
+                };
+
+                signal.update(|state| state.name = file.name());
+
+                let signal = signal.clone();
+
+                spawn_local(async move {
+                    if let Ok(table) = csv::read_file(file).await {
+                        signal.update(move |state| state.table = table);
+                    }
+                })
+            }
+        };
+
+        bind! { state:
+            let onkeydown = move |event: KeyboardEvent<_>| {
+                if matches!(event.key().as_str(), "Esc" | "Escape") {
+                    state.editing = Editing::None;
+
+                    Then::Render
+                } else {
+                    Then::Stop
+                }
             };
-
-            let _ = hook.update(|state| state.name = file.name());
-
-            if let Ok(table) = csv::read_file(file).await {
-                let _ = hook.update(move |state| state.table = table);
-            }
-        });
-
-        let onkeydown = state.bind(move |state, event: KeyboardEvent<_>| {
-            if matches!(event.key().as_str(), "Esc" | "Escape") {
-                state.editing = Editing::None;
-
-                ShouldRender::Yes
-            } else {
-                ShouldRender::No
-            }
-        });
+        }
 
         html! {
             <input type="file" accept="text/csv" onchange={onload} />

@@ -1,18 +1,21 @@
-use std::rc::Weak;
+use std::mem::ManuallyDrop;
 use std::ops::Deref;
+use std::rc::Weak;
 
-use crate::util::WithCell;
 use crate::stateful::{Inner, ShouldRender};
+use crate::util::WithCell;
+use crate::Html;
 
+/// A hook to some state `S`. A reference to `Hook` is obtained by using the [`stateful`](crate::stateful::stateful)
+/// function.
 pub struct Hook<S> {
     pub(super) state: S,
-    pub(super) weak: Weak<WithCell<Inner<S>>>,
+    pub(super) inner: *const WithCell<Inner<S>>,
 }
 
 pub struct Signal<S> {
     pub(super) weak: Weak<WithCell<Inner<S>>>,
 }
-
 
 impl<S> Signal<S> {
     pub fn update<F, O>(&self, mutator: F)
@@ -61,8 +64,10 @@ impl<S> Clone for Signal<S> {
 
 impl<S> Hook<S> {
     pub fn signal(&self) -> Signal<S> {
+        let weak = ManuallyDrop::new(unsafe { Weak::from_raw(self.inner) });
+
         Signal {
-            weak: self.weak.clone(),
+            weak: (*weak).clone(),
         }
     }
 
@@ -72,17 +77,22 @@ impl<S> Hook<S> {
         F: Fn(&mut S, E) -> O + 'static,
         O: ShouldRender,
     {
-        let signal = self.signal();
-        // let signal = self.weak.as_ptr();
-        move |e| {
-            signal.update(|s| callback(s, e));
+        let inner = self.inner;
 
-            // unsafe { &* signal }.with(|inner| {
-            //     let s = &mut inner.hook.state;
-            //     if callback(s, e).should_render() {
-            //         inner.update();
-            //     }
-            // })
+        move |e| {
+            let weak = ManuallyDrop::new(unsafe { Weak::from_raw(inner) });
+
+            if weak.strong_count() == 0 {
+                return;
+            }
+
+            let inner = unsafe { &*inner };
+
+            inner.with(|inner| {
+                if callback(&mut inner.hook.state, e).should_render() {
+                    inner.update()
+                }
+            });
         }
     }
 
@@ -99,5 +109,20 @@ impl<S> Deref for Hook<S> {
 
     fn deref(&self) -> &S {
         &self.state
+    }
+}
+
+impl<'a, H> Html for &'a Hook<H>
+where
+    &'a H: Html + 'a,
+{
+    type Product = <&'a H as Html>::Product;
+
+    fn build(self) -> Self::Product {
+        (**self).build()
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        (**self).update(p)
     }
 }

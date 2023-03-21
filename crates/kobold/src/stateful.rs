@@ -1,3 +1,14 @@
+//! # Utilities for building stateful components
+//!
+//! **Kobold** uses _functional components_ that are _transient_, meaning they can include
+//! borrowed values and are discarded on each render call. **Kobold** doesn't
+//! allocate any memory on the heap for its simple components, and there is no way to update them
+//! short of the parent component re-rendering them.
+//!
+//! However an app built entirely from such components wouldn't be very useful, as all it
+//! could ever do is render itself once. To get around this the [`stateful`](stateful) function can
+//! be used to give a component ownership over some arbitrary mutable state.
+//!
 use std::mem::MaybeUninit;
 use std::rc::Rc;
 
@@ -58,7 +69,10 @@ pub struct StatefulProduct<S> {
     el: Element,
 }
 
-pub fn stateful<'a, S, F, H>(state: S, render: F) -> Stateful<S, impl Fn(*const Hook<S::State>) -> H + 'static>
+pub fn stateful<'a, S, F, H>(
+    state: S,
+    render: F,
+) -> Stateful<S, impl Fn(*const Hook<S::State>) -> H + 'static>
 where
     S: IntoState,
     F: Fn(&'a Hook<S::State>) -> H + 'static,
@@ -83,7 +97,7 @@ where
         let inner = Rc::new_cyclic(move |weak| {
             let hook = Hook {
                 state: self.state.init(),
-                weak: weak.clone(),
+                inner: weak.as_ptr(),
             };
 
             let mut product = (self.render)(&hook).build();
@@ -118,5 +132,50 @@ impl<S: 'static> Mountable for StatefulProduct<S> {
 
     fn el(&self) -> &Element {
         &self.el
+    }
+}
+
+impl<S, R> Stateful<S, R>
+where
+    S: IntoState,
+{
+    pub fn once<F>(self, handler: F) -> Once<S, R, F>
+    where
+        F: FnOnce(Signal<S::State>),
+    {
+        Once {
+            with_state: self,
+            handler,
+        }
+    }
+}
+
+pub struct Once<S, R, F> {
+    with_state: Stateful<S, R>,
+    handler: F,
+}
+
+impl<S, R, F> Html for Once<S, R, F>
+where
+    S: IntoState,
+    F: FnOnce(Signal<S::State>),
+    Stateful<S, R>: Html<Product = StatefulProduct<S::State>>,
+{
+    type Product = StatefulProduct<S::State>;
+
+    fn build(self) -> Self::Product {
+        let product = self.with_state.build();
+
+        product.inner.with(move |inner| {
+            let signal = inner.hook.signal();
+
+            (self.handler)(signal);
+        });
+
+        product
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        self.with_state.update(p);
     }
 }

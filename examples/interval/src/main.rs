@@ -18,7 +18,7 @@ fn Elapsed() -> impl Html {
     })
     .once(|hook| {
         Interval::new(1000, move || {
-            hook.update(|seconds| *seconds += 1).unwrap();
+            hook.update(|seconds| *seconds += 1);
         })
         .forget();
     })

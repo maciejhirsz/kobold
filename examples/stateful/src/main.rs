@@ -25,9 +25,9 @@ fn App() -> impl Html {
             // Repeatedly clicking the Alice button does not have to do anything.
             let alice = move |_| if state.name != "Alice" {
                 "Alice".clone_into(&mut state.name);
-                ShouldRender::Yes
+                Then::Render
             } else {
-                ShouldRender::No
+                Then::Stop
             };
 
             let inc_age = move |_| state.age += 1;
