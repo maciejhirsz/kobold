@@ -1,8 +1,7 @@
-use std::mem::ManuallyDrop;
 use std::ops::Deref;
 use std::rc::Weak;
 
-use crate::stateful::{Inner, ShouldRender};
+use crate::stateful::{Inner, ShouldRender, WeakRef};
 use crate::util::WithCell;
 use crate::Html;
 
@@ -10,7 +9,7 @@ use crate::Html;
 /// function.
 pub struct Hook<S> {
     pub(super) state: S,
-    pub(super) inner: *const WithCell<Inner<S>>,
+    pub(super) inner: WeakRef<WithCell<Inner<S>>>,
 }
 
 pub struct Signal<S> {
@@ -23,30 +22,22 @@ impl<S> Signal<S> {
         F: FnOnce(&mut S) -> O,
         O: ShouldRender,
     {
-        if self.weak.strong_count() == 0 {
-            return;
+        if let Some(inner) = self.weak.upgrade() {
+            inner.with(move |inner| {
+                if mutator(&mut inner.hook.state).should_render() {
+                    inner.update()
+                }
+            });
         }
-
-        let inner = unsafe { &*self.weak.as_ptr() };
-
-        inner.with(move |inner| {
-            if mutator(&mut inner.hook.state).should_render() {
-                inner.update()
-            }
-        });
     }
 
     pub fn update_silent<F>(&self, mutator: F)
     where
         F: FnOnce(&mut S),
     {
-        if self.weak.strong_count() == 0 {
-            return;
+        if let Some(inner) = self.weak.upgrade() {
+            inner.with(move |inner| mutator(&mut inner.hook.state));
         }
-
-        let inner = unsafe { &*self.weak.as_ptr() };
-
-        inner.with(move |inner| mutator(&mut inner.hook.state));
     }
 
     pub fn set(&self, val: S) {
@@ -64,7 +55,7 @@ impl<S> Clone for Signal<S> {
 
 impl<S> Hook<S> {
     pub fn signal(&self) -> Signal<S> {
-        let weak = ManuallyDrop::new(unsafe { Weak::from_raw(self.inner) });
+        let weak = self.inner.weak();
 
         Signal {
             weak: (*weak).clone(),
@@ -80,19 +71,13 @@ impl<S> Hook<S> {
         let inner = self.inner;
 
         move |e| {
-            let weak = ManuallyDrop::new(unsafe { Weak::from_raw(inner) });
-
-            if weak.strong_count() == 0 {
-                return;
+            if let Some(inner) = inner.weak().upgrade() {
+                inner.with(|inner| {
+                    if callback(&mut inner.hook.state, e).should_render() {
+                        inner.update()
+                    }
+                });
             }
-
-            let inner = unsafe { &*inner };
-
-            inner.with(|inner| {
-                if callback(&mut inner.hook.state, e).should_render() {
-                    inner.update()
-                }
-            });
         }
     }
 

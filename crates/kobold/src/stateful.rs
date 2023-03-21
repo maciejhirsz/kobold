@@ -9,8 +9,8 @@
 //! could ever do is render itself once. To get around this the [`stateful`](stateful) function can
 //! be used to give a component ownership over some arbitrary mutable state.
 //!
-use std::mem::MaybeUninit;
-use std::rc::Rc;
+use std::mem::{ManuallyDrop, MaybeUninit};
+use std::rc::{Rc, Weak};
 
 use web_sys::Node;
 
@@ -82,6 +82,23 @@ where
     Stateful { state, render }
 }
 
+#[repr(transparent)]
+struct WeakRef<T>(*const T);
+
+impl<T> Clone for WeakRef<T> {
+    fn clone(&self) -> WeakRef<T> {
+        WeakRef(self.0)
+    }
+}
+
+impl<T> Copy for WeakRef<T> {}
+
+impl<T> WeakRef<T> {
+    pub fn weak(self) -> ManuallyDrop<Weak<T>> {
+        ManuallyDrop::new(unsafe { Weak::from_raw(self.0) })
+    }
+}
+
 impl<S, F, H> Html for Stateful<S, F>
 where
     S: IntoState,
@@ -97,7 +114,7 @@ where
         let inner = Rc::new_cyclic(move |weak| {
             let hook = Hook {
                 state: self.state.init(),
-                inner: weak.as_ptr(),
+                inner: WeakRef(weak.as_ptr()),
             };
 
             let mut product = (self.render)(&hook).build();
