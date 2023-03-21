@@ -461,7 +461,6 @@ macro_rules! class {
 macro_rules! bind {
     ($hook:ident: $(let $v:ident = move |$e:tt $(: $e_ty:ty)?| $body:expr;)+) => {
         $(
-            #[allow(unused_variables)]
             let $v = $hook.bind(move |$hook, $e $(: $e_ty)*| $body);
         )*
     };
