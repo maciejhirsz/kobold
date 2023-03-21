@@ -11,18 +11,18 @@ while leveraging Rust's powerful type system for safety and performance.
 
 Like in [React](https://reactjs.org/) or [Yew](https://yew.rs/) updates are done by repeating calls
 to a render function whenever the state changes. However, unlike either, **Kobold** does not produce a
-full blown [virtual DOM](https://en.wikipedia.org/wiki/Virtual_DOM). Instead the [`html!`](html) macro compiles
-all static HTML elements to a single JavaScript function that constructs the exact
-[DOM](https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model) for it.
+full blown [virtual DOM](https://en.wikipedia.org/wiki/Virtual_DOM). Instead the `view!` macro compiles
+all static [DOM](https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model) elements to a single
+JavaScript function that constructs them.
 
-All expressions, which must implement the [`Html`](Html) trait, are injected into the constructed DOM on first
+All expressions, which must implement the `View` trait, are injected into the constructed DOM on first
 render. Kobold keeps track of the DOM node references for these expressions. Since the exact types the
 expressions evaluate to are known to the Rust compiler, update calls can diff them by value and surgically
 update the DOM should they change. Changing a string or an integer only updates the exact
 [`Text` node](https://developer.mozilla.org/en-US/docs/Web/API/Text) that string or integer was rendered to.
 
-_If the `html!` macro invocation contains HTML elements with no expressions, the constructed `Html`
-type will be zero-sized, and its `Html::update` method will be empty, making updates of static
+_If the `view!` macro invocation contains HTML elements with no expressions, the constructed `View`
+type will be zero-sized, and its `View::update` method will be empty, making updates of static
 HTML quite literally zero-cost._
 
 ### Hello World!
@@ -33,22 +33,22 @@ Components in **Kobold** are created by annotating a _render function_ with a `#
 use kobold::prelude::*;
 
 #[component]
-fn Hello(name: &str) -> impl Html + '_ {
-    html! {
+fn Hello(name: &str) -> impl View + '_ {
+    view! {
         <h1>"Hello "{ name }"!"</h1>
     }
 }
 
 fn main() {
-    kobold::start(html! {
+    kobold::start(view! {
         <Hello name="Kobold" />
     });
 }
 ```
 
-The _render function_ must return a type that implements the `Html` trait. Since the `html!` macro
+The _render function_ must return a type that implements the `View` trait. Since the `view!` macro
 produces _transient types_, or [_Voldemort types_](https://wiki.dlang.org/Voldemort_types), the best approach
-here is to always use the `impl Html` return type.
+here is to always use the `impl View` return type.
 
 Everything here is statically typed and the macro doesn't delete any information when manipulating the
 token stream, so the Rust compiler can tell you when you've made a mistake:
@@ -64,20 +64,23 @@ error[E0560]: struct `Hello` has no field named `nam`
 You can even use [rust-analyzer](https://rust-analyzer.github.io/) to refactor component or field names,
 and it will change the invocations inside the macros for you.
 
-### Stateful components
+### Stateful
 
-The [`stateful`](stateful::stateful) function can be used to create components that own and manipulate
+The `stateful` function can be used to create views that own and manipulate
 their state:
 
 ```rust
 use kobold::prelude::*;
 
 #[component]
-fn Counter() -> impl Html {
-    stateful(0_u32, |count| {
-        let onclick = count.bind(|count, _event| *count += 1);
+fn Counter(init: u32) -> impl View {
+    stateful(init, |count| {
+        bind! { count:
+            // Create an event handler with access to `&mut u32`
+            let onclick = move |_event| *count += 1;
+        }
 
-        html! {
+        view! {
             <p>
                 "You clicked on the "
                 // `{onclick}` here is shorthand for `onclick={onclick}`
@@ -89,8 +92,8 @@ fn Counter() -> impl Html {
 }
 
 fn main() {
-    kobold::start(html! {
-        <Counter />
+    kobold::start(view! {
+        <Counter init={0} />
     });
 }
 ```
@@ -99,31 +102,31 @@ The `stateful` function takes two parameters:
 
 * State constructor that implements the `IntoState` trait. **Kobold** comes with default
   implementations for most primitive types, so we can use `u32` here.
-* The anonymous render function that uses the constructed state, in our case `fn(&Hook<u32>) -> impl Html`.
+* The anonymous render function that uses the constructed state, in our case its argument is `&Hook<u32>`.
 
 The `Hook` here is a smart pointer to the state itself that allows non-mutable access to the
-state, as well as the `bind` method for creating event callbacks. These take a `&mut`
-reference to the state and a `&` reference to a DOM `Event` (ignored above).
+state. The `bind!` macro can be invoked for any `Hook` to create closures with `&mut` references to the
+underlying state.
 
 For more details visit the [`stateful` module documentation](https://docs.rs/kobold/latest/kobold/stateful/index.html).
 
 ### Conditional rendering
 
-Because the `html!` macro produces unique transient types, `if` and `match` expressions that invoke
+Because the `view!` macro produces unique transient types, `if` and `match` expressions that invoke
 the macro will naturally fail to compile.
 
 Using the `auto_branch` flag on the `#[component]` attribute
-**Kobold** will scan the body of of your component render function, and make all `html!` macro invocations
+**Kobold** will scan the body of of your component render function, and make all `view!` macro invocations
 inside an `if` or `match` expression, and wrap them in an enum making them the same type:
 
 
 ```rust
 #[component(auto_branch)]
-fn Conditional(illuminatus: bool) -> impl Html {
+fn Conditional(illuminatus: bool) -> impl View {
     if illuminatus {
-        html! { <p>"It was the year when they finally immanentized the Eschaton."</p> }
+        view! { <p>"It was the year when they finally immanentized the Eschaton."</p> }
     } else {
-        html! { <blockquote>"It was love at first sight."</blockquote> }
+        view! { <blockquote>"It was love at first sight."</blockquote> }
     }
 }
 ```
@@ -140,12 +143,12 @@ To render an iterator use the `list` method from the
 use kobold::prelude::*;
 
 #[component]
-fn IterateNumbers(count: u32) -> impl Html {
-    html! {
+fn IterateNumbers(count: u32) -> impl View {
+    view! {
         <ul>
         {
             (1..=count)
-                .map(|n| html! { <li>"Item #"{n}</li> })
+                .map(|n| view! { <li>"Item #"{n}</li> })
                 .list()
         }
         </ul>
@@ -153,26 +156,26 @@ fn IterateNumbers(count: u32) -> impl Html {
 }
 ```
 
-This wraps the iterator in the transparent `List<_>` type that implements `Html`.
+This wraps the iterator in the transparent `List<_>` type that implements `View`.
 On updates the iterator is consumed once and all items are diffed with the previous version.
 No allocations are made by **Kobold** when updating such a list, unless the rendered list needs
 to grow past its original capacity.
 
 ### Borrowed values
 
-`Html` types are truly transient and only need to live for the duration of the initial render,
+`View` types are truly transient and only need to live for the duration of the initial render,
 or for the duration of the subsequent update. This means that you can easily and cheaply render borrowed
 state without unnecessary clones:
 
 ```rust
 #[component]
-fn Users<'a>(names: &'a [&'a str]) -> impl Html + 'a {
-    html! {
+fn Users<'a>(names: &'a [&'a str]) -> impl View + 'a {
+    view! {
         <ul>
         {
             names
                 .iter()
-                .map(|name| html! { <li>{ name }</li> })
+                .map(|name| view! { <li>{ name }</li> })
                 .list()
         }
         </ul>
@@ -182,21 +185,21 @@ fn Users<'a>(names: &'a [&'a str]) -> impl Html + 'a {
 
 ### Components with children
 
-If you wish to capture children from parent `html!` invocation, simply change
+If you wish to capture children from parent `view!` invocation, simply change
 `#[component]` to `#[component(children)]`:
 
 ```rust
 use kobold::prelude::*;
 
 #[component(children)]
-fn Header(children: impl Html) -> impl Html {
-    html! {
+fn Header(children: impl View) -> impl View {
+    view! {
         <header><h1>{ children }</h1></header>
     }
 }
 
 fn main() {
-    kobold::start(html! {
+    kobold::start(view! {
         <Header>"Hello Kobold"</Header>
     });
 }
@@ -210,12 +213,12 @@ use kobold::prelude::*;
 // Capture children into the argument `n`
 #[component(children: n)]
 fn AddTen(n: i32) -> i32 {
-    // integers implement `Html` so they can be passed by value
+    // integers implement `View` so they can be passed by value
     n + 10
 }
 
 fn main() {
-    kobold::start(html! {
+    kobold::start(view! {
         <p>
             "Meaning of life is "
             <AddTen>{ 32 }</AddTen>

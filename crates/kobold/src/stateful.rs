@@ -1,21 +1,19 @@
-//! # Utilities for building stateful components
+//! # Utilities for building stateful views
 //!
-//! **Kobold** uses _functional components_ that are _transient_, meaning they can include
-//! borrowed values and are discarded on each render call. **Kobold** doesn't
-//! allocate any memory on the heap for its simple components, and there is no way to update them
-//! short of the parent component re-rendering them.
+//! **Kobold** doesn't allocate any memory on the heap for its simple components, and there
+//! is no way to update them short of the parent view re-rendering them.
 //!
-//! However an app built entirely from such components wouldn't be very useful, as all it
+//! However a fully functional app like that wouldn't be very useful, as all it
 //! could ever do is render itself once. To get around this the [`stateful`](stateful) function can
-//! be used to give a component ownership over some arbitrary mutable state.
+//! be used to create views that have ownership over some arbitrary mutable state.
 //!
+use std::cell::{Cell, UnsafeCell};
 use std::mem::{ManuallyDrop, MaybeUninit};
 use std::rc::{Rc, Weak};
 
 use web_sys::Node;
 
-use crate::util::WithCell;
-use crate::{dom::Element, Html, Mountable};
+use crate::{dom::Element, Mountable, View};
 
 mod hook;
 mod should_render;
@@ -76,7 +74,7 @@ pub fn stateful<'a, S, F, H>(
 where
     S: IntoState,
     F: Fn(&'a Hook<S::State>) -> H + 'static,
-    H: Html + 'a,
+    H: View + 'a,
 {
     let render = move |hook: *const Hook<S::State>| render(unsafe { &*hook });
     Stateful { state, render }
@@ -99,11 +97,11 @@ impl<T> WeakRef<T> {
     }
 }
 
-impl<S, F, H> Html for Stateful<S, F>
+impl<S, F, H> View for Stateful<S, F>
 where
     S: IntoState,
     F: Fn(*const Hook<S::State>) -> H + 'static,
-    H: Html,
+    H: View,
 {
     type Product = StatefulProduct<S::State>;
 
@@ -172,11 +170,11 @@ pub struct Once<S, R, F> {
     handler: F,
 }
 
-impl<S, R, F> Html for Once<S, R, F>
+impl<S, R, F> View for Once<S, R, F>
 where
     S: IntoState,
     F: FnOnce(Signal<S::State>),
-    Stateful<S, R>: Html<Product = StatefulProduct<S::State>>,
+    Stateful<S, R>: View<Product = StatefulProduct<S::State>>,
 {
     type Product = StatefulProduct<S::State>;
 
@@ -194,5 +192,32 @@ where
 
     fn update(self, p: &mut Self::Product) {
         self.with_state.update(p);
+    }
+}
+
+struct WithCell<T> {
+    borrowed: Cell<bool>,
+    data: UnsafeCell<T>,
+}
+
+impl<T> WithCell<T> {
+    pub fn new(data: T) -> Self {
+        WithCell {
+            borrowed: Cell::new(false),
+            data: UnsafeCell::new(data),
+        }
+    }
+
+    pub fn with<F>(&self, mutator: F)
+    where
+        F: FnOnce(&mut T),
+    {
+        if self.borrowed.get() {
+            return;
+        }
+
+        self.borrowed.set(true);
+        mutator(unsafe { &mut *self.data.get() });
+        self.borrowed.set(false);
     }
 }

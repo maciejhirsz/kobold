@@ -1,14 +1,14 @@
 use kobold::prelude::*;
 
 #[component]
-fn Hello(name: &str) -> impl Html + '_ {
-    html! {
+fn Hello(name: &str) -> impl View + '_ {
+    view! {
         <h1>"Hello "{ name }"!"</h1>
     }
 }
 
 fn main() {
-    kobold::start(html! {
+    kobold::start(view! {
         <Hello name="Kobold" />
     });
 }

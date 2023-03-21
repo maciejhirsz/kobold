@@ -1,14 +1,14 @@
 use kobold::prelude::*;
 
 #[component]
-fn ListExample(count: u32) -> impl Html {
+fn ListExample(count: u32) -> impl View {
     stateful(count, |count| {
         bind! { count:
             let dec = move |_| *count = count.saturating_sub(1);
             let inc = move |_| *count += 1;
         }
 
-        html! {
+        view! {
             <div>
                 <h1 class="Greeter">"List example"</h1>
                 <p>
@@ -26,7 +26,7 @@ fn ListExample(count: u32) -> impl Html {
                     //
                     // `{n}` is just shorthand for `n={n}`.
                     (1..=count.get())
-                        .map(|n| html! { <ListItem {n} /> })
+                        .map(|n| view! { <ListItem {n} /> })
                         .list()
                 }
                 </ul>
@@ -36,12 +36,12 @@ fn ListExample(count: u32) -> impl Html {
 }
 
 #[component]
-fn ListItem(n: u32) -> impl Html {
-    html! { <li>"Item #"{ n }</li> }
+fn ListItem(n: u32) -> impl View {
+    view! { <li>"Item #"{ n }</li> }
 }
 
 fn main() {
-    kobold::start(html! {
+    kobold::start(view! {
         <ListExample count={2} />
     });
 }

@@ -11,6 +11,10 @@ description = "Easy declarative web interfaces"
 repository = "https://github.com/maciejhirsz/kobold"
 documentation = "https://docs.rs/kobold"
 
+[features]
+default = ["stateful"]
+stateful = []
+
 [dependencies]
 wasm-bindgen = "0.2.84"
 itoa = "1.0.1"

@@ -1,15 +1,15 @@
 //! # Utilities for conditional rendering
 //!
-//! The [`html!`](crate::html) macro produces unique transient types, so you might run into compile errors when branching:
+//! The [`view!`](crate::view) macro produces unique transient types, so you might run into compile errors when branching:
 //!
 //! ```compile_fail
 //! # use kobold::prelude::*;
 //! #[component]
-//! fn Conditional(illuminatus: bool) -> impl Html {
+//! fn Conditional(illuminatus: bool) -> impl View {
 //!     if illuminatus {
-//!         html! { <p>"It was the year when they finally immanentized the Eschaton."</p> }
+//!         view! { <p>"It was the year when they finally immanentized the Eschaton."</p> }
 //!     } else {
-//!         html! { <blockquote>"It was love at first sight."</blockquote> }
+//!         view! { <blockquote>"It was love at first sight."</blockquote> }
 //!     }
 //! }
 //! ```
@@ -18,10 +18,10 @@
 //!
 //! ```text
 //! /     if illuminatus {
-//! |         html! { <p>"It was the year when they finally immanentized the Eschaton."</p> }
+//! |         view! { <p>"It was the year when they finally immanentized the Eschaton."</p> }
 //! |         ------------------------------------------------------------------------------- expected because of this
 //! |     } else {
-//! |         html! { <blockquote>"It was love at first sight."</blockquote> }
+//! |         view! { <blockquote>"It was love at first sight."</blockquote> }
 //! |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `Conditional::render::Transient`, found a different struct `Conditional::render::Transient`
 //! |     }
 //! |_____- `if` and `else` have incompatible types
@@ -34,11 +34,11 @@
 //! ```
 //! # use kobold::prelude::*;
 //! #[component(auto_branch)]
-//! fn Conditional(illuminatus: bool) -> impl Html {
+//! fn Conditional(illuminatus: bool) -> impl View {
 //!     if illuminatus {
-//!         html! { <p>"It was the year when they finally immanentized the Eschaton."</p> }
+//!         view! { <p>"It was the year when they finally immanentized the Eschaton."</p> }
 //!     } else {
-//!         html! { <blockquote>"It was love at first sight."</blockquote> }
+//!         view! { <blockquote>"It was love at first sight."</blockquote> }
 //!     }
 //! }
 //! ```
@@ -55,13 +55,13 @@
 //! use kobold::branching::Branch2;
 //!
 //! #[component]
-//! fn Conditional(illuminatus: bool) -> impl Html {
+//! fn Conditional(illuminatus: bool) -> impl View {
 //!     if illuminatus {
-//!         Branch2::A(html! {
+//!         Branch2::A(view! {
 //!             <p>"It was the year when they finally immanentized the Eschaton."</p>
 //!         })
 //!     } else {
-//!         Branch2::B(html! {
+//!         Branch2::B(view! {
 //!             <blockquote>"It was love at first sight."</blockquote>
 //!         })
 //!     }
@@ -75,9 +75,9 @@
 //! ```
 //! # use kobold::prelude::*;
 //! #[component]
-//! fn Conditional(illuminatus: bool) -> impl Html {
+//! fn Conditional(illuminatus: bool) -> impl View {
 //!     if illuminatus {
-//!         Some(html! {
+//!         Some(view! {
 //!             <p>"It was the year when they finally immanentized the Eschaton."</p>
 //!         })
 //!     } else {
@@ -88,7 +88,7 @@
 
 use web_sys::Node;
 
-use crate::{Element, Html, Mountable};
+use crate::{Element, Mountable, View};
 
 macro_rules! branch {
     ($name:ident < $($var:ident),* >) => {
@@ -98,10 +98,10 @@ macro_rules! branch {
             )*
         }
 
-        impl<$($var),*> Html for $name<$($var),*>
+        impl<$($var),*> View for $name<$($var),*>
         where
             $(
-                $var: Html,
+                $var: View,
             )*
         {
             type Product = $name<$($var::Product),*>;
@@ -172,7 +172,7 @@ impl Mountable for EmptyNode {
     }
 }
 
-impl Html for Empty {
+impl View for Empty {
     type Product = EmptyNode;
 
     fn build(self) -> Self::Product {
@@ -182,7 +182,7 @@ impl Html for Empty {
     fn update(self, _: &mut Self::Product) {}
 }
 
-impl<T: Html> Html for Option<T> {
+impl<T: View> View for Option<T> {
     type Product = Branch2<T::Product, EmptyNode>;
 
     fn build(self) -> Self::Product {

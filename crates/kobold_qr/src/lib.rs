@@ -5,12 +5,12 @@ use fast_qr::qr::QRBuilder;
 use web_sys::CanvasRenderingContext2d;
 
 #[component]
-pub fn KoboldQR(data: &str) -> impl Html {
+pub fn KoboldQR(data: &str) -> impl View {
     let qr = QRBuilder::new(data).build().ok()?;
     let size = qr.size * 8;
 
     Some(
-        html! {
+        view! {
             <canvas width={size} height={size} style="width: 200px; height: 200px;" />
         }
         .on_render(move |canvas| {

@@ -8,7 +8,7 @@ use filter::Filter;
 use state::*;
 
 #[component]
-fn App() -> impl Html {
+fn App() -> impl View {
     stateful(State::default, |state| {
         let hidden = class!("hidden" if state.entries.is_empty());
 
@@ -19,7 +19,7 @@ fn App() -> impl Html {
             let clear = move |_| state.clear();
         }
 
-        html! {
+        view! {
             <div .todomvc-wrapper>
                 <section .todoapp>
                     <header .header>
@@ -32,7 +32,7 @@ fn App() -> impl Html {
                             {
                                 state
                                     .filtered_entries()
-                                    .map(move |(idx, entry)| html! { <EntryView {idx} {entry} {state} /> })
+                                    .map(move |(idx, entry)| view! { <EntryView {idx} {entry} {state} /> })
                                     .list()
                             }
                         </ul>
@@ -69,7 +69,7 @@ fn App() -> impl Html {
 }
 
 #[component]
-fn EntryInput(state: &Hook<State>) -> impl Html + '_ {
+fn EntryInput(state: &Hook<State>) -> impl View + '_ {
     bind! { state:
         let onchange = move |event: Event<InputElement>| {
             let input = event.target();
@@ -80,25 +80,25 @@ fn EntryInput(state: &Hook<State>) -> impl Html + '_ {
         };
     }
 
-    html! {
+    view! {
         <input.new-todo placeholder="What needs to be done?" {onchange} />
     }
 }
 
 #[component]
-fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl Html + '_ {
+fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl View + '_ {
     bind! { state:
         let onclick = move |_| state.set_all(active_count != 0);
     }
 
-    html! {
+    view! {
         <input #toggle-all.toggle-all type="checkbox" checked={active_count == 0} onclick={onclick} />
         <label for="toggle-all" />
     }
 }
 
 #[component]
-fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl Html + 'a {
+fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl View + 'a {
     let input = entry.editing.then(move || {
         bind! { state:
             let onkeypress = move |event: KeyboardEvent<InputElement>| {
@@ -118,7 +118,7 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl H
             let _ = event.target().focus();
         };
 
-        html! {
+        view! {
             <input .edit
                 type="text"
                 value={entry.description.fast_diff()}
@@ -138,7 +138,7 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl H
     let editing = class!("editing" if entry.editing);
     let completed = class!("completed" if entry.completed);
 
-    html! {
+    view! {
         <li .todo.{editing}.{completed}>
             <div .view>
                 <input .toggle type="checkbox" checked={entry.completed} {onchange} />
@@ -153,7 +153,7 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl H
 }
 
 #[component]
-fn FilterView(filter: Filter, state: &Hook<State>) -> impl Html + '_ {
+fn FilterView(filter: Filter, state: &Hook<State>) -> impl View + '_ {
     let selected = state.filter;
 
     let class = class!("selected" if selected == filter);
@@ -162,7 +162,7 @@ fn FilterView(filter: Filter, state: &Hook<State>) -> impl Html + '_ {
         let onclick = move |_| state.filter = filter;
     }
 
-    html! {
+    view! {
         <li>
             <a {class} {href} {onclick}>{ filter.label().no_diff() }</a>
         </li>
@@ -170,7 +170,7 @@ fn FilterView(filter: Filter, state: &Hook<State>) -> impl Html + '_ {
 }
 
 fn main() {
-    kobold::start(html! {
+    kobold::start(view! {
         <App />
     });
 }

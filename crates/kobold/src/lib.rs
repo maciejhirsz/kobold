@@ -9,18 +9,18 @@
 //!
 //! Like in [React](https://reactjs.org/) or [Yew](https://yew.rs/) updates are done by repeating calls
 //! to a render function whenever the state changes. However, unlike either, **Kobold** does not produce a
-//! full blown [virtual DOM](https://en.wikipedia.org/wiki/Virtual_DOM). Instead the [`html!`](html) macro compiles
-//! all static HTML elements to a single JavaScript function that constructs the exact
-//! [DOM](https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model) for it.
+//! full blown [virtual DOM](https://en.wikipedia.org/wiki/Virtual_DOM). Instead the [`view!`](view) macro compiles
+//! all static [DOM](https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model) elements to a single
+//! JavaScript function that constructs them.
 //!
-//! All expressions, which must implement the [`Html`](Html) trait, are injected into the constructed DOM on first
+//! All expressions, which must implement the [`View`](View) trait, are injected into the constructed DOM on first
 //! render. Kobold keeps track of the DOM node references for these expressions. Since the exact types the
 //! expressions evaluate to are known to the Rust compiler, update calls can diff them by value and surgically
 //! update the DOM should they change. Changing a string or an integer only updates the exact
 //! [`Text` node](https://developer.mozilla.org/en-US/docs/Web/API/Text) that string or integer was rendered to.
 //!
-//! _If the [`html!`](html) macro invocation contains HTML elements with no expressions, the constructed [`Html`](Html)
-//! type will be zero-sized, and its [`Html::update`](Html::update) method will be empty, making updates of static
+//! _If the [`view!`](view) macro invocation contains HTML elements with no expressions, the constructed [`View`](View)
+//! type will be zero-sized, and its [`View::update`](View::update) method will be empty, making updates of static
 //! HTML quite literally zero-cost._
 //!
 //! ### Hello World!
@@ -31,22 +31,22 @@
 //! use kobold::prelude::*;
 //!
 //! #[component]
-//! fn Hello(name: &str) -> impl Html + '_ {
-//!     html! {
+//! fn Hello(name: &str) -> impl View + '_ {
+//!     view! {
 //!         <h1>"Hello "{ name }"!"</h1>
 //!     }
 //! }
 //!
 //! fn main() {
-//!     kobold::start(html! {
+//!     kobold::start(view! {
 //!         <Hello name="Kobold" />
 //!     });
 //! }
 //! ```
 //!
-//! The _render function_ must return a type that implements the [`Html`](Html) trait. Since the [`html!`](html) macro
+//! The _render function_ must return a type that implements the [`View`](View) trait. Since the [`view!`](view) macro
 //! produces _transient types_, or [_Voldemort types_](https://wiki.dlang.org/Voldemort_types), the best approach
-//! here is to always use the `impl Html` return type.
+//! here is to always use the `impl View` return type.
 //!
 //! Everything here is statically typed and the macro doesn't delete any information when manipulating the
 //! token stream, so the Rust compiler can tell you when you've made a mistake:
@@ -62,20 +62,23 @@
 //! You can even use [rust-analyzer](https://rust-analyzer.github.io/) to refactor component or field names,
 //! and it will change the invocations inside the macros for you.
 //!
-//! ### Stateful components
+//! ### Stateful
 //!
-//! The [`stateful`](stateful::stateful) function can be used to create components that own and manipulate
+//! The [`stateful`](stateful::stateful) function can be used to create views that own and manipulate
 //! their state:
 //!
 //! ```no_run
 //! use kobold::prelude::*;
 //!
 //! #[component]
-//! fn Counter() -> impl Html {
-//!     stateful(0_u32, |count| {
-//!         let onclick = count.bind(|count, _event| *count += 1);
+//! fn Counter(init: u32) -> impl View {
+//!     stateful(init, |count| {
+//!         bind! { count:
+//!             // Create an event handler with access to `&mut u32`
+//!             let onclick = move |_event| *count += 1;
+//!         }
 //!
-//!         html! {
+//!         view! {
 //!             <p>
 //!                 "You clicked on the "
 //!                 // `{onclick}` here is shorthand for `onclick={onclick}`
@@ -87,8 +90,8 @@
 //! }
 //!
 //! fn main() {
-//!     kobold::start(html! {
-//!         <Counter />
+//!     kobold::start(view! {
+//!         <Counter init={0} />
 //!     });
 //! }
 //! ```
@@ -97,32 +100,32 @@
 //!
 //! * State constructor that implements the [`IntoState`](stateful::IntoState) trait. **Kobold** comes with default
 //!   implementations for most primitive types, so we can use `u32` here.
-//! * The anonymous render function that uses the constructed state, in our case `fn(&Hook<u32>) -> impl Html`.
+//! * The anonymous render closure that uses the constructed state, in our case its argument is `&Hook<u32>`.
 //!
 //! The [`Hook`](stateful::Hook) here is a smart pointer to the state itself that allows non-mutable access to the
-//! state, as well as the [`bind`](stateful::Hook::bind) method for creating event callbacks. These take a `&mut`
-//! reference to the state and a `&` reference to a DOM [`Event`](event::Event) (ignored above).
+//! state. The [`bind!`](bind) macro can be invoked for any `Hook` to create closures with `&mut` references to the
+//! underlying state.
 //!
 //! For more details visit the [`stateful` module documentation](stateful).
 //!
 //! ### Conditional rendering
 //!
-//! Because the [`html!`](html) macro produces unique transient types, `if` and `match` expressions that invoke
+//! Because the [`view!`](view) macro produces unique transient types, `if` and `match` expressions that invoke
 //! the macro will naturally fail to compile.
 //!
 //! Using the [`auto_branch`](component#componentauto_branch) flag on the [`#[component]`](component) attribute
-//! **Kobold** will scan the body of of your component render function, and make all [`html!`](html) macro invocations
+//! **Kobold** will scan the body of of your component render function, and make all [`view!`](view) macro invocations
 //! inside an `if` or `match` expression, and wrap them in an enum making them the same type:
 //!
 //!
 //! ```
 //! # use kobold::prelude::*;
 //! #[component(auto_branch)]
-//! fn Conditional(illuminatus: bool) -> impl Html {
+//! fn Conditional(illuminatus: bool) -> impl View {
 //!     if illuminatus {
-//!         html! { <p>"It was the year when they finally immanentized the Eschaton."</p> }
+//!         view! { <p>"It was the year when they finally immanentized the Eschaton."</p> }
 //!     } else {
-//!         html! { <blockquote>"It was love at first sight."</blockquote> }
+//!         view! { <blockquote>"It was love at first sight."</blockquote> }
 //!     }
 //! }
 //! ```
@@ -139,12 +142,12 @@
 //! use kobold::prelude::*;
 //!
 //! #[component]
-//! fn IterateNumbers(count: u32) -> impl Html {
-//!     html! {
+//! fn IterateNumbers(count: u32) -> impl View {
+//!     view! {
 //!         <ul>
 //!         {
 //!             (1..=count)
-//!                 .map(|n| html! { <li>"Item #"{n}</li> })
+//!                 .map(|n| view! { <li>"Item #"{n}</li> })
 //!                 .list()
 //!         }
 //!         </ul>
@@ -152,27 +155,27 @@
 //! }
 //! ```
 //!
-//! This wraps the iterator in the transparent [`List<_>`](list::List) type that implements [`Html`](Html).
+//! This wraps the iterator in the transparent [`List<_>`](list::List) type that implements [`View`](View).
 //! On updates the iterator is consumed once and all items are diffed with the previous version.
 //! No allocations are made by **Kobold** when updating such a list, unless the rendered list needs
 //! to grow past its original capacity.
 //!
 //! ### Borrowed values
 //!
-//! [`Html`](Html) types are truly transient and only need to live for the duration of the initial render,
+//! [`View`](View) types are truly transient and only need to live for the duration of the initial render,
 //! or for the duration of the subsequent update. This means that you can easily and cheaply render borrowed
 //! state without unnecessary clones:
 //!
 //! ```
 //! # use kobold::prelude::*;
 //! #[component]
-//! fn Users<'a>(names: &'a [&'a str]) -> impl Html + 'a {
-//!     html! {
+//! fn Users<'a>(names: &'a [&'a str]) -> impl View + 'a {
+//!     view! {
 //!         <ul>
 //!         {
 //!             names
 //!                 .iter()
-//!                 .map(|name| html! { <li>{ name }</li> })
+//!                 .map(|name| view! { <li>{ name }</li> })
 //!                 .list()
 //!         }
 //!         </ul>
@@ -182,21 +185,21 @@
 //!
 //! ### Components with children
 //!
-//! If you wish to capture children from parent [`html!`](html) invocation, simply change
+//! If you wish to capture children from parent [`view!`](view) invocation, simply change
 //! `#[component]` to `#[component(children)]`:
 //!
 //! ```no_run
 //! use kobold::prelude::*;
 //!
 //! #[component(children)]
-//! fn Header(children: impl Html) -> impl Html {
-//!     html! {
+//! fn Header(children: impl View) -> impl View {
+//!     view! {
 //!         <header><h1>{ children }</h1></header>
 //!     }
 //! }
 //!
 //! fn main() {
-//!     kobold::start(html! {
+//!     kobold::start(view! {
 //!         <Header>"Hello Kobold"</Header>
 //!     });
 //! }
@@ -210,12 +213,12 @@
 //! // Capture children into the argument `n`
 //! #[component(children: n)]
 //! fn AddTen(n: i32) -> i32 {
-//!     // integers implement `Html` so they can be passed by value
+//!     // integers implement `View` so they can be passed by value
 //!     n + 10
 //! }
 //!
 //! fn main() {
-//!     kobold::start(html! {
+//!     kobold::start(view! {
 //!         <p>
 //!             "Meaning of life is "
 //!             <AddTen>{ 32 }</AddTen>
@@ -253,8 +256,8 @@
 /// ```
 /// # use kobold::prelude::*;
 /// #[component]
-/// fn MyComponent() -> impl Html {
-///     html! {
+/// fn MyComponent() -> impl View {
+///     view! {
 ///         <p>"Hello, world!"</p>
 ///     }
 /// }
@@ -267,7 +270,7 @@
 ///
 /// ### `#[component(auto_branch)]`
 ///
-/// Automatically resolve all invocations of the [`html!`](html) macro inside `if` and `match` expressions
+/// Automatically resolve all invocations of the [`view!`](view) macro inside `if` and `match` expressions
 /// to the same type.
 ///
 /// For more details visit the [`branching` module documentation](branching).
@@ -280,8 +283,8 @@
 /// * `#[component(children: my_name)]`: children will be captured by the `my_name` argument on the function.
 pub use kobold_macros::component;
 
-/// Macro for creating transient [`Html`](Html) types. See the [main documentation](crate) for details.
-pub use kobold_macros::html;
+/// Macro for creating transient [`View`](View) types. See the [main documentation](crate) for details.
+pub use kobold_macros::view;
 
 use wasm_bindgen::{JsCast, JsValue};
 
@@ -292,31 +295,38 @@ pub mod branching;
 pub mod dom;
 pub mod event;
 pub mod list;
-pub mod stateful;
 pub mod util;
 
-/// The prelude module with most commonly used types
+#[cfg(feature = "stateful")]
+pub mod stateful;
+
+/// The prelude module with most commonly used types.
+///
+/// Intended use is:
+/// ```
+/// use kobold::prelude::*;
+/// ```
 pub mod prelude {
     pub use crate::event::{Event, KeyboardEvent, MouseEvent};
     pub use crate::list::ListIteratorExt as _;
-    pub use crate::stateful::{stateful, Hook, IntoState, Signal, Then};
-    pub use crate::{bind, class};
-    // pub use crate::stateful::{ShouldRender, WeakHook};
-    // pub use crate::stateful::{stateful, Hook, IntoState, ShouldRender, WeakHook};
     pub use crate::value::{StrExt as _, Stringify as _};
-    pub use crate::{component, html, Html};
+    pub use crate::{bind, class};
+    pub use crate::{component, view, View};
+
+    #[cfg(feature = "stateful")]
+    pub use crate::stateful::{stateful, Hook, IntoState, Signal, Then};
 }
 
 use dom::Element;
 
-/// Crate re-exports for the [`html!`](html) macro internals
+/// Crate re-exports for the [`view!`](view) macro internals
 pub mod reexport {
     pub use wasm_bindgen;
     pub use web_sys;
 }
 
 /// Trait that describes types that can be rendered in the DOM.
-pub trait Html {
+pub trait View {
     /// HTML product of this type, this is effectively the strongly-typed
     /// virtual DOM equivalent for Kobold.
     type Product: Mountable;
@@ -355,9 +365,9 @@ pub struct OnMount<H, F> {
     handler: F,
 }
 
-impl<H, F> Html for OnMount<H, F>
+impl<H, F> View for OnMount<H, F>
 where
-    H: Html,
+    H: View,
     F: FnOnce(&<H::Product as Mountable>::Js),
 {
     type Product = H::Product;
@@ -380,9 +390,9 @@ pub struct OnRender<H, F> {
     handler: F,
 }
 
-impl<H, F> Html for OnRender<H, F>
+impl<H, F> View for OnRender<H, F>
 where
-    H: Html,
+    H: View,
     F: FnOnce(&<H::Product as Mountable>::Js),
 {
     type Product = H::Product;
@@ -413,8 +423,8 @@ pub trait Mountable: 'static {
     }
 }
 
-/// Start the Kobold app by mounting given [`Html`](Html) in the document `body`.
-pub fn start(html: impl Html) {
+/// Start the Kobold app by mounting given [`View`](View) in the document `body`.
+pub fn start(html: impl View) {
     init_panic_hook();
 
     use std::mem::ManuallyDrop;
@@ -457,6 +467,32 @@ macro_rules! class {
     };
 }
 
+/// Binds a closure to a given [`Hook`](stateful::Hook). In practice:
+///
+/// ```
+/// # use kobold::{bind, stateful::Hook};
+/// # fn test(count: &Hook<i32>) {
+/// bind! { count:
+///     let increment = move |_| *count += 1;
+///     let decrement = move |_| *count -= 1;
+/// }
+/// # fn throwaway(_: impl Fn(kobold::reexport::web_sys::Event)) {}
+/// # throwaway(increment);
+/// # throwaway(decrement);
+/// # }
+/// ```
+/// Desugars into:
+///
+/// ```
+/// # use kobold::{bind, stateful::Hook};
+/// # fn test(count: &Hook<i32>) {
+/// let increment = count.bind(move |count, _| *count += 1);
+/// let decrement = count.bind(move |count, _| *count -= 1);
+/// # fn throwaway(_: impl Fn(kobold::reexport::web_sys::Event)) {}
+/// # throwaway(increment);
+/// # throwaway(decrement);
+/// # }
+/// ```
 #[macro_export]
 macro_rules! bind {
     ($hook:ident: $(let $v:ident = move |$e:tt $(: $e_ty:ty)?| $body:expr;)+) => {

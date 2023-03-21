@@ -1,9 +1,8 @@
 use std::ops::Deref;
 use std::rc::Weak;
 
-use crate::stateful::{Inner, ShouldRender, WeakRef};
-use crate::util::WithCell;
-use crate::Html;
+use crate::stateful::{Inner, ShouldRender, WeakRef, WithCell};
+use crate::View;
 
 /// A hook to some state `S`. A reference to `Hook` is obtained by using the [`stateful`](crate::stateful::stateful)
 /// function.
@@ -97,11 +96,11 @@ impl<S> Deref for Hook<S> {
     }
 }
 
-impl<'a, H> Html for &'a Hook<H>
+impl<'a, H> View for &'a Hook<H>
 where
-    &'a H: Html + 'a,
+    &'a H: View + 'a,
 {
-    type Product = <&'a H as Html>::Product;
+    type Product = <&'a H as View>::Product;
 
     fn build(self) -> Self::Product {
         (**self).build()
