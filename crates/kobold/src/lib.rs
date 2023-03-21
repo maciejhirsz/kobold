@@ -62,9 +62,9 @@
 //! You can even use [rust-analyzer](https://rust-analyzer.github.io/) to refactor component or field names,
 //! and it will change the invocations inside the macros for you.
 //!
-//! ### Stateful components
+//! ### Stateful
 //!
-//! The [`stateful`](stateful::stateful) function can be used to create components that own and manipulate
+//! The [`stateful`](stateful::stateful) function can be used to create views that own and manipulate
 //! their state:
 //!
 //! ```no_run

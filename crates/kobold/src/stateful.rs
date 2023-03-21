@@ -1,13 +1,11 @@
-//! # Utilities for building stateful components
+//! # Utilities for building stateful views
 //!
-//! **Kobold** uses _functional components_ that are _transient_, meaning they can include
-//! borrowed values and are discarded on each render call. **Kobold** doesn't
-//! allocate any memory on the heap for its simple components, and there is no way to update them
-//! short of the parent component re-rendering them.
+//! **Kobold** doesn't allocate any memory on the heap for its simple components, and there
+//! is no way to update them short of the parent view re-rendering them.
 //!
-//! However an app built entirely from such components wouldn't be very useful, as all it
+//! However a fully functional app like that wouldn't be very useful, as all it
 //! could ever do is render itself once. To get around this the [`stateful`](stateful) function can
-//! be used to give a component ownership over some arbitrary mutable state.
+//! be used to create views that have ownership over some arbitrary mutable state.
 //!
 use std::cell::{Cell, UnsafeCell};
 use std::mem::{ManuallyDrop, MaybeUninit};
