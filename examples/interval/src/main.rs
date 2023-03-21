@@ -4,7 +4,9 @@ use kobold::prelude::*;
 #[component]
 fn Elapsed() -> impl Html {
     stateful(0_u32, |seconds| {
-        let onclick = seconds.bind(|seconds, _event| *seconds = 0);
+        bind! { seconds:
+            let onclick = move |_| *seconds = 0;
+        }
 
         html! {
             <p>
@@ -16,7 +18,7 @@ fn Elapsed() -> impl Html {
     })
     .once(|hook| {
         Interval::new(1000, move || {
-            hook.update(|seconds| *seconds += 1).unwrap();
+            hook.update(|seconds| *seconds += 1);
         })
         .forget();
     })

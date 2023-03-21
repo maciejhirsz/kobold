@@ -3,8 +3,10 @@ use kobold::prelude::*;
 #[component]
 fn ListExample(count: u32) -> impl Html {
     stateful(count, |count| {
-        let dec = count.bind(|count, _| *count = count.saturating_sub(1));
-        let inc = count.bind(|count, _| *count += 1);
+        bind! { count:
+            let dec = move |_| *count = count.saturating_sub(1);
+            let inc = move |_| *count += 1;
+        }
 
         html! {
             <div>

@@ -39,7 +39,7 @@ impl Transient {
         block((
             "use ::kobold::reexport::wasm_bindgen;",
             self.js,
-            format_args!("::kobold::util::Const::new({name})"),
+            format_args!("::kobold::util::Static({name})"),
         ))
         .tokenize_in(stream)
     }

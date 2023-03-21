@@ -155,7 +155,6 @@ dependencies = [
  "kobold_macros",
  "ryu",
  "wasm-bindgen",
- "wasm-bindgen-futures",
  "web-sys",
 ]
 
@@ -242,6 +241,7 @@ version = "0.1.0"
 dependencies = [
  "gloo-storage",
  "kobold",
+ "wasm-bindgen",
  "web-sys",
 ]
 

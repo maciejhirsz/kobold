@@ -1,4 +1,5 @@
 use gloo_storage::{LocalStorage, Storage};
+use wasm_bindgen::UnwrapThrowExt;
 
 use crate::filter::Filter;
 
@@ -53,9 +54,20 @@ impl Default for State {
             entries.extend(storage.lines().map_while(Entry::read));
         }
 
+        let hash = web_sys::window()
+            .expect_throw("no window")
+            .location()
+            .hash();
+
+        let filter = match hash.as_ref().map(|s| s.as_str()).unwrap_or("") {
+            "#/active" => Filter::Active,
+            "#/completed" => Filter::Completed,
+            _ => Filter::All,
+        };
+
         State {
             entries,
-            filter: Filter::All,
+            filter,
             editing: None,
         }
     }
@@ -97,6 +109,12 @@ impl State {
         for entry in self.entries.iter_mut() {
             entry.completed = completed;
         }
+    }
+
+    pub fn clear(&mut self) {
+        self.entries.retain(|entry| !entry.completed);
+
+        self.store();
     }
 
     pub fn edit_entry(&mut self, idx: usize) {

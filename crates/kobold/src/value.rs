@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use web_sys::Text;
 
-use crate::prelude::{IntoState, ShouldRender};
+use crate::prelude::{IntoState, Then};
 use crate::{Element, Html, Mountable};
 
 pub struct ValueProduct<T> {
@@ -161,12 +161,12 @@ macro_rules! impl_stringify {
                     self
                 }
 
-                fn update(self, state: &mut Self) -> ShouldRender {
+                fn update(self, state: &mut Self) -> Then {
                     if *state != self {
                         *state = self;
-                        ShouldRender::Yes
+                        Then::Render
                     } else {
-                        ShouldRender::No
+                        Then::Stop
                     }
                 }
             }
@@ -213,12 +213,12 @@ impl IntoState for &str {
         self.into()
     }
 
-    fn update(self, state: &mut String) -> ShouldRender {
+    fn update(self, state: &mut String) -> Then {
         if *state != self {
             self.clone_into(state);
-            ShouldRender::Yes
+            Then::Render
         } else {
-            ShouldRender::No
+            Then::Stop
         }
     }
 }

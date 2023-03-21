@@ -6,8 +6,6 @@ use crate::util;
 use crate::value::{FastDiff, NoDiff, Stringify};
 use crate::{Element, Html, Mountable};
 
-pub use crate::stateful::Callback;
-
 pub trait Attribute {
     type Abi: IntoWasmAbi;
     type Product: 'static;
@@ -161,11 +159,15 @@ impl From<Option<&'static str>> for Class<&'static str> {
 
 #[derive(Clone, Copy)]
 pub struct OptionalClass<'a> {
-    on: bool,
     class: &'a str,
+    on: bool,
 }
 
 impl<'a> OptionalClass<'a> {
+    pub const fn new(class: &'a str, on: bool) -> Self {
+        OptionalClass { class, on }
+    }
+
     pub const fn no_diff(self) -> NoDiff<Self> {
         NoDiff(self)
     }
@@ -176,16 +178,6 @@ impl<'a> OptionalClass<'a> {
         } else {
             ""
         }
-    }
-}
-
-pub trait BoolExt {
-    fn class(self, class: &str) -> OptionalClass;
-}
-
-impl BoolExt for bool {
-    fn class(self, class: &str) -> OptionalClass {
-        OptionalClass { on: self, class }
     }
 }
 
@@ -237,12 +229,12 @@ impl<'a> Attribute for Class<NoDiff<OptionalClass<'a>>> {
     }
 
     fn update(self, p: &mut Self::Product, js: &JsValue) {
-        match (self.0 .0.on, *p) {
+        match (self.0.on, *p) {
             (true, true) | (false, false) => return,
             (true, false) => util::__kobold_class_add(js, self.0.class),
             (false, true) => util::__kobold_class_remove(js, self.0.class),
         }
-        *p = self.0 .0.on;
+        *p = self.0.on;
     }
 }
 
