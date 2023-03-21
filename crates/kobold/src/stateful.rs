@@ -1,54 +1,25 @@
-//! # Utilities for building stateful components
-//!
-//! **Kobold** uses _functional components_ that are _transient_, meaning they can include
-//! borrowed values and are discarded on each render call. **Kobold** doesn't
-//! allocate any memory on the heap for its simple components, and there is no way to update them
-//! short of the parent component re-rendering them.
-//!
-//! However an app built entirely from such components wouldn't be very useful, as all it
-//! could ever do is render itself once. To get around this the [`stateful`](stateful) function can
-//! be used to give a component ownership over some arbitrary mutable state.
-//!
-use std::cell::{RefCell, UnsafeCell};
-use std::marker::PhantomData;
+use std::mem::MaybeUninit;
 use std::rc::Rc;
 
-use crate::render_fn::RenderFn;
-use crate::{Element, Html, Mountable};
+use web_sys::Node;
+
+use crate::util::WithCell;
+use crate::{dom::Element, Html, Mountable};
 
 mod hook;
-mod weak;
+mod should_render;
 
-pub use hook::{Callback, Hook};
-pub use weak::{HookError, WeakHook};
+pub use hook::{Hook, Signal};
+pub use should_render::{ShouldRender, Then};
 
-/// Describes whether or not a component should be rendered after state changes.
-/// For uses see:
-///
-/// * [`Hook::bind`](Hook::bind)
-/// * [`IntoState::update`](IntoState::update)
-pub enum ShouldRender {
-    /// This is a silent update
-    No,
-
-    /// Yes, re-render the component after this update
-    Yes,
+pub struct Inner<S> {
+    hook: Hook<S>,
+    updater: Box<dyn FnMut(&Hook<S>)>,
 }
 
-/// Closures without a return type (those that return `()`)
-/// are considered to return [`ShouldRender::Yes`](ShouldRender::Yes).
-impl From<()> for ShouldRender {
-    fn from(_: ()) -> ShouldRender {
-        ShouldRender::Yes
-    }
-}
-
-impl ShouldRender {
-    pub(crate) fn should_render(self) -> bool {
-        match self {
-            ShouldRender::Yes => true,
-            ShouldRender::No => false,
-        }
+impl<S> Inner<S> {
+    fn update(&mut self) {
+        (self.updater)(&self.hook)
     }
 }
 
@@ -58,7 +29,7 @@ pub trait IntoState: Sized {
 
     fn init(self) -> Self::State;
 
-    fn update(self, state: &mut Self::State) -> ShouldRender;
+    fn update(self, state: &mut Self::State) -> Then;
 }
 
 impl<F, S> IntoState for F
@@ -72,143 +43,80 @@ where
         (self)()
     }
 
-    fn update(self, _: &mut Self::State) -> ShouldRender {
-        ShouldRender::No
+    fn update(self, _: &mut Self::State) -> Then {
+        Then::Stop
     }
 }
 
-pub fn stateful<'a, S, H>(init: S, render: fn(&'a Hook<S::State>) -> H) -> Stateful<S, H>
-where
-    S: IntoState,
-    H: Html + 'a,
-{
-    Stateful {
-        stateful: init,
-        render: RenderFn::new(render),
-        _marker: PhantomData,
-    }
+pub struct Stateful<S, F> {
+    state: S,
+    render: F,
 }
 
-pub struct Stateful<S: IntoState, H: Html> {
-    stateful: S,
-    render: RenderFn<S::State, H::Product>,
-    _marker: PhantomData<H>,
-}
-
-struct Inner<S: 'static, P> {
-    hook: RefCell<Hook<S>>,
-    product: UnsafeCell<P>,
-    render: RenderFn<S, P>,
-    update: fn(RenderFn<S, P>, &Hook<S>),
-}
-
-impl<S: 'static, P: 'static> Inner<S, P> {
-    fn rerender(&self, hook: &Hook<S>) {
-        (self.update)(self.render, hook)
-    }
-}
-
-pub struct StatefulProduct<S: 'static, P> {
-    inner: Rc<Inner<S, P>>,
+pub struct StatefulProduct<S> {
+    inner: Rc<WithCell<Inner<S>>>,
     el: Element,
 }
 
-impl<S, H> Html for Stateful<S, H>
+pub fn stateful<'a, S, F, H>(state: S, render: F) -> Stateful<S, impl Fn(*const Hook<S::State>) -> H + 'static>
 where
     S: IntoState,
+    F: Fn(&'a Hook<S::State>) -> H + 'static,
+    H: Html + 'a,
+{
+    let render = move |hook: *const Hook<S::State>| render(unsafe { &*hook });
+    Stateful { state, render }
+}
+
+impl<S, F, H> Html for Stateful<S, F>
+where
+    S: IntoState,
+    F: Fn(*const Hook<S::State>) -> H + 'static,
     H: Html,
 {
-    type Product = StatefulProduct<S::State, H::Product>;
+    type Product = StatefulProduct<S::State>;
 
     fn build(self) -> Self::Product {
-        let inner = Rc::new_cyclic(move |inner| {
-            let state = self.stateful.init();
-            let hook = Hook::new(state, inner.as_ptr());
+        let mut el = MaybeUninit::uninit();
+        let el_ref = &mut el;
 
-            // Safety: this is safe as long as `S` and `H` are the same types that
-            // were used to create this `RenderFn` instance.
-            let render_fn = unsafe { self.render.cast::<H>() };
-            let product = (render_fn)(&hook).build();
+        let inner = Rc::new_cyclic(move |weak| {
+            let hook = Hook {
+                state: self.state.init(),
+                weak: weak.clone(),
+            };
 
-            Inner {
-                hook: RefCell::new(hook),
-                product: UnsafeCell::new(product),
-                render: self.render,
-                update: |render, hook| {
-                    // Safety: this is safe as long as `S` and `H` are the same types that
-                    // were used to create this `RenderFn` instance.
-                    let render = unsafe { render.cast::<H>() };
-                    let inner = unsafe { &*hook.inner() };
+            let mut product = (self.render)(&hook).build();
 
-                    (render)(hook).update(unsafe { &mut *inner.product.get() });
-                },
-            }
+            el_ref.write(product.el().clone());
+
+            WithCell::new(Inner {
+                hook,
+                updater: Box::new(move |hook| {
+                    (self.render)(hook).update(&mut product);
+                }),
+            })
         });
 
-        let el = unsafe { &*inner.product.get() }.el().clone();
-
-        StatefulProduct { inner, el }
+        StatefulProduct {
+            inner,
+            el: unsafe { el.assume_init() },
+        }
     }
 
     fn update(self, p: &mut Self::Product) {
-        let mut hook = p.inner.hook.borrow_mut();
-
-        if self.stateful.update(&mut hook.state).should_render() {
-            p.inner.rerender(&hook);
-        }
+        p.inner.with(|inner| {
+            if self.state.update(&mut inner.hook.state).should_render() {
+                inner.update();
+            }
+        });
     }
 }
 
-impl<S, P> Mountable for StatefulProduct<S, P>
-where
-    S: 'static,
-    P: Mountable,
-{
-    type Js = P::Js;
+impl<S: 'static> Mountable for StatefulProduct<S> {
+    type Js = Node;
 
     fn el(&self) -> &Element {
         &self.el
-    }
-}
-
-impl<S, H> Stateful<S, H>
-where
-    S: IntoState,
-    H: Html,
-{
-    pub fn once<F>(self, handler: F) -> Once<S, H, F>
-    where
-        F: FnOnce(WeakHook<S::State>),
-    {
-        Once {
-            with_state: self,
-            handler,
-        }
-    }
-}
-
-pub struct Once<S: IntoState, H: Html, F> {
-    with_state: Stateful<S, H>,
-    handler: F,
-}
-
-impl<S, H, F> Html for Once<S, H, F>
-where
-    S: IntoState,
-    H: Html,
-    F: FnOnce(WeakHook<S::State>),
-{
-    type Product = StatefulProduct<S::State, H::Product>;
-
-    fn build(self) -> Self::Product {
-        let product = self.with_state.build();
-
-        (self.handler)(WeakHook::new::<H>(&product.inner));
-
-        product
-    }
-
-    fn update(self, p: &mut Self::Product) {
-        self.with_state.update(p);
     }
 }

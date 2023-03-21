@@ -1,12 +1,9 @@
 use std::fmt::{Arguments, Write};
 
 use crate::dom::{Attribute, AttributeValue, CssValue, HtmlElement};
-use crate::gen::{
-    append, Abi, DomNode, Generator, IntoGenerator, JsArgument, Short, TokenStreamExt,
-};
+use crate::gen::{append, Abi, DomNode, Generator, IntoGenerator, JsArgument, Short};
 use crate::itertools::IteratorExt;
-use crate::parse::{IdentExt, Parse};
-use crate::syntax::InlineBind;
+use crate::parse::IdentExt;
 use crate::tokenize::prelude::*;
 
 pub struct JsElement {
@@ -105,37 +102,16 @@ impl IntoGenerator for HtmlElement {
                         let target = element_js_type(el.tag.as_str());
                         let event_type = event_js_type(event);
 
-                        let mut inner = expr.stream.clone().parse_stream();
-
-                        let callback = if let Ok(bind) = InlineBind::parse(&mut inner) {
-                            (
-                                bind.invocation,
-                                format_args!(
-                                    "::<\
-                                        ::kobold::reexport::web_sys::{event_type},\
-                                        ::kobold::reexport::web_sys::{target},\
-                                        _,\
-                                        _,\
-                                    >"
-                                ),
-                                bind.arg,
-                            )
-                                .tokenize()
-                        } else {
-                            block((
-                                format_args!(
-                                    "let constrained: ::kobold::stateful::Callback<\
-                                        ::kobold::reexport::web_sys::{event_type},\
-                                        ::kobold::reexport::web_sys::{target},\
-                                        _,\
-                                        _,\
-                                    > ="
-                                ),
-                                expr.stream,
-                                "; constrained",
-                            ))
-                            .tokenize()
-                        };
+                        let callback = call(
+                            format_args!(
+                                "::kobold::event::event_handler::<\
+                                    ::kobold::event::{event_type}<\
+                                        ::kobold::reexport::web_sys::{target}\
+                                    >\
+                                >"
+                            ),
+                            expr.stream,
+                        );
 
                         let value = gen.add_expression(callback);
 

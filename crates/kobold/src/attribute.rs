@@ -6,8 +6,6 @@ use crate::util;
 use crate::value::{FastDiff, NoDiff, Stringify};
 use crate::{Element, Html, Mountable};
 
-pub use crate::stateful::Callback;
-
 pub trait Attribute {
     type Abi: IntoWasmAbi;
     type Product: 'static;

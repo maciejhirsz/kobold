@@ -16,7 +16,7 @@ fn App() -> impl Html {
         let completed_hidden = class!("hidden" if state.entries.len() == active_count);
 
         bind! { state:
-            let clear = move |_| state.entries.retain(|entry| !entry.completed);
+            let clear = move |_| state.clear();
         }
 
         html! {
@@ -70,18 +70,18 @@ fn App() -> impl Html {
 
 #[component]
 fn EntryInput(state: &Hook<State>) -> impl Html + '_ {
-    html! {
-        <input
-            .new-todo
-            placeholder="What needs to be done?"
-            onchange={state.bind(|state, event| {
-                let input = event.target();
-                let value = input.value();
+    bind! { state:
+        let onchange = move |event: Event<InputElement>| {
+            let input = event.target();
+            let value = input.value();
 
-                input.set_value("");
-                state.add(value);
-            })}
-        />
+            input.set_value("");
+            state.add(value);
+        };
+    }
+
+    html! {
+        <input.new-todo placeholder="What needs to be done?" {onchange} />
     }
 }
 
@@ -104,16 +104,16 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl H
             let onmouseover = move |event: MouseEvent<InputElement>| {
                 let _ = event.target().focus();
 
-                ShouldRender::No
+                Then::Stop
             };
 
             let onkeypress = move |event: KeyboardEvent<InputElement>| {
                 if event.key() == "Enter" {
                     state.update(idx, event.target().value());
 
-                    ShouldRender::Yes
+                    Then::Render
                 } else {
-                    ShouldRender::No
+                    Then::Stop
                 }
             };
 

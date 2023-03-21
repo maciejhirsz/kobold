@@ -99,6 +99,12 @@ impl State {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.entries.retain(|entry| !entry.completed);
+
+        self.store();
+    }
+
     pub fn edit_entry(&mut self, idx: usize) {
         if let Some(entry) = self.editing.and_then(|idx| self.entries.get_mut(idx)) {
             entry.editing = false;

@@ -2,7 +2,7 @@
 
 use std::fmt::Write;
 
-use proc_macro::{Ident, Literal, Span, TokenStream, TokenTree};
+use proc_macro::{Ident, Literal, Span, TokenStream};
 
 use crate::parse::prelude::*;
 use crate::tokenize::prelude::*;
@@ -85,44 +85,5 @@ impl CssLabel {
         // Keep resolution to literal, but change location
         lit.set_span(lit.span().located_at(self.span));
         lit
-    }
-}
-
-/// Matches `[<ident>.]*<ident>.bind(...)`. and splits it into the
-/// invocation `ctx.bind` and the group token tree for closure `(...)`.
-///
-/// This is useful for adding type information to events:
-///
-/// `ctx.bind::<EventTarget, _, _>(...)`
-///
-/// So that the exact type of the event can be inferred.
-pub struct InlineBind {
-    pub invocation: TokenStream,
-    pub arg: TokenTree,
-}
-
-impl Parse for InlineBind {
-    fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
-        // Must begin with an identifier, `ctx` or anything else
-        let mut ident: Ident = stream.parse()?;
-        let mut invocation = ident.tokenize();
-
-        loop {
-            invocation.write(stream.expect('.')?);
-
-            ident = stream.parse()?;
-
-            if ident.eq_str("bind") {
-                invocation.write(ident);
-
-                let arg = stream.expect('(')?;
-
-                stream.parse()?;
-
-                return Ok(InlineBind { invocation, arg });
-            }
-
-            invocation.write(ident);
-        }
     }
 }
