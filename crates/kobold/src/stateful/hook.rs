@@ -1,8 +1,7 @@
 use std::ops::Deref;
 use std::rc::Weak;
 
-use crate::stateful::{Inner, ShouldRender, WeakRef};
-use crate::util::WithCell;
+use crate::stateful::{Inner, ShouldRender, WeakRef, WithCell};
 use crate::View;
 
 /// A hook to some state `S`. A reference to `Hook` is obtained by using the [`stateful`](crate::stateful::stateful)

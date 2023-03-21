@@ -9,13 +9,13 @@
 //! could ever do is render itself once. To get around this the [`stateful`](stateful) function can
 //! be used to give a component ownership over some arbitrary mutable state.
 //!
+use std::cell::{Cell, UnsafeCell};
 use std::mem::{ManuallyDrop, MaybeUninit};
 use std::rc::{Rc, Weak};
 
 use web_sys::Node;
 
-use crate::util::WithCell;
-use crate::{dom::Element, View, Mountable};
+use crate::{dom::Element, Mountable, View};
 
 mod hook;
 mod should_render;
@@ -194,5 +194,32 @@ where
 
     fn update(self, p: &mut Self::Product) {
         self.with_state.update(p);
+    }
+}
+
+struct WithCell<T> {
+    borrowed: Cell<bool>,
+    data: UnsafeCell<T>,
+}
+
+impl<T> WithCell<T> {
+    pub fn new(data: T) -> Self {
+        WithCell {
+            borrowed: Cell::new(false),
+            data: UnsafeCell::new(data),
+        }
+    }
+
+    pub fn with<F>(&self, mutator: F)
+    where
+        F: FnOnce(&mut T),
+    {
+        if self.borrowed.get() {
+            return;
+        }
+
+        self.borrowed.set(true);
+        mutator(unsafe { &mut *self.data.get() });
+        self.borrowed.set(false);
     }
 }

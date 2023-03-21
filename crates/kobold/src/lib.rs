@@ -295,8 +295,10 @@ pub mod branching;
 pub mod dom;
 pub mod event;
 pub mod list;
-pub mod stateful;
 pub mod util;
+
+#[cfg(feature = "stateful")]
+pub mod stateful;
 
 /// The prelude module with most commonly used types.
 ///
@@ -307,12 +309,12 @@ pub mod util;
 pub mod prelude {
     pub use crate::event::{Event, KeyboardEvent, MouseEvent};
     pub use crate::list::ListIteratorExt as _;
-    pub use crate::stateful::{stateful, Hook, IntoState, Signal, Then};
-    pub use crate::{bind, class};
-    // pub use crate::stateful::{ShouldRender, WeakHook};
-    // pub use crate::stateful::{stateful, Hook, IntoState, ShouldRender, WeakHook};
     pub use crate::value::{StrExt as _, Stringify as _};
+    pub use crate::{bind, class};
     pub use crate::{component, view, View};
+
+    #[cfg(feature = "stateful")]
+    pub use crate::stateful::{stateful, Hook, IntoState, Signal, Then};
 }
 
 use dom::Element;

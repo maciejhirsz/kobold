@@ -4,7 +4,7 @@ use wasm_bindgen::JsValue;
 
 use crate::util;
 use crate::value::{FastDiff, NoDiff, Stringify};
-use crate::{Element, View, Mountable};
+use crate::{Element, Mountable, View};
 
 pub trait Attribute {
     type Abi: IntoWasmAbi;

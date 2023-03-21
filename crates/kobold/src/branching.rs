@@ -88,7 +88,7 @@
 
 use web_sys::Node;
 
-use crate::{Element, View, Mountable};
+use crate::{Element, Mountable, View};
 
 macro_rules! branch {
     ($name:ident < $($var:ident),* >) => {

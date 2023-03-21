@@ -2,8 +2,9 @@ use std::ops::Deref;
 
 use web_sys::Text;
 
-use crate::prelude::{IntoState, Then};
-use crate::{Element, View, Mountable};
+#[cfg(feature = "stateful")]
+use crate::stateful::{IntoState, Then};
+use crate::{Element, Mountable, View};
 
 pub struct ValueProduct<T> {
     value: T,
@@ -206,6 +207,7 @@ impl View for &&str {
     }
 }
 
+#[cfg(feature = "stateful")]
 impl IntoState for &str {
     type State = String;
 

@@ -3,7 +3,7 @@
 use web_sys::Node;
 
 use crate::dom::Fragment;
-use crate::{Element, View, Mountable};
+use crate::{Element, Mountable, View};
 
 /// Wrapper type that implements `View` for iterators. Use the [`list`](ListIteratorExt::list)
 /// method on the iterator to create one.

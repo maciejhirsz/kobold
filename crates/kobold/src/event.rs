@@ -7,7 +7,7 @@ use wasm_bindgen::closure::Closure;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::HtmlElement;
 
-use crate::{Element, View, Mountable};
+use crate::{Element, Mountable, View};
 
 /// Smart wrapper around a [`web_sys::Event`](web_sys::Event) which includes type
 /// information for the target element of said event.
