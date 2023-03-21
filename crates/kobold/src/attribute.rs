@@ -4,7 +4,7 @@ use wasm_bindgen::JsValue;
 
 use crate::util;
 use crate::value::{FastDiff, NoDiff, Stringify};
-use crate::{Element, Html, Mountable};
+use crate::{Element, View, Mountable};
 
 pub trait Attribute {
     type Abi: IntoWasmAbi;
@@ -38,7 +38,7 @@ impl<V> AttributeNode<V> {
     }
 }
 
-impl Html for AttributeNode<String> {
+impl View for AttributeNode<String> {
     type Product = AttributeNodeProduct<String>;
 
     fn build(self) -> Self::Product {
@@ -58,7 +58,7 @@ impl Html for AttributeNode<String> {
     }
 }
 
-impl Html for AttributeNode<&String> {
+impl View for AttributeNode<&String> {
     type Product = AttributeNodeProduct<String>;
 
     fn build(self) -> Self::Product {
@@ -78,7 +78,7 @@ impl Html for AttributeNode<&String> {
     }
 }
 
-impl<S> Html for AttributeNode<S>
+impl<S> View for AttributeNode<S>
 where
     S: Stringify + Eq + Copy + 'static,
 {
@@ -101,7 +101,7 @@ where
     }
 }
 
-impl<S> Html for AttributeNode<NoDiff<S>>
+impl<S> View for AttributeNode<NoDiff<S>>
 where
     S: Stringify,
 {
@@ -114,7 +114,7 @@ where
     fn update(self, _: &mut Self::Product) {}
 }
 
-impl Html for AttributeNode<FastDiff<'_>> {
+impl View for AttributeNode<FastDiff<'_>> {
     type Product = AttributeNodeProduct<usize>;
 
     fn build(self) -> Self::Product {

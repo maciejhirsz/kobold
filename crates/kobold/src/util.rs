@@ -4,11 +4,11 @@ use wasm_bindgen::prelude::*;
 use web_sys::Node;
 
 use crate::dom::Element;
-use crate::Html;
+use crate::View;
 
 pub struct Static<F>(pub F);
 
-impl<F> Html for Static<F>
+impl<F> View for Static<F>
 where
     F: Fn() -> Node,
 {

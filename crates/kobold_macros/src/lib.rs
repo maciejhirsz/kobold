@@ -43,7 +43,7 @@ pub fn component(args: TokenStream, input: TokenStream) -> TokenStream {
 
 #[allow(clippy::let_and_return)]
 #[proc_macro]
-pub fn html(body: TokenStream) -> TokenStream {
+pub fn view(body: TokenStream) -> TokenStream {
     let nodes = unwrap_err!(dom::parse(body));
 
     // panic!("{nodes:#?}");

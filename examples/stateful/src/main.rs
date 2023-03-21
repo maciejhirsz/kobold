@@ -15,7 +15,7 @@ impl State {
 }
 
 #[component]
-fn App() -> impl Html {
+fn App() -> impl View {
     stateful(State::new, |state| {
         bind! { state:
             // Since we work with a state that owns a `String`,
@@ -34,7 +34,7 @@ fn App() -> impl Html {
             let adult = move |_| state.age = 0;
         }
 
-        html! {
+        view! {
             <div>
                 // Render can borrow `name` from state, no need for clones
                 <h1>{ &state.name }" is "{ state.age }" years old."</h1>
@@ -49,7 +49,7 @@ fn App() -> impl Html {
 }
 
 fn main() {
-    kobold::start(html! {
+    kobold::start(view! {
         <App />
     });
 }

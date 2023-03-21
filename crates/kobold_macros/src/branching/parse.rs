@@ -50,7 +50,7 @@ impl CodeBuilder {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Token {
     /// The `html` identifier
-    Html,
+    View,
     /// The `if` keyword
     If,
     /// The `else` keyword
@@ -66,7 +66,7 @@ enum Token {
 impl Token {
     fn from_str(ident: &str) -> Option<Token> {
         match ident {
-            "html" => Some(Token::Html),
+            "view" => Some(Token::View),
             "if" => Some(Token::If),
             "else" => Some(Token::Else),
             "match" => Some(Token::Match),
@@ -139,7 +139,7 @@ fn parse_code(stream: &mut ParseStream, scope: Branches) -> Result<Vec<Code>, Pa
         };
 
         match token {
-            Token::Html => {
+            Token::View => {
                 let mut maybe_html = ArrayVec::<_, 3>::new();
 
                 maybe_html.push(tt);

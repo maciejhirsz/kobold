@@ -58,7 +58,7 @@ impl Generator {
     fn add_expression(&mut self, value: TokenStream) -> Short {
         let name = self.names.next();
 
-        self.out.fields.push(Field::Html { name, value });
+        self.out.fields.push(Field::View { name, value });
 
         name
     }

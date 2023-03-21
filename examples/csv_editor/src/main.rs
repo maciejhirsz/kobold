@@ -8,7 +8,7 @@ mod state;
 use state::{Editing, State, Text};
 
 #[component]
-fn Editor() -> impl Html {
+fn Editor() -> impl View {
     stateful(State::mock, |state| {
         let onload = {
             let signal = state.signal();
@@ -43,23 +43,23 @@ fn Editor() -> impl Html {
             };
         }
 
-        html! {
+        view! {
             <input type="file" accept="text/csv" onchange={onload} />
             <h1>{ state.name.fast_diff() }</h1>
             <table {onkeydown}>
                 <thead>
                     <tr>
                     {
-                        state.columns().map(|col| html! { <Head {col} {state} /> }).list()
+                        state.columns().map(|col| view! { <Head {col} {state} /> }).list()
                     }
                     </tr>
                 </thead>
                 <tbody>
                 {
-                    state.rows().map(move |row| html! {
+                    state.rows().map(move |row| view! {
                         <tr>
                         {
-                            state.columns().map(move |col| html! {
+                            state.columns().map(move |col| view! {
                                 <Cell {col} {row} {state} />
                             })
                             .list()
@@ -75,7 +75,7 @@ fn Editor() -> impl Html {
 }
 
 #[component(auto_branch)]
-fn Head(col: usize, state: &Hook<State>) -> impl Html + '_ {
+fn Head(col: usize, state: &Hook<State>) -> impl View + '_ {
     let value = state.source.get_text(&state.columns[col]);
 
     if state.editing == (Editing::Column { col }) {
@@ -84,7 +84,7 @@ fn Head(col: usize, state: &Hook<State>) -> impl Html + '_ {
             state.editing = Editing::None;
         });
 
-        html! {
+        view! {
             <th.edit>
                 { value.fast_diff() }
                 <input.edit.edit-head {onchange} value={ value.fast_diff() } />
@@ -93,12 +93,12 @@ fn Head(col: usize, state: &Hook<State>) -> impl Html + '_ {
     } else {
         let ondblclick = state.bind(move |s, _| s.editing = Editing::Column { col });
 
-        html! { <th {ondblclick}>{ value.fast_diff() }</th> }
+        view! { <th {ondblclick}>{ value.fast_diff() }</th> }
     }
 }
 
 #[component(auto_branch)]
-fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl Html + '_ {
+fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     let value = state.source.get_text(&state.rows[row][col]);
 
     if state.editing == (Editing::Cell { row, col }) {
@@ -107,7 +107,7 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl Html + '_ {
             state.editing = Editing::None;
         });
 
-        html! {
+        view! {
             <td.edit>
                 { value.fast_diff() }
                 <input.edit {onchange} value={ value.fast_diff() } />
@@ -116,12 +116,12 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl Html + '_ {
     } else {
         let ondblclick = state.bind(move |s, _| s.editing = Editing::Cell { row, col });
 
-        html! { <td {ondblclick}>{ value.fast_diff() }</td> }
+        view! { <td {ondblclick}>{ value.fast_diff() }</td> }
     }
 }
 
 fn main() {
-    kobold::start(html! {
+    kobold::start(view! {
         <Editor />
     });
 }

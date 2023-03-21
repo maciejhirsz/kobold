@@ -20,7 +20,7 @@ pub fn parse(tokens: TokenStream) -> Result<Vec<Node>, ParseError> {
     }
 
     if nodes.is_empty() {
-        return Err(ParseError::new("Empty html! invocation", Span::call_site()));
+        return Err(ParseError::new("Empty view! invocation", Span::call_site()));
     }
 
     Ok(nodes)

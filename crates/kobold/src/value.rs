@@ -3,7 +3,7 @@ use std::ops::Deref;
 use web_sys::Text;
 
 use crate::prelude::{IntoState, Then};
-use crate::{Element, Html, Mountable};
+use crate::{Element, View, Mountable};
 
 pub struct ValueProduct<T> {
     value: T,
@@ -18,7 +18,7 @@ impl<T: 'static> Mountable for ValueProduct<T> {
     }
 }
 
-impl Html for String {
+impl View for String {
     type Product = ValueProduct<String>;
 
     fn build(self) -> Self::Product {
@@ -35,7 +35,7 @@ impl Html for String {
     }
 }
 
-impl Html for &String {
+impl View for &String {
     type Product = ValueProduct<String>;
 
     fn build(self) -> Self::Product {
@@ -43,7 +43,7 @@ impl Html for &String {
     }
 
     fn update(self, p: &mut Self::Product) {
-        Html::update(self.as_str(), p)
+        View::update(self.as_str(), p)
     }
 }
 
@@ -71,7 +71,7 @@ impl<T> Deref for NoDiff<T> {
     }
 }
 
-impl<T: Stringify> Html for NoDiff<T> {
+impl<T: Stringify> View for NoDiff<T> {
     type Product = Element;
 
     fn build(self) -> Self::Product {
@@ -124,7 +124,7 @@ macro_rules! stringify_float {
 macro_rules! impl_stringify {
     ($($t:ty),*) => {
         $(
-            impl Html for $t {
+            impl View for $t {
                 type Product = ValueProduct<$t>;
 
                 fn build(self) -> Self::Product {
@@ -142,7 +142,7 @@ macro_rules! impl_stringify {
                 }
             }
 
-            impl Html for &$t {
+            impl View for &$t {
                 type Product = ValueProduct<$t>;
 
                 fn build(self) -> Self::Product {
@@ -150,7 +150,7 @@ macro_rules! impl_stringify {
                 }
 
                 fn update(self, p: &mut Self::Product) {
-                    Html::update(*self, p);
+                    View::update(*self, p);
                 }
             }
 
@@ -174,7 +174,7 @@ macro_rules! impl_stringify {
     };
 }
 
-impl Html for &str {
+impl View for &str {
     type Product = ValueProduct<String>;
 
     fn build(self) -> Self::Product {
@@ -194,15 +194,15 @@ impl Html for &str {
     }
 }
 
-impl Html for &&str {
+impl View for &&str {
     type Product = ValueProduct<String>;
 
     fn build(self) -> Self::Product {
-        Html::build(*self)
+        View::build(*self)
     }
 
     fn update(self, p: &mut Self::Product) {
-        Html::update(*self, p);
+        View::update(*self, p);
     }
 }
 
@@ -244,7 +244,7 @@ impl Deref for FastDiff<'_> {
     }
 }
 
-impl Html for FastDiff<'_> {
+impl View for FastDiff<'_> {
     type Product = ValueProduct<usize>;
 
     fn build(self) -> Self::Product {

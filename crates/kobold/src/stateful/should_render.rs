@@ -1,8 +1,8 @@
 /// Describes whether or not a component should be rendered after state changes.
 /// For uses see:
 ///
-/// * [`Hook::bind`](crate::state::Hook::bind)
-/// * [`IntoState::update`](crate::state::IntoState::update)
+/// * [`Hook::bind`](crate::stateful::Hook::bind)
+/// * [`IntoState::update`](crate::stateful::IntoState::update)
 pub trait ShouldRender {
     fn should_render(self) -> bool;
 }
@@ -14,11 +14,11 @@ impl ShouldRender for () {
     }
 }
 
-/// Describes whether or not a component should be rendered after state changes.
-/// For uses see:
+/// An enum that implements the [`ShouldRender`](ShouldRender) trait.
+/// See:
 ///
-/// * [`Hook::bind`](Hook::bind)
-/// * [`IntoState::update`](IntoState::update)
+/// * [`Hook::bind`](crate::stateful::Hook::bind)
+/// * [`IntoState::update`](crate::stateful::IntoState::update)
 pub enum Then {
     /// This is a silent update
     Stop,

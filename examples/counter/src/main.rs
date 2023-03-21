@@ -1,14 +1,14 @@
 use kobold::prelude::*;
 
 #[component]
-fn Counter() -> impl Html {
+fn Counter() -> impl View {
     stateful(0_u32, |count| {
         bind! { count:
             let onclick = move |_| *count += 1;
             let reset = move |_| *count = 0;
         }
 
-        html! {
+        view! {
             <p>
                 <ShowCount count={count.get()} />
 
@@ -21,18 +21,18 @@ fn Counter() -> impl Html {
 }
 
 #[component(auto_branch)]
-fn ShowCount(count: u32) -> impl Html {
+fn ShowCount(count: u32) -> impl View {
     let count = match count {
-        0 => html! { "zero times." },
-        1 => html! { "once." },
-        n => html! { { n }" times." },
+        0 => view! { "zero times." },
+        1 => view! { "once." },
+        n => view! { { n }" times." },
     };
 
-    html! { <h3>"You've clicked the button "{ count }</h3> }
+    view! { <h3>"You've clicked the button "{ count }</h3> }
 }
 
 fn main() {
-    kobold::start(html! {
+    kobold::start(view! {
         <Counter />
     });
 }

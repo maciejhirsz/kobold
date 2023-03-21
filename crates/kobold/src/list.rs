@@ -3,9 +3,9 @@
 use web_sys::Node;
 
 use crate::dom::Fragment;
-use crate::{Element, Html, Mountable};
+use crate::{Element, View, Mountable};
 
-/// Wrapper type that implements `Html` for iterators. Use the [`list`](ListIteratorExt::list)
+/// Wrapper type that implements `View` for iterators. Use the [`list`](ListIteratorExt::list)
 /// method on the iterator to create one.
 #[repr(transparent)]
 pub struct List<T>(T);
@@ -32,12 +32,12 @@ pub trait ListIteratorExt: Iterator + Sized {
 
 impl<T: Iterator> ListIteratorExt for T {}
 
-impl<T> Html for List<T>
+impl<T> View for List<T>
 where
     T: IntoIterator,
-    <T as IntoIterator>::Item: Html,
+    <T as IntoIterator>::Item: View,
 {
-    type Product = ListProduct<<T::Item as Html>::Product>;
+    type Product = ListProduct<<T::Item as View>::Product>;
 
     fn build(self) -> Self::Product {
         let iter = self.0.into_iter();
@@ -95,7 +95,7 @@ where
     }
 }
 
-impl<H: Html> Html for Vec<H> {
+impl<H: View> View for Vec<H> {
     type Product = ListProduct<H::Product>;
 
     fn build(self) -> Self::Product {
@@ -107,11 +107,11 @@ impl<H: Html> Html for Vec<H> {
     }
 }
 
-impl<'a, H> Html for &'a [H]
+impl<'a, H> View for &'a [H]
 where
-    &'a H: Html,
+    &'a H: View,
 {
-    type Product = ListProduct<<&'a H as Html>::Product>;
+    type Product = ListProduct<<&'a H as View>::Product>;
 
     fn build(self) -> Self::Product {
         List(self).build()
@@ -122,7 +122,7 @@ where
     }
 }
 
-impl<H: Html, const N: usize> Html for [H; N] {
+impl<H: View, const N: usize> View for [H; N] {
     type Product = ListProduct<H::Product>;
 
     fn build(self) -> Self::Product {

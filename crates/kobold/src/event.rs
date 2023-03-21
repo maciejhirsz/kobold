@@ -7,7 +7,7 @@ use wasm_bindgen::closure::Closure;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::HtmlElement;
 
-use crate::{Element, Html, Mountable};
+use crate::{Element, View, Mountable};
 
 /// Smart wrapper around a [`web_sys::Event`](web_sys::Event) which includes type
 /// information for the target element of said event.
@@ -99,7 +99,7 @@ where
     }
 }
 
-impl<F> Html for EventHandler<F>
+impl<F> View for EventHandler<F>
 where
     F: Fn(web_sys::Event) + 'static,
 {

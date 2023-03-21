@@ -54,7 +54,7 @@ impl Tokenize for Transient {
 
         if self.els.is_empty() {
             return match self.fields.remove(0) {
-                Field::Html { value, .. } | Field::Attribute { value, .. } => {
+                Field::View { value, .. } | Field::Attribute { value, .. } => {
                     value.tokenize_in(stream)
                 }
             };
@@ -143,7 +143,7 @@ impl Tokenize for Transient {
                         {declare}\
                     }}\
                     \
-                    impl<{abi_lifetime}{generics}> ::kobold::Html for Transient<{generics}>\
+                    impl<{abi_lifetime}{generics}> ::kobold::View for Transient<{generics}>\
                     where \
                         {bounds}\
                     {{\
@@ -254,7 +254,7 @@ impl Tokenize for JsArgument {
 }
 
 pub enum Field {
-    Html {
+    View {
         name: Short,
         value: TokenStream,
     },
@@ -285,8 +285,8 @@ impl Deref for Abi {
 impl Debug for Field {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Field::Html { name, value } => {
-                write!(f, "{name} <Html>: {value}")
+            Field::View { name, value } => {
+                write!(f, "{name} <View>: {value}")
             }
             Field::Attribute {
                 name,
@@ -315,7 +315,7 @@ impl Field {
 
     fn name_value(&self) -> (&Short, &TokenStream) {
         match self {
-            Field::Html { name, value } | Field::Attribute { name, value, .. } => (name, value),
+            Field::View { name, value } | Field::Attribute { name, value, .. } => (name, value),
         }
     }
 
@@ -329,11 +329,11 @@ impl Field {
 
     fn bounds(&self, buf: &mut String) {
         match self {
-            Field::Html { name, .. } => {
+            Field::View { name, .. } => {
                 let mut typ = *name;
                 typ.make_ascii_uppercase();
 
-                let _ = write!(buf, "{typ}: ::kobold::Html,");
+                let _ = write!(buf, "{typ}: ::kobold::View,");
             }
             Field::Attribute { name, abi, .. } => {
                 let mut typ = *name;
@@ -355,7 +355,7 @@ impl Field {
 
     fn build(&self, buf: &mut String) {
         match self {
-            Field::Html { name, .. } => {
+            Field::View { name, .. } => {
                 let _ = write!(buf, "let {name} = self.{name}.build();");
             }
             Field::Attribute { name, .. } => {
@@ -366,7 +366,7 @@ impl Field {
 
     fn var(&self, buf: &mut String) {
         match self {
-            Field::Html { name, .. } => {
+            Field::View { name, .. } => {
                 let _ = write!(buf, "{name},");
             }
             Field::Attribute { name, .. } => {
@@ -377,7 +377,7 @@ impl Field {
 
     fn update(&self, buf: &mut String) {
         match self {
-            Field::Html { name, .. } => {
+            Field::View { name, .. } => {
                 let _ = write!(buf, "self.{name}.update(&mut p.{name});");
             }
             Field::Attribute { name, el, .. } => {

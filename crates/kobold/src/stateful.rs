@@ -15,7 +15,7 @@ use std::rc::{Rc, Weak};
 use web_sys::Node;
 
 use crate::util::WithCell;
-use crate::{dom::Element, Html, Mountable};
+use crate::{dom::Element, View, Mountable};
 
 mod hook;
 mod should_render;
@@ -76,7 +76,7 @@ pub fn stateful<'a, S, F, H>(
 where
     S: IntoState,
     F: Fn(&'a Hook<S::State>) -> H + 'static,
-    H: Html + 'a,
+    H: View + 'a,
 {
     let render = move |hook: *const Hook<S::State>| render(unsafe { &*hook });
     Stateful { state, render }
@@ -99,11 +99,11 @@ impl<T> WeakRef<T> {
     }
 }
 
-impl<S, F, H> Html for Stateful<S, F>
+impl<S, F, H> View for Stateful<S, F>
 where
     S: IntoState,
     F: Fn(*const Hook<S::State>) -> H + 'static,
-    H: Html,
+    H: View,
 {
     type Product = StatefulProduct<S::State>;
 
@@ -172,11 +172,11 @@ pub struct Once<S, R, F> {
     handler: F,
 }
 
-impl<S, R, F> Html for Once<S, R, F>
+impl<S, R, F> View for Once<S, R, F>
 where
     S: IntoState,
     F: FnOnce(Signal<S::State>),
-    Stateful<S, R>: Html<Product = StatefulProduct<S::State>>,
+    Stateful<S, R>: View<Product = StatefulProduct<S::State>>,
 {
     type Product = StatefulProduct<S::State>;
 
