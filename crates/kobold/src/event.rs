@@ -62,7 +62,9 @@ impl<T, E> Event<T, E> {
     }
 }
 
-pub fn event_handler<E>(handler: impl Fn(E) + 'static) -> EventHandler<impl Fn(web_sys::Event) + 'static>
+pub fn event_handler<E>(
+    handler: impl Fn(E) + 'static,
+) -> EventHandler<impl Fn(web_sys::Event) + 'static>
 where
     E: From<web_sys::Event>,
 {

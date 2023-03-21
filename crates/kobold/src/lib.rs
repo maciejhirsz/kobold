@@ -297,10 +297,10 @@ pub mod util;
 
 /// The prelude module with most commonly used types
 pub mod prelude {
-    pub use crate::{class, bind};
     pub use crate::event::{Event, KeyboardEvent, MouseEvent};
     pub use crate::list::ListIteratorExt as _;
-    pub use crate::stateful::{stateful, Hook, Then, Signal, IntoState};
+    pub use crate::stateful::{stateful, Hook, IntoState, Signal, Then};
+    pub use crate::{bind, class};
     // pub use crate::stateful::{ShouldRender, WeakHook};
     // pub use crate::stateful::{stateful, Hook, IntoState, ShouldRender, WeakHook};
     pub use crate::value::{StrExt as _, Stringify as _};
@@ -443,10 +443,18 @@ fn init_panic_hook() {
 
 #[macro_export]
 macro_rules! class {
-    ($class:literal if $on:expr) => { ::kobold::attribute::OptionalClass::new($class, $on).no_diff() };
-    ($class:literal) => { $class.no_diff() };
-    ($class:tt if $on:expr) => { ::kobold::attribute::OptionalClass::new($class, $on) };
-    ($class:expr) => { $class };
+    ($class:literal if $on:expr) => {
+        ::kobold::attribute::OptionalClass::new($class, $on).no_diff()
+    };
+    ($class:literal) => {
+        $class.no_diff()
+    };
+    ($class:tt if $on:expr) => {
+        ::kobold::attribute::OptionalClass::new($class, $on)
+    };
+    ($class:expr) => {
+        $class
+    };
 }
 
 #[macro_export]

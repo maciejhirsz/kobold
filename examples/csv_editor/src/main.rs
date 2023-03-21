@@ -1,6 +1,6 @@
 use kobold::prelude::*;
-use web_sys::HtmlInputElement as Input;
 use wasm_bindgen_futures::spawn_local;
+use web_sys::HtmlInputElement as Input;
 
 mod csv;
 mod state;
