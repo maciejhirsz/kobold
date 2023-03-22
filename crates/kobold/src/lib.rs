@@ -201,7 +201,7 @@
 //! }
 //! ```
 //!
-//! You can change the name of the function argument used, or even set a concrete type:
+//! You can change the name of the parameter used and even set it to a concrete:
 //!
 //! ```no_run
 //! use kobold::prelude::*;
