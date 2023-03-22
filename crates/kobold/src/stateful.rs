@@ -32,7 +32,7 @@ impl<S> Inner<S> {
     }
 }
 
-/// Trait used to create stateful components, see the [module documentation](crate::stateful) for details.
+/// Trait used to create stateful components, see [`stateful`](crate::stateful::stateful) for details.
 pub trait IntoState: Sized {
     type State: 'static;
 
@@ -67,6 +67,20 @@ pub struct StatefulProduct<S> {
     el: Element,
 }
 
+/// Create a stateful [`View`](crate::View) over some mutable state. The state
+/// needs to be created using the [`IntoState`](IntoState) trait.
+///
+/// ```
+/// # use::kobold::prelude::*;
+/// // `IntoState` is implemented for primitive values
+/// let int_view = stateful(0, |count: &Hook<i32>| { "TODO" });
+///
+/// // Another easy way to create arbitrary state is using a closure...
+/// let string_view = stateful(|| String::from("foo"), |text: &Hook<String>| { "TODO" });
+///
+/// // ...or a function with no parameters
+/// let vec_view = stateful(Vec::new, |counts: &Hook<Vec<i32>>| { "TODO" });
+/// ```
 pub fn stateful<'a, S, F, H>(
     state: S,
     render: F,
@@ -76,6 +90,11 @@ where
     F: Fn(&'a Hook<S::State>) -> H + 'static,
     H: View + 'a,
 {
+    // There is no safe way to represent a generic closure with generic return type
+    // that borrows from that closure's arguments, without also slapping a lifetime.
+    //
+    // The `stateful` function ensures that correct lifetimes are used before we
+    // erase them for the use in the `Stateful` struct.
     let render = move |hook: *const Hook<S::State>| render(unsafe { &*hook });
     Stateful { state, render }
 }

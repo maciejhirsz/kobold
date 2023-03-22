@@ -226,6 +226,17 @@ impl IntoState for &str {
 }
 
 pub trait StrExt {
+    /// Wraps a `&str` into [`FastDiff`](FastDiff).
+    ///
+    ///`FastDiff`'s [`View`](crate::View) implementation never allocates
+    /// and only performs a fast pointer address diffing. This can lead to
+    /// situations where the data behind the pointer has changed, but the
+    /// view is not updated on render, hence this behavior is not default.
+    ///
+    /// In situations where you are sure the strings are never mutated in
+    /// buffer but rather replaced (either by new allocations or from new
+    /// `&'static str` slices) using `fast_diff` will improve overall
+    /// runtime performance.
     fn fast_diff(&self) -> FastDiff<'_>;
 }
 

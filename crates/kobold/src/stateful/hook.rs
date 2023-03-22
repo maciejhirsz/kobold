@@ -4,8 +4,11 @@ use std::rc::Weak;
 use crate::stateful::{Inner, ShouldRender, WeakRef, WithCell};
 use crate::View;
 
-/// A hook to some state `S`. A reference to `Hook` is obtained by using the [`stateful`](crate::stateful::stateful)
+/// A hook into some state `S`. A reference to `Hook` is obtained by using the [`stateful`](crate::stateful::stateful)
 /// function.
+///
+/// Hook can be read from though its `Deref` implementation, and it allows for mutations either by [`bind`ing](Hook::bind)
+/// closures to it, or the creation of [`signal`s](Hook::signal).
 pub struct Hook<S> {
     pub(super) state: S,
     pub(super) inner: WeakRef<WithCell<Inner<S>>>,
@@ -16,6 +19,25 @@ pub struct Signal<S> {
 }
 
 impl<S> Signal<S> {
+    /// Update the state behind this `Signal`.
+    ///
+    /// ```
+    /// # use kobold::prelude::*;
+    /// fn example(count: Signal<i32>) {
+    ///     // increment count and trigger a render
+    ///     count.update(|count| *count += 1);
+    ///
+    ///     // increment count if less than 10, only render on change
+    ///     count.update(|count| {
+    ///         if *count < 10 {
+    ///             *count += 1;
+    ///             Then::Render
+    ///         } else {
+    ///             Then::Stop
+    ///         }
+    ///     })
+    /// }
+    /// ```
     pub fn update<F, O>(&self, mutator: F)
     where
         F: FnOnce(&mut S) -> O,
@@ -30,6 +52,7 @@ impl<S> Signal<S> {
         }
     }
 
+    /// Same as [`update`](Signal::update), but it never renders updates.
     pub fn update_silent<F>(&self, mutator: F)
     where
         F: FnOnce(&mut S),
@@ -39,6 +62,7 @@ impl<S> Signal<S> {
         }
     }
 
+    /// Replace the entire state with a new value and trigger an update.
     pub fn set(&self, val: S) {
         self.update(move |s| *s = val);
     }
@@ -53,6 +77,8 @@ impl<S> Clone for Signal<S> {
 }
 
 impl<S> Hook<S> {
+    /// Create an owned `Signal` to the state. This is effectively a weak reference
+    /// that allows for remote updates, particularly useful in async code.
     pub fn signal(&self) -> Signal<S> {
         let weak = self.inner.weak();
 
@@ -61,6 +87,8 @@ impl<S> Hook<S> {
         }
     }
 
+    /// Binds a closure to a mutable reference of the state. While this method is public
+    /// it's recommended to use the [`bind!`](crate::bind) macro instead.
     pub fn bind<E, F, O>(&self, callback: F) -> impl Fn(E) + 'static
     where
         S: 'static,
@@ -80,6 +108,8 @@ impl<S> Hook<S> {
         }
     }
 
+    /// Get the value of state if state implements `Copy`. This is equivalent to writing
+    /// `**hook` but conveys intent better.
     pub fn get(&self) -> S
     where
         S: Copy,
