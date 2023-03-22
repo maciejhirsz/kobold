@@ -4,26 +4,24 @@
 
 _Easy declarative web interfaces._
 
-**Kobold** uses macros to deliver familiar HTML-esque syntax for building declarative web interfaces,
+**Kobold** uses macros to deliver familiar JSX-esque syntax for building declarative web interfaces,
 while leveraging Rust's powerful type system for safety and performance.
 
-### Zero-cost static HTML
+### Zero-Cost Static HTML
 
-Like in [React](https://reactjs.org/) or [Yew](https://yew.rs/) updates are done by repeating calls
-to a render function whenever the state changes. However, unlike either, **Kobold** does not produce a
-full blown [virtual DOM](https://en.wikipedia.org/wiki/Virtual_DOM). Instead the `view!` macro compiles
-all static [DOM](https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model) elements to a single
-JavaScript function that constructs them.
+The [`view!`](view) macro produces opaque `impl View` types that by default do no allocations.
+All static [DOM](https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model) elements compile to
+inline JavaScript code that constructs them. Expressions are injected into the constructed DOM on first render.
+Kobold keeps track of the DOM node references for these expressions.
 
-All expressions, which must implement the `View` trait, are injected into the constructed DOM on first
-render. Kobold keeps track of the DOM node references for these expressions. Since the exact types the
-expressions evaluate to are known to the Rust compiler, update calls can diff them by value and surgically
-update the DOM should they change. Changing a string or an integer only updates the exact
-[`Text` node](https://developer.mozilla.org/en-US/docs/Web/API/Text) that string or integer was rendered to.
+Since the exact types the expressions evaluate to are known to the Rust compiler, update calls can diff them by
+value (or pointer) and surgically update the DOM should they change. Changing a
+string or an integer only updates the exact [`Text` node](https://developer.mozilla.org/en-US/docs/Web/API/Text)
+that string or integer was rendered to.
 
-_If the `view!` macro invocation contains HTML elements with no expressions, the constructed `View`
+_If the `view!` macro invocation contains DOM elements with no expressions, the constructed `View`
 type will be zero-sized, and its `View::update` method will be empty, making updates of static
-HTML quite literally zero-cost._
+DOM literally zero-cost._
 
 ### Hello World!
 
@@ -46,9 +44,8 @@ fn main() {
 }
 ```
 
-The _render function_ must return a type that implements the `View` trait. Since the `view!` macro
-produces _transient types_, or [_Voldemort types_](https://wiki.dlang.org/Voldemort_types), the best approach
-here is to always use the `impl View` return type.
+The component function must return a type that implements the `View` trait. Since the `view!` macro
+produces transient locally defined types the best approach here is to always use the opaque `impl View` return type.
 
 Everything here is statically typed and the macro doesn't delete any information when manipulating the
 token stream, so the Rust compiler can tell you when you've made a mistake:
@@ -82,7 +79,7 @@ fn Counter(init: u32) -> impl View {
 
         view! {
             <p>
-                "You clicked on the "
+                "You clicked the "
                 // `{onclick}` here is shorthand for `onclick={onclick}`
                 <button {onclick}>"Button"</button>
                 " "{ count }" times."
@@ -118,7 +115,6 @@ the macro will naturally fail to compile.
 Using the `auto_branch` flag on the `#[component]` attribute
 **Kobold** will scan the body of of your component render function, and make all `view!` macro invocations
 inside an `if` or `match` expression, and wrap them in an enum making them the same type:
-
 
 ```rust
 #[component(auto_branch)]
