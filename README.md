@@ -107,7 +107,7 @@ underlying state.
 
 For more details visit the [`stateful` module documentation](https://docs.rs/kobold/latest/kobold/stateful/index.html).
 
-### Conditional rendering
+### Conditional Rendering
 
 Because the `view!` macro produces unique transient types, `if` and `match` expressions that invoke
 the macro will naturally fail to compile.
@@ -157,7 +157,7 @@ On updates the iterator is consumed once and all items are diffed with the previ
 No allocations are made by **Kobold** when updating such a list, unless the rendered list needs
 to grow past its original capacity.
 
-### Borrowed values
+### Borrowed Values
 
 `View` types are truly transient and only need to live for the duration of the initial render,
 or for the duration of the subsequent update. This means that you can easily and cheaply render borrowed
@@ -179,7 +179,7 @@ fn Users<'a>(names: &'a [&'a str]) -> impl View + 'a {
 }
 ```
 
-### Components with children
+### Components with Children
 
 If you wish to capture children from parent `view!` invocation, simply change
 `#[component]` to `#[component(children)]`:
@@ -223,7 +223,7 @@ fn main() {
 }
 ```
 
-## More examples
+## More Examples
 
 To run **Kobold** you'll need to install [`trunk`](https://trunkrs.dev/) (check the [full instructions](https://trunkrs.dev/#install) if you have problems):
 ```sh
