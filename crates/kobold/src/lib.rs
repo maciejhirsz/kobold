@@ -302,6 +302,7 @@ pub mod stateful;
 /// use kobold::prelude::*;
 /// ```
 pub mod prelude {
+    pub use crate::dom::Text as _;
     pub use crate::event::{Event, KeyboardEvent, MouseEvent};
     pub use crate::list::ListIteratorExt as _;
     pub use crate::value::{StrExt as _, Stringify as _};

@@ -3,7 +3,8 @@ use wasm_bindgen::convert::IntoWasmAbi;
 use wasm_bindgen::JsValue;
 
 use crate::util;
-use crate::value::{FastDiff, NoDiff, Stringify};
+use crate::dom::NoDiff;
+use crate::value::{FastDiff, Stringify};
 use crate::{Element, Mountable, View};
 
 pub trait Attribute {
@@ -101,14 +102,11 @@ where
     }
 }
 
-impl<S> View for AttributeNode<NoDiff<S>>
-where
-    S: Stringify,
-{
+impl View for AttributeNode<NoDiff<&str>> {
     type Product = Element;
 
     fn build(self) -> Self::Product {
-        self.value.stringify(|s| create(self.name, s))
+        create(self.name, self.value.0)
     }
 
     fn update(self, _: &mut Self::Product) {}
