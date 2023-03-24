@@ -65,8 +65,6 @@ pub trait Text: Sized {
 
     fn set_attr(self, el: &JsValue);
 
-    fn as_js(&self) -> JsValue;
-
     #[inline]
     fn no_diff(self) -> NoDiff<Self>
     where
@@ -99,7 +97,7 @@ impl<T: Text + Copy> View for NoDiff<T> {
 }
 
 macro_rules! impl_text {
-    ($make:ident, $update:ident, $set:ident, $from:ident; $($ty:ty),*) => {
+    ($make:ident, $update:ident, $set:ident; $($ty:ty),*) => {
         $(
             impl Text for $ty {
                 fn into_text(self) -> Node {
@@ -113,21 +111,16 @@ macro_rules! impl_text {
                 fn set_attr(self, el: &JsValue) {
                     util::$set(el, self as _);
                 }
-
-                fn as_js(&self) -> JsValue {
-                    // panic!()
-                    JsValue::$from(*self as _)
-                }
             }
         )*
     };
 }
 
-impl_text!(text_node, set_text, set_attr, from_str; &str);
-impl_text!(text_node_bool, set_text_bool, set_attr_bool, from_bool; bool);
-impl_text!(text_node_u32, set_text_u32, set_attr_u32, from_f64; u8, u16, u32, usize);
-impl_text!(text_node_i32, set_text_i32, set_attr_i32, from_f64; i8, i16, i32, isize);
-impl_text!(text_node_f64, set_text_f64, set_attr_f64, from_f64; f32, f64);
+impl_text!(text_node, set_text, set_attr; &str);
+impl_text!(text_node_bool, set_text_bool, set_attr_bool; bool);
+impl_text!(text_node_u32, set_text_u32, set_attr_u32; u8, u16, u32, usize);
+impl_text!(text_node_i32, set_text_i32, set_attr_i32; i8, i16, i32, isize);
+impl_text!(text_node_f64, set_text_f64, set_attr_f64; f32, f64);
 
 pub trait LargeInt: Sized + Copy {
     type Downcast: TryFrom<Self> + Text;
@@ -152,13 +145,6 @@ impl<S: LargeInt> Text for S {
 
     fn set_attr(self, _el: &JsValue) {
         todo!();
-    }
-
-    fn as_js(&self) -> JsValue {
-        match S::Downcast::try_from(*self) {
-            Ok(downcast) => downcast.as_js(),
-            Err(_) => self.stringify(JsValue::from_str),
-        }
     }
 }
 
