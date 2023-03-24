@@ -141,8 +141,11 @@ impl<S: LargeInt> Text for S {
         }
     }
 
-    fn set_attr(self, _el: &JsValue) {
-        todo!();
+    fn set_attr(self, el: &JsValue) {
+        match S::Downcast::try_from(self) {
+            Ok(downcast) => downcast.set_attr(el),
+            Err(_) => self.stringify(|s| util::set_attr(el, s)),
+        }
     }
 }
 
