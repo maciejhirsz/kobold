@@ -3,9 +3,9 @@ use wasm_bindgen::convert::IntoWasmAbi;
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
+use crate::diff::Diff;
 use crate::dom::{NoDiff, Text};
 use crate::util;
-use crate::value::FastDiff;
 use crate::{Element, Mountable, View};
 
 pub struct AttributeNode<A, V> {
@@ -16,6 +16,7 @@ pub struct AttributeNode<A, V> {
 macro_rules! def_attr {
     ($($name:ident,)*) => {
         $(
+            #[doc = concat!("The `", stringify!($name) ,"` attribute constructor")]
             pub fn $name<V>(value: V) -> AttributeNode<impl Fn() -> Node, V> {
                 AttributeNode::new(util::$name, value)
             }
@@ -29,71 +30,31 @@ def_attr! {
     value,
 }
 
-impl<A, V> AttributeNode<A, V> {
-    pub const fn new(constructor: A, value: V) -> Self {
+impl<A, T> AttributeNode<A, T> {
+    pub const fn new(constructor: A, value: T) -> Self {
         AttributeNode { constructor, value }
     }
 }
 
-impl<A, V> View for AttributeNode<A, V>
+impl<A, T> View for AttributeNode<A, T>
 where
     A: Fn() -> Node,
-    V: Text,
+    T: Text + Diff,
+    T::Updated: Text,
 {
-    type Product = AttributeNodeProduct<()>;
+    type Product = AttributeNodeProduct<T::State>;
 
     fn build(self) -> Self::Product {
         let el = Element::new((self.constructor)());
 
         self.value.set_attr(&el);
+        let state = self.value.init();
 
-        AttributeNodeProduct { value: (), el }
+        AttributeNodeProduct { state, el }
     }
 
     fn update(self, p: &mut Self::Product) {
-        self.value.set_attr(&p.el);
-    }
-}
-
-impl<A> View for AttributeNode<A, NoDiff<&str>>
-where
-    A: Fn() -> Node,
-{
-    type Product = Element;
-
-    fn build(self) -> Self::Product {
-        let el = Element::new((self.constructor)());
-
-        self.value.set_attr(&el);
-
-        el
-    }
-
-    fn update(self, _: &mut Self::Product) {}
-}
-
-impl<A> View for AttributeNode<A, FastDiff<'_>>
-where
-    A: Fn() -> Node,
-{
-    type Product = AttributeNodeProduct<usize>;
-
-    fn build(self) -> Self::Product {
-        let el = Element::new((self.constructor)());
-
-        self.value.set_attr(&el);
-
-        AttributeNodeProduct {
-            value: self.value.as_ptr() as usize,
-            el,
-        }
-    }
-
-    fn update(self, p: &mut Self::Product) {
-        if p.value != self.value.as_ptr() as usize {
-            self.value.set_attr(&p.el);
-            p.value = self.value.as_ptr() as usize;
-        }
+        self.value.update(&mut p.state, |t| t.set_attr(&p.el));
     }
 }
 
@@ -298,7 +259,7 @@ impl Attribute for Checked {
 }
 
 pub struct AttributeNodeProduct<V> {
-    value: V,
+    state: V,
     el: Element,
 }
 

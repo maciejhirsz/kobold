@@ -1,19 +1,19 @@
 use std::ops::Deref;
 
-use web_sys::Text;
-
+use crate::diff::Diff;
+use crate::dom::{LargeInt, Text};
 #[cfg(feature = "stateful")]
-use crate::dom::LargeInt;
-use crate::stateful::{IntoState, Then};
+use crate::stateful::{self, Then};
+
 use crate::{Element, Mountable, View};
 
-pub struct ValueProduct<T> {
-    value: T,
+pub struct TextProduct<S> {
+    state: S,
     el: Element,
 }
 
-impl<T: 'static> Mountable for ValueProduct<T> {
-    type Js = Text;
+impl<S: 'static> Mountable for TextProduct<S> {
+    type Js = web_sys::Text;
 
     fn el(&self) -> &Element {
         &self.el
@@ -21,24 +21,24 @@ impl<T: 'static> Mountable for ValueProduct<T> {
 }
 
 impl View for String {
-    type Product = ValueProduct<String>;
+    type Product = TextProduct<String>;
 
     fn build(self) -> Self::Product {
         let el = Element::new_text(self.as_str());
 
-        ValueProduct { value: self, el }
+        TextProduct { state: self, el }
     }
 
     fn update(self, p: &mut Self::Product) {
-        if p.value != self {
-            p.value = self;
-            p.el.set_text(p.value.as_str());
+        if p.state != self {
+            p.state = self;
+            p.el.set_text(p.state.as_str());
         }
     }
 }
 
 impl View for &String {
-    type Product = ValueProduct<String>;
+    type Product = TextProduct<String>;
 
     fn build(self) -> Self::Product {
         self.as_str().build()
@@ -50,27 +50,27 @@ impl View for &String {
 }
 
 impl View for &str {
-    type Product = ValueProduct<String>;
+    type Product = TextProduct<String>;
 
     fn build(self) -> Self::Product {
         let el = Element::new_text(self);
 
-        ValueProduct {
-            value: self.into(),
+        TextProduct {
+            state: self.into(),
             el,
         }
     }
 
     fn update(self, p: &mut Self::Product) {
-        if p.value != self {
-            self.clone_into(&mut p.value);
+        if p.state != self {
+            self.clone_into(&mut p.state);
             p.el.set_text(self);
         }
     }
 }
 
 impl View for &&str {
-    type Product = ValueProduct<String>;
+    type Product = TextProduct<String>;
 
     fn build(self) -> Self::Product {
         View::build(*self)
@@ -82,7 +82,7 @@ impl View for &&str {
 }
 
 #[cfg(feature = "stateful")]
-impl IntoState for &str {
+impl stateful::IntoState for &str {
     type State = String;
 
     fn init(self) -> String {
@@ -121,7 +121,13 @@ impl StrExt for str {
 }
 
 #[repr(transparent)]
-pub struct FastDiff<'a>(&'a str);
+pub struct FastDiff<'a>(pub(crate) &'a str);
+
+impl AsRef<str> for FastDiff<'_> {
+    fn as_ref(&self) -> &str {
+        self.0
+    }
+}
 
 impl Deref for FastDiff<'_> {
     type Target = str;
@@ -132,20 +138,20 @@ impl Deref for FastDiff<'_> {
 }
 
 impl View for FastDiff<'_> {
-    type Product = ValueProduct<usize>;
+    type Product = TextProduct<usize>;
 
     fn build(self) -> Self::Product {
         let el = Element::new_text(self.0);
 
-        ValueProduct {
-            value: self.0.as_ptr() as usize,
+        TextProduct {
+            state: self.0.as_ptr() as usize,
             el,
         }
     }
 
     fn update(self, p: &mut Self::Product) {
-        if p.value != self.0.as_ptr() as usize {
-            p.value = self.0.as_ptr() as usize;
+        if p.state != self.0.as_ptr() as usize {
+            p.state = self.0.as_ptr() as usize;
             p.el.set_text(self.0);
         }
     }
@@ -170,25 +176,26 @@ macro_rules! large_int {
 macro_rules! impl_text {
     ($($t:ty),*) => {
         $(
-            impl View for $t where $t: crate::dom::Text {
-                type Product = ValueProduct<$t>;
+            impl View for $t {
+                type Product = TextProduct<<$t as Diff>::State>;
 
                 fn build(self) -> Self::Product {
-                    let el = Element::new_text(self);
+                    let el = Element::new(self.to_text());
+                    let state = self.init();
 
-                    ValueProduct { value: self, el }
+                    TextProduct { state, el }
                 }
 
                 fn update(self, p: &mut Self::Product) {
-                    if p.value != self {
-                        p.value = self;
+                    if p.state != self {
+                        p.state = self;
                         p.el.set_text(self);
                     }
                 }
             }
 
             impl View for &$t {
-                type Product = ValueProduct<$t>;
+                type Product = TextProduct<$t>;
 
                 fn build(self) -> Self::Product {
                     (*self).build()
@@ -199,7 +206,8 @@ macro_rules! impl_text {
                 }
             }
 
-            impl IntoState for $t {
+            #[cfg(feature = "stateful")]
+            impl stateful::IntoState for $t {
                 type State = Self;
 
                 fn init(self) -> Self {

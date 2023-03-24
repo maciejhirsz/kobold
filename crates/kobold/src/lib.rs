@@ -286,6 +286,7 @@ use wasm_bindgen::{JsCast, JsValue};
 
 pub mod attribute;
 pub mod branching;
+pub mod diff;
 pub mod dom;
 pub mod event;
 pub mod list;
