@@ -28,13 +28,13 @@ extern "C" {
     pub(crate) fn text_node(t: &str) -> Node;
 
     #[wasm_bindgen(js_namespace = document, js_name = createTextNode)]
-    pub(crate) fn text_node_uint(t: u32) -> Node;
+    pub(crate) fn text_node_u32(t: u32) -> Node;
 
     #[wasm_bindgen(js_namespace = document, js_name = createTextNode)]
-    pub(crate) fn text_node_int(t: i32) -> Node;
+    pub(crate) fn text_node_i32(t: i32) -> Node;
 
     #[wasm_bindgen(js_namespace = document, js_name = createTextNode)]
-    pub(crate) fn text_node_float(t: f64) -> Node;
+    pub(crate) fn text_node_f64(t: f64) -> Node;
 
     #[wasm_bindgen(js_namespace = document, js_name = createTextNode)]
     pub(crate) fn text_node_bool(t: bool) -> Node;
@@ -42,8 +42,6 @@ extern "C" {
 
 #[wasm_bindgen(module = "/js/util.js")]
 extern "C" {
-    pub(crate) fn __kobold_start(node: &JsValue);
-
     pub(crate) fn __kobold_append(parent: &Node, child: &JsValue);
     pub(crate) fn __kobold_before(node: &Node, insert: &JsValue);
     pub(crate) fn __kobold_unmount(node: &JsValue);
@@ -57,26 +55,51 @@ extern "C" {
     pub(crate) fn __kobold_fragment_replace(f: &Node, new: &JsValue);
     pub(crate) fn __kobold_fragment_drop(f: &Node);
 
-    #[wasm_bindgen(js_name = "__kobold_update_text")]
-    pub(crate) fn update_text(node: &Node, t: &str);
-    #[wasm_bindgen(js_name = "__kobold_update_text")]
-    pub(crate) fn update_text_uint(node: &Node, t: u32);
-    #[wasm_bindgen(js_name = "__kobold_update_text")]
-    pub(crate) fn update_text_int(node: &Node, t: i32);
-    #[wasm_bindgen(js_name = "__kobold_update_text")]
-    pub(crate) fn update_text_float(node: &Node, t: f64);
-    #[wasm_bindgen(js_name = "__kobold_update_text")]
-    pub(crate) fn update_text_bool(node: &Node, t: bool);
+    // `set_text` variants ----------------
 
-    pub(crate) fn __kobold_attr(name: &str, value: &str) -> Node;
-    pub(crate) fn __kobold_attr_class(value: &str) -> Node;
-    pub(crate) fn __kobold_attr_style(value: &str) -> Node;
-    pub(crate) fn __kobold_attr_set(node: &JsValue, name: &str, value: &str) -> Node;
-    pub(crate) fn __kobold_attr_update(node: &Node, value: &str);
+    #[wasm_bindgen(js_name = "__kobold_set_text")]
+    pub(crate) fn set_text(node: &Node, t: &str);
+    #[wasm_bindgen(js_name = "__kobold_set_text")]
+    pub(crate) fn set_text_u32(node: &Node, t: u32);
+    #[wasm_bindgen(js_name = "__kobold_set_text")]
+    pub(crate) fn set_text_i32(node: &Node, t: i32);
+    #[wasm_bindgen(js_name = "__kobold_set_text")]
+    pub(crate) fn set_text_f64(node: &Node, t: f64);
+    #[wasm_bindgen(js_name = "__kobold_set_text")]
+    pub(crate) fn set_text_bool(node: &Node, t: bool);
 
-    pub(crate) fn __kobold_attr_checked_set(el: &JsValue, value: bool);
-    pub(crate) fn __kobold_class_set(el: &JsValue, value: &str);
-    pub(crate) fn __kobold_class_add(el: &JsValue, value: &str);
-    pub(crate) fn __kobold_class_remove(el: &JsValue, value: &str);
-    pub(crate) fn __kobold_class_replace(el: &JsValue, old: &str, value: &str);
+    // `set_attr` variants ----------------
+
+    #[wasm_bindgen(js_name = "__kobold_set_attr")]
+    pub(crate) fn set_attr(el: &JsValue, v: &str);
+    #[wasm_bindgen(js_name = "__kobold_set_attr")]
+    pub(crate) fn set_attr_u32(el: &JsValue, v: u32);
+    #[wasm_bindgen(js_name = "__kobold_set_attr")]
+    pub(crate) fn set_attr_i32(el: &JsValue, v: i32);
+    #[wasm_bindgen(js_name = "__kobold_set_attr")]
+    pub(crate) fn set_attr_f64(el: &JsValue, v: f64);
+    #[wasm_bindgen(js_name = "__kobold_set_attr")]
+    pub(crate) fn set_attr_bool(el: &JsValue, v: bool);
+
+    // provided attribute constructors ----------------
+
+    #[wasm_bindgen(js_name = "__kobold_attr_href")]
+    pub(crate) fn href() -> Node;
+    #[wasm_bindgen(js_name = "__kobold_attr_style")]
+    pub(crate) fn style() -> Node;
+    #[wasm_bindgen(js_name = "__kobold_attr_value")]
+    pub(crate) fn value() -> Node;
+
+    // ----------------
+
+    #[wasm_bindgen(js_name = "__kobold_set_checked")]
+    pub(crate) fn set_checked(el: &JsValue, value: bool);
+    #[wasm_bindgen(js_name = "__kobold_set_class_name")]
+    pub(crate) fn set_class_name(el: &JsValue, value: &str);
+    #[wasm_bindgen(js_name = "__kobold_add_class")]
+    pub(crate) fn add_class(el: &JsValue, value: &str);
+    #[wasm_bindgen(js_name = "__kobold_remove_class")]
+    pub(crate) fn remove_class(el: &JsValue, value: &str);
+    #[wasm_bindgen(js_name = "__kobold_replace_class")]
+    pub(crate) fn replace_class(el: &JsValue, old: &str, value: &str);
 }

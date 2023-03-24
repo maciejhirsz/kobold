@@ -1,11 +1,101 @@
 //! Utilities for dealing with DOM attributes
 use wasm_bindgen::convert::IntoWasmAbi;
 use wasm_bindgen::JsValue;
+use web_sys::Node;
 
-use crate::dom::{LargeInt, NoDiff};
+use crate::dom::{NoDiff, Text};
 use crate::util;
 use crate::value::FastDiff;
 use crate::{Element, Mountable, View};
+
+pub struct AttributeNode<A, V> {
+    constructor: A,
+    value: V,
+}
+
+macro_rules! def_attr {
+    ($($name:ident,)*) => {
+        $(
+            pub fn $name<V>(value: V) -> AttributeNode<impl Fn() -> Node, V> {
+                AttributeNode::new(util::$name, value)
+            }
+        )*
+    };
+}
+
+def_attr! {
+    href,
+    style,
+    value,
+}
+
+impl<A, V> AttributeNode<A, V> {
+    pub const fn new(constructor: A, value: V) -> Self {
+        AttributeNode { constructor, value }
+    }
+}
+
+impl<A, V> View for AttributeNode<A, V>
+where
+    A: Fn() -> Node,
+    V: Text,
+{
+    type Product = AttributeNodeProduct<()>;
+
+    fn build(self) -> Self::Product {
+        let el = Element::new((self.constructor)());
+
+        self.value.set_attr(&el);
+
+        AttributeNodeProduct { value: (), el }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        self.value.set_attr(&p.el);
+    }
+}
+
+impl<A> View for AttributeNode<A, NoDiff<&str>>
+where
+    A: Fn() -> Node,
+{
+    type Product = Element;
+
+    fn build(self) -> Self::Product {
+        let el = Element::new((self.constructor)());
+
+        self.value.set_attr(&el);
+
+        el
+    }
+
+    fn update(self, _: &mut Self::Product) {}
+}
+
+impl<A> View for AttributeNode<A, FastDiff<'_>>
+where
+    A: Fn() -> Node,
+{
+    type Product = AttributeNodeProduct<usize>;
+
+    fn build(self) -> Self::Product {
+        let el = Element::new((self.constructor)());
+
+        self.value.set_attr(&el);
+
+        AttributeNodeProduct {
+            value: self.value.as_ptr() as usize,
+            el,
+        }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        if p.value != self.value.as_ptr() as usize {
+            self.value.set_attr(&p.el);
+            p.value = self.value.as_ptr() as usize;
+        }
+    }
+}
 
 pub trait Attribute {
     type Abi: IntoWasmAbi;
@@ -16,120 +106,6 @@ pub trait Attribute {
     fn build(self) -> Self::Product;
 
     fn update(self, p: &mut Self::Product, el: &JsValue);
-}
-
-#[inline]
-fn update(el: &Element, value: &str) {
-    util::__kobold_attr_update(&el.node, value);
-}
-
-#[inline]
-fn create(name: &str, value: &str) -> Element {
-    Element::new(util::__kobold_attr(name, value))
-}
-
-pub struct AttributeNode<V> {
-    name: &'static str,
-    value: V,
-}
-
-impl<V> AttributeNode<V> {
-    pub fn new(name: &'static str, value: V) -> Self {
-        AttributeNode { name, value }
-    }
-}
-
-impl View for AttributeNode<String> {
-    type Product = AttributeNodeProduct<String>;
-
-    fn build(self) -> Self::Product {
-        let el = create(self.name, &self.value);
-
-        AttributeNodeProduct {
-            value: self.value,
-            el,
-        }
-    }
-
-    fn update(self, p: &mut Self::Product) {
-        if *self.value != p.value {
-            update(&p.el, &self.value);
-            p.value = self.value;
-        }
-    }
-}
-
-impl View for AttributeNode<&String> {
-    type Product = AttributeNodeProduct<String>;
-
-    fn build(self) -> Self::Product {
-        let el = create(self.name, self.value);
-
-        AttributeNodeProduct {
-            value: self.value.clone(),
-            el,
-        }
-    }
-
-    fn update(self, p: &mut Self::Product) {
-        if *self.value != p.value {
-            update(&p.el, self.value);
-            p.value.clone_from(self.value)
-        }
-    }
-}
-
-impl<S> View for AttributeNode<S>
-where
-    S: LargeInt + Eq + Copy + 'static,
-{
-    type Product = AttributeNodeProduct<S>;
-
-    fn build(self) -> Self::Product {
-        let el = self.value.stringify(|s| create(self.name, s));
-
-        AttributeNodeProduct {
-            value: self.value,
-            el,
-        }
-    }
-
-    fn update(self, p: &mut Self::Product) {
-        if self.value != p.value {
-            self.value.stringify(|s| update(&p.el, s));
-            p.value = self.value;
-        }
-    }
-}
-
-impl View for AttributeNode<NoDiff<&str>> {
-    type Product = Element;
-
-    fn build(self) -> Self::Product {
-        create(self.name, self.value.0)
-    }
-
-    fn update(self, _: &mut Self::Product) {}
-}
-
-impl View for AttributeNode<FastDiff<'_>> {
-    type Product = AttributeNodeProduct<usize>;
-
-    fn build(self) -> Self::Product {
-        let el = create(self.name, &self.value);
-
-        AttributeNodeProduct {
-            value: self.value.as_ptr() as usize,
-            el,
-        }
-    }
-
-    fn update(self, p: &mut Self::Product) {
-        if p.value != self.value.as_ptr() as usize {
-            update(&p.el, &self.value);
-            p.value = self.value.as_ptr() as usize;
-        }
-    }
 }
 
 /// A class that interacts with `classList` property of an element
@@ -206,9 +182,9 @@ impl Attribute for Class<&'static str> {
     fn update(self, p: &mut Self::Product, js: &JsValue) {
         match (self.0, *p) {
             (new, old) if new == old => return,
-            (new, "") => util::__kobold_class_add(js, new),
-            ("", old) => util::__kobold_class_remove(js, old),
-            (new, old) => util::__kobold_class_replace(js, old, new),
+            (new, "") => util::add_class(js, new),
+            ("", old) => util::remove_class(js, old),
+            (new, old) => util::replace_class(js, old, new),
         }
         *p = self.0;
     }
@@ -229,8 +205,8 @@ impl<'a> Attribute for Class<NoDiff<OptionalClass<'a>>> {
     fn update(self, p: &mut Self::Product, js: &JsValue) {
         match (self.0.on, *p) {
             (true, true) | (false, false) => return,
-            (true, false) => util::__kobold_class_add(js, self.0.class),
-            (false, true) => util::__kobold_class_remove(js, self.0.class),
+            (true, false) => util::add_class(js, self.0.class),
+            (false, true) => util::remove_class(js, self.0.class),
         }
         *p = self.0.on;
     }
@@ -273,7 +249,7 @@ impl Attribute for ClassName<&'static str> {
 
     fn update(self, p: &mut Self::Product, js: &JsValue) {
         if self.0 != *p {
-            util::__kobold_class_set(js, self.0);
+            util::set_class_name(js, self.0);
             *p = self.0;
         }
     }
@@ -293,7 +269,7 @@ impl<'a> Attribute for ClassName<NoDiff<OptionalClass<'a>>> {
 
     fn update(self, p: &mut Self::Product, js: &JsValue) {
         if self.0.on != *p {
-            util::__kobold_class_set(js, self.0.get());
+            util::set_class_name(js, self.0.get());
             *p = self.0.on;
         }
     }
@@ -304,22 +280,20 @@ pub struct Checked(pub bool);
 
 impl Attribute for Checked {
     type Abi = bool;
-    type Product = bool;
+    type Product = ();
 
     fn js(&self) -> Self::Abi {
         self.0
     }
 
-    fn build(self) -> Self::Product {
-        self.0
-    }
+    fn build(self) -> Self::Product {}
 
     fn update(self, _: &mut Self::Product, js: &JsValue) {
         // Checkboxes are weird because a `click` or `change` event
         // can affect the state without reflecting it on the product.
         //
-        // Best to do the diff in DOM directly.
-        util::__kobold_attr_checked_set(js, self.0);
+        // Best to do the diff in the DOM directly.
+        util::set_checked(js, self.0);
     }
 }
 

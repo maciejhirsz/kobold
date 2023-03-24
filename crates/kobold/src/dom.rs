@@ -59,9 +59,13 @@ impl Deref for Fragment {
 }
 
 pub trait Text: Sized {
-    fn into_node(self) -> Node;
+    fn into_text(self) -> Node;
 
     fn update(self, node: &Node);
+
+    fn set_attr(self, el: &JsValue);
+
+    fn as_js(&self) -> JsValue;
 
     #[inline]
     fn no_diff(self) -> NoDiff<Self>
@@ -88,11 +92,42 @@ impl<T: Text + Copy> View for NoDiff<T> {
     type Product = Element;
 
     fn build(self) -> Self::Product {
-        Element::new(self.into_node())
+        Element::new(self.into_text())
     }
 
     fn update(self, _: &mut Self::Product) {}
 }
+
+macro_rules! impl_text {
+    ($make:ident, $update:ident, $set:ident, $from:ident; $($ty:ty),*) => {
+        $(
+            impl Text for $ty {
+                fn into_text(self) -> Node {
+                    util::$make(self as _)
+                }
+
+                fn update(self, node: &Node) {
+                    util::$update(node, self as _);
+                }
+
+                fn set_attr(self, el: &JsValue) {
+                    util::$set(el, self as _);
+                }
+
+                fn as_js(&self) -> JsValue {
+                    // panic!()
+                    JsValue::$from(*self as _)
+                }
+            }
+        )*
+    };
+}
+
+impl_text!(text_node, set_text, set_attr, from_str; &str);
+impl_text!(text_node_bool, set_text_bool, set_attr_bool, from_bool; bool);
+impl_text!(text_node_u32, set_text_u32, set_attr_u32, from_f64; u8, u16, u32, usize);
+impl_text!(text_node_i32, set_text_i32, set_attr_i32, from_f64; i8, i16, i32, isize);
+impl_text!(text_node_f64, set_text_f64, set_attr_f64, from_f64; f32, f64);
 
 pub trait LargeInt: Sized + Copy {
     type Downcast: TryFrom<Self> + Text;
@@ -101,9 +136,9 @@ pub trait LargeInt: Sized + Copy {
 }
 
 impl<S: LargeInt> Text for S {
-    fn into_node(self) -> Node {
+    fn into_text(self) -> Node {
         match S::Downcast::try_from(self) {
-            Ok(downcast) => downcast.into_node(),
+            Ok(downcast) => downcast.into_text(),
             Err(_) => self.stringify(util::text_node),
         }
     }
@@ -111,32 +146,21 @@ impl<S: LargeInt> Text for S {
     fn update(self, node: &Node) {
         match S::Downcast::try_from(self) {
             Ok(downcast) => downcast.update(node),
-            Err(_) => self.stringify(|s| util::update_text(node, s)),
+            Err(_) => self.stringify(|s| util::set_text(node, s)),
+        }
+    }
+
+    fn set_attr(self, _el: &JsValue) {
+        todo!();
+    }
+
+    fn as_js(&self) -> JsValue {
+        match S::Downcast::try_from(*self) {
+            Ok(downcast) => downcast.as_js(),
+            Err(_) => self.stringify(JsValue::from_str),
         }
     }
 }
-
-macro_rules! impl_text {
-    ($make:ident, $update:ident; $($ty:ty),*) => {
-        $(
-            impl Text for $ty {
-                fn into_node(self) -> Node {
-                    util::$make(self as _)
-                }
-
-                fn update(self, node: &Node) {
-                    util::$update(node, self as _);
-                }
-            }
-        )*
-    };
-}
-
-impl_text!(text_node, update_text; &str);
-impl_text!(text_node_bool, update_text_bool; bool);
-impl_text!(text_node_uint, update_text_uint; u8, u16, u32, usize);
-impl_text!(text_node_int, update_text_int; i8, i16, i32, isize);
-impl_text!(text_node_float, update_text_float; f32, f64);
 
 impl Element {
     pub fn new(node: Node) -> Self {
@@ -147,7 +171,7 @@ impl Element {
     }
 
     pub fn new_text(text: impl Text) -> Self {
-        Self::new(text.into_node())
+        Self::new(text.into_text())
     }
 
     pub fn new_empty() -> Self {

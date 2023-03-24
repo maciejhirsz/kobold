@@ -17,6 +17,8 @@ pub use element::JsElement;
 pub use fragment::{append, JsFragment};
 pub use transient::{Abi, Field, JsArgument, JsFnName, JsFunction, JsModule, JsString, Transient};
 
+use self::transient::JsAttrConstructor;
+
 // Short string for auto-generated variable names
 pub type Short = ArrayString<4>;
 
@@ -72,6 +74,28 @@ impl Generator {
             abi,
             value,
         });
+
+        name
+    }
+
+    fn attribute_constructor(&mut self, attr: &str) -> JsFnName {
+        use std::hash::Hasher;
+
+        let mut hasher = fnv::FnvHasher::default();
+        attr.hash(&mut hasher);
+
+        let hash = hasher.finish();
+        let name = JsFnName::try_from(format_args!("__attr_{hash:016x}")).unwrap();
+
+        let _ = write!(
+            self.out.js.code,
+            "export function {name}() {{\
+                \nreturn document.createAttribute(\"{attr}\");\
+            \n}}\n\
+            "
+        );
+
+        self.out.js.attr_constructors.push(JsAttrConstructor(name));
 
         name
     }

@@ -129,10 +129,21 @@ impl IntoGenerator for HtmlElement {
                         writeln!(el, "{var}.{attr}={value};");
 
                         JsArgument::with_abi(value, "bool")
+                    } else if provided_attr(attr) {
+                        let value = gen.add_expression(call(
+                            format_args!("::kobold::attribute::{attr}"),
+                            expr.stream,
+                        ));
+
+                        writeln!(el, "{var}.setAttributeNode({value});");
+
+                        JsArgument::new(value)
                     } else {
+                        let attr_fn = gen.attribute_constructor(attr);
+
                         let value = gen.add_expression(call(
                             "::kobold::attribute::AttributeNode::new",
-                            (string(attr), ',', expr.stream),
+                            (ident(&attr_fn), ',', expr.stream),
                         ));
 
                         writeln!(el, "{var}.setAttributeNode({value});");
@@ -151,6 +162,16 @@ impl IntoGenerator for HtmlElement {
         }
 
         DomNode::Element(el)
+    }
+}
+
+#[rustfmt::skip]
+fn provided_attr(attr: &str) -> bool {
+    match attr {
+        "href"
+        | "style"
+        | "value" => true,
+        _ => false,
     }
 }
 

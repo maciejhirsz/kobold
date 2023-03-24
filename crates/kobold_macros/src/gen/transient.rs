@@ -28,6 +28,7 @@ impl Transient {
 
         self.fields.is_empty()
             && self.els.len() == 1
+            && self.js.attr_constructors.len() == 0
             && self.js.functions.len() == 1
             && jsfn.constructor == "Element::new"
             && jsfn.args.is_empty()
@@ -173,6 +174,7 @@ impl Tokenize for Transient {
 
 #[derive(Default)]
 pub struct JsModule {
+    pub attr_constructors: Vec<JsAttrConstructor>,
     pub functions: Vec<JsFunction>,
     pub code: String,
 }
@@ -193,7 +195,7 @@ impl Tokenize for JsModule {
                 ),
             ),
             "extern \"C\"",
-            block(each(self.functions)),
+            block((each(self.attr_constructors), each(self.functions))),
         ))
     }
 }
@@ -203,6 +205,17 @@ impl Debug for JsModule {
         Debug::fmt(&self.functions, f)?;
 
         write!(f, "\ncode: ({})", self.code)
+    }
+}
+
+pub struct JsAttrConstructor(pub JsFnName);
+
+impl Tokenize for JsAttrConstructor {
+    fn tokenize_in(self, stream: &mut TokenStream) {
+        let name = self.0;
+        stream.write(format_args!(
+            "fn {name}() -> ::kobold::reexport::web_sys::Node;"
+        ));
     }
 }
 
