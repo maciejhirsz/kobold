@@ -5,7 +5,6 @@ use std::ops::Deref;
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
-use crate::value::Stringify;
 use crate::{util, Mountable, View};
 
 #[derive(Clone)]
@@ -59,7 +58,7 @@ impl Deref for Fragment {
     }
 }
 
-pub trait Text {
+pub trait Text: Sized {
     fn into_node(self) -> Node;
 
     fn update(self, node: &Node);
@@ -95,75 +94,49 @@ impl<T: Text + Copy> View for NoDiff<T> {
     fn update(self, _: &mut Self::Product) {}
 }
 
-impl<S: Stringify> Text for S {
+pub trait LargeInt: Sized + Copy {
+    type Downcast: TryFrom<Self> + Text;
+
+    fn stringify<F: FnOnce(&str) -> R, R>(&self, f: F) -> R;
+}
+
+impl<S: LargeInt> Text for S {
     fn into_node(self) -> Node {
-        JsValue::from_str("Hello");
-        self.stringify(util::__kobold_text_node)
+        match S::Downcast::try_from(self) {
+            Ok(downcast) => downcast.into_node(),
+            Err(_) => self.stringify(util::text_node),
+        }
     }
 
     fn update(self, node: &Node) {
-        self.stringify(|s| util::__kobold_update_text(node, s))
+        match S::Downcast::try_from(self) {
+            Ok(downcast) => downcast.update(node),
+            Err(_) => self.stringify(|s| util::update_text(node, s)),
+        }
     }
 }
 
-macro_rules! text {
-    ($ty:ty as $as:ty, $make:ident, $update:ident) => {
-        impl Text for $ty {
-            fn into_node(self) -> Node {
-                util::$make(self as $as)
-            }
+macro_rules! impl_text {
+    ($make:ident, $update:ident; $($ty:ty),*) => {
+        $(
+            impl Text for $ty {
+                fn into_node(self) -> Node {
+                    util::$make(self as _)
+                }
 
-            fn update(self, node: &Node) {
-                util::$update(node, self as $as);
+                fn update(self, node: &Node) {
+                    util::$update(node, self as _);
+                }
             }
-        }
+        )*
     };
 }
 
-text!(&str as _, __kobold_text_node, __kobold_update_text);
-text!(
-    bool as _,
-    __kobold_text_node_bool,
-    __kobold_update_text_bool
-);
-text!(
-    u8 as u32,
-    __kobold_text_node_uint,
-    __kobold_update_text_uint
-);
-text!(
-    u16 as u32,
-    __kobold_text_node_uint,
-    __kobold_update_text_uint
-);
-text!(
-    u32 as u32,
-    __kobold_text_node_uint,
-    __kobold_update_text_uint
-);
-text!(
-    usize as u32,
-    __kobold_text_node_uint,
-    __kobold_update_text_uint
-);
-text!(i8 as i32, __kobold_text_node_int, __kobold_update_text_int);
-text!(i16 as i32, __kobold_text_node_int, __kobold_update_text_int);
-text!(i32 as i32, __kobold_text_node_int, __kobold_update_text_int);
-text!(
-    isize as i32,
-    __kobold_text_node_int,
-    __kobold_update_text_int
-);
-text!(
-    f32 as f64,
-    __kobold_text_node_float,
-    __kobold_update_text_float
-);
-text!(
-    f64 as f64,
-    __kobold_text_node_float,
-    __kobold_update_text_float
-);
+impl_text!(text_node, update_text; &str);
+impl_text!(text_node_bool, update_text_bool; bool);
+impl_text!(text_node_uint, update_text_uint; u8, u16, u32, usize);
+impl_text!(text_node_int, update_text_int; i8, i16, i32, isize);
+impl_text!(text_node_float, update_text_float; f32, f64);
 
 impl Element {
     pub fn new(node: Node) -> Self {

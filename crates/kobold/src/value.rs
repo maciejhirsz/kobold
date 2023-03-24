@@ -3,6 +3,7 @@ use std::ops::Deref;
 use web_sys::Text;
 
 #[cfg(feature = "stateful")]
+use crate::dom::LargeInt;
 use crate::stateful::{IntoState, Then};
 use crate::{Element, Mountable, View};
 
@@ -46,76 +47,6 @@ impl View for &String {
     fn update(self, p: &mut Self::Product) {
         View::update(self.as_str(), p)
     }
-}
-
-pub trait Stringify {
-    fn stringify<F: FnOnce(&str) -> R, R>(&self, f: F) -> R;
-}
-
-macro_rules! impl_stringify {
-    ($($t:ty),*) => {
-        $(
-            impl Stringify for $t {
-                fn stringify<F: FnOnce(&str) -> R, R>(&self, f: F) -> R {
-                    let mut buf = itoa::Buffer::new();
-
-                    f(buf.format(*self))
-                }
-            }
-        )*
-    };
-}
-
-macro_rules! impl_text {
-    ($($t:ty),*) => {
-        $(
-            impl View for $t where $t: crate::dom::Text {
-                type Product = ValueProduct<$t>;
-
-                fn build(self) -> Self::Product {
-                    let el = Element::new_text(self);
-
-                    ValueProduct { value: self, el }
-                }
-
-                fn update(self, p: &mut Self::Product) {
-                    if p.value != self {
-                        p.value = self;
-                        p.el.set_text(self);
-                    }
-                }
-            }
-
-            impl View for &$t {
-                type Product = ValueProduct<$t>;
-
-                fn build(self) -> Self::Product {
-                    (*self).build()
-                }
-
-                fn update(self, p: &mut Self::Product) {
-                    View::update(*self, p);
-                }
-            }
-
-            impl IntoState for $t {
-                type State = Self;
-
-                fn init(self) -> Self {
-                    self
-                }
-
-                fn update(self, state: &mut Self) -> Then {
-                    if *state != self {
-                        *state = self;
-                        Then::Render
-                    } else {
-                        Then::Stop
-                    }
-                }
-            }
-        )*
-    };
 }
 
 impl View for &str {
@@ -220,5 +151,73 @@ impl View for FastDiff<'_> {
     }
 }
 
-impl_stringify!(u64, u128, i64, i128);
+macro_rules! large_int {
+    ($($t:ty > $d:ty),*) => {
+        $(
+            impl LargeInt for $t {
+                type Downcast = $d;
+
+                fn stringify<F: FnOnce(&str) -> R, R>(&self, f: F) -> R {
+                    let mut buf = itoa::Buffer::new();
+
+                    f(buf.format(*self))
+                }
+            }
+        )*
+    };
+}
+
+macro_rules! impl_text {
+    ($($t:ty),*) => {
+        $(
+            impl View for $t where $t: crate::dom::Text {
+                type Product = ValueProduct<$t>;
+
+                fn build(self) -> Self::Product {
+                    let el = Element::new_text(self);
+
+                    ValueProduct { value: self, el }
+                }
+
+                fn update(self, p: &mut Self::Product) {
+                    if p.value != self {
+                        p.value = self;
+                        p.el.set_text(self);
+                    }
+                }
+            }
+
+            impl View for &$t {
+                type Product = ValueProduct<$t>;
+
+                fn build(self) -> Self::Product {
+                    (*self).build()
+                }
+
+                fn update(self, p: &mut Self::Product) {
+                    View::update(*self, p);
+                }
+            }
+
+            impl IntoState for $t {
+                type State = Self;
+
+                fn init(self) -> Self {
+                    self
+                }
+
+                fn update(self, state: &mut Self) -> Then {
+                    if *state != self {
+                        *state = self;
+                        Then::Render
+                    } else {
+                        Then::Stop
+                    }
+                }
+            }
+        )*
+    };
+}
+
+large_int!(u64 > u32, u128 > u32, i64 > i32, i128 > i32);
 impl_text!(bool, u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64);

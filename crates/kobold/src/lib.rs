@@ -305,7 +305,7 @@ pub mod prelude {
     pub use crate::dom::Text as _;
     pub use crate::event::{Event, KeyboardEvent, MouseEvent};
     pub use crate::list::ListIteratorExt as _;
-    pub use crate::value::{StrExt as _, Stringify as _};
+    pub use crate::value::StrExt as _;
     pub use crate::{bind, class};
     pub use crate::{component, view, View};
 
@@ -430,7 +430,7 @@ pub fn start(html: impl View) {
 
     let product = ManuallyDrop::new(html.build());
 
-    util::__kobold_start(product.js());
+    util::append_body(product.js());
 }
 
 fn init_panic_hook() {

@@ -1,7 +1,5 @@
 const fragmentDecorators = new WeakMap();
 
-export function __kobold_start(n) { document.body.appendChild(n); }
-
 export function __kobold_append(n,c) { n.appendChild(c); }
 export function __kobold_before(n,i) { n.before(i); }
 export function __kobold_unmount(n) { n.remove(); }
@@ -38,10 +36,8 @@ export function __kobold_fragment_drop(f)
 	delete f.$begin;
 	delete f.$end;
 }
-export function __kobold_text_node(t) { return document.createTextNode(t); }
-export function __kobold_text_node_coerce(t) { return document.createTextNode(t.toString()); }
+
 export function __kobold_update_text(n,t) { n.textContent = t; }
-export function __kobold_update_text_coerce(n,t) { n.textContent = t.toString(); }
 
 export function __kobold_attr(n,v) { let a = document.createAttribute(n); a.value = v; return a; }
 export function __kobold_attr_class(v) { let a = document.createAttribute('class'); a.value = v; return a; }

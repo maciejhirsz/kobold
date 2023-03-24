@@ -2,9 +2,9 @@
 use wasm_bindgen::convert::IntoWasmAbi;
 use wasm_bindgen::JsValue;
 
+use crate::dom::{LargeInt, NoDiff};
 use crate::util;
-use crate::dom::NoDiff;
-use crate::value::{FastDiff, Stringify};
+use crate::value::FastDiff;
 use crate::{Element, Mountable, View};
 
 pub trait Attribute {
@@ -81,7 +81,7 @@ impl View for AttributeNode<&String> {
 
 impl<S> View for AttributeNode<S>
 where
-    S: Stringify + Eq + Copy + 'static,
+    S: LargeInt + Eq + Copy + 'static,
 {
     type Product = AttributeNodeProduct<S>;
 
