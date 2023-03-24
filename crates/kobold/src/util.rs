@@ -23,19 +23,10 @@ where
 extern "C" {
     #[wasm_bindgen(js_namespace = ["document", "body"], js_name = appendChild)]
     pub(crate) fn append_body(node: &JsValue);
-
     #[wasm_bindgen(js_namespace = document, js_name = createTextNode)]
     pub(crate) fn text_node(t: &str) -> Node;
-
     #[wasm_bindgen(js_namespace = document, js_name = createTextNode)]
-    pub(crate) fn text_node_u32(t: u32) -> Node;
-
-    #[wasm_bindgen(js_namespace = document, js_name = createTextNode)]
-    pub(crate) fn text_node_i32(t: i32) -> Node;
-
-    #[wasm_bindgen(js_namespace = document, js_name = createTextNode)]
-    pub(crate) fn text_node_f64(t: f64) -> Node;
-
+    pub(crate) fn text_node_num(t: f64) -> Node;
     #[wasm_bindgen(js_namespace = document, js_name = createTextNode)]
     pub(crate) fn text_node_bool(t: bool) -> Node;
 }
@@ -60,11 +51,7 @@ extern "C" {
     #[wasm_bindgen(js_name = "__kobold_set_text")]
     pub(crate) fn set_text(node: &Node, t: &str);
     #[wasm_bindgen(js_name = "__kobold_set_text")]
-    pub(crate) fn set_text_u32(node: &Node, t: u32);
-    #[wasm_bindgen(js_name = "__kobold_set_text")]
-    pub(crate) fn set_text_i32(node: &Node, t: i32);
-    #[wasm_bindgen(js_name = "__kobold_set_text")]
-    pub(crate) fn set_text_f64(node: &Node, t: f64);
+    pub(crate) fn set_text_num(node: &Node, t: f64);
     #[wasm_bindgen(js_name = "__kobold_set_text")]
     pub(crate) fn set_text_bool(node: &Node, t: bool);
 
@@ -73,11 +60,7 @@ extern "C" {
     #[wasm_bindgen(js_name = "__kobold_set_attr")]
     pub(crate) fn set_attr(el: &JsValue, v: &str);
     #[wasm_bindgen(js_name = "__kobold_set_attr")]
-    pub(crate) fn set_attr_u32(el: &JsValue, v: u32);
-    #[wasm_bindgen(js_name = "__kobold_set_attr")]
-    pub(crate) fn set_attr_i32(el: &JsValue, v: i32);
-    #[wasm_bindgen(js_name = "__kobold_set_attr")]
-    pub(crate) fn set_attr_f64(el: &JsValue, v: f64);
+    pub(crate) fn set_attr_num(el: &JsValue, v: f64);
     #[wasm_bindgen(js_name = "__kobold_set_attr")]
     pub(crate) fn set_attr_bool(el: &JsValue, v: bool);
 

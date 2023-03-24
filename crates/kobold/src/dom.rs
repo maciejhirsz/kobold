@@ -97,7 +97,7 @@ impl<T: Text + Copy> View for NoDiff<T> {
 }
 
 macro_rules! impl_text {
-    ($make:ident, $update:ident, $set:ident; $($ty:ty),*) => {
+    ($($ty:ty),* [$make:ident, $update:ident, $set:ident]) => {
         $(
             impl Text for $ty {
                 fn into_text(self) -> Node {
@@ -116,11 +116,9 @@ macro_rules! impl_text {
     };
 }
 
-impl_text!(text_node, set_text, set_attr; &str);
-impl_text!(text_node_bool, set_text_bool, set_attr_bool; bool);
-impl_text!(text_node_u32, set_text_u32, set_attr_u32; u8, u16, u32, usize);
-impl_text!(text_node_i32, set_text_i32, set_attr_i32; i8, i16, i32, isize);
-impl_text!(text_node_f64, set_text_f64, set_attr_f64; f32, f64);
+impl_text!(&str [text_node, set_text, set_attr]);
+impl_text!(bool [text_node_bool, set_text_bool, set_attr_bool]);
+impl_text!(i8, i16, i32, isize, u8, u16, u32, usize, f32, f64 [text_node_num, set_text_num, set_attr_num]);
 
 pub trait LargeInt: Sized + Copy {
     type Downcast: TryFrom<Self> + Text;
