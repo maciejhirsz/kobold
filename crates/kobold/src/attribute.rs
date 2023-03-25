@@ -232,9 +232,7 @@ impl AttributeView<Class> for OptionalClass {
     }
 
     fn build_in(self, _: Class, node: &Node) -> bool {
-        if self.on {
-            util::add_class(node, self.class);
-        }
+        util::toggle_class(node, self.class, self.on);
         self.build()
     }
 
