@@ -96,63 +96,73 @@ impl IntoGenerator for HtmlElement {
                 AttributeValue::Boolean(value) => {
                     writeln!(el, "{var}.{name}={value};");
                 }
-                AttributeValue::Expression(expr) => name.with_str(|attr| {
-                    let arg = if attr.starts_with("on") && attr.len() > 2 {
-                        let event = &attr[2..];
-                        let target = element_js_type(el.tag.as_str());
-                        let event_type = event_js_type(event);
+                AttributeValue::Expression(expr) => {
+                    let arg = match name.with_str(attribute_type) {
+                        AttributeType::Event { event } => {
+                            let target = element_js_type(el.tag.as_str());
+                            let event_type = event_js_type(&event);
 
-                        let callback = call(
-                            format_args!(
-                                "::kobold::event::event_handler::<\
-                                    ::kobold::event::{event_type}<\
-                                        ::kobold::reexport::web_sys::{target}\
-                                    >\
-                                >"
-                            ),
-                            expr.stream,
-                        );
+                            let callback = call(
+                                format_args!(
+                                    "::kobold::event::event_handler::<\
+                                        ::kobold::event::{event_type}<\
+                                            ::kobold::reexport::web_sys::{target}\
+                                        >\
+                                    >"
+                                ),
+                                expr.stream,
+                            );
 
-                        let value = gen.add_expression(callback);
+                            let value = gen.add_expression(callback);
 
-                        writeln!(el, "{var}.addEventListener(\"{event}\",{value});");
+                            writeln!(el, "{var}.addEventListener(\"{event}\",{value});");
 
-                        JsArgument::new(value)
-                    } else if attr == "checked" {
-                        el.hoisted = true;
-                        let value = gen.add_attribute(
-                            var,
-                            Abi::Owned("bool"),
-                            call("::kobold::attribute::Checked", expr.stream),
-                        );
-
-                        writeln!(el, "{var}.{attr}={value};");
-
-                        JsArgument::with_abi(value, "bool")
-                    } else if provided_attr(attr) {
-                        let value = gen.add_expression(call(
-                            format_args!("::kobold::attribute::{attr}"),
-                            expr.stream,
-                        ));
-
-                        writeln!(el, "{var}.setAttributeNode({value});");
-
-                        JsArgument::new(value)
-                    } else {
-                        let attr_fn = gen.attribute_constructor(attr);
-
-                        let value = gen.add_expression(call(
-                            "::kobold::attribute::AttributeNode::new",
-                            (ident(&attr_fn), ',', expr.stream),
-                        ));
-
-                        writeln!(el, "{var}.setAttributeNode({value});");
-
-                        JsArgument::new(value)
+                            JsArgument::new(value)
+                        }
+                        AttributeType::Provided { attr_type } => {
+                            el.hoisted = true;
+                            unimplemented!()
+                        }
+                        AttributeType::Unknown => {
+                            el.hoisted = true;
+                            unimplemented!()
+                        }
                     };
+                    // } else if attr == "checked" {
+                    //     el.hoisted = true;
+                    //     let value = gen.add_attribute(
+                    //         var,
+                    //         Abi::Owned("bool"),
+                    //         call("::kobold::attribute::Checked", expr.stream),
+                    //     );
+
+                    //     writeln!(el, "{var}.{attr}={value};");
+
+                    //     JsArgument::with_abi(value, "bool")
+                    // } else if provided_attr(attr) {
+                    //     let value = gen.add_expression(call(
+                    //         format_args!("::kobold::attribute::{attr}"),
+                    //         expr.stream,
+                    //     ));
+
+                    //     writeln!(el, "{var}.setAttributeNode({value});");
+
+                    //     JsArgument::new(value)
+                    // } else {
+                    //     let attr_fn = gen.attribute_constructor(attr);
+
+                    //     let value = gen.add_expression(call(
+                    //         "::kobold::attribute::AttributeNode::new",
+                    //         (ident(&attr_fn), ',', expr.stream),
+                    //     ));
+
+                    //     writeln!(el, "{var}.setAttributeNode({value});");
+
+                    //     JsArgument::new(value)
+                    // };
 
                     el.args.push(arg);
-                }),
+                }
             };
         }
 
@@ -162,6 +172,39 @@ impl IntoGenerator for HtmlElement {
         }
 
         DomNode::Element(el)
+    }
+}
+
+enum AttributeType {
+    Provided {
+        // inline: Option<&'static str>,
+        attr_type: &'static str,
+    },
+    Event {
+        event: Box<str>
+    },
+    Unknown,
+}
+
+fn attribute_type(attr: &str) -> AttributeType {
+    if attr.starts_with("on") && attr.len() > 2 {
+        return AttributeType::Event { event: attr[2..].into() };
+    }
+
+    match attr {
+        "href" => AttributeType::Provided {
+            attr_type: "Href",
+        },
+        "style" => AttributeType::Provided {
+            attr_type: "Style",
+        },
+        "value" => AttributeType::Provided {
+            attr_type: "InputValue",
+        },
+        "checked" => AttributeType::Provided {
+            attr_type: "Checked",
+        },
+        _ => AttributeType::Unknown,
     }
 }
 
