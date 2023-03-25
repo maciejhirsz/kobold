@@ -1,16 +1,39 @@
-use std::ops::Deref;
+use web_sys::Node;
 
-use wasm_bindgen::JsValue;
-
-use crate::diff::Diff;
-use crate::dom::{LargeInt, Property, Text};
-#[cfg(feature = "stateful")]
-use crate::stateful::{self, Then};
+use crate::diff::{Diff, FastDiff};
+use crate::dom::{LargeInt, Property, TextContent};
+use crate::util;
 
 use crate::{Element, Mountable, View};
 
+/// Value that can be set as a property on DOM node
 pub trait Value<P> {
-    fn set_prop(self, el: &JsValue, prop: P);
+    fn set_prop(self, prop: P, node: &Node);
+}
+
+/// Value that can be turned into a DOM `Text` node
+pub trait IntoText {
+    fn into_text(self) -> Node;
+}
+
+macro_rules! impl_text {
+    ($($util:ident [$($ty:ty),*])*) => {
+        $(
+            $(
+                impl IntoText for $ty {
+                    fn into_text(self) -> Node {
+                        util::$util(self as _)
+                    }
+                }
+            )*
+        )*
+    };
+}
+
+impl_text! {
+    text_node [&str, &String]
+    text_node_num [i8, i16, i32, isize, u8, u16, u32, usize, f32, f64]
+    text_node_bool [bool]
 }
 
 macro_rules! impl_value {
@@ -20,8 +43,8 @@ macro_rules! impl_value {
             where
                 P: for<'a> Property<$abi>,
             {
-                fn set_prop(self, el: &JsValue, prop: P) {
-                    prop.set(el, self as _);
+                fn set_prop(self, prop: P, node: &Node) {
+                    prop.set(node, self as _);
                 }
             }
         )*
@@ -30,14 +53,14 @@ macro_rules! impl_value {
 
 impl_value!(&'a str: &str, &String);
 impl_value!(bool: bool);
-impl_value!(f64: u8, u16, u32, usize, i8, i16, i32, isize);
+impl_value!(f64: u8, u16, u32, usize, i8, i16, i32, isize, f32, f64);
 
 impl<P, I> Value<P> for I
 where
     I: LargeInt,
     P: Property<f64> + for<'a> Property<&'a str>,
 {
-    fn set_prop(self, el: &JsValue, prop: P) {
+    fn set_prop(self, prop: P, el: &Node) {
         match <Self as LargeInt>::Downcast::try_from(self) {
             Ok(int) => prop.set(el, int.into()),
             Err(_) => self.stringify(|s| prop.set(el, s)),
@@ -45,12 +68,12 @@ where
     }
 }
 
-pub struct TextProduct<S> {
-    state: S,
+pub struct TextProduct<M> {
+    memo: M,
     el: Element,
 }
 
-impl<S: 'static> Mountable for TextProduct<S> {
+impl<M: 'static> Mountable for TextProduct<M> {
     type Js = web_sys::Text;
 
     fn el(&self) -> &Element {
@@ -64,134 +87,13 @@ impl View for String {
     fn build(self) -> Self::Product {
         let el = Element::new_text(self.as_str());
 
-        TextProduct { state: self, el }
+        TextProduct { memo: self, el }
     }
 
     fn update(self, p: &mut Self::Product) {
-        if p.state != self {
-            p.state = self;
-            p.el.set_text(p.state.as_str());
-        }
-    }
-}
-
-impl View for &String {
-    type Product = TextProduct<String>;
-
-    fn build(self) -> Self::Product {
-        self.as_str().build()
-    }
-
-    fn update(self, p: &mut Self::Product) {
-        View::update(self.as_str(), p)
-    }
-}
-
-impl View for &str {
-    type Product = TextProduct<String>;
-
-    fn build(self) -> Self::Product {
-        let el = Element::new_text(self);
-
-        TextProduct {
-            state: self.into(),
-            el,
-        }
-    }
-
-    fn update(self, p: &mut Self::Product) {
-        if p.state != self {
-            self.clone_into(&mut p.state);
-            p.el.set_text(self);
-        }
-    }
-}
-
-impl View for &&str {
-    type Product = TextProduct<String>;
-
-    fn build(self) -> Self::Product {
-        View::build(*self)
-    }
-
-    fn update(self, p: &mut Self::Product) {
-        View::update(*self, p);
-    }
-}
-
-#[cfg(feature = "stateful")]
-impl stateful::IntoState for &str {
-    type State = String;
-
-    fn init(self) -> String {
-        self.into()
-    }
-
-    fn update(self, state: &mut String) -> Then {
-        if *state != self {
-            self.clone_into(state);
-            Then::Render
-        } else {
-            Then::Stop
-        }
-    }
-}
-
-pub trait StrExt {
-    /// Wraps a `&str` into [`FastDiff`](FastDiff).
-    ///
-    ///`FastDiff`'s [`View`](crate::View) implementation never allocates
-    /// and only performs a fast pointer address diffing. This can lead to
-    /// situations where the data behind the pointer has changed, but the
-    /// view is not updated on render, hence this behavior is not default.
-    ///
-    /// In situations where you are sure the strings are never mutated in
-    /// buffer but rather replaced (either by new allocations or from new
-    /// `&'static str` slices) using `fast_diff` will improve overall
-    /// runtime performance.
-    fn fast_diff(&self) -> FastDiff<'_>;
-}
-
-impl StrExt for str {
-    fn fast_diff(&self) -> FastDiff<'_> {
-        FastDiff(self)
-    }
-}
-
-#[repr(transparent)]
-#[derive(Clone, Copy)]
-pub struct FastDiff<'a>(pub(crate) &'a str);
-
-impl AsRef<str> for FastDiff<'_> {
-    fn as_ref(&self) -> &str {
-        self.0
-    }
-}
-
-impl Deref for FastDiff<'_> {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        self.0
-    }
-}
-
-impl View for FastDiff<'_> {
-    type Product = TextProduct<usize>;
-
-    fn build(self) -> Self::Product {
-        let el = Element::new_text(self.0);
-
-        TextProduct {
-            state: self.0.as_ptr() as usize,
-            el,
-        }
-    }
-
-    fn update(self, p: &mut Self::Product) {
-        if p.state != self.0.as_ptr() as usize {
-            p.state = self.0.as_ptr() as usize;
-            p.el.set_text(self.0);
+        if p.memo != self {
+            p.memo = self;
+            p.memo.set_prop(TextContent, &p.el);
         }
     }
 }
@@ -212,53 +114,24 @@ macro_rules! large_int {
     };
 }
 
-macro_rules! impl_text {
-    ($($t:ty),*) => {
+large_int!(u64 > u32, u128 > u32, i64 > i32, i128 > i32);
+
+macro_rules! impl_text_view {
+    ($($ty:ty),*) => {
         $(
-            impl View for $t {
-                type Product = TextProduct<<$t as Diff>::State>;
+            impl View for $ty {
+                type Product = TextProduct<<Self as Diff>::Memo>;
 
                 fn build(self) -> Self::Product {
-                    let el = Element::new(self.to_text());
-                    let state = self.init();
+                    let el = Element::new(self.into_text());
+                    let memo = self.into_memo();
 
-                    TextProduct { state, el }
+                    TextProduct { memo, el }
                 }
 
                 fn update(self, p: &mut Self::Product) {
-                    if p.state != self {
-                        p.state = self;
-                        p.el.set_text(self);
-                    }
-                }
-            }
-
-            impl View for &$t {
-                type Product = TextProduct<$t>;
-
-                fn build(self) -> Self::Product {
-                    (*self).build()
-                }
-
-                fn update(self, p: &mut Self::Product) {
-                    View::update(*self, p);
-                }
-            }
-
-            #[cfg(feature = "stateful")]
-            impl stateful::IntoState for $t {
-                type State = Self;
-
-                fn init(self) -> Self {
-                    self
-                }
-
-                fn update(self, state: &mut Self) -> Then {
-                    if *state != self {
-                        *state = self;
-                        Then::Render
-                    } else {
-                        Then::Stop
+                    if self.diff(&mut p.memo) {
+                        self.set_prop(TextContent, &p.el);
                     }
                 }
             }
@@ -266,5 +139,5 @@ macro_rules! impl_text {
     };
 }
 
-large_int!(u64 > u32, u128 > u32, i64 > i32, i128 > i32);
-impl_text!(bool, u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64);
+impl_text_view!(&str, &String, FastDiff<'_>);
+impl_text_view!(bool, u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64);

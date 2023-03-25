@@ -13,7 +13,7 @@
 //! Kobold keeps track of the DOM node references for these expressions.
 //!
 //! Since the exact types the expressions evaluate to are known to the Rust compiler, update calls can diff them by
-//! value ([or pointer](crate::value::StrExt::fast_diff)) and surgically update the DOM should they change. Changing a
+//! value ([or pointer](crate::diff::StrExt::fast_diff)) and surgically update the DOM should they change. Changing a
 //! string or an integer only updates the exact [`Text` node](https://developer.mozilla.org/en-US/docs/Web/API/Text)
 //! that string or integer was rendered to.
 //!
@@ -291,7 +291,10 @@ pub mod dom;
 pub mod event;
 pub mod list;
 pub mod util;
-pub mod value;
+
+mod value;
+
+pub use value::Value;
 
 #[cfg(feature = "stateful")]
 pub mod stateful;
@@ -303,10 +306,9 @@ pub mod stateful;
 /// use kobold::prelude::*;
 /// ```
 pub mod prelude {
-    pub use crate::dom::Text as _;
     pub use crate::event::{Event, KeyboardEvent, MouseEvent};
     pub use crate::list::ListIteratorExt as _;
-    pub use crate::value::StrExt as _;
+    pub use crate::diff::StrExt as _;
     pub use crate::{bind, class};
     pub use crate::{component, view, View};
 
