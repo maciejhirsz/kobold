@@ -8,24 +8,23 @@ use crate::dom::{NoDiff, Text, Property};
 use crate::util;
 use crate::{Element, Mountable, View};
 
-pub struct Attr(pub &'static str);
 pub struct Checked;
 
-impl Property<&str> for Attr {
+impl Property<&str> for &str {
     fn set(self, this: &JsValue, value: &str) {
-        util::set_attr(this, self.0, value)
+        util::set_attr(this, self, value)
     }
 }
 
-impl Property<f64> for Attr {
+impl Property<f64> for &str {
     fn set(self, this: &JsValue, value: f64) {
-        util::set_attr_num(this, self.0, value)
+        util::set_attr_num(this, self, value)
     }
 }
 
-impl Property<bool> for Attr {
+impl Property<bool> for &str {
     fn set(self, this: &JsValue, value: bool) {
-        util::set_attr_bool(this, self.0, value)
+        util::set_attr_bool(this, self, value)
     }
 }
 
