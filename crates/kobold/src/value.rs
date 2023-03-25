@@ -1,11 +1,124 @@
 use std::ops::Deref;
 
+use wasm_bindgen::JsValue;
+
 use crate::diff::Diff;
-use crate::dom::{LargeInt, Text};
+use crate::dom::{LargeInt, Property, Text};
 #[cfg(feature = "stateful")]
 use crate::stateful::{self, Then};
 
 use crate::{Element, Mountable, View};
+
+pub trait Value<P> {
+    type Product: 'static;
+
+    fn set_build(self, el: &JsValue, prop: P) -> Self::Product;
+
+    fn set_update(self, el: &JsValue, prop: P, prod: &mut Self::Product);
+}
+
+impl<P> Value<P> for String
+where
+    P: for<'a> Property<&'a str>,
+{
+    type Product = String;
+
+    fn set_build(self, el: &JsValue, prop: P) -> Self::Product {
+        prop.set(el, &self);
+
+        self
+    }
+
+    fn set_update(self, el: &JsValue, prop: P, prod: &mut Self::Product) {
+        if &self != prod {
+            prop.set(el, &self);
+            *prod = self;
+        }
+    }
+}
+
+macro_rules! impl_value_str {
+    ($($ty:ty),*) => {
+        $(
+            impl<P> Value<P> for $ty
+            where
+                P: for<'a> Property<&'a str>,
+            {
+                type Product = String;
+
+                fn set_build(self, el: &JsValue, prop: P) -> Self::Product {
+                    prop.set(el, self);
+
+                    self.into()
+                }
+
+                fn set_update(self, el: &JsValue, prop: P, prod: &mut Self::Product) {
+                    if self != prod {
+                        self.clone_into(prod);
+                        prop.set(el, self)
+                    }
+                }
+            }
+        )*
+    };
+}
+
+macro_rules! impl_value_copy {
+    ($abi:ty: $($ty:ty),*) => {
+        $(
+            impl<P> Value<P> for $ty
+            where
+                P: Property<$abi>,
+            {
+                type Product = $ty;
+
+                fn set_build(self, el: &JsValue, prop: P) -> Self::Product {
+                    prop.set(el, self as _);
+
+                    self
+                }
+
+                fn set_update(self, el: &JsValue, prop: P, prod: &mut Self::Product) {
+                    if self != *prod {
+                        *prod = self;
+                        prop.set(el, self as _)
+                    }
+                }
+            }
+        )*
+    };
+}
+
+impl_value_str!(&str, &String);
+impl_value_copy!(bool: bool);
+impl_value_copy!(f64: u8, u16, u32, usize, i8, i16, i32, isize);
+
+impl<P, I> Value<P> for I
+where
+    I: LargeInt,
+    P: Property<f64> + for<'a> Property<&'a str>,
+{
+    type Product = Self;
+
+    fn set_build(self, el: &JsValue, prop: P) -> Self::Product {
+        match <Self as LargeInt>::Downcast::try_from(self) {
+            Ok(int) => prop.set(el, int.into()),
+            Err(_) => self.stringify(|s| prop.set(el, s)),
+        }
+
+        self
+    }
+
+    fn set_update(self, el: &JsValue, prop: P, prod: &mut Self::Product) {
+        if self != *prod {
+            *prod = self;
+            match <Self as LargeInt>::Downcast::try_from(self) {
+                Ok(int) => prop.set(el, int.into()),
+                Err(_) => self.stringify(|s| prop.set(el, s)),
+            }
+        }
+    }
+}
 
 pub struct TextProduct<S> {
     state: S,

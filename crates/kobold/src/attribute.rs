@@ -4,9 +4,36 @@ use wasm_bindgen::JsValue;
 use web_sys::Node;
 
 use crate::diff::Diff;
-use crate::dom::{NoDiff, Text};
+use crate::dom::{NoDiff, Text, Property};
 use crate::util;
 use crate::{Element, Mountable, View};
+
+pub struct Attr(pub &'static str);
+pub struct Checked;
+
+impl Property<&str> for Attr {
+    fn set(self, this: &JsValue, value: &str) {
+        util::set_attr(this, self.0, value)
+    }
+}
+
+impl Property<f64> for Attr {
+    fn set(self, this: &JsValue, value: f64) {
+        util::set_attr_num(this, self.0, value)
+    }
+}
+
+impl Property<bool> for Attr {
+    fn set(self, this: &JsValue, value: bool) {
+        util::set_attr_bool(this, self.0, value)
+    }
+}
+
+impl Property<bool> for Checked {
+    fn set(self, this: &JsValue, value: bool) {
+        util::set_checked(this, value)
+    }
+}
 
 pub struct AttributeNode<A, V> {
     constructor: A,
@@ -236,27 +263,27 @@ impl<'a> Attribute for ClassName<NoDiff<OptionalClass<'a>>> {
     }
 }
 
-/// The `checked` attribute for `<input>` elements
-pub struct Checked(pub bool);
+// /// The `checked` attribute for `<input>` elements
+// pub struct Checked(pub bool);
 
-impl Attribute for Checked {
-    type Abi = bool;
-    type Product = ();
+// impl Attribute for Checked {
+//     type Abi = bool;
+//     type Product = ();
 
-    fn js(&self) -> Self::Abi {
-        self.0
-    }
+//     fn js(&self) -> Self::Abi {
+//         self.0
+//     }
 
-    fn build(self) -> Self::Product {}
+//     fn build(self) -> Self::Product {}
 
-    fn update(self, _: &mut Self::Product, js: &JsValue) {
-        // Checkboxes are weird because a `click` or `change` event
-        // can affect the state without reflecting it on the product.
-        //
-        // Best to do the diff in the DOM directly.
-        util::set_checked(js, self.0);
-    }
-}
+//     fn update(self, _: &mut Self::Product, js: &JsValue) {
+//         // Checkboxes are weird because a `click` or `change` event
+//         // can affect the state without reflecting it on the product.
+//         //
+//         // Best to do the diff in the DOM directly.
+//         util::set_checked(js, self.0);
+//     }
+// }
 
 pub struct AttributeNodeProduct<V> {
     state: V,

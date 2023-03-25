@@ -8,6 +8,30 @@ use web_sys::Node;
 use crate::value::FastDiff;
 use crate::{util, Mountable, View};
 
+pub trait Property<Abi> {
+    fn set(self, this: &JsValue, value: Abi);
+}
+
+pub struct TextContent;
+
+impl Property<&str> for TextContent {
+    fn set(self, this: &JsValue, value: &str) {
+        util::set_text(this, value)
+    }
+}
+
+impl Property<f64> for TextContent {
+    fn set(self, this: &JsValue, value: f64) {
+        util::set_text_num(this, value)
+    }
+}
+
+impl Property<bool> for TextContent {
+    fn set(self, this: &JsValue, value: bool) {
+        util::set_text_bool(this, value)
+    }
+}
+
 #[derive(Clone)]
 pub struct Element {
     kind: Kind,
@@ -178,7 +202,7 @@ impl Text for str {
     }
 
     fn set_attr(&self, el: &JsValue) {
-        util::set_attr(el, self);
+        util::set_attr_value(el, self);
     }
 }
 
@@ -196,11 +220,11 @@ impl Text for &str {
     }
 }
 
-impl_text!(bool [text_node_bool, set_text_bool, set_attr_bool]);
-impl_text!(i8, i16, i32, isize, u8, u16, u32, usize, f32, f64 [text_node_num, set_text_num, set_attr_num]);
+impl_text!(bool [text_node_bool, set_text_bool, set_attr_value_bool]);
+impl_text!(i8, i16, i32, isize, u8, u16, u32, usize, f32, f64 [text_node_num, set_text_num, set_attr_value_num]);
 
 pub trait LargeInt: Sized + Copy + PartialEq + 'static {
-    type Downcast: TryFrom<Self> + Text;
+    type Downcast: TryFrom<Self> + Into<f64> + Text;
 
     fn stringify<F: FnOnce(&str) -> R, R>(&self, f: F) -> R;
 }
@@ -223,7 +247,7 @@ impl<S: LargeInt> Text for S {
     fn set_attr(&self, el: &JsValue) {
         match S::Downcast::try_from(*self) {
             Ok(downcast) => downcast.set_attr(el),
-            Err(_) => self.stringify(|s| util::set_attr(el, s)),
+            Err(_) => self.stringify(|s| util::set_attr_value(el, s)),
         }
     }
 }

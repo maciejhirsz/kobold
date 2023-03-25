@@ -38,11 +38,13 @@ export function __kobold_fragment_drop(f)
 }
 
 export function __kobold_set_text(n,t) { n.textContent = t; }
-export function __kobold_set_attr(a,v) { a.value = v; }
+export function __kobold_set_attr(n,a,v) { n.setAttribute(a, v); }
 
 export function __kobold_attr_href() { return document.createAttribute("href"); }
 export function __kobold_attr_style() { return document.createAttribute("style"); }
 export function __kobold_attr_value() { return document.createAttribute("value"); }
+
+export function __kobold_set_attr_value(a,v) { a.value = v; }
 
 export function __kobold_set_checked(n,v) { if (n.checked !== v) n.checked = v; }
 export function __kobold_set_class_name(n,v) { n.className = v; }

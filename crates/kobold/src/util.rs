@@ -49,20 +49,29 @@ extern "C" {
     // `set_text` variants ----------------
 
     #[wasm_bindgen(js_name = "__kobold_set_text")]
-    pub(crate) fn set_text(node: &Node, t: &str);
+    pub(crate) fn set_text(el: &JsValue, t: &str);
     #[wasm_bindgen(js_name = "__kobold_set_text")]
-    pub(crate) fn set_text_num(node: &Node, t: f64);
+    pub(crate) fn set_text_num(el: &JsValue, t: f64);
     #[wasm_bindgen(js_name = "__kobold_set_text")]
-    pub(crate) fn set_text_bool(node: &Node, t: bool);
+    pub(crate) fn set_text_bool(el: &JsValue, t: bool);
 
     // `set_attr` variants ----------------
 
-    #[wasm_bindgen(js_name = "__kobold_set_attr")]
-    pub(crate) fn set_attr(el: &JsValue, v: &str);
-    #[wasm_bindgen(js_name = "__kobold_set_attr")]
-    pub(crate) fn set_attr_num(el: &JsValue, v: f64);
-    #[wasm_bindgen(js_name = "__kobold_set_attr")]
-    pub(crate) fn set_attr_bool(el: &JsValue, v: bool);
+    #[wasm_bindgen(js_name = "__kobold_set_attr_value")]
+    pub(crate) fn set_attr(el: &JsValue, a: &str, v: &str);
+    #[wasm_bindgen(js_name = "__kobold_set_attr_value")]
+    pub(crate) fn set_attr_num(el: &JsValue, a: &str, v: f64);
+    #[wasm_bindgen(js_name = "__kobold_set_attr_value")]
+    pub(crate) fn set_attr_bool(el: &JsValue, a: &str, v: bool);
+
+    // `set_attr_value` variants ----------------
+
+    #[wasm_bindgen(js_name = "__kobold_set_attr_value")]
+    pub(crate) fn set_attr_value(el: &JsValue, v: &str);
+    #[wasm_bindgen(js_name = "__kobold_set_attr_value")]
+    pub(crate) fn set_attr_value_num(el: &JsValue, v: f64);
+    #[wasm_bindgen(js_name = "__kobold_set_attr_value")]
+    pub(crate) fn set_attr_value_bool(el: &JsValue, v: bool);
 
     // provided attribute constructors ----------------
 
