@@ -456,16 +456,10 @@ fn init_panic_hook() {
 #[macro_export]
 macro_rules! class {
     ($class:literal if $on:expr) => {
-        ::kobold::attribute::OptionalClass::new($class, $on).no_diff()
-    };
-    ($class:literal) => {
-        $class.no_diff()
+        ::kobold::attribute::OptionalClass::new($class, $on)
     };
     ($class:tt if $on:expr) => {
         ::kobold::attribute::OptionalClass::new($class, $on)
-    };
-    ($class:expr) => {
-        $class
     };
 }
 

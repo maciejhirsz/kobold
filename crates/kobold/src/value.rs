@@ -141,3 +141,35 @@ macro_rules! impl_text_view {
 
 impl_text_view!(&str, &String, FastDiff<'_>);
 impl_text_view!(bool, u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64);
+
+impl<'a> View for &&'a str {
+    type Product = <&'a str as View>::Product;
+
+    fn build(self) -> Self::Product {
+        (*self).build()
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        (*self).update(p)
+    }
+}
+
+macro_rules! impl_ref_view {
+    ($($ty:ty),*) => {
+        $(
+            impl View for &$ty {
+                type Product = <$ty as View>::Product;
+
+                fn build(self) -> Self::Product {
+                    (*self).build()
+                }
+
+                fn update(self, p: &mut Self::Product) {
+                    (*self).update(p)
+                }
+            }
+        )*
+    };
+}
+
+impl_ref_view!(bool, u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64);

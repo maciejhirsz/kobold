@@ -49,3 +49,4 @@ export function __kobold_value(n,v) { n.value = v; }
 export function __kobold_add_class(n,v) { n.classList.add(v); }
 export function __kobold_remove_class(n,v) { n.classList.remove(v); }
 export function __kobold_replace_class(n,o,v) { n.classList.replace(o,v); }
+export function __kobold_toggle_class(n,c,v) { n.classList.toggle(c,v); }

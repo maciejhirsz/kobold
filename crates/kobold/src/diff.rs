@@ -139,6 +139,7 @@ impl StrExt for str {
     }
 }
 
+/// A borrowed string that's diffed by pointer instead of value.
 #[repr(transparent)]
 #[derive(Clone, Copy)]
 pub struct FastDiff<'a>(&'a str);

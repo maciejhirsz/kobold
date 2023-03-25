@@ -67,24 +67,26 @@ extern "C" {
     // provided attribute setters ----------------
 
     #[wasm_bindgen(js_name = "__kobold_checked")]
-    pub(crate) fn checked(el: &Node, value: bool);
+    pub(crate) fn checked(node: &Node, value: bool);
     #[wasm_bindgen(js_name = "__kobold_class_name")]
-    pub(crate) fn class_name(el: &Node, value: &str);
+    pub(crate) fn class_name(node: &Node, value: &str);
     #[wasm_bindgen(js_name = "__kobold_href")]
-    pub(crate) fn href(el: &Node, value: &str);
+    pub(crate) fn href(node: &Node, value: &str);
     #[wasm_bindgen(js_name = "__kobold_style")]
-    pub(crate) fn style(el: &Node, value: &str);
+    pub(crate) fn style(node: &Node, value: &str);
     #[wasm_bindgen(js_name = "__kobold_value")]
-    pub(crate) fn value(el: &Node, value: &str);
+    pub(crate) fn value(node: &Node, value: &str);
     #[wasm_bindgen(js_name = "__kobold_value")]
-    pub(crate) fn value_num(el: &Node, value: f64);
+    pub(crate) fn value_num(node: &Node, value: f64);
 
     // ----------------
 
     #[wasm_bindgen(js_name = "__kobold_add_class")]
-    pub(crate) fn add_class(el: &JsValue, value: &str);
+    pub(crate) fn add_class(node: &Node, value: &str);
     #[wasm_bindgen(js_name = "__kobold_remove_class")]
-    pub(crate) fn remove_class(el: &JsValue, value: &str);
+    pub(crate) fn remove_class(node: &Node, value: &str);
     #[wasm_bindgen(js_name = "__kobold_replace_class")]
-    pub(crate) fn replace_class(el: &JsValue, old: &str, value: &str);
+    pub(crate) fn replace_class(node: &Node, old: &str, value: &str);
+    #[wasm_bindgen(js_name = "__kobold_toggle_class")]
+    pub(crate) fn toggle_class(node: &Node, class: &str, value: bool);
 }
