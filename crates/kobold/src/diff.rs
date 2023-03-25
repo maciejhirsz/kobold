@@ -43,6 +43,31 @@ impl Diff for &String {
     }
 }
 
+macro_rules! impl_diff {
+    ($($ty:ty),*) => {
+        $(
+            impl Diff for $ty {
+                type State = $ty;
+
+                fn init(self) -> $ty {
+                    self.into()
+                }
+
+                fn update(self, state: &mut $ty) -> bool {
+                    if self != *state {
+                        self.clone_into(state);
+                        true
+                    } else {
+                        false
+                    }
+                }
+            }
+        )*
+    };
+}
+
+impl_diff!(bool, u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64);
+
 impl Diff for FastDiff<'_> {
     type State = usize;
 
@@ -72,40 +97,3 @@ where
         false
     }
 }
-
-macro_rules! impl_diff {
-    ($($ty:ty),*) => {
-        $(
-            impl Diff for $ty {
-                type State = $ty;
-
-                fn init(self) -> $ty {
-                    self
-                }
-
-                fn update(self, state: &mut $ty) -> bool {
-                    if self != *state {
-                        *state = self;
-                        true
-                    } else {
-                        false
-                    }
-                }
-            }
-
-            impl Diff for &$ty {
-                type State = $ty;
-
-                fn init(self) -> $ty {
-                    *self
-                }
-
-                fn update(self, state: &mut $ty) -> bool {
-                    (*self).update(state)
-                }
-            }
-        )*
-    };
-}
-
-impl_diff!(bool, u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64);
