@@ -234,6 +234,7 @@ impl StrExt for str {
 }
 
 #[repr(transparent)]
+#[derive(Clone, Copy)]
 pub struct FastDiff<'a>(pub(crate) &'a str);
 
 impl AsRef<str> for FastDiff<'_> {

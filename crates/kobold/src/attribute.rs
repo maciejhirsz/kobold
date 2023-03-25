@@ -66,8 +66,7 @@ impl<A, T> AttributeNode<A, T> {
 impl<A, T> View for AttributeNode<A, T>
 where
     A: Fn() -> Node,
-    T: Text + Diff,
-    T::Updated: Text,
+    T: Text + Diff + Copy,
 {
     type Product = AttributeNodeProduct<T::State>;
 
@@ -81,7 +80,9 @@ where
     }
 
     fn update(self, p: &mut Self::Product) {
-        self.value.update(&mut p.state, |t| t.set_attr(&p.el));
+        if self.value.update(&mut p.state) {
+            self.value.set_attr(&p.el);
+        }
     }
 }
 
