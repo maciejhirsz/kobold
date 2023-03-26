@@ -153,7 +153,7 @@ fn debug_test_class(class: &str) {
 
 fn set_class(node: &Node, class: &str) {
     if !class.is_empty() {
-        util::add_class(node, class.as_ref());
+        util::add_class(node, class);
     }
 }
 
