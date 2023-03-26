@@ -121,7 +121,7 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl V
         view! {
             <input .edit
                 type="text"
-                value={entry.description.fast_diff()}
+                value={entry.description.no_diff()}
                 {onmouseover}
                 {onkeypress}
                 {onblur}

@@ -55,16 +55,12 @@ impl_value!(&'a str: &str, &String);
 impl_value!(bool: bool);
 impl_value!(f64: u8, u16, u32, usize, i8, i16, i32, isize, f32, f64);
 
-impl<P, I> Value<P> for I
+impl<P> Value<P> for FastDiff<'_>
 where
-    I: LargeInt,
-    P: Property<f64> + for<'a> Property<&'a str>,
+    P: for<'a> Property<&'a str>,
 {
-    fn set_prop(self, prop: P, el: &Node) {
-        match <Self as LargeInt>::Downcast::try_from(self) {
-            Ok(int) => prop.set(el, int.into()),
-            Err(_) => self.stringify(|s| prop.set(el, s)),
-        }
+    fn set_prop(self, prop: P, node: &Node) {
+        prop.set(node, &self);
     }
 }
 
@@ -108,6 +104,27 @@ macro_rules! large_int {
                     let mut buf = itoa::Buffer::new();
 
                     f(buf.format(*self))
+                }
+            }
+
+            impl<P> Value<P> for $t
+            where
+                P: Property<f64> + for<'a> Property<&'a str>,
+            {
+                fn set_prop(self, prop: P, el: &Node) {
+                    match <$d>::try_from(self) {
+                        Ok(int) => prop.set(el, int as f64),
+                        Err(_) => self.stringify(|s| prop.set(el, s)),
+                    }
+                }
+            }
+
+            impl IntoText for $t {
+                fn into_text(self) -> Node {
+                    match <$d>::try_from(self) {
+                        Ok(downcast) => downcast.into_text(),
+                        Err(_) => self.stringify(util::text_node),
+                    }
                 }
             }
         )*

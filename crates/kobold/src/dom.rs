@@ -6,8 +6,8 @@ use wasm_bindgen::JsValue;
 use web_sys::Node;
 
 use crate::util;
-use crate::Mountable;
 use crate::value::IntoText;
+use crate::Mountable;
 
 /// A settable property of a DOM `Node`
 pub trait Property<Abi> {
@@ -92,15 +92,6 @@ pub trait LargeInt: Sized + Copy + PartialEq + 'static {
     type Downcast: TryFrom<Self> + Into<f64> + IntoText;
 
     fn stringify<F: FnOnce(&str) -> R, R>(&self, f: F) -> R;
-}
-
-impl<S: LargeInt> IntoText for S {
-    fn into_text(self) -> Node {
-        match S::Downcast::try_from(self) {
-            Ok(downcast) => downcast.into_text(),
-            Err(_) => self.stringify(util::text_node),
-        }
-    }
 }
 
 impl Element {

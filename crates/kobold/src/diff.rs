@@ -1,5 +1,8 @@
 use std::ops::Deref;
 
+use web_sys::Node;
+
+use crate::attribute::AttributeView;
 use crate::dom::Element;
 use crate::value::IntoText;
 use crate::View;
@@ -105,6 +108,21 @@ impl<T: IntoText + Copy> View for NoDiff<T> {
     fn update(self, _: &mut Self::Product) {}
 }
 
+impl<T, P> AttributeView<P> for NoDiff<T>
+where
+    T: AttributeView<P>,
+{
+    type Product = ();
+
+    fn build(self) {}
+
+    fn build_in(self, prop: P, node: &Node) {
+        self.0.build_in(prop, node);
+    }
+
+    fn update_in(self, _: P, _: &Node, _: &mut ()) {}
+}
+
 impl<T> Diff for NoDiff<T>
 where
     T: Copy,
@@ -115,6 +133,12 @@ where
 
     fn diff(self, _: &mut ()) -> bool {
         false
+    }
+}
+
+impl AsRef<str> for NoDiff<&str> {
+    fn as_ref(&self) -> &str {
+        self.0
     }
 }
 
@@ -148,6 +172,12 @@ impl Deref for FastDiff<'_> {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
+        self.0
+    }
+}
+
+impl AsRef<str> for FastDiff<'_> {
+    fn as_ref(&self) -> &str {
         self.0
     }
 }

@@ -217,6 +217,16 @@ pub struct OptionalClass {
     on: bool,
 }
 
+impl AsRef<str> for OptionalClass {
+    fn as_ref(&self) -> &str {
+        if self.on {
+            self.class
+        } else {
+            ""
+        }
+    }
+}
+
 impl OptionalClass {
     pub const fn new(class: &'static str, on: bool) -> Self {
         OptionalClass { class, on }
@@ -233,12 +243,35 @@ impl AttributeView<Class> for OptionalClass {
 
     fn build_in(self, _: Class, node: &Node) -> bool {
         util::toggle_class(node, self.class, self.on);
-        self.build()
+        self.on
     }
 
     fn update_in(self, _: Class, node: &Node, memo: &mut bool) {
         if self.on != *memo {
             util::toggle_class(node, self.class, self.on);
+            *memo = self.on;
+        }
+    }
+}
+
+impl AttributeView<ClassName> for OptionalClass {
+    type Product = bool;
+
+    fn build(self) -> bool {
+        debug_test_class(self.class);
+        self.on
+    }
+
+    fn build_in(self, _: ClassName, node: &Node) -> bool {
+        if self.on {
+            util::class_name(node, self.class);
+        }
+        self.on
+    }
+
+    fn update_in(self, _: ClassName, node: &Node, memo: &mut bool) {
+        if self.on != *memo {
+            util::class_name(node, self.as_ref());
             *memo = self.on;
         }
     }

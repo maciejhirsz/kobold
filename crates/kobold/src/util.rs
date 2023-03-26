@@ -57,11 +57,11 @@ extern "C" {
 
     // `set_attr` variants ----------------
 
-    #[wasm_bindgen(js_name = "__kobold_set_attr_value")]
+    #[wasm_bindgen(js_name = "__kobold_set_attr")]
     pub(crate) fn set_attr(el: &JsValue, a: &str, v: &str);
-    #[wasm_bindgen(js_name = "__kobold_set_attr_value")]
+    #[wasm_bindgen(js_name = "__kobold_set_attr")]
     pub(crate) fn set_attr_num(el: &JsValue, a: &str, v: f64);
-    #[wasm_bindgen(js_name = "__kobold_set_attr_value")]
+    #[wasm_bindgen(js_name = "__kobold_set_attr")]
     pub(crate) fn set_attr_bool(el: &JsValue, a: &str, v: bool);
 
     // provided attribute setters ----------------
