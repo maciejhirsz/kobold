@@ -37,7 +37,11 @@ impl From<TokenTree> for Expression {
         let span = tt.span();
         let stream = tt.tokenize();
 
-        Expression { stream, span, is_static: false }
+        Expression {
+            stream,
+            span,
+            is_static: false,
+        }
     }
 }
 

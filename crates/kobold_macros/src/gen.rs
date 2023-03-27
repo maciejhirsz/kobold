@@ -139,7 +139,13 @@ trait IntoGenerator {
 
 impl IntoGenerator for Expression {
     fn into_gen(self, gen: &mut Generator) -> DomNode {
-        DomNode::Variable(gen.add_field(self.stream).name)
+        let field = gen.add_field(self.stream);
+
+        if self.is_static {
+            field.kind = FieldKind::StaticView;
+        }
+
+        DomNode::Variable(field.name)
     }
 }
 
