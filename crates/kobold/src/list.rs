@@ -8,7 +8,7 @@ use crate::{Element, Mountable, View};
 /// Wrapper type that implements `View` for iterators. Use the [`list`](ListIteratorExt::list)
 /// method on the iterator to create one.
 #[repr(transparent)]
-pub struct List<T>(T);
+pub struct List<T>(pub(crate) T);
 
 pub struct ListProduct<T> {
     list: Vec<T>,
@@ -24,12 +24,16 @@ impl<T: 'static> Mountable for ListProduct<T> {
     }
 }
 
+#[doc(hidden)]
 pub trait ListIteratorExt: Iterator + Sized {
+    #[doc(hidden)]
+    #[deprecated(since="0.6.0", note="please use `{ for <expression> }` instead")]
     fn list(self) -> List<Self> {
         List(self)
     }
 }
 
+#[doc(hidden)]
 impl<T: Iterator> ListIteratorExt for T {}
 
 impl<T> View for List<T>

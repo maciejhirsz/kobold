@@ -289,12 +289,10 @@ pub mod branching;
 pub mod diff;
 pub mod dom;
 pub mod event;
+pub mod keywords;
 pub mod list;
 pub mod util;
-
-mod value;
-
-pub use value::Value;
+pub mod value;
 
 #[cfg(feature = "stateful")]
 pub mod stateful;
