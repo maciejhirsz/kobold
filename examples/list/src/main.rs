@@ -19,15 +19,13 @@ fn ListExample(count: u32) -> impl View {
                 </p>
                 <ul>
                 {
-                    // Use the `list` method on an iterator to turn it into an `Html` type.
+                    // Use the `for` keyword to turn an iterator into a `View`.
                     //
                     // On subsequent renders `Kobold` can very cheaply diff items yielded
                     // by iterators, avoiding allocations unless new items are added.
                     //
                     // `{n}` is just shorthand for `n={n}`.
-                    (1..=count.get())
-                        .map(|n| view! { <ListItem {n} /> })
-                        .list()
+                    for (1..=count.get()).map(|n| view! { <ListItem {n} /> })
                 }
                 </ul>
             </div>

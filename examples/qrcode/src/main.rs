@@ -13,10 +13,8 @@ fn QRExample() -> impl View {
 
         view! {
             <h1>"QR code example"</h1>
-            <KoboldQR data={data.as_str()} />
-            <textarea {onkeyup}>
-                { data.as_str().no_diff() }
-            </textarea>
+            <KoboldQR {data} />
+            <textarea {onkeyup}>{ static data.as_str() }</textarea>
         }
     })
 }

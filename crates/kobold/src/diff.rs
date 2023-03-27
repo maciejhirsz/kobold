@@ -18,7 +18,8 @@ pub trait Diff: Copy {
 
     fn diff(self, memo: &mut Self::Memo) -> bool;
 
-    #[inline]
+    #[doc(hidden)]
+    #[deprecated(since = "0.6.0", note = "please use `{ static <expression> }` instead")]
     fn no_diff(self) -> NoDiff<Self> {
         NoDiff(self)
     }
@@ -73,16 +74,43 @@ macro_rules! impl_diff {
 impl_diff_str!(&str, &String);
 impl_diff!(bool, u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64);
 
-impl Diff for FastDiff<'_> {
-    type Memo = usize;
+#[repr(transparent)]
+pub struct RefDiff<'a, T: ?Sized>(pub(crate) &'a T);
 
-    fn into_memo(self) -> usize {
-        self.as_ptr() as _
+impl<T: ?Sized> Clone for RefDiff<'_, T> {
+    fn clone(&self) -> Self {
+        RefDiff(self.0)
+    }
+}
+
+impl<T: ?Sized> Copy for RefDiff<'_, T> {}
+
+impl<T: ?Sized> Deref for RefDiff<'_, T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        self.0
+    }
+}
+
+impl<T: ?Sized> AsRef<T> for RefDiff<'_, T> {
+    fn as_ref(&self) -> &T {
+        self.0
+    }
+}
+
+impl<T: ?Sized> Diff for RefDiff<'_, T> {
+    type Memo = *const ();
+
+    fn into_memo(self) -> Self::Memo {
+        self.0 as *const _ as *const ()
     }
 
-    fn diff(self, state: &mut usize) -> bool {
-        if self.as_ptr() as usize != *state {
-            *state = self.as_ptr() as _;
+    fn diff(self, memo: &mut Self::Memo) -> bool {
+        let ptr = self.0 as *const _ as *const ();
+
+        if ptr != *memo {
+            *memo = ptr;
             true
         } else {
             false
@@ -92,9 +120,9 @@ impl Diff for FastDiff<'_> {
 
 #[derive(Clone, Copy)]
 #[repr(transparent)]
-pub struct NoDiff<T>(T);
+pub struct NoDiff<T, const U: bool = false>(pub(crate) T);
 
-impl<T> Deref for NoDiff<T> {
+impl<T, const U: bool> Deref for NoDiff<T, U> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -102,7 +130,10 @@ impl<T> Deref for NoDiff<T> {
     }
 }
 
-impl<T: IntoText + Copy> View for NoDiff<T> {
+impl<T, const U: bool> View for NoDiff<T, U>
+where
+    T: IntoText + Copy,
+{
     type Product = Element;
 
     fn build(self) -> Self::Product {
@@ -112,7 +143,7 @@ impl<T: IntoText + Copy> View for NoDiff<T> {
     fn update(self, _: &mut Self::Product) {}
 }
 
-impl<T, P> AttributeView<P> for NoDiff<T>
+impl<T, P, const U: bool> AttributeView<P> for NoDiff<T, U>
 where
     T: AttributeView<P>,
 {
@@ -127,7 +158,7 @@ where
     fn update_in(self, _: P, _: &Node, _: &mut ()) {}
 }
 
-impl<T> Diff for NoDiff<T>
+impl<T, const U: bool> Diff for NoDiff<T, U>
 where
     T: Copy,
 {
@@ -136,52 +167,25 @@ where
     fn into_memo(self) {}
 
     fn diff(self, _: &mut ()) -> bool {
-        false
+        U
     }
 }
 
-impl AsRef<str> for NoDiff<&str> {
+impl<const U: bool> AsRef<str> for NoDiff<&str, U> {
     fn as_ref(&self) -> &str {
         self.0
     }
 }
 
+#[doc(hidden)]
 pub trait StrExt {
-    /// Wraps a `&str` into [`FastDiff`](FastDiff).
-    ///
-    ///`FastDiff`'s [`View`](crate::View) implementation never allocates
-    /// and only performs a fast pointer address diffing. This can lead to
-    /// situations where the data behind the pointer has changed, but the
-    /// view is not updated on render, hence this behavior is not default.
-    ///
-    /// In situations where you are sure the strings are never mutated in
-    /// buffer but rather replaced (either by new allocations or from new
-    /// `&'static str` slices) using `fast_diff` will improve overall
-    /// runtime performance.
-    fn fast_diff(&self) -> FastDiff<'_>;
+    #[deprecated(since = "0.6.0", note = "please use `{ ref <expression> }` instead")]
+    fn fast_diff(&self) -> RefDiff<str>;
 }
 
+#[doc(hidden)]
 impl StrExt for str {
-    fn fast_diff(&self) -> FastDiff<'_> {
-        FastDiff(self)
-    }
-}
-
-/// A borrowed string that's diffed by pointer instead of value.
-#[repr(transparent)]
-#[derive(Clone, Copy)]
-pub struct FastDiff<'a>(&'a str);
-
-impl Deref for FastDiff<'_> {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        self.0
-    }
-}
-
-impl AsRef<str> for FastDiff<'_> {
-    fn as_ref(&self) -> &str {
-        self.0
+    fn fast_diff(&self) -> RefDiff<str> {
+        RefDiff(self)
     }
 }

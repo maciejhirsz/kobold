@@ -45,28 +45,26 @@ fn Editor() -> impl View {
 
         view! {
             <input type="file" accept="text/csv" onchange={onload} />
-            <h1>{ state.name.fast_diff() }</h1>
+            <h1>{ ref state.name }</h1>
             <table {onkeydown}>
                 <thead>
                     <tr>
                     {
-                        state.columns().map(|col| view! { <Head {col} {state} /> }).list()
+                        for state.columns().map(|col| view! { <Head {col} {state} /> })
                     }
                     </tr>
                 </thead>
                 <tbody>
                 {
-                    state.rows().map(move |row| view! {
+                    for state.rows().map(move |row| view! {
                         <tr>
                         {
-                            state.columns().map(move |col| view! {
+                            for state.columns().map(move |col| view! {
                                 <Cell {col} {row} {state} />
                             })
-                            .list()
                         }
                         </tr>
                     })
-                    .list()
                 }
                 </tbody>
             </table>
@@ -86,14 +84,14 @@ fn Head(col: usize, state: &Hook<State>) -> impl View + '_ {
 
         view! {
             <th.edit>
-                { value.fast_diff() }
-                <input.edit.edit-head {onchange} value={ value.fast_diff() } />
+                { ref value }
+                <input.edit.edit-head {onchange} value={ ref value } />
             </th>
         }
     } else {
         let ondblclick = state.bind(move |s, _| s.editing = Editing::Column { col });
 
-        view! { <th {ondblclick}>{ value.fast_diff() }</th> }
+        view! { <th {ondblclick}>{ ref value }</th> }
     }
 }
 
@@ -109,14 +107,14 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 
         view! {
             <td.edit>
-                { value.fast_diff() }
-                <input.edit {onchange} value={ value.fast_diff() } />
+                { ref value }
+                <input.edit {onchange} value={ ref value } />
             </td>
         }
     } else {
         let ondblclick = state.bind(move |s, _| s.editing = Editing::Cell { row, col });
 
-        view! { <td {ondblclick}>{ value.fast_diff() }</td> }
+        view! { <td {ondblclick}>{ ref value }</td> }
     }
 }
 

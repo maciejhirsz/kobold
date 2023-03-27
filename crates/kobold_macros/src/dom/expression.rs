@@ -4,9 +4,10 @@
 
 use std::fmt::{self, Debug};
 
-use proc_macro::{Group, Span, TokenStream, TokenTree};
+use proc_macro::{Group, Ident, Span, TokenStream, TokenTree};
 
 use crate::dom::Node;
+use crate::parse::IdentExt;
 use crate::tokenize::prelude::*;
 
 pub struct Expression {
@@ -41,8 +42,43 @@ impl From<TokenTree> for Expression {
 
 impl From<Group> for Expression {
     fn from(group: Group) -> Self {
+        let mut stream = group.stream().parse_stream();
+
+        if let Some(TokenTree::Ident(ident)) = stream.peek() {
+            let span = ident.span();
+            let mut is_static = false;
+            let mut deref = false;
+
+            let keyword = ident.with_str(|ident| match ident {
+                "for" | "use" => Some(Ident::new_raw(ident, span)),
+                "ref" => {
+                    deref = true;
+
+                    Some(Ident::new_raw(ident, span))
+                }
+                "static" => {
+                    is_static = true;
+
+                    Some(Ident::new_raw(ident, span))
+                }
+                _ => None,
+            });
+
+            if let Some(keyword) = keyword {
+                stream.next();
+
+                return Expression {
+                    stream: call(
+                        ("::kobold::keywords::", keyword),
+                        (deref.then_some('&'), stream),
+                    ),
+                    span: group.span(),
+                };
+            }
+        }
+
         Expression {
-            stream: group.stream(),
+            stream: stream.collect(),
             span: group.span(),
         }
     }

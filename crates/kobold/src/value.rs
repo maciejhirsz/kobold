@@ -4,7 +4,7 @@
 
 use web_sys::Node;
 
-use crate::diff::{Diff, FastDiff};
+use crate::diff::{Diff, RefDiff};
 use crate::dom::{LargeInt, Property, TextContent};
 use crate::util;
 
@@ -59,7 +59,7 @@ impl_value!(&'a str: &str, &String);
 impl_value!(bool: bool);
 impl_value!(f64: u8, u16, u32, usize, i8, i16, i32, isize, f32, f64);
 
-impl<P> Value<P> for FastDiff<'_>
+impl<P> Value<P> for RefDiff<'_, str>
 where
     P: for<'a> Property<&'a str>,
 {
@@ -160,7 +160,7 @@ macro_rules! impl_text_view {
     };
 }
 
-impl_text_view!(&str, &String, FastDiff<'_>);
+impl_text_view!(&str, &String, RefDiff<'_, str>);
 impl_text_view!(bool, u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64);
 
 impl<'a> View for &&'a str {

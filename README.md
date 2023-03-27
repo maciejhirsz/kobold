@@ -131,8 +131,7 @@ For more details visit the [`branching` module documentation](https://docs.rs/ko
 
 ### Lists and Iterators
 
-To render an iterator use the `list` method from the
-`ListIteratorExt` extension trait:
+To render an iterator use the [`for`] keyword:
 
 ```rust
 // `ListIteratorExt` is included in the prelude
@@ -143,19 +142,18 @@ fn IterateNumbers(count: u32) -> impl View {
     view! {
         <ul>
         {
-            (1..=count)
-                .map(|n| view! { <li>"Item #"{n}</li> })
-                .list()
+            for (1..=count).map(|n| view! { <li>"Item #"{n}</li> })
         }
         </ul>
     }
 }
 ```
 
-This wraps the iterator in the transparent `List<_>` type that implements `View`.
 On updates the iterator is consumed once and all items are diffed with the previous version.
 No allocations are made by **Kobold** when updating such a list, unless the rendered list needs
 to grow past its original capacity.
+
+For more information about keywords visit the [`keywords` module documentation](https://docs.rs/kobold/latest/kobold/keywords/index.html).
 
 ### Borrowed Values
 
@@ -169,10 +167,7 @@ fn Users<'a>(names: &'a [&'a str]) -> impl View + 'a {
     view! {
         <ul>
         {
-            names
-                .iter()
-                .map(|name| view! { <li>{ name }</li> })
-                .list()
+            for names.iter().map(|name| view! { <li>{ name }</li> }).list()
         }
         </ul>
     }
