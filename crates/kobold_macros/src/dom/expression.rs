@@ -50,14 +50,13 @@ impl From<Group> for Expression {
             let mut deref = false;
 
             let keyword = ident.with_str(|ident| match ident {
-                "for" | "override" => Some(Ident::new_raw(ident, span)),
+                "for" | "use" => Some(Ident::new_raw(ident, span)),
                 "ref" => {
                     deref = true;
 
                     Some(Ident::new_raw(ident, span))
                 }
                 "static" => {
-                    // deref = true;
                     is_static = true;
 
                     Some(Ident::new_raw(ident, span))
