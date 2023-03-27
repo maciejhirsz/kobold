@@ -185,22 +185,3 @@ impl StrExt for str {
         RefDiff(self)
     }
 }
-
-// /// A borrowed string that's diffed by pointer instead of value.
-// #[repr(transparent)]
-// #[derive(Clone, Copy)]
-// pub struct FastDiff<'a>(&'a str);
-
-// impl Deref for FastDiff<'_> {
-//     type Target = str;
-
-//     fn deref(&self) -> &Self::Target {
-//         self.0
-//     }
-// }
-
-// impl AsRef<str> for FastDiff<'_> {
-//     fn as_ref(&self) -> &str {
-//         self.0
-//     }
-// }
