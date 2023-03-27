@@ -9,7 +9,7 @@ while leveraging Rust's powerful type system for safety and performance.
 
 ### Zero-Cost Static HTML
 
-The [`view!`](view) macro produces opaque `impl View` types that by default do no allocations.
+The `view!` macro produces opaque `impl View` types that by default do no allocations.
 All static [DOM](https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model) elements compile to
 inline JavaScript code that constructs them. Expressions are injected into the constructed DOM on first render.
 Kobold keeps track of the DOM node references for these expressions.

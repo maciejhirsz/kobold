@@ -33,11 +33,34 @@ where
 /// For strings this is both faster and more memory efficient (no allocations necessary),
 /// however it might fail to update if underlying memory has been mutated in place without
 /// re-allocations.
+/// ```
+/// use kobold::prelude::*;
+///
+/// struct User {
+///     name: String,
+///     email: String,
+/// }
+///
+/// #[component]
+/// fn UserRow(user: &User) -> impl View + '_ {
+///     view! {
+///         <tr>
+///             // If `name` and `email` are always sent to the UI as
+///             // newly allocated `String`s, it's both safe and faster
+///             // to diff them by reference than value.
+///             <td>{ ref user.name }</td>
+///             <td>{ ref user.email }</td>
+///         </tr>
+///     }
+/// }
+/// ```
 pub const fn r#ref(value: &str) -> RefDiff<str> {
     RefDiff(value)
 }
 
 /// `{ use ... }`: disable diffing for `T` and apply its value to the DOM on every render.
+///
+/// This is usually not advised, but can be useful when combined with [`fence`](crate::diff::fence).
 pub const fn r#use<T>(value: T) -> AlwaysUpdate<T> {
     NoDiff(value)
 }
