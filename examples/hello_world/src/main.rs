@@ -3,7 +3,7 @@ use kobold::prelude::*;
 #[component]
 fn Hello(name: &str) -> impl View + '_ {
     view! {
-        <h1 test={name} class={name} checked={true}>"Hello "{ name }"!"</h1>
+        <h1>"Hello "{ name }"!"</h1>
     }
 }
 

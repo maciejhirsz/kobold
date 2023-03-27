@@ -30,10 +30,9 @@ fn App() -> impl View {
                         <ToggleAll {active_count} {state} />
                         <ul .todo-list>
                             {
-                                state
+                                for state
                                     .filtered_entries()
                                     .map(move |(idx, entry)| view! { <EntryView {idx} {entry} {state} /> })
-                                    .list()
                             }
                         </ul>
                     </section>
@@ -41,11 +40,10 @@ fn App() -> impl View {
                         <span .todo-count>
                             <strong>{ active_count }</strong>
                             {
-                                match active_count {
+                                ref match active_count {
                                     1 => " item left",
                                     _ => " items left",
                                 }
-                                .fast_diff()
                             }
                         </span>
                         <ul .filters>
@@ -121,7 +119,7 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl V
         view! {
             <input .edit
                 type="text"
-                value={entry.description.no_diff()}
+                value={ref entry.description}
                 {onmouseover}
                 {onkeypress}
                 {onblur}
@@ -143,7 +141,7 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl V
             <div .view>
                 <input .toggle type="checkbox" checked={entry.completed} {onchange} />
                 <label ondblclick={edit} >
-                    { entry.description.fast_diff() }
+                    { ref entry.description }
                 </label>
                 <button .destroy onclick={remove} />
             </div>
@@ -157,14 +155,13 @@ fn FilterView(filter: Filter, state: &Hook<State>) -> impl View + '_ {
     let selected = state.filter;
 
     let class = class!("selected" if selected == filter);
-    let href = filter.href().no_diff();
     bind! { state:
         let onclick = move |_| state.filter = filter;
     }
 
     view! {
         <li>
-            <a {class} {href} {onclick}>{ filter.label().no_diff() }</a>
+            <a {class} {onclick} href={static filter.href()}>{ static filter.label() }</a>
         </li>
     }
 }
