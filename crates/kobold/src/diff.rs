@@ -44,11 +44,11 @@ use crate::{Mountable, View};
 ///     })
 /// }
 /// ```
-pub const fn fence<D, F, V>(guard: D, render: F) -> Fence<D, F>
+pub const fn fence<D, V, F>(guard: D, render: F) -> Fence<D, F>
 where
     D: Diff,
-    F: FnOnce() -> V,
     V: View,
+    F: FnOnce() -> V,
 {
     Fence {
         guard,
