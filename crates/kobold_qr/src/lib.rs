@@ -2,16 +2,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use kobold::diff::fence_then;
 use kobold::prelude::*;
 use wasm_bindgen::prelude::*;
 
 use fast_qr::qr::QRBuilder;
+use kobold::diff::fence;
 use web_sys::CanvasRenderingContext2d;
 
 #[component]
 pub fn KoboldQR(data: &str) -> impl View + '_ {
-    fence_then(data, move || {
+    fence(data, move || {
         let qr = QRBuilder::new(data).build().ok()?;
         let size = qr.size * 8;
 
