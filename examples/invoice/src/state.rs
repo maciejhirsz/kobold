@@ -4,6 +4,7 @@
 
 use std::str::FromStr;
 use gloo_storage::{LocalStorage, Storage};
+use wasm_bindgen::UnwrapThrowExt;
 
 use std::ops::{Deref, DerefMut, Range};
 

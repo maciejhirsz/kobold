@@ -195,6 +195,7 @@ dependencies = [
  "kobold_macros",
  "kobold_qr",
  "logos",
+ "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
 ]

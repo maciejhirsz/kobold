@@ -1,6 +1,6 @@
 use kobold::prelude::*;
 use wasm_bindgen_futures::spawn_local;
-use web_sys::HtmlInputElement as Input;
+use web_sys::HtmlInputElement as InputElement;
 
 mod csv;
 mod state;
@@ -13,7 +13,7 @@ fn Editor() -> impl View {
         let onload = {
             let signal = state.signal();
 
-            move |e: Event<Input>| {
+            move |e: Event<InputElement>| {
                 let file = match e.target().files().and_then(|list| list.get(0)) {
                     Some(file) => file,
                     None => return,
@@ -77,7 +77,7 @@ fn Head(col: usize, state: &Hook<State>) -> impl View + '_ {
     let value = state.source.get_text(&state.columns[col]);
 
     if state.editing == (Editing::Column { col }) {
-        let onchange = state.bind(move |state, e: Event<Input>| {
+        let onchange = state.bind(move |state, e: Event<InputElement>| {
             state.columns[col] = Text::Owned(e.target().value().into());
             state.editing = Editing::None;
         });
@@ -100,7 +100,7 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     let value = state.source.get_text(&state.rows[row][col]);
 
     if state.editing == (Editing::Cell { row, col }) {
-        let onchange = state.bind(move |state, e: Event<Input>| {
+        let onchange = state.bind(move |state, e: Event<InputElement>| {
             state.rows[row][col] = Text::Owned(e.target().value().into());
             state.editing = Editing::None;
         });
