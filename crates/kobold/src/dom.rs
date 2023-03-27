@@ -153,11 +153,3 @@ impl Mountable for Element {
         self
     }
 }
-
-impl Drop for Element {
-    fn drop(&mut self) {
-        if let Kind::Fragment = self.kind {
-            util::__kobold_fragment_drop(&self.node);
-        }
-    }
-}

@@ -216,14 +216,14 @@ impl InlineAbi {
 
     pub fn method(self) -> &'static str {
         match self {
-            InlineAbi::Bool => "==true",
+            InlineAbi::Bool => ".into()",
             InlineAbi::Str => ".as_ref()",
         }
     }
 
     pub fn bound(self) -> &'static str {
         match self {
-            InlineAbi::Bool => "+ PartialEq<bool>",
+            InlineAbi::Bool => "+ Into<bool> + Copy",
             InlineAbi::Str => "+ AsRef<str>",
         }
     }

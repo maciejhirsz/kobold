@@ -31,11 +31,6 @@ export function __kobold_fragment_replace(f,n)
 	f.appendChild(e);
 	f.insertBefore(b, f.firstChild);
 }
-export function __kobold_fragment_drop(f)
-{
-	delete f.$begin;
-	delete f.$end;
-}
 
 export function __kobold_set_text(n,t) { n.textContent = t; }
 export function __kobold_set_attr(n,a,v) { n.setAttribute(a, v); }
