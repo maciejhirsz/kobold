@@ -131,7 +131,7 @@ For more details visit the [`branching` module documentation](https://docs.rs/ko
 
 ### Lists and Iterators
 
-To render an iterator use the [`for`] keyword:
+To render an iterator use the `for` keyword:
 
 ```rust
 // `ListIteratorExt` is included in the prelude
@@ -167,7 +167,7 @@ fn Users<'a>(names: &'a [&'a str]) -> impl View + 'a {
     view! {
         <ul>
         {
-            for names.iter().map(|name| view! { <li>{ name }</li> }).list()
+            for names.iter().map(|name| view! { <li>{ name }</li> })
         }
         </ul>
     }

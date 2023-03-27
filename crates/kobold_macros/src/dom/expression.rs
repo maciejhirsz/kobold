@@ -13,6 +13,7 @@ use crate::tokenize::prelude::*;
 pub struct Expression {
     pub stream: TokenStream,
     pub span: Span,
+    pub is_static: bool,
 }
 
 impl Debug for Expression {
@@ -36,7 +37,7 @@ impl From<TokenTree> for Expression {
         let span = tt.span();
         let stream = tt.tokenize();
 
-        Expression { stream, span }
+        Expression { stream, span, is_static: false }
     }
 }
 
@@ -73,6 +74,7 @@ impl From<Group> for Expression {
                         (deref.then_some('&'), stream),
                     ),
                     span: group.span(),
+                    is_static,
                 };
             }
         }
@@ -80,6 +82,7 @@ impl From<Group> for Expression {
         Expression {
             stream: stream.collect(),
             span: group.span(),
+            is_static: false,
         }
     }
 }
@@ -89,6 +92,7 @@ impl From<&str> for Expression {
         Expression {
             stream: code.tokenize(),
             span: Span::call_site(),
+            is_static: false,
         }
     }
 }
