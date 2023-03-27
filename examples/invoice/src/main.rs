@@ -6,6 +6,7 @@ use kobold::prelude::*;
 use kobold::reexport::web_sys::HtmlTextAreaElement;
 use kobold_qr::KoboldQR;
 use web_sys::HtmlInputElement as InputElement;
+use wasm_bindgen_futures::spawn_local;
 
 mod csv;
 mod state;
@@ -13,63 +14,71 @@ mod state;
 use state::{Editing, State, Text};
 
 #[component]
-fn Editor() -> impl Html {
+fn Editor() -> impl View {
     stateful(State::mock, |state| {
-        let onload = state.bind_async(move |hook, e: Event<InputElement>| async move {
-            let file = match e.target().files().and_then(|list| list.get(0)) {
-                Some(file) => file,
-                None => return,
+        let onload = {
+            let signal = state.signal();
+
+            move |e: Event<InputElement>| {
+                let file = match e.target().files().and_then(|list| list.get(0)) {
+                    Some(file) => file,
+                    None => return,
+                };
+
+                signal.update(|state| state.name = file.name());
+
+                let signal = signal.clone();
+
+                spawn_local(async move {
+                    if let Ok(table) = csv::read_file(file).await {
+                        signal.update(move |state| state.table = table);
+                    }
+                })
+            }
+        };
+
+        bind! { state:
+            let onkeydown = move |event: KeyboardEvent<_>| {
+                if matches!(event.key().as_str(), "Esc" | "Escape") {
+                    state.editing = Editing::None;
+
+                    Then::Render
+                } else {
+                    Then::Stop
+                }
             };
+        }
 
-            let _ = hook.update(|state| state.name = file.name());
-
-            if let Ok(table) = csv::read_file(file).await {
-                let _ = hook.update(move |state| state.table = table);
-            }
-        });
-
-        let onkeydown = state.bind(move |state, event: KeyboardEvent<_>| {
-            if matches!(event.key().as_str(), "Esc" | "Escape") {
-                state.editing = Editing::None;
-
-                ShouldRender::Yes
-            } else {
-                ShouldRender::No
-            }
-        });
-
-        html! {
+        view! {
             <div .invoice-wrapper>
                 <section .invoiceapp>
                     <header .header>
-                        <h1>"Tax Invoice"</h1>
+                        <h1>"Invoice"</h1>
                         <EntryInput {state} />
                     </header>
                     <section .main>
                         <input type="file" accept="text/csv" onchange={onload} />
-                        <h1>{ state.name.fast_diff() }</h1>
+                        <h1>{ ref state.name }</h1>
                         <EntryView {state} />
                         <table {onkeydown}>
                             <thead>
                                 <tr>
                                 {
-                                    state.columns().map(|col| html! { <Head {col} {state} /> }).list()
+                                    for state.columns().map(|col| view! { <Head {col} {state} /> })
                                 }
                                 </tr>
                             </thead>
                             <tbody>
                             {
-                                state.rows().map(move |row| html! {
+                                for state.rows().map(move |row| view! {
                                     <tr>
                                     {
-                                        state.columns().map(move |col| html! {
+                                        for state.columns().map(move |col| view! {
                                             <Cell {col} {row} {state} />
                                         })
-                                        .list()
                                     }
                                     </tr>
                                 })
-                                .list()
                             }
                             </tbody>
                         </table>
@@ -87,7 +96,7 @@ fn Editor() -> impl Html {
 }
 
 #[component(auto_branch)]
-fn Head(col: usize, state: &Hook<State>) -> impl Html + '_ {
+fn Head(col: usize, state: &Hook<State>) -> impl View + '_ {
     let value = state.source.get_text(&state.columns[col]);
 
     if state.editing == (Editing::Column { col }) {
@@ -96,21 +105,21 @@ fn Head(col: usize, state: &Hook<State>) -> impl Html + '_ {
             state.editing = Editing::None;
         });
 
-        html! {
+        view! {
             <th.edit>
-                { value.fast_diff() }
-                <input.edit.edit-head {onchange} value={ value.fast_diff() } />
+                { ref value }
+                <input.edit.edit-head {onchange} value={ ref value } />
             </th>
         }
     } else {
         let ondblclick = state.bind(move |s, _| s.editing = Editing::Column { col });
 
-        html! { <th {ondblclick}>{ value.fast_diff() }</th> }
+        view! { <th {ondblclick}>{ ref value }</th> }
     }
 }
 
 #[component(auto_branch)]
-fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl Html + '_ {
+fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     let value = state.source.get_text(&state.rows[row][col]);
 
     if state.editing == (Editing::Cell { row, col }) {
@@ -119,74 +128,80 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl Html + '_ {
             state.editing = Editing::None;
         });
 
-        html! {
+        view! {
             <td.edit>
-                { value }
-                <input.edit {onchange} value={ value.to_owned() } />
+                { ref value }
+                <input.edit {onchange} value={ ref value } />
             </td>
         }
     } else {
         let ondblclick = state.bind(move |s, _| s.editing = Editing::Cell { row, col });
 
-        html! { <td {ondblclick}>{ value.fast_diff() }</td> }
+        view! { <td {ondblclick}>{ ref value }</td> }
     }
 }
 
 #[component]
-fn EntryInput(state: &Hook<State>) -> impl Html + '_ {
-    html! {
-        <input
-            .new-invoice
-            placeholder="<Enter biller address>"
-            onchange={state.bind(|state, event| {
-                let input = event.target();
-                let value = input.value();
+fn EntryInput(state: &Hook<State>) -> impl View + '_ {
+    bind! { state:
+        let onchange = move |event: Event<InputElement>| {
+            let input = event.target();
+            let value = input.value();
 
-                input.set_value("");
-                state.add(value);
-            })}
-        />
+            input.set_value("");
+            state.add(value);
+        };
+    }
+
+    view! {
+        <input.new-invoice placeholder="<Enter biller address>" onchange={onchange} />
     }
 }
 
 #[component]
-fn EntryView<'a>(state: &'a Hook<State>) -> impl Html + 'a {
+fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
     let entry = &state.entry;
     let input = state.entry_editing.then(move || {
-        let onmouseover = state.bind(move |_, event: MouseEvent<InputElement>| {
+        bind! { state:
+            let onkeypress = move |event: KeyboardEvent<InputElement>| {
+                if event.key() == "Enter" {
+                    state.update(event.target().value());
+
+                    Then::Render
+                } else {
+                    Then::Stop
+                }
+            };
+
+            let onblur = move |event: Event<InputElement>| state.update(event.target().value());
+        }
+
+        let onmouseover = move |event: MouseEvent<InputElement>| {
             let _ = event.target().focus();
+        };
 
-            ShouldRender::No
-        });
-
-        let onkeypress = state.bind(move |state, event: KeyboardEvent<InputElement>| {
-            if event.key() == "Enter" {
-                state.update(event.target().value());
-
-                ShouldRender::Yes
-            } else {
-                ShouldRender::No
-            }
-        });
-
-        html! {
+        view! {
             <input .edit
                 type="text"
-                value={entry.description.fast_diff()}
+                value={ref entry.description}
                 {onmouseover}
                 {onkeypress}
-                onblur={state.bind(move |state, event| state.update(event.target().value()))}
+                {onblur}
             />
         }
     });
 
-    let editing = state.entry_editing.class("editing").no_diff();
+    bind! {
+        state:
+        let edit = move |_| state.edit_entry();
+    }
+    let editing = class!("editing" if entry.entry_editing);
 
-    html! {
+    view! {
         <div .todo.{editing}>
             <div .view>
-                <label ondblclick={state.bind(move |state, _| state.edit_entry())} >
-                    { entry.description.fast_diff() }
+                <label ondblclick={edit} >
+                    { ref entry.description }
                 </label>
             </div>
             { input }
@@ -205,16 +220,14 @@ fn QRExample() -> impl View {
 
         view! {
             <h1>"QR code example"</h1>
-            <KoboldQR data={data.as_str()} />
-            <textarea {onkeyup}>
-                { data.as_str().no_diff() }
-            </textarea>
+            <KoboldQR {data} />
+            <textarea {onkeyup}>{ static data.as_str() }</textarea>
         }
     })
 }
 
 fn main() {
-    kobold::start(html! {
+    kobold::start(view! {
         <Editor />
     });
 }
