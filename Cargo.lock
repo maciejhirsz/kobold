@@ -185,6 +185,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "kobold_invoice"
+version = "0.1.0"
+dependencies = [
+ "compact_str",
+ "gloo-console",
+ "gloo-storage",
+ "kobold",
+ "kobold_macros",
+ "kobold_qr",
+ "logos",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "kobold_list_example"
 version = "0.1.0"
 dependencies = [
