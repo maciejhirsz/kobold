@@ -17,7 +17,7 @@
 //! Kobold keeps track of the DOM node references for these expressions.
 //!
 //! Since the exact types the expressions evaluate to are known to the Rust compiler, update calls can diff them by
-//! value ([or pointer](crate::diff::StrExt::fast_diff)) and surgically update the DOM should they change. Changing a
+//! value ([or reference](crate::keywords::ref)) and surgically update the DOM should they change. Changing a
 //! string or an integer only updates the exact [`Text` node](https://developer.mozilla.org/en-US/docs/Web/API/Text)
 //! that string or integer was rendered to.
 //!
