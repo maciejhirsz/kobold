@@ -154,40 +154,6 @@ impl IntoGenerator for HtmlElement {
                         gen.add_field(expr.stream).attr(var, attr, prop);
                     }
                 },
-                // } else if attr == "checked" {
-                //     el.hoisted = true;
-                //     let value = gen.add_attribute(
-                //         var,
-                //         Abi::Owned("bool"),
-                //         call("::kobold::attribute::Checked", expr.stream),
-                //     );
-
-                //     writeln!(el, "{var}.{attr}={value};");
-
-                //     JsArgument::with_abi(value, "bool")
-                // } else if provided_attr(attr) {
-                //     let value = gen.add_expression(call(
-                //         format_args!("::kobold::attribute::{attr}"),
-                //         expr.stream,
-                //     ));
-
-                //     writeln!(el, "{var}.setAttributeNode({value});");
-
-                //     JsArgument::new(value)
-                // } else {
-                //     let attr_fn = gen.attribute_constructor(attr);
-
-                //     let value = gen.add_expression(call(
-                //         "::kobold::attribute::AttributeNode::new",
-                //         (ident(&attr_fn), ',', expr.stream),
-                //     ));
-
-                //     writeln!(el, "{var}.setAttributeNode({value});");
-
-                //     JsArgument::new(value)
-                // };
-
-                // el.args.push(arg);
             };
         }
 
