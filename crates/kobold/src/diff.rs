@@ -9,7 +9,69 @@ use web_sys::Node;
 use crate::attribute::AttributeView;
 use crate::dom::Element;
 use crate::value::IntoText;
-use crate::View;
+use crate::{Mountable, View};
+
+pub const fn fence<D, V>(guard: D, view: V) -> Fence<D, impl FnOnce() -> V>
+where
+    D: Diff,
+    V: View,
+{
+    Fence {
+        guard,
+        inner: move || view,
+    }
+}
+
+pub const fn fence_then<D, F, V>(guard: D, render: F) -> Fence<D, F>
+where
+    D: Diff,
+    F: FnOnce() -> V,
+    V: View,
+{
+    Fence {
+        guard,
+        inner: render,
+    }
+}
+
+pub struct Fence<D, F> {
+    guard: D,
+    inner: F,
+}
+
+impl<D, F, V> View for Fence<D, F>
+where
+    D: Diff,
+    F: FnOnce() -> V,
+    V: View,
+{
+    type Product = Fence<D::Memo, V::Product>;
+
+    fn build(self) -> Self::Product {
+        Fence {
+            guard: self.guard.into_memo(),
+            inner: (self.inner)().build(),
+        }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        if self.guard.diff(&mut p.guard) {
+            (self.inner)().update(&mut p.inner);
+        }
+    }
+}
+
+impl<D, P> Mountable for Fence<D, P>
+where
+    D: 'static,
+    P: Mountable,
+{
+    type Js = P::Js;
+
+    fn el(&self) -> &Element {
+        self.inner.el()
+    }
+}
 
 pub trait Diff: Copy {
     type Memo: 'static;
