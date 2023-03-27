@@ -5,6 +5,17 @@ use crate::list::List;
 use crate::View;
 
 /// `{ for ... }`: turn an [`IntoIterator`](IntoIterator) type into a [`View`](View).
+///
+/// ```
+/// # use kobold::prelude::*;
+/// view! {
+///     <h1>"Integers 1 to 10:"</h1>
+///     <ul>
+///     { for (1..=10).map(|n| view! { <li>{ n }</li> }) }
+///     </ul>
+/// }
+/// # ;
+/// ```
 pub const fn r#for<T>(iterator: T) -> List<T>
 where
     T: IntoIterator,

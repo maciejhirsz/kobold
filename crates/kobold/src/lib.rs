@@ -130,11 +130,9 @@
 //!
 //! ### Lists and Iterators
 //!
-//! To render an iterator use the [`list`](list::ListIteratorExt::list) method from the
-//! [`ListIteratorExt`](list::ListIteratorExt) extension trait:
+//! To render an iterator use the [`for`](keywords::for) keyword:
 //!
 //! ```
-//! // `ListIteratorExt` is included in the prelude
 //! use kobold::prelude::*;
 //!
 //! #[component]
@@ -142,19 +140,18 @@
 //!     view! {
 //!         <ul>
 //!         {
-//!             (1..=count)
-//!                 .map(|n| view! { <li>"Item #"{n}</li> })
-//!                 .list()
+//!             for (1..=count).map(|n| view! { <li>"Item #"{n}</li> })
 //!         }
 //!         </ul>
 //!     }
 //! }
 //! ```
 //!
-//! This wraps the iterator in the transparent [`List<_>`](list::List) type that implements [`View`](View).
 //! On updates the iterator is consumed once and all items are diffed with the previous version.
 //! No allocations are made by **Kobold** when updating such a list, unless the rendered list needs
 //! to grow past its original capacity.
+//!
+//! For more information about keywords visit the [`keywords` module documentation](keywords).
 //!
 //! ### Borrowed Values
 //!
@@ -169,10 +166,7 @@
 //!     view! {
 //!         <ul>
 //!         {
-//!             names
-//!                 .iter()
-//!                 .map(|name| view! { <li>{ name }</li> })
-//!                 .list()
+//!             for names.iter().map(|name| view! { <li>{ name }</li> })
 //!         }
 //!         </ul>
 //!     }
