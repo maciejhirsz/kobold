@@ -1,9 +1,9 @@
 use std::fmt::{self, Debug, Display, Write};
-use std::ops::Deref;
 
 use arrayvec::ArrayString;
 use proc_macro::{Literal, TokenStream};
 
+use crate::gen::element::{Attr, InlineAbi};
 use crate::gen::Short;
 use crate::itertools::IteratorExt;
 use crate::tokenize::prelude::*;
@@ -53,18 +53,9 @@ impl Tokenize for Transient {
         }
 
         if self.els.is_empty() {
-            return match self.fields.remove(0) {
-                Field::View { value, .. } | Field::Attribute { value, .. } => {
-                    value.tokenize_in(stream)
-                }
-            };
+            return self.fields.remove(0).value.tokenize_in(stream);
         }
 
-        let abi_lifetime = if self.fields.iter().any(Field::borrows) {
-            "'abi,"
-        } else {
-            ""
-        };
         let js_type = self.js_type.unwrap_or("Node");
 
         let mut generics = String::new();
@@ -102,8 +93,12 @@ impl Tokenize for Transient {
             let args = args
                 .iter()
                 .map(|a| {
-                    let mut temp = ArrayString::<8>::new();
-                    let _ = write!(temp, "{}.js()", a.name);
+                    let mut temp = ArrayString::<24>::new();
+                    let name = a.name;
+                    let _ = match a.abi.map(InlineAbi::method) {
+                        Some(method) => write!(temp, "self.{name}{method}"),
+                        None => write!(temp, "{name}.js()"),
+                    };
                     temp
                 })
                 .join(",");
@@ -143,7 +138,7 @@ impl Tokenize for Transient {
                         {declare}\
                     }}\
                     \
-                    impl<{abi_lifetime}{generics}> ::kobold::View for Transient<{generics}>\
+                    impl<{generics}> ::kobold::View for Transient<{generics}>\
                     where \
                         {bounds}\
                     {{\
@@ -206,6 +201,17 @@ impl Debug for JsModule {
     }
 }
 
+pub struct JsAttrConstructor(pub JsFnName);
+
+impl Tokenize for JsAttrConstructor {
+    fn tokenize_in(self, stream: &mut TokenStream) {
+        let name = self.0;
+        stream.write(format_args!(
+            "fn {name}() -> ::kobold::reexport::web_sys::Node;"
+        ));
+    }
+}
+
 #[derive(Debug)]
 pub struct JsFunction {
     pub name: JsFnName,
@@ -227,96 +233,83 @@ impl Tokenize for JsFunction {
 #[derive(Debug)]
 pub struct JsArgument {
     pub name: Short,
-    pub abi: &'static str,
+    pub abi: Option<InlineAbi>,
 }
 
 impl JsArgument {
     pub fn new(name: Short) -> Self {
-        JsArgument {
-            name,
-            abi: "&wasm_bindgen::JsValue",
-        }
+        JsArgument { name, abi: None }
     }
 
-    pub fn with_abi(name: Short, abi: &'static str) -> Self {
-        JsArgument { name, abi }
+    pub fn with_abi(name: Short, abi: InlineAbi) -> Self {
+        JsArgument {
+            name,
+            abi: Some(abi),
+        }
     }
 }
 
 impl Tokenize for JsArgument {
-    fn tokenize(self) -> TokenStream {
-        (ident(&self.name), ':', self.abi, ',').tokenize()
-    }
-
     fn tokenize_in(self, stream: &mut TokenStream) {
-        (ident(&self.name), ':', self.abi, ',').tokenize_in(stream)
+        let abi = self
+            .abi
+            .map(InlineAbi::abi)
+            .unwrap_or("&wasm_bindgen::JsValue");
+
+        (ident(&self.name), ':', abi, ',').tokenize_in(stream)
     }
 }
 
-pub enum Field {
-    View {
-        name: Short,
-        value: TokenStream,
-    },
+pub struct Field {
+    pub name: Short,
+    pub value: TokenStream,
+    pub kind: FieldKind,
+}
+
+pub enum FieldKind {
+    View,
     Attribute {
-        name: Short,
         el: Short,
-        abi: Abi,
-        value: TokenStream,
+        attr: Attr,
+        prop: TokenStream,
     },
-}
-
-pub enum Abi {
-    Owned(&'static str),
-    Borrowed(&'static str),
-}
-
-impl Deref for Abi {
-    type Target = str;
-
-    fn deref(&self) -> &str {
-        match self {
-            Abi::Owned(abi) => abi,
-            Abi::Borrowed(abi) => abi,
-        }
-    }
 }
 
 impl Debug for Field {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Field::View { name, value } => {
+        let Field { name, value, kind } = self;
+
+        match kind {
+            FieldKind::View => {
                 write!(f, "{name} <View>: {value}")
             }
-            Field::Attribute {
-                name,
-                el,
-                abi,
-                value,
-            } => {
-                let abi = abi.deref();
-
-                write!(f, "{name} <Attribute({abi} -> {el})>: {value}")
+            FieldKind::Attribute { attr, .. } => {
+                write!(f, "{name} <AttributeView<{}>>: {value}", attr.name)
             }
         }
     }
 }
 
 impl Field {
-    fn borrows(&self) -> bool {
-        matches!(
-            self,
-            Field::Attribute {
-                abi: Abi::Borrowed(_),
-                ..
-            }
-        )
+    pub fn new(name: Short, value: TokenStream) -> Self {
+        Field {
+            name,
+            value,
+            kind: FieldKind::View,
+        }
+    }
+
+    pub fn attr(&mut self, el: Short, attr: Attr, prop: TokenStream) -> &mut Self {
+        self.kind = FieldKind::Attribute { el, attr, prop };
+        self
+    }
+
+    fn is_view(&self) -> bool {
+        matches!(self.kind, FieldKind::View)
     }
 
     fn name_value(&self) -> (&Short, &TokenStream) {
-        match self {
-            Field::View { name, value } | Field::Attribute { name, value, .. } => (name, value),
-        }
+        (&self.name, &self.value)
     }
 
     fn make_type(&self) -> Short {
@@ -328,20 +321,25 @@ impl Field {
     }
 
     fn bounds(&self, buf: &mut String) {
-        match self {
-            Field::View { name, .. } => {
+        let Field { name, kind, .. } = self;
+
+        match kind {
+            FieldKind::View => {
                 let mut typ = *name;
                 typ.make_ascii_uppercase();
 
                 let _ = write!(buf, "{typ}: ::kobold::View,");
             }
-            Field::Attribute { name, abi, .. } => {
+            FieldKind::Attribute { attr, .. } => {
                 let mut typ = *name;
                 typ.make_ascii_uppercase();
 
-                let abi = abi.deref();
-
-                let _ = write!(buf, "{typ}: ::kobold::attribute::Attribute<Abi = {abi}>,");
+                let _ = write!(
+                    buf,
+                    "{typ}: ::kobold::attribute::AttributeView<::kobold::attribute::{}>{},",
+                    attr.name,
+                    attr.abi.map(InlineAbi::bound).unwrap_or(""),
+                );
             }
         }
     }
@@ -354,34 +352,39 @@ impl Field {
     }
 
     fn build(&self, buf: &mut String) {
-        match self {
-            Field::View { name, .. } => {
-                let _ = write!(buf, "let {name} = self.{name}.build();");
-            }
-            Field::Attribute { name, .. } => {
-                let _ = write!(buf, "let {name} = self.{name};");
-            }
+        let Field { name, .. } = self;
+
+        if self.is_view() {
+            let _ = write!(buf, "let {name} = self.{name}.build();");
         }
     }
 
     fn var(&self, buf: &mut String) {
-        match self {
-            Field::View { name, .. } => {
-                let _ = write!(buf, "{name},");
+        let Field { name, kind, .. } = self;
+
+        let _ = match kind {
+            FieldKind::View => write!(buf, "{name},"),
+            FieldKind::Attribute { attr, .. } if attr.abi.is_some() => {
+                write!(buf, "{name}: self.{name}.build(),")
             }
-            Field::Attribute { name, .. } => {
-                let _ = write!(buf, "{name}: {name}.build(),");
+            FieldKind::Attribute { el, prop, .. } => {
+                write!(buf, "{name}: self.{name}.build_in({prop}, &{el}),")
             }
-        }
+        };
     }
 
     fn update(&self, buf: &mut String) {
-        match self {
-            Field::View { name, .. } => {
+        let Field { name, kind, .. } = self;
+
+        match kind {
+            FieldKind::View => {
                 let _ = write!(buf, "self.{name}.update(&mut p.{name});");
             }
-            Field::Attribute { name, el, .. } => {
-                let _ = write!(buf, "self.{name}.update(&mut p.{name}, &p.{el});");
+            FieldKind::Attribute { el, prop, .. } => {
+                let _ = write!(
+                    buf,
+                    "self.{name}.update_in({prop}, &p.{el}, &mut p.{name});"
+                );
             }
         }
     }

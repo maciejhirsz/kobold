@@ -1,178 +1,224 @@
 //! Utilities for dealing with DOM attributes
-use wasm_bindgen::convert::IntoWasmAbi;
-use wasm_bindgen::JsValue;
+use web_sys::Node;
 
+use crate::diff::{Diff, FastDiff};
+use crate::dom::Property;
 use crate::util;
-use crate::value::{FastDiff, NoDiff, Stringify};
-use crate::{Element, Mountable, View};
+use crate::value::Value;
 
-pub trait Attribute {
-    type Abi: IntoWasmAbi;
+/// Arbitrary attribute: <https://developer.mozilla.org/en-US/docs/Web/API/Element/setAttribute>
+pub type Attribute = &'static str;
+
+impl Property<&str> for Attribute {
+    fn set(self, this: &Node, value: &str) {
+        util::set_attr(this, self, value)
+    }
+}
+
+impl Property<f64> for Attribute {
+    fn set(self, this: &Node, value: f64) {
+        util::set_attr_num(this, self, value)
+    }
+}
+
+impl Property<bool> for Attribute {
+    fn set(self, this: &Node, value: bool) {
+        util::set_attr_bool(this, self, value)
+    }
+}
+
+macro_rules! attribute {
+    ($(#[doc = $doc:literal] $name:ident [ $($util:ident: $abi:ty),* ])*) => {
+        $(
+            #[doc = $doc]
+            pub struct $name;
+
+            $(
+                impl Property<$abi> for $name {
+                    fn set(self, this: &Node, value: $abi) {
+                        util::$util(this, value)
+                    }
+                }
+            )*
+        )*
+    }
+}
+
+/// The `Element.classList` property: <https://developer.mozilla.org/en-US/docs/Web/API/Element/classList>
+pub struct Class;
+
+attribute!(
+    /// The `checked` attribute: <https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#checked>
+    Checked [checked: bool]
+    /// The `className` attribute: <https://developer.mozilla.org/en-US/docs/Web/API/Element/className>
+    ClassName [class_name: &str]
+    /// The `style` attribute: <https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/style>
+    Style [style: &str]
+    /// The `href` attribute: <https://developer.mozilla.org/en-US/docs/Web/API/HTMLAnchorElement/href>
+    Href [href: &str]
+    /// The `value` attribute: <https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#value>
+    InputValue [value: &str, value_num: f64]
+);
+
+pub trait AttributeView<P> {
     type Product: 'static;
-
-    fn js(&self) -> Self::Abi;
 
     fn build(self) -> Self::Product;
 
-    fn update(self, p: &mut Self::Product, el: &JsValue);
+    fn build_in(self, prop: P, node: &Node) -> Self::Product;
+
+    fn update_in(self, prop: P, node: &Node, memo: &mut Self::Product);
 }
+
+impl<P> AttributeView<P> for String
+where
+    P: for<'a> Property<&'a str>,
+{
+    type Product = String;
+
+    fn build(self) -> Self::Product {
+        self
+    }
+
+    fn build_in(self, prop: P, node: &Node) -> Self::Product {
+        self.set_prop(prop, node);
+        self
+    }
+
+    fn update_in(self, prop: P, node: &Node, prod: &mut Self::Product) {
+        if &self != prod {
+            self.set_prop(prop, node);
+            *prod = self;
+        }
+    }
+}
+
+impl<P> AttributeView<P> for bool
+where
+    Self: Value<P>,
+{
+    /// `bool` attributes can have weird behavior, it's best to
+    /// diff them in the DOM directly
+    type Product = ();
+
+    fn build(self) {}
+
+    fn build_in(self, prop: P, node: &Node) {
+        self.set_prop(prop, node);
+    }
+
+    fn update_in(self, prop: P, node: &Node, _: &mut ()) {
+        self.set_prop(prop, node);
+    }
+}
+
+macro_rules! impl_attribute_view {
+    ($($ty:ty),*) => {
+        $(
+            impl<P> AttributeView<P> for $ty
+            where
+                Self: Value<P>,
+            {
+                type Product = <Self as Diff>::Memo;
+
+                fn build(self) -> Self::Product {
+                    self.into_memo()
+                }
+
+                fn build_in(self, prop: P, node: &Node) -> Self::Product {
+                    self.set_prop(prop, node);
+                    self.into_memo()
+                }
+
+                fn update_in(self, prop: P, node: &Node, prod: &mut Self::Product) {
+                    if self.diff(prod) {
+                        self.set_prop(prop, node);
+                    }
+                }
+            }
+        )*
+    };
+}
+
+impl_attribute_view!(&str, &String, FastDiff<'_>);
+impl_attribute_view!(u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64);
 
 #[inline]
-fn update(el: &Element, value: &str) {
-    util::__kobold_attr_update(&el.node, value);
+fn debug_test_class(class: &str) {
+    debug_assert!(
+        class.find(' ').is_none(),
+        "Class name cannot contain spaces, offending class: \"{class}\"",
+    );
 }
 
-#[inline]
-fn create(name: &str, value: &str) -> Element {
-    Element::new(util::__kobold_attr(name, value))
-}
-
-pub struct AttributeNode<V> {
-    name: &'static str,
-    value: V,
-}
-
-impl<V> AttributeNode<V> {
-    pub fn new(name: &'static str, value: V) -> Self {
-        AttributeNode { name, value }
+fn set_class(node: &Node, class: &str) {
+    if !class.is_empty() {
+        util::add_class(node, class);
     }
 }
 
-impl View for AttributeNode<String> {
-    type Product = AttributeNodeProduct<String>;
-
-    fn build(self) -> Self::Product {
-        let el = create(self.name, &self.value);
-
-        AttributeNodeProduct {
-            value: self.value,
-            el,
-        }
+fn diff_class(node: &Node, new: &str, old: &str) -> bool {
+    match (new, old) {
+        (new, old) if new == old => return false,
+        (new, "") => util::add_class(node, new),
+        ("", old) => util::remove_class(node, old),
+        (new, old) => util::replace_class(node, old, new),
     }
-
-    fn update(self, p: &mut Self::Product) {
-        if *self.value != p.value {
-            update(&p.el, &self.value);
-            p.value = self.value;
-        }
-    }
+    true
 }
 
-impl View for AttributeNode<&String> {
-    type Product = AttributeNodeProduct<String>;
-
-    fn build(self) -> Self::Product {
-        let el = create(self.name, self.value);
-
-        AttributeNodeProduct {
-            value: self.value.clone(),
-            el,
-        }
-    }
-
-    fn update(self, p: &mut Self::Product) {
-        if *self.value != p.value {
-            update(&p.el, self.value);
-            p.value.clone_from(self.value)
-        }
-    }
-}
-
-impl<S> View for AttributeNode<S>
+impl<T> AttributeView<Class> for T
 where
-    S: Stringify + Eq + Copy + 'static,
+    T: Diff<Memo = String> + AsRef<str>,
 {
-    type Product = AttributeNodeProduct<S>;
+    type Product = String;
 
-    fn build(self) -> Self::Product {
-        let el = self.value.stringify(|s| create(self.name, s));
-
-        AttributeNodeProduct {
-            value: self.value,
-            el,
-        }
+    fn build(self) -> String {
+        debug_test_class(self.as_ref());
+        self.into_memo()
     }
 
-    fn update(self, p: &mut Self::Product) {
-        if self.value != p.value {
-            self.value.stringify(|s| update(&p.el, s));
-            p.value = self.value;
-        }
-    }
-}
-
-impl<S> View for AttributeNode<NoDiff<S>>
-where
-    S: Stringify,
-{
-    type Product = Element;
-
-    fn build(self) -> Self::Product {
-        self.value.stringify(|s| create(self.name, s))
+    fn build_in(self, _: Class, node: &Node) -> String {
+        set_class(node, self.as_ref());
+        self.build()
     }
 
-    fn update(self, _: &mut Self::Product) {}
-}
-
-impl View for AttributeNode<FastDiff<'_>> {
-    type Product = AttributeNodeProduct<usize>;
-
-    fn build(self) -> Self::Product {
-        let el = create(self.name, &self.value);
-
-        AttributeNodeProduct {
-            value: self.value.as_ptr() as usize,
-            el,
-        }
-    }
-
-    fn update(self, p: &mut Self::Product) {
-        if p.value != self.value.as_ptr() as usize {
-            update(&p.el, &self.value);
-            p.value = self.value.as_ptr() as usize;
+    fn update_in(self, _: Class, node: &Node, old: &mut String) {
+        if diff_class(node, self.as_ref(), old) {
+            old.clear();
+            old.push_str(self.as_ref());
         }
     }
 }
 
-/// A class that interacts with `classList` property of an element
-///
-/// <https://developer.mozilla.org/en-US/docs/Web/API/Element/classList>
-#[repr(transparent)]
-pub struct Class<T>(T);
+impl AttributeView<Class> for String {
+    type Product = String;
 
-impl From<&'static str> for Class<&'static str> {
-    fn from(class: &'static str) -> Self {
-        debug_assert!(
-            !class.chars().any(|c| c == ' '),
-            "Class name cannot contain spaces, offending class: \"{class}\""
-        );
-
-        Class(class)
+    fn build(self) -> String {
+        debug_test_class(self.as_ref());
+        self
     }
-}
 
-impl From<Option<&'static str>> for Class<&'static str> {
-    fn from(class: Option<&'static str>) -> Self {
-        Class::from(class.unwrap_or_default())
+    fn build_in(self, _: Class, node: &Node) -> String {
+        set_class(node, self.as_ref());
+        self
+    }
+
+    fn update_in(self, _: Class, node: &Node, old: &mut String) {
+        if diff_class(node, self.as_ref(), old) {
+            *old = self;
+        }
     }
 }
 
 #[derive(Clone, Copy)]
-pub struct OptionalClass<'a> {
-    class: &'a str,
+pub struct OptionalClass {
+    class: &'static str,
     on: bool,
 }
 
-impl<'a> OptionalClass<'a> {
-    pub const fn new(class: &'a str, on: bool) -> Self {
-        OptionalClass { class, on }
-    }
-
-    pub const fn no_diff(self) -> NoDiff<Self> {
-        NoDiff(self)
-    }
-
-    fn get(&self) -> &'a str {
+impl AsRef<str> for OptionalClass {
+    fn as_ref(&self) -> &str {
         if self.on {
             self.class
         } else {
@@ -181,159 +227,52 @@ impl<'a> OptionalClass<'a> {
     }
 }
 
-impl<'a> From<OptionalClass<'a>> for Class<OptionalClass<'a>> {
-    fn from(class: OptionalClass<'a>) -> Self {
-        Class(class)
+impl OptionalClass {
+    pub const fn new(class: &'static str, on: bool) -> Self {
+        OptionalClass { class, on }
     }
 }
 
-impl<'a> From<NoDiff<OptionalClass<'a>>> for Class<NoDiff<OptionalClass<'a>>> {
-    fn from(class: NoDiff<OptionalClass<'a>>) -> Self {
-        Class(class)
-    }
-}
-
-impl Attribute for Class<&'static str> {
-    type Abi = &'static str;
-    type Product = &'static str;
-
-    fn js(&self) -> Self::Abi {
-        self.0
-    }
-
-    fn build(self) -> Self::Product {
-        self.0
-    }
-
-    fn update(self, p: &mut Self::Product, js: &JsValue) {
-        match (self.0, *p) {
-            (new, old) if new == old => return,
-            (new, "") => util::__kobold_class_add(js, new),
-            ("", old) => util::__kobold_class_remove(js, old),
-            (new, old) => util::__kobold_class_replace(js, old, new),
-        }
-        *p = self.0;
-    }
-}
-
-impl<'a> Attribute for Class<NoDiff<OptionalClass<'a>>> {
-    type Abi = &'a str;
+impl AttributeView<Class> for OptionalClass {
     type Product = bool;
 
-    fn js(&self) -> Self::Abi {
-        self.0.get()
+    fn build(self) -> bool {
+        debug_test_class(self.class);
+        self.on
     }
 
-    fn build(self) -> Self::Product {
-        self.0.on
+    fn build_in(self, _: Class, node: &Node) -> bool {
+        util::toggle_class(node, self.class, self.on);
+        self.on
     }
 
-    fn update(self, p: &mut Self::Product, js: &JsValue) {
-        match (self.0.on, *p) {
-            (true, true) | (false, false) => return,
-            (true, false) => util::__kobold_class_add(js, self.0.class),
-            (false, true) => util::__kobold_class_remove(js, self.0.class),
-        }
-        *p = self.0.on;
-    }
-}
-
-/// A single `className` attribute, spaces are permitted
-///
-/// <https://developer.mozilla.org/en-US/docs/Web/API/Element/className>
-pub struct ClassName<T>(T);
-
-impl From<&'static str> for ClassName<&'static str> {
-    fn from(class: &'static str) -> Self {
-        ClassName(class)
-    }
-}
-
-impl From<Option<&'static str>> for ClassName<&'static str> {
-    fn from(class: Option<&'static str>) -> Self {
-        ClassName(class.unwrap_or_default())
-    }
-}
-
-impl<'a> From<NoDiff<OptionalClass<'a>>> for ClassName<NoDiff<OptionalClass<'a>>> {
-    fn from(class: NoDiff<OptionalClass<'a>>) -> Self {
-        ClassName(class)
-    }
-}
-
-impl Attribute for ClassName<&'static str> {
-    type Abi = &'static str;
-    type Product = &'static str;
-
-    fn js(&self) -> Self::Abi {
-        self.0
-    }
-
-    fn build(self) -> Self::Product {
-        self.0
-    }
-
-    fn update(self, p: &mut Self::Product, js: &JsValue) {
-        if self.0 != *p {
-            util::__kobold_class_set(js, self.0);
-            *p = self.0;
+    fn update_in(self, _: Class, node: &Node, memo: &mut bool) {
+        if self.on != *memo {
+            util::toggle_class(node, self.class, self.on);
+            *memo = self.on;
         }
     }
 }
 
-impl<'a> Attribute for ClassName<NoDiff<OptionalClass<'a>>> {
-    type Abi = &'a str;
+impl AttributeView<ClassName> for OptionalClass {
     type Product = bool;
 
-    fn js(&self) -> Self::Abi {
-        self.0.get()
+    fn build(self) -> bool {
+        debug_test_class(self.class);
+        self.on
     }
 
-    fn build(self) -> Self::Product {
-        self.0.on
-    }
-
-    fn update(self, p: &mut Self::Product, js: &JsValue) {
-        if self.0.on != *p {
-            util::__kobold_class_set(js, self.0.get());
-            *p = self.0.on;
+    fn build_in(self, _: ClassName, node: &Node) -> bool {
+        if self.on {
+            util::class_name(node, self.class);
         }
-    }
-}
-
-/// The `checked` attribute for `<input>` elements
-pub struct Checked(pub bool);
-
-impl Attribute for Checked {
-    type Abi = bool;
-    type Product = bool;
-
-    fn js(&self) -> Self::Abi {
-        self.0
+        self.on
     }
 
-    fn build(self) -> Self::Product {
-        self.0
-    }
-
-    fn update(self, _: &mut Self::Product, js: &JsValue) {
-        // Checkboxes are weird because a `click` or `change` event
-        // can affect the state without reflecting it on the product.
-        //
-        // Best to do the diff in DOM directly.
-        util::__kobold_attr_checked_set(js, self.0);
-    }
-}
-
-pub struct AttributeNodeProduct<V> {
-    value: V,
-    el: Element,
-}
-
-impl<V: 'static> Mountable for AttributeNodeProduct<V> {
-    type Js = JsValue;
-
-    fn el(&self) -> &Element {
-        &self.el
+    fn update_in(self, _: ClassName, node: &Node, memo: &mut bool) {
+        if self.on != *memo {
+            util::class_name(node, self.as_ref());
+            *memo = self.on;
+        }
     }
 }

@@ -1,7 +1,5 @@
 const fragmentDecorators = new WeakMap();
 
-export function __kobold_start(n) { document.body.appendChild(n); }
-
 export function __kobold_append(n,c) { n.appendChild(c); }
 export function __kobold_before(n,i) { n.before(i); }
 export function __kobold_unmount(n) { n.remove(); }
@@ -38,17 +36,17 @@ export function __kobold_fragment_drop(f)
 	delete f.$begin;
 	delete f.$end;
 }
-export function __kobold_text_node(t) { return document.createTextNode(t); }
-export function __kobold_update_text(n,t) { n.textContent = t; }
 
-export function __kobold_attr(n,v) { let a = document.createAttribute(n); a.value = v; return a; }
-export function __kobold_attr_class(v) { let a = document.createAttribute('class'); a.value = v; return a; }
-export function __kobold_attr_style(v) { let a = document.createAttribute('style'); a.value = v; return a; }
-export function __kobold_attr_set(n,k,v) { n.setAttribute(k, v); }
-export function __kobold_attr_update(n,v) { n.value = v; }
+export function __kobold_set_text(n,t) { n.textContent = t; }
+export function __kobold_set_attr(n,a,v) { n.setAttribute(a, v); }
 
-export function __kobold_attr_checked_set(n,v) { if (n.checked !== v) n.checked = v; }
-export function __kobold_class_set(n,v) { n.className = v; }
-export function __kobold_class_add(n,v) { n.classList.add(v); }
-export function __kobold_class_remove(n,v) { n.classList.remove(v); }
-export function __kobold_class_replace(n,o,v) { n.classList.replace(o,v); }
+export function __kobold_checked(n,v) { if (n.checked !== v) n.checked = v; }
+export function __kobold_class_name(n,v) { n.className = v; }
+export function __kobold_href(n,v) { n.href = v; }
+export function __kobold_style(n,v) { n.style = v; }
+export function __kobold_value(n,v) { n.value = v; }
+
+export function __kobold_add_class(n,v) { n.classList.add(v); }
+export function __kobold_remove_class(n,v) { n.classList.remove(v); }
+export function __kobold_replace_class(n,o,v) { n.classList.replace(o,v); }
+export function __kobold_toggle_class(n,c,v) { n.classList.toggle(c,v); }

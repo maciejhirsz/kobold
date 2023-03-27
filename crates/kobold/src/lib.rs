@@ -13,7 +13,7 @@
 //! Kobold keeps track of the DOM node references for these expressions.
 //!
 //! Since the exact types the expressions evaluate to are known to the Rust compiler, update calls can diff them by
-//! value ([or pointer](crate::value::StrExt::fast_diff)) and surgically update the DOM should they change. Changing a
+//! value ([or pointer](crate::diff::StrExt::fast_diff)) and surgically update the DOM should they change. Changing a
 //! string or an integer only updates the exact [`Text` node](https://developer.mozilla.org/en-US/docs/Web/API/Text)
 //! that string or integer was rendered to.
 //!
@@ -286,11 +286,15 @@ use wasm_bindgen::{JsCast, JsValue};
 
 pub mod attribute;
 pub mod branching;
+pub mod diff;
 pub mod dom;
 pub mod event;
 pub mod list;
 pub mod util;
-pub mod value;
+
+mod value;
+
+pub use value::Value;
 
 #[cfg(feature = "stateful")]
 pub mod stateful;
@@ -302,9 +306,9 @@ pub mod stateful;
 /// use kobold::prelude::*;
 /// ```
 pub mod prelude {
+    pub use crate::diff::{Diff as _, StrExt as _};
     pub use crate::event::{Event, KeyboardEvent, MouseEvent};
     pub use crate::list::ListIteratorExt as _;
-    pub use crate::value::{StrExt as _, Stringify as _};
     pub use crate::{bind, class};
     pub use crate::{component, view, View};
 
@@ -429,7 +433,7 @@ pub fn start(html: impl View) {
 
     let product = ManuallyDrop::new(html.build());
 
-    util::__kobold_start(product.js());
+    util::append_body(product.js());
 }
 
 fn init_panic_hook() {
@@ -452,16 +456,10 @@ fn init_panic_hook() {
 #[macro_export]
 macro_rules! class {
     ($class:literal if $on:expr) => {
-        ::kobold::attribute::OptionalClass::new($class, $on).no_diff()
-    };
-    ($class:literal) => {
-        $class.no_diff()
+        ::kobold::attribute::OptionalClass::new($class, $on)
     };
     ($class:tt if $on:expr) => {
         ::kobold::attribute::OptionalClass::new($class, $on)
-    };
-    ($class:expr) => {
-        $class
     };
 }
 

@@ -5,7 +5,35 @@ use std::ops::Deref;
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
-use crate::{util, Mountable};
+use crate::util;
+use crate::value::IntoText;
+use crate::Mountable;
+
+/// A settable property of a DOM `Node`
+pub trait Property<Abi> {
+    fn set(self, this: &Node, value: Abi);
+}
+
+/// The `Node.textContent` property: <https://developer.mozilla.org/en-US/docs/Web/API/Node/textContent>
+pub struct TextContent;
+
+impl Property<&str> for TextContent {
+    fn set(self, this: &Node, value: &str) {
+        util::set_text(this, value)
+    }
+}
+
+impl Property<f64> for TextContent {
+    fn set(self, this: &Node, value: f64) {
+        util::set_text_num(this, value)
+    }
+}
+
+impl Property<bool> for TextContent {
+    fn set(self, this: &Node, value: bool) {
+        util::set_text_bool(this, value)
+    }
+}
 
 #[derive(Clone)]
 pub struct Element {
@@ -20,9 +48,9 @@ enum Kind {
 }
 
 impl Deref for Element {
-    type Target = JsValue;
+    type Target = Node;
 
-    fn deref(&self) -> &JsValue {
+    fn deref(&self) -> &Node {
         &self.node
     }
 }
@@ -58,6 +86,14 @@ impl Deref for Fragment {
     }
 }
 
+/// A helper trait describing integers that might not fit in the JavaScript
+/// number type and therefore might have to be passed as strings.
+pub trait LargeInt: Sized + Copy + PartialEq + 'static {
+    type Downcast: TryFrom<Self> + Into<f64> + IntoText;
+
+    fn stringify<F: FnOnce(&str) -> R, R>(&self, f: F) -> R;
+}
+
 impl Element {
     pub fn new(node: Node) -> Self {
         Element {
@@ -66,8 +102,8 @@ impl Element {
         }
     }
 
-    pub fn new_text(text: &str) -> Self {
-        Self::new(util::__kobold_text_node(text))
+    pub fn new_text(text: impl IntoText) -> Self {
+        Self::new(text.into_text())
     }
 
     pub fn new_empty() -> Self {
@@ -81,10 +117,6 @@ impl Element {
             kind: Kind::Fragment,
             node,
         }
-    }
-
-    pub fn set_text(&self, text: &str) {
-        util::__kobold_update_text(&self.node, text);
     }
 
     pub fn anchor(&self) -> &JsValue {

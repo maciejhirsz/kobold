@@ -1,7 +1,9 @@
 use std::fmt::{Arguments, Write};
 
+use proc_macro::{Literal, TokenStream};
+
 use crate::dom::{Attribute, AttributeValue, CssValue, HtmlElement};
-use crate::gen::{append, Abi, DomNode, Generator, IntoGenerator, JsArgument, Short};
+use crate::gen::{append, DomNode, Generator, IntoGenerator, JsArgument, Short};
 use crate::itertools::IteratorExt;
 use crate::parse::IdentExt;
 use crate::tokenize::prelude::*;
@@ -40,7 +42,7 @@ impl IntoGenerator for HtmlElement {
             var,
             code: String::new(),
             args: Vec::new(),
-            hoisted: self.classes.iter().any(CssValue::is_expression),
+            hoisted: false, // None, // self.classes.iter().any(CssValue::is_expression),
         };
 
         match self.classes.len() {
@@ -48,13 +50,19 @@ impl IntoGenerator for HtmlElement {
             1 => match self.classes.remove(0) {
                 CssValue::Literal(class) => writeln!(el, "{var}.className={class};"),
                 CssValue::Expression(expr) => {
-                    let class = gen.add_attribute(
-                        el.var,
-                        Abi::Borrowed("&'abi str"),
-                        call("::kobold::attribute::ClassName::from", expr.stream),
-                    );
+                    el.hoisted = true;
 
-                    el.args.push(JsArgument::with_abi(class, "&str"));
+                    let attr = Attr {
+                        name: "ClassName",
+                        abi: Some(InlineAbi::Str),
+                    };
+
+                    let class = gen
+                        .add_field(expr.stream)
+                        .attr(el.var, attr, attr.prop())
+                        .name;
+
+                    el.args.push(JsArgument::with_abi(class, InlineAbi::Str));
 
                     writeln!(el, "{var}.className={class};");
                 }
@@ -72,15 +80,21 @@ impl IntoGenerator for HtmlElement {
                     writeln!(el, "{var}.classList.add({classes});");
                 }
 
+                let attr = Attr {
+                    name: "Class",
+                    abi: Some(InlineAbi::Str),
+                };
+
                 for class in self.classes {
                     if let CssValue::Expression(expr) = class {
-                        let class = gen.add_attribute(
-                            el.var,
-                            Abi::Borrowed("&'abi str"),
-                            call("::kobold::attribute::Class::from", expr.stream),
-                        );
+                        el.hoisted = true;
 
-                        el.args.push(JsArgument::with_abi(class, "&str"));
+                        let class = gen
+                            .add_field(expr.stream)
+                            .attr(el.var, attr, attr.prop())
+                            .name;
+
+                        el.args.push(JsArgument::with_abi(class, InlineAbi::Str));
 
                         writeln!(el, "{class} && {var}.classList.add({class});");
                     }
@@ -96,52 +110,80 @@ impl IntoGenerator for HtmlElement {
                 AttributeValue::Boolean(value) => {
                     writeln!(el, "{var}.{name}={value};");
                 }
-                AttributeValue::Expression(expr) => name.with_str(|attr| {
-                    let arg = if attr.starts_with("on") && attr.len() > 2 {
-                        let event = &attr[2..];
+                AttributeValue::Expression(expr) => match name.with_str(attribute_type) {
+                    AttributeType::Event { event } => {
                         let target = element_js_type(el.tag.as_str());
-                        let event_type = event_js_type(event);
+                        let event_type = event_js_type(&event);
 
                         let callback = call(
                             format_args!(
                                 "::kobold::event::event_handler::<\
-                                    ::kobold::event::{event_type}<\
-                                        ::kobold::reexport::web_sys::{target}\
-                                    >\
-                                >"
+                                        ::kobold::event::{event_type}<\
+                                            ::kobold::reexport::web_sys::{target}\
+                                        >\
+                                    >"
                             ),
                             expr.stream,
                         );
 
-                        let value = gen.add_expression(callback);
+                        let value = gen.add_field(callback).name;
 
                         writeln!(el, "{var}.addEventListener(\"{event}\",{value});");
 
-                        JsArgument::new(value)
-                    } else if attr == "checked" {
+                        el.args.push(JsArgument::new(value))
+                    }
+                    AttributeType::Provided(attr) => {
                         el.hoisted = true;
-                        let value = gen.add_attribute(
-                            var,
-                            Abi::Owned("bool"),
-                            call("::kobold::attribute::Checked", expr.stream),
-                        );
 
-                        writeln!(el, "{var}.{attr}={value};");
+                        let value = gen.add_field(expr.stream).attr(var, attr, attr.prop()).name;
 
-                        JsArgument::with_abi(value, "bool")
-                    } else {
-                        let value = gen.add_expression(call(
-                            "::kobold::attribute::AttributeNode::new",
-                            (string(attr), ',', expr.stream),
-                        ));
+                        if let Some(abi) = attr.abi {
+                            writeln!(el, "{var}.{name}={value};");
+                            el.args.push(JsArgument::with_abi(value, abi))
+                        }
+                    }
+                    AttributeType::Unknown => {
+                        el.hoisted = true;
 
-                        writeln!(el, "{var}.setAttributeNode({value});");
+                        let prop = name.with_str(Literal::string).tokenize();
+                        let attr = Attr::new("Attribute");
+                        gen.add_field(expr.stream).attr(var, attr, prop);
+                    }
+                },
+                // } else if attr == "checked" {
+                //     el.hoisted = true;
+                //     let value = gen.add_attribute(
+                //         var,
+                //         Abi::Owned("bool"),
+                //         call("::kobold::attribute::Checked", expr.stream),
+                //     );
 
-                        JsArgument::new(value)
-                    };
+                //     writeln!(el, "{var}.{attr}={value};");
 
-                    el.args.push(arg);
-                }),
+                //     JsArgument::with_abi(value, "bool")
+                // } else if provided_attr(attr) {
+                //     let value = gen.add_expression(call(
+                //         format_args!("::kobold::attribute::{attr}"),
+                //         expr.stream,
+                //     ));
+
+                //     writeln!(el, "{var}.setAttributeNode({value});");
+
+                //     JsArgument::new(value)
+                // } else {
+                //     let attr_fn = gen.attribute_constructor(attr);
+
+                //     let value = gen.add_expression(call(
+                //         "::kobold::attribute::AttributeNode::new",
+                //         (ident(&attr_fn), ',', expr.stream),
+                //     ));
+
+                //     writeln!(el, "{var}.setAttributeNode({value});");
+
+                //     JsArgument::new(value)
+                // };
+
+                // el.args.push(arg);
             };
         }
 
@@ -152,6 +194,87 @@ impl IntoGenerator for HtmlElement {
 
         DomNode::Element(el)
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum InlineAbi {
+    Bool,
+    Str,
+}
+
+impl InlineAbi {
+    pub fn abi(self) -> &'static str {
+        match self {
+            InlineAbi::Bool => "bool",
+            InlineAbi::Str => "&str",
+        }
+    }
+
+    pub fn method(self) -> &'static str {
+        match self {
+            InlineAbi::Bool => "==true",
+            InlineAbi::Str => ".as_ref()",
+        }
+    }
+
+    pub fn bound(self) -> &'static str {
+        match self {
+            InlineAbi::Bool => "+ PartialEq<bool>",
+            InlineAbi::Str => "+ AsRef<str>",
+        }
+    }
+}
+
+enum AttributeType {
+    Provided(Attr),
+    Event { event: Box<str> },
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Attr {
+    pub name: &'static str,
+    pub abi: Option<InlineAbi>,
+}
+
+impl Attr {
+    const fn new(name: &'static str) -> Self {
+        Attr { name, abi: None }
+    }
+
+    fn prop(&self) -> TokenStream {
+        format_args!("::kobold::attribute::{}", self.name).tokenize()
+    }
+}
+
+fn attribute_type(attr: &str) -> AttributeType {
+    if attr.starts_with("on") && attr.len() > 2 {
+        return AttributeType::Event {
+            event: attr[2..].into(),
+        };
+    }
+
+    let attr = match attr {
+        "checked" => Attr {
+            name: "Checked",
+            abi: Some(InlineAbi::Bool),
+        },
+        "href" => Attr {
+            name: "Href",
+            abi: Some(InlineAbi::Str),
+        },
+        "style" => Attr {
+            name: "Style",
+            abi: Some(InlineAbi::Str),
+        },
+        "value" => Attr {
+            name: "InputValue",
+            abi: None,
+        },
+        _ => return AttributeType::Unknown,
+    };
+
+    AttributeType::Provided(attr)
 }
 
 #[rustfmt::skip]

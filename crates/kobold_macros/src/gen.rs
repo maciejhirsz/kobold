@@ -15,7 +15,9 @@ mod transient;
 
 pub use element::JsElement;
 pub use fragment::{append, JsFragment};
-pub use transient::{Abi, Field, JsArgument, JsFnName, JsFunction, JsModule, JsString, Transient};
+pub use transient::{
+    Field, FieldKind, JsArgument, JsFnName, JsFunction, JsModule, JsString, Transient,
+};
 
 // Short string for auto-generated variable names
 pub type Short = ArrayString<4>;
@@ -55,26 +57,54 @@ impl Generator {
         self.out.js_type = Some(ty);
     }
 
-    fn add_expression(&mut self, value: TokenStream) -> Short {
+    fn add_field(&mut self, value: TokenStream) -> &mut Field {
         let name = self.names.next();
 
-        self.out.fields.push(Field::View { name, value });
-
-        name
+        self.out.fields.push(Field::new(name, value));
+        self.out.fields.last_mut().unwrap()
     }
 
-    fn add_attribute(&mut self, el: Short, abi: Abi, value: TokenStream) -> Short {
-        let name = self.names.next();
+    // fn add_expression(&mut self, value: TokenStream) -> Short {
+    //     let name = self.names.next();
 
-        self.out.fields.push(Field::Attribute {
-            name,
-            el,
-            abi,
-            value,
-        });
+    //     self.out.fields.push(Field::view(name, value));
 
-        name
-    }
+    //     name
+    // }
+
+    // fn add_attribute(&mut self, el: Short, abi: Abi, value: TokenStream) -> Short {
+    //     let name = self.names.next();
+
+    //     self.out.fields.push(Field {
+    //         name,
+    //         value,
+    //         kind: FieldKind::Attribute { el, abi }
+    //     });
+
+    //     name
+    // }
+
+    // fn attribute_constructor(&mut self, attr: &str) -> JsFnName {
+    //     use std::hash::Hasher;
+
+    //     let mut hasher = fnv::FnvHasher::default();
+    //     attr.hash(&mut hasher);
+
+    //     let hash = hasher.finish();
+    //     let name = JsFnName::try_from(format_args!("__attr_{hash:016x}")).unwrap();
+
+    //     let _ = write!(
+    //         self.out.js.code,
+    //         "export function {name}() {{\
+    //             \nreturn document.createAttribute(\"{attr}\");\
+    //         \n}}\n\
+    //         "
+    //     );
+
+    //     self.out.js.attr_constructors.push(JsAttrConstructor(name));
+
+    //     name
+    // }
 
     fn hoist(&mut self, node: DomNode) -> Option<JsFnName> {
         use std::hash::Hasher;
@@ -147,9 +177,7 @@ trait IntoGenerator {
 
 impl IntoGenerator for Expression {
     fn into_gen(self, gen: &mut Generator) -> DomNode {
-        let name = gen.add_expression(self.stream);
-
-        DomNode::Variable(name)
+        DomNode::Variable(gen.add_field(self.stream).name)
     }
 }
 

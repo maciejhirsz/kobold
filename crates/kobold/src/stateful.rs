@@ -13,7 +13,9 @@ use std::rc::{Rc, Weak};
 
 use web_sys::Node;
 
-use crate::{dom::Element, Mountable, View};
+use crate::diff::Diff;
+use crate::dom::Element;
+use crate::{Mountable, View};
 
 mod hook;
 mod should_render;
@@ -240,3 +242,28 @@ impl<T> WithCell<T> {
         self.borrowed.set(false);
     }
 }
+
+macro_rules! impl_into_state {
+    ($($ty:ty),*) => {
+        $(
+            impl IntoState for $ty {
+                type State = <Self as Diff>::Memo;
+
+                fn init(self) -> Self::State {
+                    self.into_memo()
+                }
+
+                fn update(self, state: &mut Self::State) -> Then {
+                    match self.diff(state) {
+                        false => Then::Stop,
+                        true => Then::Render,
+                    }
+                }
+            }
+        )*
+    };
+}
+
+impl_into_state!(
+    &str, &String, bool, u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64
+);

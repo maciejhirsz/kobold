@@ -146,7 +146,6 @@ dependencies = [
  "console_error_panic_hook",
  "itoa",
  "kobold_macros",
- "ryu",
  "wasm-bindgen",
  "web-sys",
 ]
