@@ -162,9 +162,7 @@ fn FilterView(filter: Filter, state: &Hook<State>) -> impl View + '_ {
     view! {
         <li>
             <a {class} {onclick} href={static filter.href()}>
-            {
-                static filter.label()
-            }
+                { static filter.label() }
             </a>
         </li>
     }
