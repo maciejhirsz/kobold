@@ -68,48 +68,6 @@ impl Generator {
         self.out.fields.last_mut().unwrap()
     }
 
-    // fn add_expression(&mut self, value: TokenStream) -> Short {
-    //     let name = self.names.next();
-
-    //     self.out.fields.push(Field::view(name, value));
-
-    //     name
-    // }
-
-    // fn add_attribute(&mut self, el: Short, abi: Abi, value: TokenStream) -> Short {
-    //     let name = self.names.next();
-
-    //     self.out.fields.push(Field {
-    //         name,
-    //         value,
-    //         kind: FieldKind::Attribute { el, abi }
-    //     });
-
-    //     name
-    // }
-
-    // fn attribute_constructor(&mut self, attr: &str) -> JsFnName {
-    //     use std::hash::Hasher;
-
-    //     let mut hasher = fnv::FnvHasher::default();
-    //     attr.hash(&mut hasher);
-
-    //     let hash = hasher.finish();
-    //     let name = JsFnName::try_from(format_args!("__attr_{hash:016x}")).unwrap();
-
-    //     let _ = write!(
-    //         self.out.js.code,
-    //         "export function {name}() {{\
-    //             \nreturn document.createAttribute(\"{attr}\");\
-    //         \n}}\n\
-    //         "
-    //     );
-
-    //     self.out.js.attr_constructors.push(JsAttrConstructor(name));
-
-    //     name
-    // }
-
     fn hoist(&mut self, node: DomNode) -> Option<JsFnName> {
         use std::hash::Hasher;
 
@@ -181,7 +139,13 @@ trait IntoGenerator {
 
 impl IntoGenerator for Expression {
     fn into_gen(self, gen: &mut Generator) -> DomNode {
-        DomNode::Variable(gen.add_field(self.stream).name)
+        let field = gen.add_field(self.stream);
+
+        if self.is_static {
+            field.kind = FieldKind::StaticView;
+        }
+
+        DomNode::Variable(field.name)
     }
 }
 
