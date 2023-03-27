@@ -22,8 +22,8 @@ pub const fn r#ref(value: &str) -> RefDiff<str> {
     RefDiff(value)
 }
 
-/// `{ use ... }`: disable diffing for `T` and apply its value to the DOM on every render.
-pub const fn r#use<T>(value: T) -> AlwaysUpdate<T> {
+/// `{ override ... }`: disable diffing for `T` and apply its value to the DOM on every render.
+pub const fn r#override<T>(value: T) -> AlwaysUpdate<T> {
     NoDiff(value)
 }
 
