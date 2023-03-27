@@ -90,7 +90,7 @@ fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl View + '_ {
     }
 
     view! {
-        <input #toggle-all.toggle-all type="checkbox" checked={active_count == 0} onclick={onclick} />
+        <input #toggle-all.toggle-all type="checkbox" checked={active_count == 0} {onclick} />
         <label for="toggle-all" />
     }
 }
@@ -161,7 +161,11 @@ fn FilterView(filter: Filter, state: &Hook<State>) -> impl View + '_ {
 
     view! {
         <li>
-            <a {class} {onclick} href={static filter.href()}>{ static filter.label() }</a>
+            <a {class} {onclick} href={static filter.href()}>
+            {
+                static filter.label()
+            }
+            </a>
         </li>
     }
 }

@@ -63,24 +63,34 @@ impl Tokenize for Transient {
         let js_type = self.js_type.unwrap_or("Node");
 
         let mut generics = String::new();
-        let mut generics_product = String::new();
+
         let mut bounds = String::new();
         let mut build = String::new();
         let mut update = String::new();
         let mut declare = String::new();
         let mut vars = String::new();
 
+        let mut product_declare = String::new();
+        let mut product_generics = String::new();
+        let mut product_generics_binds = String::new();
+
         for field in self.fields.iter() {
             let typ = field.make_type();
 
             let _ = write!(generics, "{typ},");
-            let _ = write!(generics_product, "{typ}::Product,");
 
             field.bounds(&mut bounds);
             field.build(&mut build);
             field.update(&mut update);
             field.declare(&mut declare);
             field.var(&mut vars);
+
+            if !field.is_static() {
+                let _ = write!(product_generics, "{typ},");
+                let _ = write!(product_generics_binds, "{typ}::Product,");
+
+                field.declare(&mut product_declare);
+            }
         }
 
         let mut declare_els = String::new();
@@ -122,12 +132,12 @@ impl Tokenize for Transient {
             self.js,
             format_args!(
                 "\
-                    struct TransientProduct <{generics}> {{\
-                        {declare}\
+                    struct TransientProduct <{product_generics}> {{\
+                        {product_declare}\
                         {declare_els}\
                     }}\
                     \
-                    impl<{generics}> ::kobold::Mountable for TransientProduct<{generics}>\
+                    impl<{product_generics}> ::kobold::Mountable for TransientProduct<{product_generics}>\
                     where \
                         Self: 'static,\
                     {{\
@@ -146,7 +156,7 @@ impl Tokenize for Transient {
                     where \
                         {bounds}\
                     {{\
-                        type Product = TransientProduct<{generics_product}>;\
+                        type Product = TransientProduct<{product_generics_binds}>;\
                         \
                         fn build(self) -> Self::Product {{\
                             {build}\
@@ -271,6 +281,7 @@ pub struct Field {
 }
 
 pub enum FieldKind {
+    StaticView,
     View,
     Attribute {
         el: Short,
@@ -284,6 +295,9 @@ impl Debug for Field {
         let Field { name, value, kind } = self;
 
         match kind {
+            FieldKind::StaticView => {
+                write!(f, "{name} <StaticView>: {value}")
+            }
             FieldKind::View => {
                 write!(f, "{name} <View>: {value}")
             }
@@ -308,8 +322,12 @@ impl Field {
         self
     }
 
+    fn is_static(&self) -> bool {
+        matches!(self.kind, FieldKind::StaticView)
+    }
+
     fn is_view(&self) -> bool {
-        matches!(self.kind, FieldKind::View)
+        matches!(self.kind, FieldKind::View | FieldKind::StaticView)
     }
 
     fn name_value(&self) -> (&Short, &TokenStream) {
@@ -328,7 +346,7 @@ impl Field {
         let Field { name, kind, .. } = self;
 
         match kind {
-            FieldKind::View => {
+            FieldKind::View | FieldKind::StaticView => {
                 let mut typ = *name;
                 typ.make_ascii_uppercase();
 
@@ -366,21 +384,25 @@ impl Field {
     fn var(&self, buf: &mut String) {
         let Field { name, kind, .. } = self;
 
-        let _ = match kind {
-            FieldKind::View => write!(buf, "{name},"),
+        match kind {
+            FieldKind::StaticView => (),
+            FieldKind::View => {
+                let _ = write!(buf, "{name},");
+            }
             FieldKind::Attribute { attr, .. } if attr.abi.is_some() => {
-                write!(buf, "{name}: self.{name}.build(),")
+                let _ = write!(buf, "{name}: self.{name}.build(),");
             }
             FieldKind::Attribute { el, prop, .. } => {
-                write!(buf, "{name}: self.{name}.build_in({prop}, &{el}),")
+                let _ = write!(buf, "{name}: self.{name}.build_in({prop}, &{el}),");
             }
-        };
+        }
     }
 
     fn update(&self, buf: &mut String) {
         let Field { name, kind, .. } = self;
 
         match kind {
+            FieldKind::StaticView => (),
             FieldKind::View => {
                 let _ = write!(buf, "self.{name}.update(&mut p.{name});");
             }
