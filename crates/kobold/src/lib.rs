@@ -289,8 +289,12 @@ pub mod dom;
 pub mod event;
 pub mod keywords;
 pub mod list;
-pub mod util;
-pub mod value;
+
+mod util;
+mod value;
+
+pub use util::Static;
+pub use value::Value;
 
 #[cfg(feature = "stateful")]
 pub mod stateful;

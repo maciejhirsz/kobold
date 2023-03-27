@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//! Utilities for diffing values in render functions.
+
 use std::ops::Deref;
 
 use web_sys::Node;
@@ -9,8 +11,92 @@ use web_sys::Node;
 use crate::attribute::AttributeView;
 use crate::dom::Element;
 use crate::value::IntoText;
-use crate::View;
+use crate::{Mountable, View};
 
+/// This is a wrapper around a `view` that will prevent updates to it, unless
+/// the value of `guard` has changed.
+///
+/// Fencing against updates can be a great optimization that combines well
+/// with the [`use`](crate::keywords::use) keyword.
+///
+/// ```
+/// use kobold::prelude::*;
+/// use kobold::diff::fence;
+///
+/// struct User {
+///     id: usize,
+///     name: String,
+///     email: String,
+/// }
+///
+/// #[component]
+/// fn UserRow(user: &User) -> impl View + '_ {
+///     fence(user.id, || view! {
+///         // This row is only re-rendered if `user.id` has changed
+///         <tr>
+///             <td>{ user.id }</td>
+///
+///             // Assuming that `name` never changes for a `User`
+///             // we can disable diffing here with the `use` keyword.
+///             <td>{ use &user.name }</td>
+///             <td>{ use &user.email }</td>
+///         </tr>
+///     })
+/// }
+/// ```
+pub const fn fence<D, V, F>(guard: D, render: F) -> Fence<D, F>
+where
+    D: Diff,
+    V: View,
+    F: FnOnce() -> V,
+{
+    Fence {
+        guard,
+        inner: render,
+    }
+}
+
+/// Smart [`View`](View) that guards against unnecessary renders, see [`fence`](fence).
+pub struct Fence<D, F> {
+    guard: D,
+    inner: F,
+}
+
+impl<D, F, V> View for Fence<D, F>
+where
+    D: Diff,
+    F: FnOnce() -> V,
+    V: View,
+{
+    type Product = Fence<D::Memo, V::Product>;
+
+    fn build(self) -> Self::Product {
+        Fence {
+            guard: self.guard.into_memo(),
+            inner: (self.inner)().build(),
+        }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        if self.guard.diff(&mut p.guard) {
+            (self.inner)().update(&mut p.inner);
+        }
+    }
+}
+
+impl<D, P> Mountable for Fence<D, P>
+where
+    D: 'static,
+    P: Mountable,
+{
+    type Js = P::Js;
+
+    fn el(&self) -> &Element {
+        self.inner.el()
+    }
+}
+
+/// Trait that defines how different values can be _diffed_ at runtime.
 pub trait Diff: Copy {
     type Memo: 'static;
 
@@ -74,6 +160,8 @@ macro_rules! impl_diff {
 impl_diff_str!(&str, &String);
 impl_diff!(bool, u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64);
 
+/// Smart [`View`](View) that only updates its content when the reference to T has changed.
+/// See [`ref`](crate::keywords::ref).
 #[repr(transparent)]
 pub struct RefDiff<'a, T: ?Sized>(pub(crate) &'a T);
 
@@ -118,6 +206,10 @@ impl<T: ?Sized> Diff for RefDiff<'_, T> {
     }
 }
 
+/// Smart [`View`](View) that never performs diffing and instead always triggers
+/// updates (`U = true`) or never triggers updates (`U = false`).
+///
+/// See [`static`](crate::keywords::static) and [`use`](crate::keywords::use).
 #[derive(Clone, Copy)]
 #[repr(transparent)]
 pub struct NoDiff<T, const U: bool = false>(pub(crate) T);
