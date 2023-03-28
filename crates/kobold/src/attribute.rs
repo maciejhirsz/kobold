@@ -5,7 +5,7 @@
 //! Utilities for dealing with DOM attributes
 use web_sys::Node;
 
-use crate::diff::{Diff, RefDiff};
+use crate::diff::{Diff, Ref};
 use crate::dom::Property;
 use crate::util;
 use crate::value::Value;
@@ -144,7 +144,7 @@ macro_rules! impl_attribute_view {
     };
 }
 
-impl_attribute_view!(&str, &String, RefDiff<'_, str>);
+impl_attribute_view!(&str, &String, Ref<'_, str>);
 impl_attribute_view!(u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64);
 
 #[inline]
