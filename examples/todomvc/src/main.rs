@@ -86,7 +86,6 @@ fn EntryInput(state: &Hook<State>) -> impl View + '_ {
 mod test {
     use super::*;
 
-
     #[component]
     fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl View + '_ {
         bind! { state:
@@ -98,7 +97,6 @@ mod test {
             <label for="toggle-all" />
         }
     }
-
 }
 
 #[component]

@@ -9,7 +9,8 @@ use std::ops::Deref;
 use web_sys::Node;
 
 use crate::attribute::AttributeView;
-use crate::value::IntoText;
+use crate::dom::TextContent;
+use crate::value::{IntoText, Value};
 use crate::{Mountable, View};
 
 /// This is a wrapper around a `view` that will prevent updates to it, unless
@@ -238,30 +239,38 @@ macro_rules! impl_no_diff {
 
         impl<T> View for $name<T>
         where
-            T: IntoText + Copy,
+            T: Value<TextContent> + IntoText + Copy,
         {
             type Product = Node;
 
-            fn build(self) -> Self::Product {
+            fn build(self) -> Node {
                 self.into_text()
             }
 
-            fn update(self, _: &mut Self::Product) {}
+            fn update(self, node: &mut Node) {
+                if $update {
+                    self.0.set_prop(TextContent, node);
+                }
+            }
         }
 
         impl<T, P> AttributeView<P> for $name<T>
         where
-            T: AttributeView<P>,
+            T: Value<P>,
         {
             type Product = ();
 
             fn build(self) {}
 
             fn build_in(self, prop: P, node: &Node) {
-                self.0.build_in(prop, node);
+                self.0.set_prop(prop, node);
             }
 
-            fn update_in(self, _: P, _: &Node, _: &mut ()) {}
+            fn update_in(self, prop: P, node: &Node, _: &mut ()) {
+                if $update {
+                    self.0.set_prop(prop, node);
+                }
+            }
         }
 
         impl<T> Diff for $name<T>

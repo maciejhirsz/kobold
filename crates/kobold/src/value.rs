@@ -88,10 +88,7 @@ impl View for String {
     fn build(self) -> Self::Product {
         let node = self.as_str().into_text();
 
-        TextProduct {
-            memo: self,
-            node,
-        }
+        TextProduct { memo: self, node }
     }
 
     fn update(self, p: &mut Self::Product) {
