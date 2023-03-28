@@ -9,6 +9,10 @@ use web_sys::Node;
 use crate::dom::{Fragment, FragmentBuilder};
 use crate::{Mountable, View};
 
+mod log;
+
+pub use log::Log;
+
 /// Wrapper type that implements `View` for iterators. Use the [`list`](ListIteratorExt::list)
 /// method on the iterator to create one.
 #[repr(transparent)]
