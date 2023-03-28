@@ -9,7 +9,6 @@ use std::ops::Deref;
 use web_sys::Node;
 
 use crate::attribute::AttributeView;
-use crate::dom::Element;
 use crate::value::IntoText;
 use crate::{Mountable, View};
 
@@ -90,9 +89,10 @@ where
     P: Mountable,
 {
     type Js = P::Js;
+    type Anchor = P::Anchor;
 
-    fn el(&self) -> &Element {
-        self.inner.el()
+    fn anchor(&self) -> &Self::Anchor {
+        self.inner.anchor()
     }
 }
 
@@ -240,10 +240,10 @@ macro_rules! impl_no_diff {
         where
             T: IntoText + Copy,
         {
-            type Product = Element;
+            type Product = Node;
 
             fn build(self) -> Self::Product {
-                Element::new(self.into_text())
+                self.into_text()
             }
 
             fn update(self, _: &mut Self::Product) {}
