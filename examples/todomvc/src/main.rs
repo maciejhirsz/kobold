@@ -83,6 +83,24 @@ fn EntryInput(state: &Hook<State>) -> impl View + '_ {
     }
 }
 
+mod test {
+    use super::*;
+
+
+    #[component]
+    fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl View + '_ {
+        bind! { state:
+            let onclick = move |_| state.set_all(active_count != 0);
+        }
+
+        view! {
+            <input #toggle-all.toggle-all type="checkbox" checked={active_count == 0} {onclick} />
+            <label for="toggle-all" />
+        }
+    }
+
+}
+
 #[component]
 fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl View + '_ {
     bind! { state:

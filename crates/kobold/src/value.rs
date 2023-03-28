@@ -5,10 +5,10 @@
 use web_sys::Node;
 
 use crate::diff::{Diff, Ref};
-use crate::dom::{LargeInt, Property, TextContent};
+use crate::dom::{Property, TextContent};
 use crate::util;
 
-use crate::{Element, Mountable, View};
+use crate::{Mountable, View};
 
 /// Value that can be set as a property on DOM node
 pub trait Value<P> {
@@ -70,14 +70,15 @@ where
 
 pub struct TextProduct<M> {
     memo: M,
-    el: Element,
+    node: Node,
 }
 
 impl<M: 'static> Mountable for TextProduct<M> {
     type Js = web_sys::Text;
+    type Anchor = Node;
 
-    fn el(&self) -> &Element {
-        &self.el
+    fn anchor(&self) -> &Node {
+        &self.node
     }
 }
 
@@ -85,17 +86,28 @@ impl View for String {
     type Product = TextProduct<String>;
 
     fn build(self) -> Self::Product {
-        let el = Element::new_text(self.as_str());
+        let node = self.as_str().into_text();
 
-        TextProduct { memo: self, el }
+        TextProduct {
+            memo: self,
+            node,
+        }
     }
 
     fn update(self, p: &mut Self::Product) {
         if p.memo != self {
             p.memo = self;
-            p.memo.set_prop(TextContent, &p.el);
+            p.memo.set_prop(TextContent, &p.node);
         }
     }
+}
+
+/// A helper trait describing integers that might not fit in the JavaScript
+/// number type and therefore might have to be passed as strings.
+pub trait LargeInt: Sized + Copy + PartialEq + 'static {
+    type Downcast: TryFrom<Self> + Into<f64> + IntoText;
+
+    fn stringify<F: FnOnce(&str) -> R, R>(&self, f: F) -> R;
 }
 
 macro_rules! large_int {
@@ -144,15 +156,15 @@ macro_rules! impl_text_view {
                 type Product = TextProduct<<Self as Diff>::Memo>;
 
                 fn build(self) -> Self::Product {
-                    let el = Element::new(self.into_text());
-                    let memo = self.into_memo();
-
-                    TextProduct { memo, el }
+                    TextProduct {
+                        memo: self.into_memo(),
+                        node: self.into_text(),
+                    }
                 }
 
                 fn update(self, p: &mut Self::Product) {
                     if self.diff(&mut p.memo) {
-                        self.set_prop(TextContent, &p.el);
+                        self.set_prop(TextContent, &p.node);
                     }
                 }
             }

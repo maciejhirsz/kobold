@@ -5,7 +5,6 @@
 use wasm_bindgen::prelude::*;
 use web_sys::Node;
 
-use crate::dom::Element;
 use crate::View;
 
 /// Wrapper that turns `extern` precompiled JavaScript functions into [`View`](View)s.
@@ -16,13 +15,13 @@ impl<F> View for Precompiled<F>
 where
     F: Fn() -> Node,
 {
-    type Product = Element;
+    type Product = Node;
 
-    fn build(self) -> Element {
-        Element::new(self.0())
+    fn build(self) -> Node {
+        self.0()
     }
 
-    fn update(self, _: &mut Element) {}
+    fn update(self, _: &mut Node) {}
 }
 
 #[wasm_bindgen]
@@ -50,6 +49,8 @@ extern "C" {
     pub(crate) fn __kobold_fragment_append(f: &Node, c: &JsValue);
     pub(crate) fn __kobold_fragment_unmount(f: &Node);
     pub(crate) fn __kobold_fragment_replace(f: &Node, new: &JsValue);
+    pub(crate) fn __kobold_dyn_unmount(f: &JsValue);
+    pub(crate) fn __kobold_dyn_replace(f: &JsValue, new: &JsValue);
 
     // `set_text` variants ----------------
 
