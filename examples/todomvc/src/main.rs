@@ -119,7 +119,7 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl V
         view! {
             <input .edit
                 type="text"
-                value={ref entry.description}
+                value={static &entry.description}
                 {onmouseover}
                 {onkeypress}
                 {onblur}
