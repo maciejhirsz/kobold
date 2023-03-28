@@ -293,7 +293,7 @@ pub mod list;
 mod util;
 mod value;
 
-pub use util::Static;
+pub use util::Precompiled;
 pub use value::Value;
 
 #[cfg(feature = "stateful")]

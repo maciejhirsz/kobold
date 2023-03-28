@@ -98,16 +98,20 @@ where
 
 /// Trait that defines how different values can be _diffed_ at runtime.
 pub trait Diff: Copy {
+    /// Data used to check if current value is different from the one in the past.
     type Memo: 'static;
 
+    /// Generate a new `Memo` for this type.
     fn into_memo(self) -> Self::Memo;
 
+    /// Diff current value against the `Memo`, update it if necessary and return
+    /// `true` if it has changed.
     fn diff(self, memo: &mut Self::Memo) -> bool;
 
     #[doc(hidden)]
     #[deprecated(since = "0.6.0", note = "please use `{ static <expression> }` instead")]
-    fn no_diff(self) -> NoDiff<Self> {
-        NoDiff(self)
+    fn no_diff(self) -> Static<Self> {
+        Static(self)
     }
 }
 
@@ -163,17 +167,17 @@ impl_diff!(bool, u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize,
 /// Smart [`View`](View) that only updates its content when the reference to T has changed.
 /// See [`ref`](crate::keywords::ref).
 #[repr(transparent)]
-pub struct RefDiff<'a, T: ?Sized>(pub(crate) &'a T);
+pub struct Ref<'a, T: ?Sized>(pub(crate) &'a T);
 
-impl<T: ?Sized> Clone for RefDiff<'_, T> {
+impl<T: ?Sized> Clone for Ref<'_, T> {
     fn clone(&self) -> Self {
-        RefDiff(self.0)
+        Ref(self.0)
     }
 }
 
-impl<T: ?Sized> Copy for RefDiff<'_, T> {}
+impl<T: ?Sized> Copy for Ref<'_, T> {}
 
-impl<T: ?Sized> Deref for RefDiff<'_, T> {
+impl<T: ?Sized> Deref for Ref<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -181,13 +185,13 @@ impl<T: ?Sized> Deref for RefDiff<'_, T> {
     }
 }
 
-impl<T: ?Sized> AsRef<T> for RefDiff<'_, T> {
+impl<T: ?Sized> AsRef<T> for Ref<'_, T> {
     fn as_ref(&self) -> &T {
         self.0
     }
 }
 
-impl<T: ?Sized> Diff for RefDiff<'_, T> {
+impl<T: ?Sized> Diff for Ref<'_, T> {
     type Memo = *const ();
 
     fn into_memo(self) -> Self::Memo {
@@ -207,77 +211,92 @@ impl<T: ?Sized> Diff for RefDiff<'_, T> {
 }
 
 /// Smart [`View`](View) that never performs diffing and instead always triggers
-/// updates (`U = true`) or never triggers updates (`U = false`).
+/// updates.
 ///
-/// See [`static`](crate::keywords::static) and [`use`](crate::keywords::use).
+/// See [`use`](crate::keywords::use)
 #[derive(Clone, Copy)]
 #[repr(transparent)]
-pub struct NoDiff<T, const U: bool = false>(pub(crate) T);
+pub struct Eager<T>(pub(crate) T);
 
-impl<T, const U: bool> Deref for NoDiff<T, U> {
-    type Target = T;
+/// Smart [`View`](View) that never performs diffing and instead never triggers
+/// updates.
+///
+/// See [`static`](crate::keywords::static)
+#[derive(Clone, Copy)]
+#[repr(transparent)]
+pub struct Static<T>(pub(crate) T);
 
-    fn deref(&self) -> &T {
-        &self.0
-    }
+macro_rules! impl_no_diff {
+    ($name:ident, $update:expr) => {
+        impl<T> Deref for $name<T> {
+            type Target = T;
+
+            fn deref(&self) -> &T {
+                &self.0
+            }
+        }
+
+        impl<T> View for $name<T>
+        where
+            T: IntoText + Copy,
+        {
+            type Product = Element;
+
+            fn build(self) -> Self::Product {
+                Element::new(self.into_text())
+            }
+
+            fn update(self, _: &mut Self::Product) {}
+        }
+
+        impl<T, P> AttributeView<P> for $name<T>
+        where
+            T: AttributeView<P>,
+        {
+            type Product = ();
+
+            fn build(self) {}
+
+            fn build_in(self, prop: P, node: &Node) {
+                self.0.build_in(prop, node);
+            }
+
+            fn update_in(self, _: P, _: &Node, _: &mut ()) {}
+        }
+
+        impl<T> Diff for $name<T>
+        where
+            T: Copy,
+        {
+            type Memo = ();
+
+            fn into_memo(self) {}
+
+            fn diff(self, _: &mut ()) -> bool {
+                $update
+            }
+        }
+
+        impl AsRef<str> for $name<&str> {
+            fn as_ref(&self) -> &str {
+                self.0
+            }
+        }
+    };
 }
 
-impl<T, const U: bool> View for NoDiff<T, U>
-where
-    T: IntoText + Copy,
-{
-    type Product = Element;
-
-    fn build(self) -> Self::Product {
-        Element::new(self.into_text())
-    }
-
-    fn update(self, _: &mut Self::Product) {}
-}
-
-impl<T, P, const U: bool> AttributeView<P> for NoDiff<T, U>
-where
-    T: AttributeView<P>,
-{
-    type Product = ();
-
-    fn build(self) {}
-
-    fn build_in(self, prop: P, node: &Node) {
-        self.0.build_in(prop, node);
-    }
-
-    fn update_in(self, _: P, _: &Node, _: &mut ()) {}
-}
-
-impl<T, const U: bool> Diff for NoDiff<T, U>
-where
-    T: Copy,
-{
-    type Memo = ();
-
-    fn into_memo(self) {}
-
-    fn diff(self, _: &mut ()) -> bool {
-        U
-    }
-}
-
-impl<const U: bool> AsRef<str> for NoDiff<&str, U> {
-    fn as_ref(&self) -> &str {
-        self.0
-    }
-}
+impl_no_diff!(Eager, true);
+impl_no_diff!(Static, false);
 
 #[doc(hidden)]
 pub trait StrExt {
     #[deprecated(since = "0.6.0", note = "please use `{ ref <expression> }` instead")]
-    fn fast_diff(&self) -> RefDiff<str>;
+    fn fast_diff(&self) -> Ref<str>;
 }
 
 #[doc(hidden)]
 impl StrExt for str {
-    fn fast_diff(&self) -> RefDiff<str> {
-        RefDiff(self)
+    fn fast_diff(&self) -> Ref<str> {
+        Ref(self)
     }
 }

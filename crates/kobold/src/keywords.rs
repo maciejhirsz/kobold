@@ -4,7 +4,7 @@
 
 //! Keyword handles for `{ ... }` expressions in the [`view!`](crate::view) macro.
 
-use crate::diff::{NoDiff, RefDiff};
+use crate::diff::{Eager, Ref, Static};
 use crate::list::List;
 use crate::View;
 
@@ -54,22 +54,18 @@ where
 ///     }
 /// }
 /// ```
-pub const fn r#ref(value: &str) -> RefDiff<str> {
-    RefDiff(value)
+pub const fn r#ref(value: &str) -> Ref<str> {
+    Ref(value)
 }
 
 /// `{ use ... }`: disable diffing for `T` and apply its value to the DOM on every render.
 ///
 /// This is usually not advised, but can be useful when combined with [`fence`](crate::diff::fence).
-pub const fn r#use<T>(value: T) -> AlwaysUpdate<T> {
-    NoDiff(value)
+pub const fn r#use<T>(value: T) -> Eager<T> {
+    Eager(value)
 }
 
 /// `{ static ... }` disable diffing for `T` and never update its value in the DOM after the initial render.
-pub const fn r#static<T>(value: T) -> NeverUpdate<T> {
-    NoDiff(value)
+pub const fn r#static<T>(value: T) -> Static<T> {
+    Static(value)
 }
-
-pub type NeverUpdate<T> = NoDiff<T, false>;
-
-pub type AlwaysUpdate<T> = NoDiff<T, true>;

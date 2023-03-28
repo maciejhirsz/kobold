@@ -8,9 +8,11 @@ use web_sys::Node;
 use crate::dom::Element;
 use crate::View;
 
-pub struct Static<F = fn() -> Node>(pub F);
+/// Wrapper that turns `extern` precompiled JavaScript functions into [`View`](View)s.
+#[repr(transparent)]
+pub struct Precompiled<F = fn() -> Node>(pub F);
 
-impl<F> View for Static<F>
+impl<F> View for Precompiled<F>
 where
     F: Fn() -> Node,
 {
