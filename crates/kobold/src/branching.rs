@@ -90,6 +90,7 @@
 //! }
 //! ```
 
+use wasm_bindgen::JsValue;
 use web_sys::Node;
 
 use crate::dom::{self, Anchor, DynAnchor};
@@ -152,6 +153,22 @@ macro_rules! branch {
                     )*
                 }
             }
+
+            fn replace_with(&self, new: &JsValue) {
+                match self {
+                    $(
+                        $name::$var(p) => p.replace_with(new),
+                    )*
+                }
+            }
+
+            fn unmount(&self) {
+                match self {
+                    $(
+                        $name::$var(p) => p.unmount(),
+                    )*
+                }
+            }
         }
 
     };
@@ -207,7 +224,7 @@ impl<T: View> View for Option<T> {
             (html, old) => {
                 let new = html.build();
 
-                old.anchor().replace_with(new.js());
+                old.replace_with(new.js());
 
                 *old = new;
             }

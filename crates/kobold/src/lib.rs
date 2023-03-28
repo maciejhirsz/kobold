@@ -424,6 +424,14 @@ pub trait Mountable: 'static {
     fn js(&self) -> &JsValue {
         self.anchor().as_ref()
     }
+
+    fn unmount(&self) {
+        self.anchor().unmount();
+    }
+
+    fn replace_with(&self, new: &JsValue) {
+        self.anchor().replace_with(new);
+    }
 }
 
 /// Start the Kobold app by mounting given [`View`](View) in the document `body`.

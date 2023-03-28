@@ -6,7 +6,7 @@
 
 use web_sys::Node;
 
-use crate::dom::{Anchor, Fragment, FragmentBuilder};
+use crate::dom::{Fragment, FragmentBuilder};
 use crate::{Mountable, View};
 
 /// Wrapper type that implements `View` for iterators. Use the [`list`](ListIteratorExt::list)
@@ -82,7 +82,7 @@ where
 
         if p.visible > updated {
             for old in p.list[updated..p.visible].iter() {
-                old.anchor().unmount();
+                old.unmount();
             }
             p.visible = updated;
         } else {
