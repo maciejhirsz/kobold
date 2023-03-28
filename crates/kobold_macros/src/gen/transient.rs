@@ -33,7 +33,7 @@ impl Transient {
         self.fields.is_empty()
             && self.els.len() == 1
             && self.js.functions.len() == 1
-            && jsfn.constructor == "Element::new"
+            && jsfn.anchor == Anchor::Node
             && jsfn.args.is_empty()
     }
 
@@ -96,13 +96,11 @@ impl Tokenize for Transient {
         let mut declare_els = String::new();
 
         for (jsfn, el) in self.js.functions.iter().zip(self.els) {
-            let JsFunction {
-                name,
-                constructor,
-                args,
-            } = jsfn;
+            let JsFunction { name, anchor, args } = jsfn;
 
-            let _ = write!(declare_els, "{el}: ::kobold::dom::Element,");
+            let anchor = anchor.into_type();
+
+            let _ = write!(declare_els, "{el}: {anchor},");
 
             let args = args
                 .iter()
@@ -117,12 +115,17 @@ impl Tokenize for Transient {
                 })
                 .join(",");
 
-            let _ = write!(
-                build,
-                "let {el} = ::kobold::dom::{constructor}({name}({args}));"
-            );
+            let _ = write!(build, "let {el}: {anchor} = {name}({args}).into();");
             let _ = write!(vars, "{el},");
         }
+
+        let anchor_type = self
+            .js
+            .functions
+            .last()
+            .map(|jsfn| jsfn.anchor)
+            .unwrap_or(Anchor::Node)
+            .into_type();
 
         block((
             "\
@@ -142,8 +145,9 @@ impl Tokenize for Transient {
                         Self: 'static,\
                     {{\
                         type Js = ::kobold::reexport::web_sys::{js_type};\
+                        type Anchor = {anchor_type};\
                         \
-                        fn el(&self) -> &::kobold::dom::Element {{\
+                        fn anchor(&self) -> &Self::Anchor {{\
                             &self.e0\
                         }}\
                     }}\
@@ -229,8 +233,23 @@ impl Tokenize for JsAttrConstructor {
 #[derive(Debug)]
 pub struct JsFunction {
     pub name: JsFnName,
-    pub constructor: &'static str,
+    pub anchor: Anchor,
     pub args: Vec<JsArgument>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Anchor {
+    Node,
+    Fragment,
+}
+
+impl Anchor {
+    fn into_type(self) -> &'static str {
+        match self {
+            Anchor::Node => "::kobold::reexport::web_sys::Node",
+            Anchor::Fragment => "::kobold::dom::Fragment",
+        }
+    }
 }
 
 impl Tokenize for JsFunction {

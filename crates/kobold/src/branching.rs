@@ -90,9 +90,11 @@
 //! }
 //! ```
 
+use wasm_bindgen::JsValue;
 use web_sys::Node;
 
-use crate::{Element, Mountable, View};
+use crate::dom::{self, Anchor, DynAnchor};
+use crate::{Mountable, View};
 
 macro_rules! branch {
     ($name:ident < $($var:ident),* >) => {
@@ -127,7 +129,7 @@ macro_rules! branch {
                     (html, old) => {
                         let new = html.build();
 
-                        old.el().replace_with(new.js());
+                        old.anchor().replace_with(new.js());
 
                         *old = new;
                     }
@@ -142,11 +144,28 @@ macro_rules! branch {
             )*
         {
             type Js = Node;
+            type Anchor = DynAnchor;
 
-            fn el(&self) -> &Element {
+            fn anchor(&self) -> &DynAnchor {
                 match self {
                     $(
-                        $name::$var(p) => p.el(),
+                        $name::$var(p) => p.anchor().as_dyn(),
+                    )*
+                }
+            }
+
+            fn replace_with(&self, new: &JsValue) {
+                match self {
+                    $(
+                        $name::$var(p) => p.replace_with(new),
+                    )*
+                }
+            }
+
+            fn unmount(&self) {
+                match self {
+                    $(
+                        $name::$var(p) => p.unmount(),
                     )*
                 }
             }
@@ -164,14 +183,15 @@ branch!(Branch7<A, B, C, D, E, F, G>);
 branch!(Branch8<A, B, C, D, E, F, G, H>);
 branch!(Branch9<A, B, C, D, E, F, G, H, I>);
 
-pub struct EmptyNode(Element);
+pub struct EmptyNode(Node);
 
 pub struct Empty;
 
 impl Mountable for EmptyNode {
     type Js = Node;
+    type Anchor = Node;
 
-    fn el(&self) -> &Element {
+    fn anchor(&self) -> &Node {
         &self.0
     }
 }
@@ -180,7 +200,7 @@ impl View for Empty {
     type Product = EmptyNode;
 
     fn build(self) -> Self::Product {
-        EmptyNode(Element::new_empty())
+        EmptyNode(dom::empty_node())
     }
 
     fn update(self, _: &mut Self::Product) {}
@@ -204,7 +224,7 @@ impl<T: View> View for Option<T> {
             (html, old) => {
                 let new = html.build();
 
-                old.el().replace_with(new.js());
+                old.replace_with(new.js());
 
                 *old = new;
             }

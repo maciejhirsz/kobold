@@ -316,7 +316,7 @@ pub mod prelude {
     pub use crate::stateful::{stateful, Hook, IntoState, Signal, Then};
 }
 
-use dom::Element;
+use dom::Anchor;
 
 /// Crate re-exports for the [`view!`](view) macro internals
 pub mod reexport {
@@ -377,7 +377,7 @@ where
     fn build(self) -> Self::Product {
         let prod = self.html.build();
 
-        (self.handler)(prod.el().unchecked_ref());
+        (self.handler)(prod.js().unchecked_ref());
 
         prod
     }
@@ -402,7 +402,7 @@ where
     fn build(self) -> Self::Product {
         let prod = self.html.build();
 
-        (self.handler)(prod.el().unchecked_ref());
+        (self.handler)(prod.js().unchecked_ref());
 
         prod
     }
@@ -410,18 +410,27 @@ where
     fn update(self, p: &mut Self::Product) {
         self.html.update(p);
 
-        (self.handler)(p.el().unchecked_ref());
+        (self.handler)(p.js().unchecked_ref());
     }
 }
 
 /// A type that can be mounted in the DOM
 pub trait Mountable: 'static {
     type Js: JsCast;
+    type Anchor: Anchor;
 
-    fn el(&self) -> &Element;
+    fn anchor(&self) -> &Self::Anchor;
 
     fn js(&self) -> &JsValue {
-        self.el().anchor()
+        self.anchor().as_ref()
+    }
+
+    fn unmount(&self) {
+        self.anchor().unmount();
+    }
+
+    fn replace_with(&self, new: &JsValue) {
+        self.anchor().replace_with(new);
     }
 }
 

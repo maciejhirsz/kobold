@@ -19,9 +19,8 @@ mod transient;
 
 pub use element::JsElement;
 pub use fragment::{append, JsFragment};
-pub use transient::{
-    Field, FieldKind, JsArgument, JsFnName, JsFunction, JsModule, JsString, Transient,
-};
+pub use transient::{Anchor, Field, FieldKind, Transient};
+pub use transient::{JsArgument, JsFnName, JsFunction, JsModule, JsString};
 
 // Short string for auto-generated variable names
 pub type Short = ArrayString<4>;
@@ -71,13 +70,13 @@ impl Generator {
     fn hoist(&mut self, node: DomNode) -> Option<JsFnName> {
         use std::hash::Hasher;
 
-        let (var, body, args, constructor) = match node {
+        let (var, body, args, anchor) = match node {
             DomNode::Variable(_) => return None,
             DomNode::TextNode(text) => {
                 let body = format!("return document.createTextNode({text});\n");
                 let var = self.names.next_el();
 
-                (var, body, Vec::new(), "Element::new")
+                (var, body, Vec::new(), Anchor::Node)
             }
             DomNode::Element(JsElement {
                 tag,
@@ -92,7 +91,7 @@ impl Generator {
                     format!("let {var}=document.createElement(\"{tag}\");\n{code}return {var};\n")
                 };
 
-                (var, body, args, "Element::new")
+                (var, body, args, Anchor::Node)
             }
             DomNode::Fragment(JsFragment { var, code, args }) => {
                 assert!(
@@ -100,7 +99,7 @@ impl Generator {
                     "Document fragment mustn't be empty, this is a bug"
                 );
 
-                (var, code, args, "Element::new_fragment_raw")
+                (var, code, args, Anchor::Fragment)
             }
         };
 
@@ -123,11 +122,10 @@ impl Generator {
             "
         );
 
-        self.out.js.functions.push(JsFunction {
-            name,
-            constructor,
-            args,
-        });
+        self.out
+            .js
+            .functions
+            .push(JsFunction { name, anchor, args });
 
         Some(name)
     }

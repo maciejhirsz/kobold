@@ -18,7 +18,7 @@ use std::rc::{Rc, Weak};
 use web_sys::Node;
 
 use crate::diff::Diff;
-use crate::dom::Element;
+use crate::dom::Anchor;
 use crate::{Mountable, View};
 
 mod hook;
@@ -68,9 +68,9 @@ pub struct Stateful<S, F> {
     render: F,
 }
 
-pub struct StatefulProduct<S> {
+pub struct StatefulProduct<S, A> {
     inner: Rc<WithCell<Inner<S>>>,
-    el: Element,
+    anchor: A,
 }
 
 /// Create a stateful [`View`](crate::View) over some mutable state. The state
@@ -122,13 +122,13 @@ impl<T> WeakRef<T> {
     }
 }
 
-impl<S, F, H> View for Stateful<S, F>
+impl<S, F, V> View for Stateful<S, F>
 where
     S: IntoState,
-    F: Fn(*const Hook<S::State>) -> H + 'static,
-    H: View,
+    F: Fn(*const Hook<S::State>) -> V + 'static,
+    V: View,
 {
-    type Product = StatefulProduct<S::State>;
+    type Product = StatefulProduct<S::State, <V::Product as Mountable>::Anchor>;
 
     fn build(self) -> Self::Product {
         let mut el = MaybeUninit::uninit();
@@ -142,7 +142,7 @@ where
 
             let mut product = (self.render)(&hook).build();
 
-            el_ref.write(product.el().clone());
+            el_ref.write(product.anchor().clone());
 
             WithCell::new(Inner {
                 hook,
@@ -154,7 +154,7 @@ where
 
         StatefulProduct {
             inner,
-            el: unsafe { el.assume_init() },
+            anchor: unsafe { el.assume_init() },
         }
     }
 
@@ -167,11 +167,16 @@ where
     }
 }
 
-impl<S: 'static> Mountable for StatefulProduct<S> {
+impl<S, A> Mountable for StatefulProduct<S, A>
+where
+    S: 'static,
+    A: Anchor,
+{
     type Js = Node;
+    type Anchor = A;
 
-    fn el(&self) -> &Element {
-        &self.el
+    fn anchor(&self) -> &A {
+        &self.anchor
     }
 }
 
@@ -195,13 +200,14 @@ pub struct Once<S, R, F> {
     handler: F,
 }
 
-impl<S, R, F> View for Once<S, R, F>
+impl<S, R, F, A> View for Once<S, R, F>
 where
     S: IntoState,
     F: FnOnce(Signal<S::State>),
-    Stateful<S, R>: View<Product = StatefulProduct<S::State>>,
+    A: Anchor,
+    Stateful<S, R>: View<Product = StatefulProduct<S::State, A>>,
 {
-    type Product = StatefulProduct<S::State>;
+    type Product = StatefulProduct<S::State, A>;
 
     fn build(self) -> Self::Product {
         let product = self.with_state.build();

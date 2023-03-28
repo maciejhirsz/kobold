@@ -6,8 +6,8 @@
 
 use web_sys::Node;
 
-use crate::dom::Fragment;
-use crate::{Element, Mountable, View};
+use crate::dom::{Fragment, FragmentBuilder};
+use crate::{Mountable, View};
 
 /// Wrapper type that implements `View` for iterators. Use the [`list`](ListIteratorExt::list)
 /// method on the iterator to create one.
@@ -17,13 +17,14 @@ pub struct List<T>(pub(crate) T);
 pub struct ListProduct<T> {
     list: Vec<T>,
     visible: usize,
-    fragment: Fragment,
+    fragment: FragmentBuilder,
 }
 
 impl<T: 'static> Mountable for ListProduct<T> {
     type Js = Node;
+    type Anchor = Fragment;
 
-    fn el(&self) -> &Element {
+    fn anchor(&self) -> &Fragment {
         &self.fragment
     }
 }
@@ -49,7 +50,7 @@ where
 
     fn build(self) -> Self::Product {
         let iter = self.0.into_iter();
-        let fragment = Fragment::new();
+        let fragment = FragmentBuilder::new();
 
         let list: Vec<_> = iter
             .map(|item| {
@@ -81,7 +82,7 @@ where
 
         if p.visible > updated {
             for old in p.list[updated..p.visible].iter() {
-                old.el().unmount();
+                old.unmount();
             }
             p.visible = updated;
         } else {
