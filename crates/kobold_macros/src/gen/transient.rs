@@ -408,7 +408,7 @@ impl Field {
                     ": ::kobold::attribute::AttributeView<::kobold::attribute::",
                     Ident::new(attr.name, *span),
                     '>',
-                    attr.abi.map(InlineAbi::bound).unwrap_or(""),
+                    attr.abi.map(InlineAbi::bound),
                     ',',
                 ));
             }
