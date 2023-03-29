@@ -10,7 +10,37 @@ use wasm_bindgen::{JsCast, JsValue};
 use web_sys::Node;
 
 use crate::internal;
-use crate::Mountable;
+
+/// A type that can be mounted in the DOM
+pub trait Mountable: 'static {
+    type Js: JsCast;
+
+    fn js(&self) -> &JsValue;
+
+    fn unmount(&self);
+
+    fn replace_with(&self, new: &JsValue);
+}
+
+impl<T> Mountable for T
+where
+    T: Anchor + 'static,
+    T::Anchor: Mountable,
+{
+    type Js = T::Js;
+
+    fn js(&self) -> &JsValue {
+        self.anchor().js()
+    }
+
+    fn unmount(&self) {
+        self.anchor().unmount();
+    }
+
+    fn replace_with(&self, new: &JsValue) {
+        self.anchor().replace_with(new);
+    }
+}
 
 pub trait Anchor {
     type Js: JsCast;

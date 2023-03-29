@@ -153,7 +153,7 @@ impl Tokenize for Transient {
 
         block((
             "\
-                use ::kobold::{Mountable as _};\
+                use ::kobold::dom::{Mountable as _};\
                 use ::kobold::reexport::wasm_bindgen;\
                 ",
             self.js,
