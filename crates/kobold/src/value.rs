@@ -6,7 +6,7 @@ use web_sys::Node;
 
 use crate::diff::{Diff, Ref};
 use crate::dom::{Anchor, Property, TextContent};
-use crate::util;
+use crate::internal;
 use crate::View;
 
 /// Value that can be set as a property on DOM node
@@ -25,7 +25,7 @@ macro_rules! impl_text {
             $(
                 impl IntoText for $ty {
                     fn into_text(self) -> Node {
-                        util::$util(self as _)
+                        internal::$util(self as _)
                     }
                 }
             )*
@@ -126,7 +126,7 @@ macro_rules! large_int {
                 fn into_text(self) -> Node {
                     match <$d>::try_from(self) {
                         Ok(downcast) => downcast.into_text(),
-                        Err(_) => self.stringify(util::text_node),
+                        Err(_) => self.stringify(internal::text_node),
                     }
                 }
             }

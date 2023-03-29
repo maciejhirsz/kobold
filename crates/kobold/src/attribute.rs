@@ -7,7 +7,7 @@ use web_sys::Node;
 
 use crate::diff::{Diff, Ref};
 use crate::dom::Property;
-use crate::util;
+use crate::internal;
 use crate::value::Value;
 
 /// Arbitrary attribute: <https://developer.mozilla.org/en-US/docs/Web/API/Element/setAttribute>
@@ -15,19 +15,19 @@ pub type Attribute = &'static str;
 
 impl Property<&str> for Attribute {
     fn set(self, this: &Node, value: &str) {
-        util::set_attr(this, self, value)
+        internal::set_attr(this, self, value)
     }
 }
 
 impl Property<f64> for Attribute {
     fn set(self, this: &Node, value: f64) {
-        util::set_attr_num(this, self, value)
+        internal::set_attr_num(this, self, value)
     }
 }
 
 impl Property<bool> for Attribute {
     fn set(self, this: &Node, value: bool) {
-        util::set_attr_bool(this, self, value)
+        internal::set_attr_bool(this, self, value)
     }
 }
 
@@ -40,7 +40,7 @@ macro_rules! attribute {
             $(
                 impl Property<$abi> for $name {
                     fn set(self, this: &Node, value: $abi) {
-                        util::$util(this, value)
+                        internal::$util(this, value)
                     }
                 }
             )*
@@ -157,16 +157,16 @@ fn debug_test_class(class: &str) {
 
 fn set_class(node: &Node, class: &str) {
     if !class.is_empty() {
-        util::add_class(node, class);
+        internal::add_class(node, class);
     }
 }
 
 fn diff_class(node: &Node, new: &str, old: &str) -> bool {
     match (new, old) {
         (new, old) if new == old => return false,
-        (new, "") => util::add_class(node, new),
-        ("", old) => util::remove_class(node, old),
-        (new, old) => util::replace_class(node, old, new),
+        (new, "") => internal::add_class(node, new),
+        ("", old) => internal::remove_class(node, old),
+        (new, old) => internal::replace_class(node, old, new),
     }
     true
 }
@@ -246,13 +246,13 @@ impl AttributeView<Class> for OptionalClass {
     }
 
     fn build_in(self, _: Class, node: &Node) -> bool {
-        util::toggle_class(node, self.class, self.on);
+        internal::toggle_class(node, self.class, self.on);
         self.on
     }
 
     fn update_in(self, _: Class, node: &Node, memo: &mut bool) {
         if self.on != *memo {
-            util::toggle_class(node, self.class, self.on);
+            internal::toggle_class(node, self.class, self.on);
             *memo = self.on;
         }
     }
@@ -268,14 +268,14 @@ impl AttributeView<ClassName> for OptionalClass {
 
     fn build_in(self, _: ClassName, node: &Node) -> bool {
         if self.on {
-            util::class_name(node, self.class);
+            internal::class_name(node, self.class);
         }
         self.on
     }
 
     fn update_in(self, _: ClassName, node: &Node, memo: &mut bool) {
         if self.on != *memo {
-            util::class_name(node, self.as_ref());
+            internal::class_name(node, self.as_ref());
             *memo = self.on;
         }
     }

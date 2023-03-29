@@ -289,11 +289,9 @@ pub mod dom;
 pub mod event;
 pub mod keywords;
 pub mod list;
+pub mod internal;
 
-mod util;
 mod value;
-
-pub use util::Precompiled;
 
 #[cfg(feature = "stateful")]
 pub mod stateful;
@@ -450,7 +448,7 @@ pub fn start(html: impl View) {
 
     let product = ManuallyDrop::new(html.build());
 
-    util::append_body(product.js());
+    internal::append_body(product.js());
 }
 
 fn init_panic_hook() {
