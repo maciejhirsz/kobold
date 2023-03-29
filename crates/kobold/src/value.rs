@@ -5,10 +5,9 @@
 use web_sys::Node;
 
 use crate::diff::{Diff, Ref};
-use crate::dom::{Property, TextContent};
+use crate::dom::{Anchor, Property, TextContent};
 use crate::util;
-
-use crate::{Mountable, View};
+use crate::View;
 
 /// Value that can be set as a property on DOM node
 pub trait Value<P> {
@@ -73,7 +72,7 @@ pub struct TextProduct<M> {
     node: Node,
 }
 
-impl<M: 'static> Mountable for TextProduct<M> {
+impl<M> Anchor for TextProduct<M> {
     type Js = web_sys::Text;
     type Anchor = Node;
 

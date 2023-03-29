@@ -6,7 +6,7 @@
 
 use web_sys::Node;
 
-use crate::dom::{Fragment, FragmentBuilder};
+use crate::dom::{Anchor, Fragment, FragmentBuilder};
 use crate::{Mountable, View};
 
 /// Wrapper type that implements `View` for iterators. Use the [`list`](ListIteratorExt::list)
@@ -20,7 +20,7 @@ pub struct ListProduct<T> {
     fragment: FragmentBuilder,
 }
 
-impl<T: 'static> Mountable for ListProduct<T> {
+impl<T> Anchor for ListProduct<T> {
     type Js = Node;
     type Anchor = Fragment;
 

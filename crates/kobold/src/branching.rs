@@ -93,7 +93,7 @@
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
-use crate::dom::{self, Anchor, DynAnchor};
+use crate::dom::{self, Anchor};
 use crate::{Mountable, View};
 
 macro_rules! branch {
@@ -129,7 +129,7 @@ macro_rules! branch {
                     (html, old) => {
                         let new = html.build();
 
-                        old.anchor().replace_with(new.js());
+                        old.replace_with(new.js());
 
                         *old = new;
                     }
@@ -144,12 +144,11 @@ macro_rules! branch {
             )*
         {
             type Js = Node;
-            type Anchor = DynAnchor;
 
-            fn anchor(&self) -> &DynAnchor {
+            fn js(&self) -> &JsValue {
                 match self {
                     $(
-                        $name::$var(p) => p.anchor().as_dyn(),
+                        $name::$var(p) => p.js(),
                     )*
                 }
             }
@@ -187,7 +186,7 @@ pub struct EmptyNode(Node);
 
 pub struct Empty;
 
-impl Mountable for EmptyNode {
+impl Anchor for EmptyNode {
     type Js = Node;
     type Anchor = Node;
 
