@@ -54,18 +54,9 @@ macro_rules! impl_value {
     };
 }
 
-impl_value!(&'a str: &str, &String);
+impl_value!(&'a str: &str, &String, &Ref<str>);
 impl_value!(bool: bool);
 impl_value!(f64: u8, u16, u32, usize, i8, i16, i32, isize, f32, f64);
-
-impl<P> Value<P> for Ref<'_, str>
-where
-    P: for<'a> Property<&'a str>,
-{
-    fn set_prop(self, prop: P, node: &Node) {
-        prop.set(node, &self);
-    }
-}
 
 pub struct TextProduct<M> {
     memo: M,
@@ -168,7 +159,7 @@ macro_rules! impl_text_view {
     };
 }
 
-impl_text_view!(&str, &String, Ref<'_, str>);
+impl_text_view!(&str, &String, &Ref<str>);
 impl_text_view!(bool, u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64);
 
 impl<'a> View for &&'a str {
