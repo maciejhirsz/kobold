@@ -140,7 +140,10 @@ impl IntoGenerator for HtmlElement {
                     AttributeType::Provided(attr) => {
                         el.hoisted = true;
 
-                        let value = gen.add_field(expr.stream).attr(var, span, attr, attr.prop()).name;
+                        let value = gen
+                            .add_field(expr.stream)
+                            .attr(var, span, attr, attr.prop())
+                            .name;
 
                         if let Some(abi) = attr.abi {
                             writeln!(el, "{var}.{name}={value};");
