@@ -1,8 +1,10 @@
 use std::ops::{Deref, Index, IndexMut, Range};
 use std::cell::Cell;
+use std::cmp::max;
+use std::vec::Drain;
 
 enum Entry {
-    Mutate(usize),
+    Update(Range<usize>),
     Insert(Range<usize>),
     Remove(Range<usize>),
 }
@@ -34,11 +36,18 @@ impl<T> Log<T> {
 }
 
 impl ChangeLog {
-    fn mutate(&mut self, index: usize) {
-        match self.log.get_mut().last_mut() {
-            Some(Entry::Mutate(previous)) if *previous == index => (),
-            _ => self.log.get_mut().push(Entry::Mutate(index)),
+    fn update(&mut self, upd: Range<usize>) {
+        if let Some(Entry::Update(previous)) = self.log.get_mut().last_mut() {
+            if let Some(new) = join(previous.clone(), upd.clone()) {
+                *previous = new;
+                return;
+            }
         }
+        self.log.get_mut().push(Entry::Update(upd));
+    }
+
+    fn update_one(&mut self, index: usize) {
+        self.update(index..index + 1);
     }
 
     fn insert(&mut self, ins: Range<usize>) {
@@ -55,6 +64,15 @@ impl ChangeLog {
 
     fn insert_one(&mut self, index: usize) {
         self.insert(index..index + 1);
+    }
+
+    fn push(&mut self, index: usize) {
+        match self.log.get_mut().last_mut() {
+            Some(Entry::Insert(previous)) if previous.end == index => {
+                previous.end += 1;
+            },
+            _ => self.log.get_mut().push(Entry::Insert(index..index + 1))
+        }
     }
 
     fn remove(&mut self, rem: Range<usize>) {
@@ -75,6 +93,11 @@ impl ChangeLog {
 }
 
 impl<T> Log<Vec<T>> {
+    pub fn drain(&mut self, range: Range<usize>) -> Drain<T> {
+        self.log.remove(range.clone());
+        self.data.drain(range)
+    }
+
     pub fn extend_from_slice(&mut self, other: &[T])
     where
         T: Clone,
@@ -88,7 +111,7 @@ impl<T> Log<Vec<T>> {
         let item = self.data.get_mut(index);
 
         if item.is_some() {
-            self.log.mutate(index);
+            self.log.update_one(index);
         }
 
         item
@@ -110,7 +133,7 @@ impl<T> Log<Vec<T>> {
     }
 
     pub fn push(&mut self, val: T) {
-        self.log.insert_one(self.data.len());
+        self.log.push(self.data.len());
         self.data.push(val);
     }
 
@@ -130,6 +153,8 @@ impl<T> Log<Vec<T>> {
     where
         F: FnMut(&mut T) -> bool,
     {
+        let reverse_from = self.log.log.get_mut().len();
+
         let mut index = 0;
         self.data.retain_mut(|elem| {
             let retain = f(elem);
@@ -141,6 +166,24 @@ impl<T> Log<Vec<T>> {
             index += 1;
             retain
         });
+
+        // Reverse the ranges so they can be drained in order
+        // without issues.
+        self.log.log.get_mut()[reverse_from..].reverse()
+    }
+
+    pub fn swap(&mut self, a: usize, b: usize) {
+        if a == b {
+            return;
+        }
+
+        self.data.swap(a, b);
+        self.log.update_one(a);
+        self.log.update_one(b);
+    }
+
+    pub fn touch(&mut self) {
+        self.log.update(0..self.data.len());
     }
 }
 
@@ -159,13 +202,39 @@ impl<T> Index<usize> for Log<Vec<T>> {
     type Output = T;
 
     fn index(&self, index: usize) -> &T {
-        &self[index]
+        &self.data[index]
     }
 }
 
 impl<T> IndexMut<usize> for Log<Vec<T>> {
     fn index_mut(&mut self, index: usize) -> &mut T {
-        self.log.mutate(index);
-        &mut self[index]
+        self.log.update_one(index);
+        &mut self.data[index]
+    }
+}
+
+impl<T> Index<Range<usize>> for Log<Vec<T>> {
+    type Output = [T];
+
+    fn index(&self, index: Range<usize>) -> &Self::Output {
+        &self.data[index]
+    }
+}
+
+impl<T> IndexMut<Range<usize>> for Log<Vec<T>> {
+    fn index_mut(&mut self, index: Range<usize>) -> &mut Self::Output {
+        &mut self.data[index]
+    }
+}
+
+fn join(mut a: Range<usize>, mut b: Range<usize>) -> Option<Range<usize>> {
+    if a.contains(&b.start) {
+        a.end = max(a.end, b.end);
+        Some(a)
+    } else if b.contains(&a.start) {
+        b.end = max(b.end, a.end);
+        Some(b)
+    } else {
+        None
     }
 }
