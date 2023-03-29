@@ -7,7 +7,6 @@ use web_sys::Node;
 use crate::diff::{Diff, Ref};
 use crate::dom::{Anchor, Property, TextContent};
 use crate::util;
-
 use crate::View;
 
 /// Value that can be set as a property on DOM node
@@ -74,7 +73,7 @@ pub struct TextProduct<M> {
 }
 
 impl<M> Anchor for TextProduct<M> {
-    type Js = Node;
+    type Js = web_sys::Text;
     type Anchor = Node;
 
     fn anchor(&self) -> &Node {
