@@ -54,8 +54,8 @@ where
 ///     }
 /// }
 /// ```
-pub const fn r#ref(value: &str) -> Ref<str> {
-    Ref(value)
+pub const fn r#ref(value: &str) -> &Ref<str> {
+    unsafe { &*(value as *const _ as *const Ref<str>) }
 }
 
 /// `{ use ... }`: disable diffing for `T` and apply its value to the DOM on every render.

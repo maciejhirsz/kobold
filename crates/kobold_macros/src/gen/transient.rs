@@ -5,7 +5,7 @@
 use std::fmt::{self, Debug, Display, Write};
 
 use arrayvec::ArrayString;
-use proc_macro::{Literal, TokenStream};
+use proc_macro::{Ident, Literal, Span, TokenStream};
 
 use crate::gen::element::{Attr, InlineAbi};
 use crate::gen::Short;
@@ -47,6 +47,30 @@ impl Transient {
         ))
         .tokenize_in(stream)
     }
+
+    fn tokenize_impl_view_sig(&self) -> TokenStream {
+        let mut generics = String::new();
+
+        for field in self.fields.iter() {
+            let typ = field.make_type();
+
+            let _ = write!(generics, "{typ},");
+        }
+
+        let mut impl_view_sig = format_args!(
+            "\
+            impl<{generics}> ::kobold::View for Transient<{generics}>\
+            where \
+            "
+        )
+        .tokenize();
+
+        for field in self.fields.iter() {
+            field.bounds(&mut impl_view_sig);
+        }
+
+        impl_view_sig
+    }
 }
 
 impl Tokenize for Transient {
@@ -56,6 +80,8 @@ impl Tokenize for Transient {
             return;
         }
 
+        let impl_view_sig = self.tokenize_impl_view_sig();
+
         if self.els.is_empty() {
             return self.fields.remove(0).value.tokenize_in(stream);
         }
@@ -64,7 +90,6 @@ impl Tokenize for Transient {
 
         let mut generics = String::new();
 
-        let mut bounds = String::new();
         let mut build = String::new();
         let mut update = String::new();
         let mut declare = String::new();
@@ -79,7 +104,6 @@ impl Tokenize for Transient {
 
             let _ = write!(generics, "{typ},");
 
-            field.bounds(&mut bounds);
             field.build(&mut build);
             field.update(&mut update);
             field.declare(&mut declare);
@@ -135,48 +159,49 @@ impl Tokenize for Transient {
             self.js,
             format_args!(
                 "\
-                    struct TransientProduct <{product_generics}> {{\
-                        {product_declare}\
-                        {declare_els}\
-                    }}\
+                struct TransientProduct <{product_generics}> {{\
+                    {product_declare}\
+                    {declare_els}\
+                }}\
+                \
+                impl<{product_generics}> ::kobold::dom::Anchor for TransientProduct<{product_generics}>\
+                where \
+                    Self: 'static,\
+                {{\
+                    type Js = ::kobold::reexport::web_sys::{js_type};\
+                    type Anchor = {anchor_type};\
                     \
-                    impl<{product_generics}> ::kobold::dom::Anchor for TransientProduct<{product_generics}>\
-                    where \
-                        Self: 'static,\
-                    {{\
-                        type Js = ::kobold::reexport::web_sys::{js_type};\
-                        type Anchor = {anchor_type};\
+                    fn anchor(&self) -> &Self::Anchor {{\
+                        &self.e0\
+                    }}\
+                }}\
+                \
+                struct Transient <{generics}> {{\
+                    {declare}\
+                }}\
+                "
+            ),
+            impl_view_sig,
+            format_args!(
+                "\
+                {{\
+                    type Product = TransientProduct<{product_generics_binds}>;\
+                    \
+                    fn build(self) -> Self::Product {{\
+                        {build}\
                         \
-                        fn anchor(&self) -> &Self::Anchor {{\
-                            &self.e0\
+                        TransientProduct {{\
+                            {vars}\
                         }}\
                     }}\
                     \
-                    struct Transient <{generics}> {{\
-                        {declare}\
+                    fn update(self, p: &mut Self::Product) {{\
+                        {update}\
                     }}\
-                    \
-                    impl<{generics}> ::kobold::View for Transient<{generics}>\
-                    where \
-                        {bounds}\
-                    {{\
-                        type Product = TransientProduct<{product_generics_binds}>;\
-                        \
-                        fn build(self) -> Self::Product {{\
-                            {build}\
-                            \
-                            TransientProduct {{\
-                                {vars}\
-                            }}\
-                        }}\
-                        \
-                        fn update(self, p: &mut Self::Product) {{\
-                            {update}\
-                        }}\
-                    }}\
-                    \
-                    Transient\
-                    "
+                }}\
+                \
+                Transient\
+                "
             ),
             block(each(self.fields.iter().map(Field::invoke))),
         ))
@@ -305,6 +330,7 @@ pub enum FieldKind {
     Attribute {
         el: Short,
         attr: Attr,
+        span: Span,
         prop: TokenStream,
     },
 }
@@ -336,8 +362,13 @@ impl Field {
         }
     }
 
-    pub fn attr(&mut self, el: Short, attr: Attr, prop: TokenStream) -> &mut Self {
-        self.kind = FieldKind::Attribute { el, attr, prop };
+    pub fn attr(&mut self, el: Short, span: Span, attr: Attr, prop: TokenStream) -> &mut Self {
+        self.kind = FieldKind::Attribute {
+            el,
+            span,
+            attr,
+            prop,
+        };
         self
     }
 
@@ -361,26 +392,25 @@ impl Field {
         typ
     }
 
-    fn bounds(&self, buf: &mut String) {
+    fn bounds(&self, buf: &mut TokenStream) {
         let Field { name, kind, .. } = self;
+
+        let mut typ = *name;
+        typ.make_ascii_uppercase();
 
         match kind {
             FieldKind::View | FieldKind::StaticView => {
-                let mut typ = *name;
-                typ.make_ascii_uppercase();
-
-                let _ = write!(buf, "{typ}: ::kobold::View,");
+                buf.write((typ.as_str(), ": ::kobold::View,"));
             }
-            FieldKind::Attribute { attr, .. } => {
-                let mut typ = *name;
-                typ.make_ascii_uppercase();
-
-                let _ = write!(
-                    buf,
-                    "{typ}: ::kobold::attribute::AttributeView<::kobold::attribute::{}>{},",
-                    attr.name,
-                    attr.abi.map(InlineAbi::bound).unwrap_or(""),
-                );
+            FieldKind::Attribute { attr, span, .. } => {
+                buf.write((
+                    typ.as_str(),
+                    ": ::kobold::attribute::AttributeView<::kobold::attribute::",
+                    Ident::new(attr.name, *span),
+                    '>',
+                    attr.abi.map(InlineAbi::bound),
+                    ',',
+                ));
             }
         }
     }
