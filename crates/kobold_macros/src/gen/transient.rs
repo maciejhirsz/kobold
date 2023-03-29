@@ -140,7 +140,7 @@ impl Tokenize for Transient {
                         {declare_els}\
                     }}\
                     \
-                    impl<{product_generics}> ::kobold::Mountable for TransientProduct<{product_generics}>\
+                    impl<{product_generics}> ::kobold::dom::Anchor for TransientProduct<{product_generics}>\
                     where \
                         Self: 'static,\
                     {{\

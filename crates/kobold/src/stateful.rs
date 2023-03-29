@@ -20,7 +20,6 @@ use wasm_bindgen::JsValue;
 use web_sys::Node;
 
 use crate::diff::Diff;
-use crate::dom::DynAnchor;
 use crate::{Mountable, View};
 
 mod hook;
@@ -208,7 +207,6 @@ where
     S: 'static,
 {
     type Js = Node;
-    type Anchor = DynAnchor;
 
     fn js(&self) -> &JsValue {
         unsafe { self.inner.borrow_unchecked().prod.js() }
@@ -220,10 +218,6 @@ where
 
     fn replace_with(&self, new: &JsValue) {
         unsafe { self.inner.borrow_unchecked().prod.replace_with(new) }
-    }
-
-    fn anchor(&self) -> &DynAnchor {
-        panic!()
     }
 }
 

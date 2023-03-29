@@ -6,36 +6,21 @@
 
 use std::ops::Deref;
 
-use wasm_bindgen::JsValue;
+use wasm_bindgen::{JsCast, JsValue};
 use web_sys::Node;
 
 use crate::util;
 use crate::Mountable;
 
-pub trait Anchor: AsRef<JsValue> + Clone + 'static {
-    fn replace_with(&self, new: &JsValue);
+pub trait Anchor {
+    type Js: JsCast;
+    type Anchor;
 
-    fn unmount(&self);
-
-    fn as_dyn(&self) -> &DynAnchor {
-        // Safety: DynAnchor is a #[repr(transparent)] wrapper of
-        // JsValue so this cast is always safe
-        unsafe { &*(self.as_ref() as *const JsValue as *const DynAnchor) }
-    }
+    fn anchor(&self) -> &Self::Anchor;
 }
 
 pub fn empty_node() -> Node {
     util::__kobold_empty_node()
-}
-
-impl Anchor for Node {
-    fn replace_with(&self, new: &JsValue) {
-        util::__kobold_replace(self, new)
-    }
-
-    fn unmount(&self) {
-        util::__kobold_unmount(self)
-    }
 }
 
 #[derive(Clone)]
@@ -53,36 +38,6 @@ impl From<Node> for Fragment {
 impl AsRef<JsValue> for Fragment {
     fn as_ref(&self) -> &JsValue {
         self.0.as_ref()
-    }
-}
-
-impl Anchor for Fragment {
-    fn replace_with(&self, new: &JsValue) {
-        util::__kobold_fragment_replace(&self.0, new)
-    }
-
-    fn unmount(&self) {
-        util::__kobold_fragment_unmount(&self.0)
-    }
-}
-
-#[derive(Clone)]
-#[repr(transparent)]
-pub struct DynAnchor(JsValue);
-
-impl AsRef<JsValue> for DynAnchor {
-    fn as_ref(&self) -> &JsValue {
-        &self.0
-    }
-}
-
-impl Anchor for DynAnchor {
-    fn replace_with(&self, new: &JsValue) {
-        util::__kobold_dyn_replace(&self.0, new)
-    }
-
-    fn unmount(&self) {
-        util::__kobold_dyn_unmount(&self.0)
     }
 }
 
@@ -139,18 +94,32 @@ impl Deref for FragmentBuilder {
 
 impl Mountable for Node {
     type Js = Node;
-    type Anchor = Node;
 
-    fn anchor(&self) -> &Node {
+    fn js(&self) -> &JsValue {
         self
+    }
+
+    fn unmount(&self) {
+        util::__kobold_unmount(self)
+    }
+
+    fn replace_with(&self, new: &JsValue) {
+        util::__kobold_replace(self, new)
     }
 }
 
 impl Mountable for Fragment {
     type Js = Node;
-    type Anchor = Fragment;
 
-    fn anchor(&self) -> &Fragment {
-        self
+    fn js(&self) -> &JsValue {
+        &self.0
+    }
+
+    fn unmount(&self) {
+        util::__kobold_fragment_unmount(&self.0)
+    }
+
+    fn replace_with(&self, new: &JsValue) {
+        util::__kobold_fragment_replace(&self.0, new)
     }
 }
