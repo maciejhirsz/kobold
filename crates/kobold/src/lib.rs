@@ -294,7 +294,6 @@ mod util;
 mod value;
 
 pub use util::Precompiled;
-pub use value::Value;
 
 #[cfg(feature = "stateful")]
 pub mod stateful;

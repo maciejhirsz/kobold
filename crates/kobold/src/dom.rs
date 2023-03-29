@@ -19,7 +19,7 @@ pub trait Anchor {
     fn anchor(&self) -> &Self::Anchor;
 }
 
-pub fn empty_node() -> Node {
+pub(crate) fn empty_node() -> Node {
     util::__kobold_empty_node()
 }
 
@@ -47,7 +47,7 @@ pub trait Property<Abi> {
 }
 
 /// The `Node.textContent` property: <https://developer.mozilla.org/en-US/docs/Web/API/Node/textContent>
-pub struct TextContent;
+pub(crate) struct TextContent;
 
 impl Property<&str> for TextContent {
     fn set(self, this: &Node, value: &str) {
@@ -67,7 +67,7 @@ impl Property<bool> for TextContent {
     }
 }
 
-pub struct FragmentBuilder {
+pub(crate) struct FragmentBuilder {
     fragment: Fragment,
     tail: Node,
 }
