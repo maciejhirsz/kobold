@@ -53,7 +53,7 @@ pub struct Component {
 pub struct HtmlElement {
     pub name: String,
     pub span: Span,
-    pub classes: Vec<CssValue>,
+    pub classes: Vec<(Span, CssValue)>,
     pub attributes: Vec<Attribute>,
     pub children: Option<Vec<Node>>,
 }
@@ -165,8 +165,8 @@ impl Node {
                 let mut attributes = Vec::new();
 
                 loop {
-                    if content.allow_consume('.').is_some() {
-                        classes.push(content.parse()?);
+                    if let Some(dot) = content.allow_consume('.') {
+                        classes.push((dot.span(), content.parse()?));
                     } else if let Some(hash) = content.allow_consume('#') {
                         let name = Ident::new("id", hash.span());
                         let value: CssValue = content.parse()?;
@@ -184,7 +184,7 @@ impl Node {
                     let attr: Attribute = content.parse()?;
 
                     if attr.name.eq_str("class") {
-                        classes.push(CssValue::try_from(attr.value)?);
+                        classes.push((attr.name.span(), CssValue::try_from(attr.value)?));
                     } else {
                         attributes.push(attr);
                     }

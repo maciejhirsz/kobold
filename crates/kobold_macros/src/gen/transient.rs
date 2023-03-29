@@ -5,7 +5,7 @@
 use std::fmt::{self, Debug, Display, Write};
 
 use arrayvec::ArrayString;
-use proc_macro::{Literal, TokenStream};
+use proc_macro::{Literal, Span, TokenStream};
 
 use crate::gen::element::{Attr, InlineAbi};
 use crate::gen::Short;
@@ -305,6 +305,7 @@ pub enum FieldKind {
     Attribute {
         el: Short,
         attr: Attr,
+        span: Span,
         prop: TokenStream,
     },
 }
@@ -336,8 +337,13 @@ impl Field {
         }
     }
 
-    pub fn attr(&mut self, el: Short, attr: Attr, prop: TokenStream) -> &mut Self {
-        self.kind = FieldKind::Attribute { el, attr, prop };
+    pub fn attr(&mut self, el: Short, span: Span, attr: Attr, prop: TokenStream) -> &mut Self {
+        self.kind = FieldKind::Attribute {
+            el,
+            span,
+            attr,
+            prop,
+        };
         self
     }
 
