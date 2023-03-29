@@ -107,12 +107,6 @@ pub trait Diff: Copy {
     /// Diff current value against the `Memo`, update it if necessary and return
     /// `true` if it has changed.
     fn diff(self, memo: &mut Self::Memo) -> bool;
-
-    #[doc(hidden)]
-    #[deprecated(since = "0.6.0", note = "please use `{ static <expression> }` instead")]
-    fn no_diff(self) -> Static<Self> {
-        Static(self)
-    }
 }
 
 macro_rules! impl_diff_str {
@@ -287,16 +281,3 @@ macro_rules! impl_no_diff {
 
 impl_no_diff!(Eager, true);
 impl_no_diff!(Static, false);
-
-#[doc(hidden)]
-pub trait StrExt {
-    #[deprecated(since = "0.6.0", note = "please use `{ ref <expression> }` instead")]
-    fn fast_diff(&self) -> &Ref<str>;
-}
-
-#[doc(hidden)]
-impl StrExt for str {
-    fn fast_diff(&self) -> &Ref<str> {
-        crate::keywords::r#ref(self)
-    }
-}

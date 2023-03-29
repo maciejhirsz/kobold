@@ -29,18 +29,6 @@ impl<T> Anchor for ListProduct<T> {
     }
 }
 
-#[doc(hidden)]
-pub trait ListIteratorExt: Iterator + Sized {
-    #[doc(hidden)]
-    #[deprecated(since = "0.6.0", note = "please use `{ for <expression> }` instead")]
-    fn list(self) -> List<Self> {
-        List(self)
-    }
-}
-
-#[doc(hidden)]
-impl<T: Iterator> ListIteratorExt for T {}
-
 impl<T> View for List<T>
 where
     T: IntoIterator,
