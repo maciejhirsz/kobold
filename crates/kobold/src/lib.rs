@@ -305,9 +305,7 @@ pub mod stateful;
 /// use kobold::prelude::*;
 /// ```
 pub mod prelude {
-    pub use crate::diff::{Diff as _, StrExt as _};
     pub use crate::event::{Event, KeyboardEvent, MouseEvent};
-    pub use crate::list::ListIteratorExt as _;
     pub use crate::{bind, class};
     pub use crate::{component, view, View};
 
