@@ -280,16 +280,16 @@ pub use kobold_macros::component;
 /// Macro for creating transient [`View`](View) types. See the [main documentation](crate) for details.
 pub use kobold_macros::view;
 
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::JsCast;
 
 pub mod attribute;
 pub mod branching;
 pub mod diff;
 pub mod dom;
 pub mod event;
+pub mod internal;
 pub mod keywords;
 pub mod list;
-pub mod internal;
 
 mod value;
 
@@ -311,7 +311,7 @@ pub mod prelude {
     pub use crate::stateful::{stateful, Hook, IntoState, Signal, Then};
 }
 
-use dom::Anchor;
+use dom::Mountable;
 
 /// Crate re-exports for the [`view!`](view) macro internals
 pub mod reexport {
@@ -406,37 +406,6 @@ where
         self.html.update(p);
 
         (self.handler)(p.js().unchecked_ref());
-    }
-}
-
-/// A type that can be mounted in the DOM
-pub trait Mountable: 'static {
-    type Js: JsCast;
-
-    fn js(&self) -> &JsValue;
-
-    fn unmount(&self);
-
-    fn replace_with(&self, new: &JsValue);
-}
-
-impl<T> Mountable for T
-where
-    T: Anchor + 'static,
-    T::Anchor: Mountable,
-{
-    type Js = T::Js;
-
-    fn js(&self) -> &JsValue {
-        self.anchor().js()
-    }
-
-    fn unmount(&self) {
-        self.anchor().unmount();
-    }
-
-    fn replace_with(&self, new: &JsValue) {
-        self.anchor().replace_with(new);
     }
 }
 
