@@ -31,33 +31,6 @@ export function __kobold_fragment_replace(f,n)
 	f.appendChild(e);
 	f.insertBefore(b, f.firstChild);
 }
-export function __kobold_dyn_unmount(f)
-{
-	let decorators = fragmentDecorators.get(f);
-	if (decorators == null) {
-		f.remove();
-		return;
-	}
-
-	let [b, e] = decorators;
-	while (b.nextSibling !== e) f.appendChild(b.nextSibling);
-	f.appendChild(e);
-	f.insertBefore(b, f.firstChild);
-}
-export function __kobold_dyn_replace(f,n)
-{
-	let decorators = fragmentDecorators.get(f);
-	if (decorators == null) {
-		f.replaceWith(n);
-		return;
-	};
-
-	let [b, e] = decorators;
-	while (b.nextSibling !== e) f.appendChild(b.nextSibling);
-	b.replaceWith(n);
-	f.appendChild(e);
-	f.insertBefore(b, f.firstChild);
-}
 export function __kobold_set_text(n,t) { n.textContent = t; }
 export function __kobold_set_attr(n,a,v) { n.setAttribute(a, v); }
 

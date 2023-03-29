@@ -11,7 +11,6 @@ use wasm_bindgen::closure::Closure;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::HtmlElement;
 
-use crate::dom::Anchor;
 use crate::{Mountable, View};
 
 /// Smart wrapper around a [`web_sys::Event`](web_sys::Event) which includes type
@@ -79,7 +78,7 @@ where
 pub struct EventHandler<F>(F);
 
 pub struct ClosureProduct<F> {
-    js: JsClosure,
+    js: JsValue,
     boxed: Box<F>,
 }
 
@@ -96,10 +95,7 @@ where
         // `into_js_value` will _forget_ the previous Box, so we can safely reconstruct it
         let boxed = unsafe { Box::from_raw(raw) };
 
-        ClosureProduct {
-            js: JsClosure(js),
-            boxed,
-        }
+        ClosureProduct { js, boxed }
     }
 
     fn update(&mut self, f: F) {
@@ -122,36 +118,19 @@ where
     }
 }
 
-#[derive(Clone)]
-#[repr(transparent)]
-pub struct JsClosure(JsValue);
-
-impl AsRef<JsValue> for JsClosure {
-    fn as_ref(&self) -> &JsValue {
-        &self.0
-    }
-}
-
-impl Anchor for JsClosure {
-    fn replace_with(&self, _: &JsValue) {
-        debug_assert!(false, "Using JsClosure as a DOM Node");
-    }
-
-    fn unmount(&self) {}
-}
-
 impl<F> Mountable for ClosureProduct<F>
 where
     F: 'static,
 {
     type Js = JsValue;
-    type Anchor = JsClosure;
 
-    fn anchor(&self) -> &JsClosure {
+    fn js(&self) -> &JsValue {
         &self.js
     }
 
-    fn js(&self) -> &JsValue {
-        &self.js.0
+    fn unmount(&self) {}
+
+    fn replace_with(&self, _: &JsValue) {
+        debug_assert!(false, "Using JsClosure as a DOM Node");
     }
 }

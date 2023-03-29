@@ -417,12 +417,23 @@ where
 /// A type that can be mounted in the DOM
 pub trait Mountable: 'static {
     type Js: JsCast;
-    type Anchor: Anchor;
 
-    fn anchor(&self) -> &Self::Anchor;
+    fn js(&self) -> &JsValue;
+
+    fn unmount(&self);
+
+    fn replace_with(&self, new: &JsValue);
+}
+
+impl<T> Mountable for T
+where
+    T: Anchor + 'static,
+    T::Anchor: Mountable,
+{
+    type Js = T::Js;
 
     fn js(&self) -> &JsValue {
-        self.anchor().as_ref()
+        self.anchor().js()
     }
 
     fn unmount(&self) {

@@ -12,13 +12,14 @@
 //! be used to create views that have ownership over some arbitrary mutable state.
 //!
 use std::cell::{Cell, UnsafeCell};
-use std::mem::{ManuallyDrop, MaybeUninit};
+use std::marker::PhantomData;
+use std::mem::ManuallyDrop;
 use std::rc::{Rc, Weak};
 
+use wasm_bindgen::JsValue;
 use web_sys::Node;
 
 use crate::diff::Diff;
-use crate::dom::Anchor;
 use crate::{Mountable, View};
 
 mod hook;
@@ -29,12 +30,51 @@ pub use should_render::{ShouldRender, Then};
 
 pub struct Inner<S> {
     hook: Hook<S>,
-    updater: Box<dyn FnMut(&Hook<S>)>,
+    prod: Box<dyn Product<S>>,
+}
+
+trait Product<S> {
+    fn update(&mut self, hook: &Hook<S>);
+
+    fn js(&self) -> &JsValue;
+
+    fn unmount(&self);
+
+    fn replace_with(&self, new: &JsValue);
+}
+
+struct ProductHandler<S, P, F> {
+    updater: F,
+    product: P,
+    _state: PhantomData<S>,
+}
+
+impl<S, P, F> Product<S> for ProductHandler<S, P, F>
+where
+    S: 'static,
+    P: Mountable,
+    F: FnMut(*const Hook<S>, *mut P),
+{
+    fn update(&mut self, hook: &Hook<S>) {
+        (self.updater)(hook, &mut self.product);
+    }
+
+    fn js(&self) -> &JsValue {
+        self.product.js()
+    }
+
+    fn unmount(&self) {
+        self.product.unmount()
+    }
+
+    fn replace_with(&self, new: &JsValue) {
+        self.product.replace_with(new)
+    }
 }
 
 impl<S> Inner<S> {
     fn update(&mut self) {
-        (self.updater)(&self.hook)
+        self.prod.update(&self.hook)
     }
 }
 
@@ -68,9 +108,8 @@ pub struct Stateful<S, F> {
     render: F,
 }
 
-pub struct StatefulProduct<S, A> {
+pub struct StatefulProduct<S> {
     inner: Rc<WithCell<Inner<S>>>,
-    anchor: A,
 }
 
 /// Create a stateful [`View`](crate::View) over some mutable state. The state
@@ -128,34 +167,30 @@ where
     F: Fn(*const Hook<S::State>) -> V + 'static,
     V: View,
 {
-    type Product = StatefulProduct<S::State, <V::Product as Mountable>::Anchor>;
+    type Product = StatefulProduct<S::State>;
 
     fn build(self) -> Self::Product {
-        let mut el = MaybeUninit::uninit();
-        let el_ref = &mut el;
-
         let inner = Rc::new_cyclic(move |weak| {
             let hook = Hook {
                 state: self.state.init(),
                 inner: WeakRef(weak.as_ptr()),
             };
 
-            let mut product = (self.render)(&hook).build();
-
-            el_ref.write(product.anchor().clone());
+            let product = (self.render)(&hook).build();
 
             WithCell::new(Inner {
                 hook,
-                updater: Box::new(move |hook| {
-                    (self.render)(hook).update(&mut product);
+                prod: Box::new(ProductHandler {
+                    updater: move |hook, product: *mut V::Product| {
+                        (self.render)(hook).update(unsafe { &mut *product })
+                    },
+                    product,
+                    _state: PhantomData,
                 }),
             })
         });
 
-        StatefulProduct {
-            inner,
-            anchor: unsafe { el.assume_init() },
-        }
+        StatefulProduct { inner }
     }
 
     fn update(self, p: &mut Self::Product) {
@@ -167,16 +202,22 @@ where
     }
 }
 
-impl<S, A> Mountable for StatefulProduct<S, A>
+impl<S> Mountable for StatefulProduct<S>
 where
     S: 'static,
-    A: Anchor,
 {
     type Js = Node;
-    type Anchor = A;
 
-    fn anchor(&self) -> &A {
-        &self.anchor
+    fn js(&self) -> &JsValue {
+        unsafe { self.inner.borrow_unchecked().prod.js() }
+    }
+
+    fn unmount(&self) {
+        unsafe { self.inner.borrow_unchecked().prod.unmount() }
+    }
+
+    fn replace_with(&self, new: &JsValue) {
+        unsafe { self.inner.borrow_unchecked().prod.replace_with(new) }
     }
 }
 
@@ -200,14 +241,13 @@ pub struct Once<S, R, F> {
     handler: F,
 }
 
-impl<S, R, F, A> View for Once<S, R, F>
+impl<S, R, F> View for Once<S, R, F>
 where
     S: IntoState,
     F: FnOnce(Signal<S::State>),
-    A: Anchor,
-    Stateful<S, R>: View<Product = StatefulProduct<S::State, A>>,
+    Stateful<S, R>: View<Product = StatefulProduct<S::State>>,
 {
-    type Product = StatefulProduct<S::State, A>;
+    type Product = StatefulProduct<S::State>;
 
     fn build(self) -> Self::Product {
         let product = self.with_state.build();
@@ -232,7 +272,7 @@ struct WithCell<T> {
 }
 
 impl<T> WithCell<T> {
-    pub fn new(data: T) -> Self {
+    pub const fn new(data: T) -> Self {
         WithCell {
             borrowed: Cell::new(false),
             data: UnsafeCell::new(data),
@@ -250,6 +290,10 @@ impl<T> WithCell<T> {
         self.borrowed.set(true);
         mutator(unsafe { &mut *self.data.get() });
         self.borrowed.set(false);
+    }
+
+    pub unsafe fn borrow_unchecked(&self) -> &T {
+        &*self.data.get()
     }
 }
 

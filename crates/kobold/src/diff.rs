@@ -9,7 +9,7 @@ use std::ops::Deref;
 use web_sys::Node;
 
 use crate::attribute::AttributeView;
-use crate::dom::TextContent;
+use crate::dom::{Anchor, TextContent};
 use crate::value::{IntoText, Value};
 use crate::{Mountable, View};
 
@@ -84,16 +84,15 @@ where
     }
 }
 
-impl<D, P> Mountable for Fence<D, P>
+impl<D, P> Anchor for Fence<D, P>
 where
-    D: 'static,
     P: Mountable,
 {
     type Js = P::Js;
-    type Anchor = P::Anchor;
+    type Anchor = P;
 
-    fn anchor(&self) -> &Self::Anchor {
-        self.inner.anchor()
+    fn anchor(&self) -> &P {
+        &self.inner
     }
 }
 

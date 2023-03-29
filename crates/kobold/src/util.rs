@@ -49,8 +49,6 @@ extern "C" {
     pub(crate) fn __kobold_fragment_append(f: &Node, c: &JsValue);
     pub(crate) fn __kobold_fragment_unmount(f: &Node);
     pub(crate) fn __kobold_fragment_replace(f: &Node, new: &JsValue);
-    pub(crate) fn __kobold_dyn_unmount(f: &JsValue);
-    pub(crate) fn __kobold_dyn_replace(f: &JsValue, new: &JsValue);
 
     // `set_text` variants ----------------
 
