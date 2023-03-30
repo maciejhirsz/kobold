@@ -13,19 +13,33 @@ use crate::internal;
 
 /// A type that can be mounted in the DOM
 pub trait Mountable: 'static {
+    /// The concrete `web-sys` type representing the root of this
+    /// product, such as [`HtmlDivElement`](web_sys::HtmlDivElement).
     type Js: JsCast;
 
+    /// Returns a reference to the root DOM node of this product.
     fn js(&self) -> &JsValue;
 
+    /// Unmount the root of this product from the DOM.
     fn unmount(&self);
 
+    /// Replace the root of this product in the DOM with another.
     fn replace_with(&self, new: &JsValue);
+}
+
+/// A light-weight [`Deref`](Deref)-like trait that
+/// auto-implements `Mountable` by proxying it to another type.
+pub trait Anchor {
+    type Js: JsCast;
+    type Target: Mountable;
+
+    fn anchor(&self) -> &Self::Target;
 }
 
 impl<T> Mountable for T
 where
     T: Anchor + 'static,
-    T::Anchor: Mountable,
+    T::Target: Mountable,
 {
     type Js = T::Js;
 
@@ -42,17 +56,15 @@ where
     }
 }
 
-pub trait Anchor {
-    type Js: JsCast;
-    type Anchor;
-
-    fn anchor(&self) -> &Self::Anchor;
-}
-
 pub(crate) fn empty_node() -> Node {
     internal::__kobold_empty_node()
 }
 
+/// Thin-wrapper around a [`DocumentFragment`](https://developer.mozilla.org/en-US/docs/Web/API/DocumentFragment) node.
+///
+/// **Kobold** needs to "decorate" fragments for [`unmount`](Mountable::unmount)
+/// and [`replace_with`](Mountable::replace_with) to work correctly without wrapping
+/// said fragment in an element.
 #[derive(Clone)]
 #[repr(transparent)]
 pub struct Fragment(Node);

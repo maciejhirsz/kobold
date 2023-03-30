@@ -274,6 +274,7 @@ fn event_js_type(event: &str) -> &'static str {
 fn element_js_type(tag: &str) -> &'static str {
     match tag {
         "a" => "HtmlLinkElement",
+        "div" => "HtmlDivElement",
         "canvas" => "HtmlCanvasElement",
         "form" => "HtmlFormElement",
         "img" => "HtmlImageElement",

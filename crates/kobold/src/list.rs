@@ -22,7 +22,7 @@ pub struct ListProduct<T> {
 
 impl<T> Anchor for ListProduct<T> {
     type Js = Node;
-    type Anchor = Fragment;
+    type Target = Fragment;
 
     fn anchor(&self) -> &Fragment {
         &self.fragment
