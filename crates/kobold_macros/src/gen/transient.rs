@@ -18,7 +18,6 @@ pub type JsFnName = ArrayString<24>;
 #[derive(Default, Debug)]
 pub struct Transient {
     pub js: JsModule,
-    pub js_type: Option<&'static str>,
     pub fields: Vec<Field>,
     pub els: Vec<Short>,
 }
@@ -33,7 +32,7 @@ impl Transient {
         self.fields.is_empty()
             && self.els.len() == 1
             && self.js.functions.len() == 1
-            && jsfn.anchor == Anchor::Node
+            && !matches!(jsfn.anchor, Anchor::Fragment)
             && jsfn.args.is_empty()
     }
 
@@ -90,8 +89,6 @@ impl Tokenize for Transient {
             return self.fields.remove(0).value.tokenize_in(stream);
         }
 
-        let js_type = self.js_type.unwrap_or("Node");
-
         let mut generics = String::new();
 
         let mut build = String::new();
@@ -136,9 +133,9 @@ impl Tokenize for Transient {
         for (jsfn, el) in self.js.functions.iter().zip(self.els) {
             let JsFunction { name, anchor, args } = jsfn;
 
-            let anchor = anchor.into_type();
+            let anchor_typ = anchor.as_type();
 
-            let _ = write!(declare_els, "{el}: {anchor},");
+            let _ = write!(declare_els, "{el}: {anchor_typ},");
 
             let args = args
                 .iter()
@@ -153,38 +150,46 @@ impl Tokenize for Transient {
                 })
                 .join(",");
 
-            let _ = write!(build, "let {el}: {anchor} = {name}({args}).into();");
+            let _ = write!(build, "let {el}: {anchor_typ} = {name}({args}).into();");
             let _ = write!(vars, "{el},");
         }
+        let anchor = &self.js.functions.last().unwrap().anchor;
 
-        let anchor_type = self.js.functions.last().unwrap().anchor.into_type();
+        let anchor_type = anchor.as_type();
+        let anchor_js_type = anchor.as_js_type();
 
         block((
-            "\
+            (
+                "\
                 use ::kobold::dom::{Mountable as _};\
                 use ::kobold::reexport::wasm_bindgen;\
                 ",
-            self.js,
-            format_args!(
-                "\
-                struct TransientProduct <{product_generics}> {{\
-                    {product_declare}\
-                    {declare_els}\
-                }}\
-                \
-                impl<{product_generics}> ::kobold::dom::Anchor for TransientProduct<{product_generics}>\
-                where \
-                    Self: 'static,\
-                {{\
-                    type Js = ::kobold::reexport::web_sys::{js_type};\
-                    type Target = {anchor_type};\
+                self.js,
+                format_args!(
+                    "\
+                    struct TransientProduct <{product_generics}> {{\
+                        {product_declare}\
+                        {declare_els}\
+                    }}\
                     \
+                    impl<{product_generics}> ::kobold::dom::Anchor for TransientProduct<{product_generics}>\
+                    where \
+                        Self: 'static,\
+                    ",
+                ),
+            ),
+            block((
+                "type Js = ::kobold::reexport::web_sys::",
+                anchor_js_type,
+                ";",
+                format_args!("\
+                    type Target = {anchor_type};
+
                     fn anchor(&self) -> &Self::Target {{\
                         &self.e0\
                     }}\
-                }}\
-                "
-            ),
+                "),
+            )),
             transient_signature,
             format_args!(
                 "\
@@ -266,16 +271,24 @@ pub struct JsFunction {
     pub args: Vec<JsArgument>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum Anchor {
+    Element(Ident),
     Node,
     Fragment,
 }
 
 impl Anchor {
-    fn into_type(self) -> &'static str {
+    fn as_js_type(&self) -> Ident {
         match self {
-            Anchor::Node => "::kobold::reexport::web_sys::Node",
+            Anchor::Element(typ) => typ.clone(),
+            Anchor::Node | Anchor::Fragment => ident("Node"),
+        }
+    }
+
+    fn as_type(&self) -> &'static str {
+        match self {
+            Anchor::Element(_) | Anchor::Node => "::kobold::reexport::web_sys::Node",
             Anchor::Fragment => "::kobold::dom::Fragment",
         }
     }
@@ -412,12 +425,14 @@ impl Field {
             }
             FieldKind::Event { event, target } => {
                 buf.write((
-                    ident(typ.as_str()),
-                    ": ::kobold::event::Listener<::kobold::event::",
-                    event,
-                    "<::kobold::reexport::web_sys::",
-                    target,
-                    ">>,",
+                    Ident::new(typ.as_str(), event.span()),
+                    format_args!(
+                        ": ::kobold::event::Listener<\
+                            ::kobold::event::{event}<\
+                                ::kobold::reexport::web_sys::{target}\
+                            >
+                        >,"
+                    ),
                 ));
             }
             FieldKind::Attribute { attr, span, .. } => {
