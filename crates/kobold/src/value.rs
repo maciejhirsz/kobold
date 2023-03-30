@@ -65,7 +65,7 @@ pub struct TextProduct<M> {
 
 impl<M> Anchor for TextProduct<M> {
     type Js = web_sys::Text;
-    type Anchor = Node;
+    type Target = Node;
 
     fn anchor(&self) -> &Node {
         &self.node

@@ -89,7 +89,7 @@ where
     P: Mountable,
 {
     type Js = P::Js;
-    type Anchor = P;
+    type Target = P;
 
     fn anchor(&self) -> &P {
         &self.inner

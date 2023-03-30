@@ -169,9 +169,9 @@ impl Tokenize for Transient {
                     Self: 'static,\
                 {{\
                     type Js = ::kobold::reexport::web_sys::{js_type};\
-                    type Anchor = {anchor_type};\
+                    type Target = {anchor_type};\
                     \
-                    fn anchor(&self) -> &Self::Anchor {{\
+                    fn anchor(&self) -> &Self::Target {{\
                         &self.e0\
                     }}\
                 }}\
