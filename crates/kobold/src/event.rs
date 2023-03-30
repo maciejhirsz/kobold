@@ -8,62 +8,70 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 
 use wasm_bindgen::closure::Closure;
+use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::HtmlElement;
 
 use crate::{Mountable, View};
 
-/// Smart wrapper around a [`web_sys::Event`](web_sys::Event) which includes type
-/// information for the target element of said event.
-#[repr(transparent)]
-pub struct Event<T = HtmlElement, E = web_sys::Event> {
-    event: web_sys::Event,
-    _target: PhantomData<(E, T)>,
+#[wasm_bindgen]
+extern "C" {
+    type EventWithTarget;
+
+    #[wasm_bindgen(method, getter)]
+    fn target(this: &EventWithTarget) -> HtmlElement;
 }
 
-pub type MouseEvent<T = HtmlElement> = Event<T, web_sys::MouseEvent>;
+macro_rules! event {
+    ($(#[doc = $doc:literal] $event:ident,)*) => {
+        $(
+            #[doc = concat!("Smart wrapper around a ", $doc, "which includes the type information of the event target")]
+            #[repr(transparent)]
+            pub struct $event<T = HtmlElement> {
+                event: web_sys::$event,
+                _target: PhantomData<T>,
+            }
 
-pub type KeyboardEvent<T = HtmlElement> = Event<T, web_sys::KeyboardEvent>;
+            impl<T> From<web_sys::Event> for $event<T> {
+                fn from(event: web_sys::Event) -> Self {
+                    $event {
+                        event: event.unchecked_into(),
+                        _target: PhantomData,
+                    }
+                }
+            }
 
-impl<T, E> Deref for Event<T, E>
-where
-    E: JsCast,
-{
-    type Target = E;
+            impl<T> Deref for $event<T> {
+                type Target = web_sys::$event;
 
-    fn deref(&self) -> &E {
-        self.event.unchecked_ref()
-    }
+                fn deref(&self) -> &Self::Target {
+                    &self.event.unchecked_ref()
+                }
+            }
+
+            impl<T> $event<T> {
+                /// Return a reference to the target element.
+                ///
+                /// This method shadows over the [`Event::target`](web_sys::Event::target)
+                /// method provided by `web-sys` and makes it infallible.
+                pub fn target(&self) -> T
+                where
+                    T: JsCast,
+                {
+                    self.event.unchecked_ref::<EventWithTarget>().target().unchecked_into()
+                }
+            }
+        )*
+    };
 }
 
-impl<T, E> From<web_sys::Event> for Event<T, E> {
-    fn from(event: web_sys::Event) -> Self {
-        Event {
-            event,
-            _target: PhantomData,
-        }
-    }
-}
-
-impl<T, E> Event<T, E> {
-    pub fn target(&self) -> T
-    where
-        T: JsCast,
-    {
-        self.event.target().unwrap().unchecked_into()
-    }
-
-    pub fn stop_propagation(&self) {
-        self.event.stop_propagation();
-    }
-
-    pub fn stop_immediate_propagation(&self) {
-        self.event.stop_immediate_propagation();
-    }
-
-    pub fn prevent_default(&self) {
-        self.event.prevent_default();
-    }
+event! {
+    /// [`web_sys::Event`](web_sys::Event)
+    Event,
+    /// [`web_sys::KeyboardEvent`](web_sys::KeyboardEvent)
+    KeyboardEvent,
+    /// [`web_sys::MouseEvent`](web_sys::MouseEvent)
+    MouseEvent,
 }
 
 pub fn event_handler<E>(
