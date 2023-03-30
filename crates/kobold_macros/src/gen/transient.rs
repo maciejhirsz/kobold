@@ -424,15 +424,12 @@ impl Field {
                 buf.write((typ.as_str(), ": ::kobold::View,"));
             }
             FieldKind::Event { event, target } => {
-                buf.write((
-                    Ident::new(typ.as_str(), event.span()),
-                    format_args!(
-                        ": ::kobold::event::Listener<\
-                            ::kobold::event::{event}<\
-                                ::kobold::reexport::web_sys::{target}\
-                            >
-                        >,"
-                    ),
+                buf.write(format_args!(
+                    "{typ}: ::kobold::event::Listener<\
+                        ::kobold::event::{event}<\
+                            ::kobold::reexport::web_sys::{target}\
+                        >
+                    >,"
                 ));
             }
             FieldKind::Attribute { attr, span, .. } => {

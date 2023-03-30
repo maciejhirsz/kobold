@@ -123,18 +123,31 @@ impl IntoGenerator for HtmlElement {
                         let event_type = Ident::new(event_js_type(&event), span);
                         let target = el.typ.clone();
 
-                        let callback = call(
-                            format_args!(
-                                "::kobold::event::listener::<\
-                                        ::kobold::event::{event_type}<\
+                        let coerce = block((
+                            call(
+                                "fn coerce",
+                                (
+                                    name.clone(),
+                                    format_args!(
+                                        ": impl FnMut(::kobold::event::{event_type}<\
                                             ::kobold::reexport::web_sys::{target}\
-                                        >\
-                                    >"
+                                        >) + 'static"
+                                    ),
+                                ),
                             ),
-                            expr.stream,
-                        );
+                            format_args!(
+                                " -> impl ::kobold::event::Listener<\
+                                    ::kobold::event::{event_type}<\
+                                        ::kobold::reexport::web_sys::{target}\
+                                    >\
+                                >"
+                            ),
+                            block(name.tokenize()),
+                            call("coerce", expr.stream),
+                        ))
+                        .tokenize();
 
-                        let value = gen.add_field(callback).event(event_type, target).name;
+                        let value = gen.add_field(coerce).event(event_type, target).name;
 
                         writeln!(el, "{var}.addEventListener(\"{event}\",{value});");
 
