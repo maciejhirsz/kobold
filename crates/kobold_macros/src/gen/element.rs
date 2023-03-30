@@ -4,7 +4,7 @@
 
 use std::fmt::{Arguments, Write};
 
-use proc_macro::{Literal, TokenStream};
+use proc_macro::{Ident, Literal, TokenStream};
 
 use crate::dom::{Attribute, AttributeValue, CssValue, HtmlElement};
 use crate::gen::{append, DomNode, Generator, IntoGenerator, JsArgument, Short};
@@ -15,6 +15,9 @@ use crate::tokenize::prelude::*;
 pub struct JsElement {
     /// Tag name of the element such as `div`
     pub tag: String,
+
+    /// The `web-sys` type of this element, such as `HtmlElement`, spanned to tag invocation.
+    pub typ: Ident,
 
     /// Variable name of the element, such as `e0`
     pub var: Short,
@@ -38,11 +41,13 @@ impl JsElement {
 impl IntoGenerator for HtmlElement {
     fn into_gen(mut self, gen: &mut Generator) -> DomNode {
         let var = gen.names.next_el();
+        let typ = Ident::new(element_js_type(&self.name), self.span);
 
         gen.set_js_type(element_js_type(&self.name));
 
         let mut el = JsElement {
             tag: self.name,
+            typ,
             var,
             code: String::new(),
             args: Vec::new(),
@@ -117,12 +122,12 @@ impl IntoGenerator for HtmlElement {
                 }
                 AttributeValue::Expression(expr) => match name.with_str(attribute_type) {
                     AttributeType::Event { event } => {
-                        let target = element_js_type(el.tag.as_str());
-                        let event_type = event_js_type(&event);
+                        let event_type = Ident::new(event_js_type(&event), span);
+                        let target = el.typ.clone();
 
                         let callback = call(
                             format_args!(
-                                "::kobold::event::event_handler::<\
+                                "::kobold::event::listener::<\
                                         ::kobold::event::{event_type}<\
                                             ::kobold::reexport::web_sys::{target}\
                                         >\
@@ -131,7 +136,7 @@ impl IntoGenerator for HtmlElement {
                             expr.stream,
                         );
 
-                        let value = gen.add_field(callback).name;
+                        let value = gen.add_field(callback).event(event_type, target).name;
 
                         writeln!(el, "{var}.addEventListener(\"{event}\",{value});");
 

@@ -12,7 +12,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::HtmlElement;
 
-use crate::{Mountable, View};
+use self::hidden::EventCast;
 
 #[wasm_bindgen]
 extern "C" {
@@ -41,6 +41,8 @@ macro_rules! event {
                 }
             }
 
+            impl<T> hidden::EventCast for $event<T> {}
+
             impl<T> Deref for $event<T> {
                 type Target = web_sys::$event;
 
@@ -65,6 +67,10 @@ macro_rules! event {
     };
 }
 
+mod hidden {
+    pub trait EventCast {}
+}
+
 event! {
     /// [`web_sys::Event`](web_sys::Event)
     Event,
@@ -74,71 +80,53 @@ event! {
     MouseEvent,
 }
 
-pub fn event_handler<E>(
-    handler: impl Fn(E) + 'static,
-) -> EventHandler<impl Fn(web_sys::Event) + 'static>
-where
-    E: From<web_sys::Event>,
-{
-    EventHandler(move |event| handler(E::from(event)))
+/// Coerces a closure into a `Listener`. This is a no-op used by [`view!`](crate::view)
+/// macro to help with type inference.
+pub fn listener<E: EventCast>(f: impl FnMut(E) + 'static) -> impl Listener<E> {
+    f
 }
 
-pub struct EventHandler<F>(F);
+pub trait Listener<E>
+where
+    E: hidden::EventCast,
+    Self: Sized + 'static,
+{
+    fn build(self) -> ListenerProduct<Self>;
 
-pub struct ClosureProduct<F> {
-    js: JsValue,
-    boxed: Box<F>,
+    fn update(self, p: &mut ListenerProduct<Self>);
 }
 
-impl<F> ClosureProduct<F>
+impl<E, F> Listener<E> for F
 where
-    F: FnMut(web_sys::Event) + 'static,
+    F: FnMut(E) + 'static,
+    E: hidden::EventCast,
 {
-    fn make(f: F) -> Self {
-        let raw = Box::into_raw(Box::new(f));
+    fn build(self) -> ListenerProduct<Self> {
+        let raw = Box::into_raw(Box::new(self));
 
-        let js = Closure::wrap(unsafe { Box::from_raw(raw) } as Box<dyn FnMut(web_sys::Event)>)
-            .into_js_value();
+        let js = Closure::wrap(unsafe {
+            Box::from_raw(raw as *mut dyn FnMut(E) as *mut dyn FnMut(web_sys::Event))
+        })
+        .into_js_value();
 
         // `into_js_value` will _forget_ the previous Box, so we can safely reconstruct it
         let boxed = unsafe { Box::from_raw(raw) };
 
-        ClosureProduct { js, boxed }
+        ListenerProduct { js, boxed }
     }
 
-    fn update(&mut self, f: F) {
-        *self.boxed = f;
-    }
-}
-
-impl<F> View for EventHandler<F>
-where
-    F: Fn(web_sys::Event) + 'static,
-{
-    type Product = ClosureProduct<F>;
-
-    fn build(self) -> Self::Product {
-        ClosureProduct::make(self.0)
-    }
-
-    fn update(self, p: &mut Self::Product) {
-        p.update(self.0)
+    fn update(self, p: &mut ListenerProduct<Self>) {
+        *p.boxed = self;
     }
 }
 
-impl<F> Mountable for ClosureProduct<F>
-where
-    F: 'static,
-{
-    type Js = JsValue;
+pub struct ListenerProduct<F> {
+    js: JsValue,
+    boxed: Box<F>,
+}
 
-    fn js(&self) -> &JsValue {
+impl<F> ListenerProduct<F> {
+    pub fn js(&self) -> &JsValue {
         &self.js
-    }
-
-    fn unmount(&self) {}
-
-    fn replace_with(&self, _: &JsValue) {
-        debug_assert!(false, "Using JsClosure as a DOM Node");
     }
 }

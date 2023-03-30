@@ -48,28 +48,32 @@ impl Transient {
         .tokenize_in(stream)
     }
 
-    fn tokenize_impl_view_sig(&self) -> TokenStream {
+    fn transient_signature(&self) -> TokenStream {
         let mut generics = String::new();
+        let mut declare = String::new();
 
         for field in self.fields.iter() {
             let typ = field.make_type();
 
+            field.declare(&mut declare);
+
             let _ = write!(generics, "{typ},");
         }
 
-        let mut impl_view_sig = format_args!(
-            "\
-            impl<{generics}> ::kobold::View for Transient<{generics}>\
-            where \
-            "
-        )
-        .tokenize();
+        let mut bounds = "where".tokenize();
 
         for field in self.fields.iter() {
-            field.bounds(&mut impl_view_sig);
+            field.bounds(&mut bounds);
         }
 
-        impl_view_sig
+        (
+            format_args!("struct Transient <{generics}>"),
+            bounds.clone(),
+            block(declare.as_str()),
+            format_args!("impl<{generics}> ::kobold::View for Transient<{generics}>"),
+            bounds,
+        )
+            .tokenize()
     }
 }
 
@@ -80,7 +84,7 @@ impl Tokenize for Transient {
             return;
         }
 
-        let impl_view_sig = self.tokenize_impl_view_sig();
+        let transient_signature = self.transient_signature();
 
         if self.els.is_empty() {
             return self.fields.remove(0).value.tokenize_in(stream);
@@ -109,11 +113,21 @@ impl Tokenize for Transient {
             field.declare(&mut declare);
             field.var(&mut vars);
 
-            if !field.is_static() {
-                let _ = write!(product_generics, "{typ},");
-                let _ = write!(product_generics_binds, "{typ}::Product,");
-
-                field.declare(&mut product_declare);
+            match field.kind {
+                FieldKind::StaticView => (),
+                FieldKind::View | FieldKind::Attribute { .. } => {
+                    let _ = write!(product_generics, "{typ},");
+                    let _ = write!(product_generics_binds, "{typ}::Product,");
+                    field.declare(&mut product_declare);
+                }
+                FieldKind::Event { .. } => {
+                    let _ = write!(product_generics, "{typ},");
+                    let _ = write!(
+                        product_generics_binds,
+                        "::kobold::event::ListenerProduct<{typ}>,"
+                    );
+                    field.declare(&mut product_declare);
+                }
             }
         }
 
@@ -143,13 +157,7 @@ impl Tokenize for Transient {
             let _ = write!(vars, "{el},");
         }
 
-        let anchor_type = self
-            .js
-            .functions
-            .last()
-            .map(|jsfn| jsfn.anchor)
-            .unwrap_or(Anchor::Node)
-            .into_type();
+        let anchor_type = self.js.functions.last().unwrap().anchor.into_type();
 
         block((
             "\
@@ -175,13 +183,9 @@ impl Tokenize for Transient {
                         &self.e0\
                     }}\
                 }}\
-                \
-                struct Transient <{generics}> {{\
-                    {declare}\
-                }}\
                 "
             ),
-            impl_view_sig,
+            transient_signature,
             format_args!(
                 "\
                 {{\
@@ -327,6 +331,10 @@ pub struct Field {
 pub enum FieldKind {
     StaticView,
     View,
+    Event {
+        event: Ident,
+        target: Ident,
+    },
     Attribute {
         el: Short,
         attr: Attr,
@@ -346,6 +354,9 @@ impl Debug for Field {
             FieldKind::View => {
                 write!(f, "{name} <View>: {value}")
             }
+            FieldKind::Event { event, target } => {
+                write!(f, "{name} <Listener<{event}<{target}>>>: {value}")
+            }
             FieldKind::Attribute { attr, .. } => {
                 write!(f, "{name} <AttributeView<{}>>: {value}", attr.name)
             }
@@ -362,6 +373,11 @@ impl Field {
         }
     }
 
+    pub fn event(&mut self, event: Ident, target: Ident) -> &mut Self {
+        self.kind = FieldKind::Event { event, target };
+        self
+    }
+
     pub fn attr(&mut self, el: Short, span: Span, attr: Attr, prop: TokenStream) -> &mut Self {
         self.kind = FieldKind::Attribute {
             el,
@@ -370,14 +386,6 @@ impl Field {
             prop,
         };
         self
-    }
-
-    fn is_static(&self) -> bool {
-        matches!(self.kind, FieldKind::StaticView)
-    }
-
-    fn is_view(&self) -> bool {
-        matches!(self.kind, FieldKind::View | FieldKind::StaticView)
     }
 
     fn name_value(&self) -> (&Short, &TokenStream) {
@@ -402,9 +410,19 @@ impl Field {
             FieldKind::View | FieldKind::StaticView => {
                 buf.write((typ.as_str(), ": ::kobold::View,"));
             }
+            FieldKind::Event { event, target } => {
+                buf.write((
+                    ident(typ.as_str()),
+                    ": ::kobold::event::Listener<::kobold::event::",
+                    event,
+                    "<::kobold::reexport::web_sys::",
+                    target,
+                    ">>,",
+                ));
+            }
             FieldKind::Attribute { attr, span, .. } => {
                 buf.write((
-                    typ.as_str(),
+                    ident(typ.as_str()),
                     ": ::kobold::attribute::AttributeView<::kobold::attribute::",
                     Ident::new(attr.name, *span),
                     '>',
@@ -423,10 +441,13 @@ impl Field {
     }
 
     fn build(&self, buf: &mut String) {
-        let Field { name, .. } = self;
+        let Field { name, kind, .. } = self;
 
-        if self.is_view() {
-            let _ = write!(buf, "let {name} = self.{name}.build();");
+        match kind {
+            FieldKind::View | FieldKind::StaticView | FieldKind::Event { .. } => {
+                let _ = write!(buf, "let {name} = self.{name}.build();");
+            }
+            _ => (),
         }
     }
 
@@ -436,6 +457,9 @@ impl Field {
         match kind {
             FieldKind::StaticView => (),
             FieldKind::View => {
+                let _ = write!(buf, "{name},");
+            }
+            FieldKind::Event { .. } => {
                 let _ = write!(buf, "{name},");
             }
             FieldKind::Attribute { attr, .. } if attr.abi.is_some() => {
@@ -452,7 +476,7 @@ impl Field {
 
         match kind {
             FieldKind::StaticView => (),
-            FieldKind::View => {
+            FieldKind::View | FieldKind::Event { .. } => {
                 let _ = write!(buf, "self.{name}.update(&mut p.{name});");
             }
             FieldKind::Attribute { el, prop, .. } => {

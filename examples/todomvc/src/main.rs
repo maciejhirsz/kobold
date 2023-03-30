@@ -83,22 +83,6 @@ fn EntryInput(state: &Hook<State>) -> impl View + '_ {
     }
 }
 
-mod test {
-    use super::*;
-
-    #[component]
-    fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl View + '_ {
-        bind! { state:
-            let onclick = move |_| state.set_all(active_count != 0);
-        }
-
-        view! {
-            <input #toggle-all.toggle-all type="checkbox" checked={active_count == 0} {onclick} />
-            <label for="toggle-all" />
-        }
-    }
-}
-
 #[component]
 fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl View + '_ {
     bind! { state:
@@ -128,15 +112,11 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl V
             let onblur = move |event: Event<InputElement>| state.update(idx, event.target().value());
         }
 
-        let onmouseover = move |event: MouseEvent<InputElement>| {
-            let _ = event.target().focus();
-        };
-
         view! {
             <input .edit
                 type="text"
                 value={static &entry.description}
-                {onmouseover}
+                onmouseover={|event| drop(event.target().focus()) }
                 {onkeypress}
                 {onblur}
             />
