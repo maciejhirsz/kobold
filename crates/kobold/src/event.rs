@@ -10,9 +10,7 @@ use std::ops::Deref;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
-use web_sys::HtmlElement;
-
-use self::hidden::EventCast;
+use web_sys::{HtmlElement, HtmlInputElement};
 
 #[wasm_bindgen]
 extern "C" {
@@ -27,7 +25,7 @@ macro_rules! event {
         $(
             #[doc = concat!("Smart wrapper around a ", $doc, "which includes the type information of the event target")]
             #[repr(transparent)]
-            pub struct $event<T = HtmlElement> {
+            pub struct $event<T> {
                 event: web_sys::$event,
                 _target: PhantomData<T>,
             }
@@ -56,11 +54,11 @@ macro_rules! event {
                 ///
                 /// This method shadows over the [`Event::target`](web_sys::Event::target)
                 /// method provided by `web-sys` and makes it infallible.
-                pub fn target(&self) -> T
+                pub fn target(&self) -> EventTarget<T>
                 where
                     T: JsCast,
                 {
-                    self.event.unchecked_ref::<EventWithTarget>().target().unchecked_into()
+                    EventTarget(self.event.unchecked_ref::<EventWithTarget>().target().unchecked_into())
                 }
             }
         )*
@@ -80,12 +78,6 @@ event! {
     MouseEvent,
 }
 
-/// Coerces a closure into a `Listener`. This is a no-op used by [`view!`](crate::view)
-/// macro to help with type inference.
-pub fn listener<E: EventCast>(f: impl FnMut(E) + 'static) -> impl Listener<E> {
-    f
-}
-
 pub trait Listener<E>
 where
     E: hidden::EventCast,
@@ -98,14 +90,14 @@ where
 
 impl<E, F> Listener<E> for F
 where
-    F: FnMut(E) + 'static,
+    F: Fn(E) + 'static,
     E: hidden::EventCast,
 {
     fn build(self) -> ListenerProduct<Self> {
         let raw = Box::into_raw(Box::new(self));
 
         let js = Closure::wrap(unsafe {
-            Box::from_raw(raw as *mut dyn FnMut(E) as *mut dyn FnMut(web_sys::Event))
+            Box::from_raw(raw as *mut dyn Fn(E) as *mut dyn Fn(web_sys::Event))
         })
         .into_js_value();
 
@@ -128,5 +120,23 @@ pub struct ListenerProduct<F> {
 impl<F> ListenerProduct<F> {
     pub fn js(&self) -> &JsValue {
         &self.js
+    }
+}
+
+/// A wrapper over some event target type from web-sys.
+#[repr(transparent)]
+pub struct EventTarget<T>(T);
+
+impl<T> Deref for EventTarget<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl EventTarget<HtmlInputElement> {
+    pub fn focus(&self) {
+        let _ = self.0.focus();
     }
 }

@@ -14,7 +14,7 @@ use crate::internal;
 /// A type that can be mounted in the DOM
 pub trait Mountable: 'static {
     /// The concrete `web-sys` type representing the root of this
-    /// product, such as [`HtmlDivElement`](web_sys::HtmlDivElement).
+    /// product, most often [`HtmlElement`](web_sys::HtmlElement).
     type Js: JsCast;
 
     /// Returns a reference to the root DOM node of this product.

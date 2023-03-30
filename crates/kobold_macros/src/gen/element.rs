@@ -120,7 +120,7 @@ impl IntoGenerator for HtmlElement {
                 }
                 AttributeValue::Expression(expr) => match name.with_str(attribute_type) {
                     AttributeType::Event { event } => {
-                        let event_type = Ident::new(event_js_type(&event), span);
+                        let event_type = event_js_type(&event);
                         let target = el.typ.clone();
 
                         let coerce = block((
@@ -129,7 +129,7 @@ impl IntoGenerator for HtmlElement {
                                 (
                                     name.clone(),
                                     format_args!(
-                                        ": impl FnMut(::kobold::event::{event_type}<\
+                                        ": impl Fn(::kobold::event::{event_type}<\
                                             ::kobold::reexport::web_sys::{target}\
                                         >) + 'static"
                                     ),

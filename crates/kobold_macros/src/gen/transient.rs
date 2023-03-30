@@ -345,7 +345,7 @@ pub enum FieldKind {
     StaticView,
     View,
     Event {
-        event: Ident,
+        event: &'static str,
         target: Ident,
     },
     Attribute {
@@ -386,7 +386,7 @@ impl Field {
         }
     }
 
-    pub fn event(&mut self, event: Ident, target: Ident) -> &mut Self {
+    pub fn event(&mut self, event: &'static str, target: Ident) -> &mut Self {
         self.kind = FieldKind::Event { event, target };
         self
     }

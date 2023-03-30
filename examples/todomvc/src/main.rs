@@ -68,7 +68,9 @@ fn App() -> impl View {
 
 #[component]
 fn EntryInput(state: &Hook<State>) -> impl View + '_ {
-    bind! { state:
+    bind! {
+        state:
+
         let onchange = move |event: Event<InputElement>| {
             let input = event.target();
             let value = input.value();
@@ -98,7 +100,9 @@ fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl View + '_ {
 #[component]
 fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl View + 'a {
     let input = entry.editing.then(move || {
-        bind! { state:
+        bind! {
+            state:
+
             let onkeypress = move |event: KeyboardEvent<InputElement>| {
                 if event.key() == "Enter" {
                     state.update(idx, event.target().value());
@@ -116,7 +120,7 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl V
             <input .edit
                 type="text"
                 value={static &entry.description}
-                onmouseover={|event| drop(event.target().focus()) }
+                onmouseover={|event| event.target().focus()}
                 {onkeypress}
                 {onblur}
             />
@@ -125,6 +129,7 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl V
 
     bind! {
         state:
+
         let onchange = move |_| state.toggle(idx);
         let edit = move |_| state.edit_entry(idx);
         let remove = move |_| state.remove(idx);
