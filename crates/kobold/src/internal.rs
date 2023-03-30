@@ -9,7 +9,7 @@ use crate::View;
 
 /// Wrapper that turns `extern` precompiled JavaScript functions into [`View`](View)s.
 #[repr(transparent)]
-pub struct Precompiled<F = fn() -> Node>(pub F);
+pub struct Precompiled<F>(pub F);
 
 impl<F> View for Precompiled<F>
 where
