@@ -8,7 +8,7 @@ use std::ops::Deref;
 
 use web_sys::Node;
 
-use crate::attribute::AttributeView;
+use crate::attribute::Attribute;
 use crate::dom::{Anchor, TextContent};
 use crate::value::{IntoText, Value};
 use crate::{Mountable, View};
@@ -239,7 +239,7 @@ macro_rules! impl_no_diff {
             }
         }
 
-        impl<T, P> AttributeView<P> for $name<T>
+        impl<T, P> Attribute<P> for $name<T>
         where
             T: Value<P>,
         {

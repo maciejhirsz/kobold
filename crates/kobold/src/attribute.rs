@@ -11,21 +11,21 @@ use crate::internal;
 use crate::value::Value;
 
 /// Arbitrary attribute: <https://developer.mozilla.org/en-US/docs/Web/API/Element/setAttribute>
-pub type Attribute = &'static str;
+pub type AttributeName = &'static str;
 
-impl Property<&str> for Attribute {
+impl Property<&str> for AttributeName {
     fn set(self, this: &Node, value: &str) {
         internal::set_attr(this, self, value)
     }
 }
 
-impl Property<f64> for Attribute {
+impl Property<f64> for AttributeName {
     fn set(self, this: &Node, value: f64) {
         internal::set_attr_num(this, self, value)
     }
 }
 
-impl Property<bool> for Attribute {
+impl Property<bool> for AttributeName {
     fn set(self, this: &Node, value: bool) {
         internal::set_attr_bool(this, self, value)
     }
@@ -64,7 +64,7 @@ attribute!(
     InputValue [value: &str, value_num: f64]
 );
 
-pub trait AttributeView<P> {
+pub trait Attribute<P> {
     type Product: 'static;
 
     fn build(self) -> Self::Product;
@@ -74,7 +74,7 @@ pub trait AttributeView<P> {
     fn update_in(self, prop: P, node: &Node, memo: &mut Self::Product);
 }
 
-impl<P> AttributeView<P> for String
+impl<P> Attribute<P> for String
 where
     P: for<'a> Property<&'a str>,
 {
@@ -97,7 +97,7 @@ where
     }
 }
 
-impl<P> AttributeView<P> for bool
+impl<P> Attribute<P> for bool
 where
     Self: Value<P>,
 {
@@ -119,7 +119,7 @@ where
 macro_rules! impl_attribute_view {
     ($($ty:ty),*) => {
         $(
-            impl<P> AttributeView<P> for $ty
+            impl<P> Attribute<P> for $ty
             where
                 Self: Value<P>,
             {
@@ -171,7 +171,7 @@ fn diff_class(node: &Node, new: &str, old: &str) -> bool {
     true
 }
 
-impl<T> AttributeView<Class> for T
+impl<T> Attribute<Class> for T
 where
     T: Diff<Memo = String> + AsRef<str>,
 {
@@ -195,7 +195,7 @@ where
     }
 }
 
-impl AttributeView<Class> for String {
+impl Attribute<Class> for String {
     type Product = String;
 
     fn build(self) -> String {
@@ -237,7 +237,7 @@ impl OptionalClass {
     }
 }
 
-impl AttributeView<Class> for OptionalClass {
+impl Attribute<Class> for OptionalClass {
     type Product = bool;
 
     fn build(self) -> bool {
@@ -258,7 +258,7 @@ impl AttributeView<Class> for OptionalClass {
     }
 }
 
-impl AttributeView<ClassName> for OptionalClass {
+impl Attribute<ClassName> for OptionalClass {
     type Product = bool;
 
     fn build(self) -> bool {

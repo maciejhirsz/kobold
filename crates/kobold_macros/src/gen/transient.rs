@@ -90,7 +90,7 @@ impl Transient {
                             name,
                             format_args!(
                                 ":\
-                                    impl ::kobold::attribute::AttributeView<\
+                                    impl ::kobold::attribute::Attribute<\
                                         ::kobold::attribute::{attr_name}\
                                     >\
                                 "
@@ -404,7 +404,7 @@ impl Debug for Field {
                 write!(f, "{name} <Listener<{event}<{target}>>>: {value}")
             }
             FieldKind::Attribute { attr, .. } => {
-                write!(f, "{name} <AttributeView<{}>>: {value}", attr.name)
+                write!(f, "{name} <Attribute<{}>>: {value}", attr.name)
             }
         }
     }
@@ -468,9 +468,8 @@ impl Field {
             FieldKind::Attribute { attr, .. } => {
                 let attr_name = attr.name;
                 buf.write((
-                    ident(typ.as_str()),
                     format_args!(
-                        ": ::kobold::attribute::AttributeView<::kobold::attribute::{attr_name}>"
+                        "{typ}: ::kobold::attribute::Attribute<::kobold::attribute::{attr_name}>"
                     ),
                     attr.abi.map(InlineAbi::bound),
                     ',',
