@@ -5,7 +5,7 @@
 use std::fmt::{self, Debug, Display, Write};
 
 use arrayvec::ArrayString;
-use proc_macro::{Ident, Literal, Span, TokenStream};
+use proc_macro::{Ident, Literal, TokenStream};
 
 use crate::gen::element::{Attr, InlineAbi};
 use crate::gen::Short;
@@ -18,7 +18,6 @@ pub type JsFnName = ArrayString<24>;
 #[derive(Default, Debug)]
 pub struct Transient {
     pub js: JsModule,
-    pub js_type: Option<&'static str>,
     pub fields: Vec<Field>,
     pub els: Vec<Short>,
 }
@@ -33,7 +32,7 @@ impl Transient {
         self.fields.is_empty()
             && self.els.len() == 1
             && self.js.functions.len() == 1
-            && jsfn.anchor == Anchor::Node
+            && !matches!(jsfn.anchor, Anchor::Fragment)
             && jsfn.args.is_empty()
     }
 
@@ -43,33 +42,66 @@ impl Transient {
         block((
             "use ::kobold::reexport::wasm_bindgen;",
             self.js,
-            format_args!("::kobold::Precompiled({name})"),
+            format_args!("::kobold::internal::Precompiled({name})"),
         ))
         .tokenize_in(stream)
     }
 
-    fn tokenize_impl_view_sig(&self) -> TokenStream {
+    fn transient_signature(&self) -> TokenStream {
         let mut generics = String::new();
+        let mut declare = String::new();
 
         for field in self.fields.iter() {
             let typ = field.make_type();
 
+            field.declare(&mut declare);
+
             let _ = write!(generics, "{typ},");
         }
 
-        let mut impl_view_sig = format_args!(
-            "\
-            impl<{generics}> ::kobold::View for Transient<{generics}>\
-            where \
-            "
-        )
-        .tokenize();
+        let mut bounds = "where".tokenize();
 
         for field in self.fields.iter() {
-            field.bounds(&mut impl_view_sig);
+            field.bounds(&mut bounds);
         }
 
-        impl_view_sig
+        (
+            format_args!("struct Transient <{generics}>"),
+            bounds.clone(),
+            block(declare.as_str()),
+            format_args!("impl<{generics}> ::kobold::View for Transient<{generics}>"),
+            bounds,
+        )
+            .tokenize()
+    }
+
+    fn attr_hints(&self) -> TokenStream {
+        let mut stream = TokenStream::new();
+
+        for field in self.fields.iter() {
+            if let FieldKind::Attribute { el, name, attr, .. } = &field.kind {
+                let attr_name = attr.name;
+
+                stream.write((
+                    "#[allow(unused_variables)]",
+                    call(
+                        format_args!("fn _hint_{el}_{name}"),
+                        (
+                            name,
+                            format_args!(
+                                ":\
+                                    impl ::kobold::attribute::Attribute<\
+                                        ::kobold::attribute::{attr_name}\
+                                    >\
+                                "
+                            ),
+                        ),
+                    ),
+                    block(()),
+                ))
+            }
+        }
+        block(stream).tokenize()
     }
 }
 
@@ -80,13 +112,12 @@ impl Tokenize for Transient {
             return;
         }
 
-        let impl_view_sig = self.tokenize_impl_view_sig();
+        let transient_signature = self.transient_signature();
+        let attr_hints = self.attr_hints();
 
         if self.els.is_empty() {
             return self.fields.remove(0).value.tokenize_in(stream);
         }
-
-        let js_type = self.js_type.unwrap_or("Node");
 
         let mut generics = String::new();
 
@@ -109,11 +140,21 @@ impl Tokenize for Transient {
             field.declare(&mut declare);
             field.var(&mut vars);
 
-            if !field.is_static() {
-                let _ = write!(product_generics, "{typ},");
-                let _ = write!(product_generics_binds, "{typ}::Product,");
-
-                field.declare(&mut product_declare);
+            match field.kind {
+                FieldKind::StaticView => (),
+                FieldKind::View | FieldKind::Attribute { .. } => {
+                    let _ = write!(product_generics, "{typ},");
+                    let _ = write!(product_generics_binds, "{typ}::Product,");
+                    field.declare(&mut product_declare);
+                }
+                FieldKind::Event { .. } => {
+                    let _ = write!(product_generics, "{typ},");
+                    let _ = write!(
+                        product_generics_binds,
+                        "::kobold::event::ListenerProduct<{typ}>,"
+                    );
+                    field.declare(&mut product_declare);
+                }
             }
         }
 
@@ -122,9 +163,9 @@ impl Tokenize for Transient {
         for (jsfn, el) in self.js.functions.iter().zip(self.els) {
             let JsFunction { name, anchor, args } = jsfn;
 
-            let anchor = anchor.into_type();
+            let anchor_typ = anchor.as_type();
 
-            let _ = write!(declare_els, "{el}: {anchor},");
+            let _ = write!(declare_els, "{el}: {anchor_typ},");
 
             let args = args
                 .iter()
@@ -139,49 +180,47 @@ impl Tokenize for Transient {
                 })
                 .join(",");
 
-            let _ = write!(build, "let {el}: {anchor} = {name}({args}).into();");
+            let _ = write!(build, "let {el}: {anchor_typ} = {name}({args}).into();");
             let _ = write!(vars, "{el},");
         }
+        let anchor = &self.js.functions.last().unwrap().anchor;
 
-        let anchor_type = self
-            .js
-            .functions
-            .last()
-            .map(|jsfn| jsfn.anchor)
-            .unwrap_or(Anchor::Node)
-            .into_type();
+        let anchor_type = anchor.as_type();
+        let anchor_js_type = anchor.as_js_type();
 
         block((
-            "\
-                use ::kobold::{Mountable as _};\
+            (
+                "\
+                use ::kobold::dom::{Mountable as _};\
                 use ::kobold::reexport::wasm_bindgen;\
                 ",
-            self.js,
-            format_args!(
-                "\
-                struct TransientProduct <{product_generics}> {{\
-                    {product_declare}\
-                    {declare_els}\
-                }}\
-                \
-                impl<{product_generics}> ::kobold::dom::Anchor for TransientProduct<{product_generics}>\
-                where \
-                    Self: 'static,\
-                {{\
-                    type Js = ::kobold::reexport::web_sys::{js_type};\
-                    type Anchor = {anchor_type};\
+                self.js,
+                format_args!(
+                    "\
+                    struct TransientProduct <{product_generics}> {{\
+                        {product_declare}\
+                        {declare_els}\
+                    }}\
                     \
-                    fn anchor(&self) -> &Self::Anchor {{\
+                    impl<{product_generics}> ::kobold::dom::Anchor for TransientProduct<{product_generics}>\
+                    where \
+                        Self: 'static,\
+                    ",
+                ),
+            ),
+            block((
+                "type Js = ::kobold::reexport::web_sys::",
+                anchor_js_type,
+                ";",
+                format_args!("\
+                    type Target = {anchor_type};
+
+                    fn anchor(&self) -> &Self::Target {{\
                         &self.e0\
                     }}\
-                }}\
-                \
-                struct Transient <{generics}> {{\
-                    {declare}\
-                }}\
-                "
-            ),
-            impl_view_sig,
+                "),
+            )),
+            transient_signature,
             format_args!(
                 "\
                 {{\
@@ -200,10 +239,13 @@ impl Tokenize for Transient {
                     }}\
                 }}\
                 \
-                Transient\
                 "
             ),
-            block(each(self.fields.iter().map(Field::invoke))),
+            (
+                attr_hints,
+                "Transient",
+                block(each(self.fields.iter().map(Field::invoke))),
+            ),
         ))
         .tokenize_in(stream)
     }
@@ -262,16 +304,24 @@ pub struct JsFunction {
     pub args: Vec<JsArgument>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum Anchor {
+    Element(Ident),
     Node,
     Fragment,
 }
 
 impl Anchor {
-    fn into_type(self) -> &'static str {
+    fn as_js_type(&self) -> Ident {
         match self {
-            Anchor::Node => "::kobold::reexport::web_sys::Node",
+            Anchor::Element(typ) => typ.clone(),
+            Anchor::Node | Anchor::Fragment => ident("Node"),
+        }
+    }
+
+    fn as_type(&self) -> &'static str {
+        match self {
+            Anchor::Element(_) | Anchor::Node => "::kobold::reexport::web_sys::Node",
             Anchor::Fragment => "::kobold::dom::Fragment",
         }
     }
@@ -327,10 +377,14 @@ pub struct Field {
 pub enum FieldKind {
     StaticView,
     View,
+    Event {
+        event: &'static str,
+        target: Ident,
+    },
     Attribute {
         el: Short,
         attr: Attr,
-        span: Span,
+        name: Ident,
         prop: TokenStream,
     },
 }
@@ -346,8 +400,11 @@ impl Debug for Field {
             FieldKind::View => {
                 write!(f, "{name} <View>: {value}")
             }
+            FieldKind::Event { event, target } => {
+                write!(f, "{name} <Listener<{event}<{target}>>>: {value}")
+            }
             FieldKind::Attribute { attr, .. } => {
-                write!(f, "{name} <AttributeView<{}>>: {value}", attr.name)
+                write!(f, "{name} <Attribute<{}>>: {value}", attr.name)
             }
         }
     }
@@ -362,22 +419,19 @@ impl Field {
         }
     }
 
-    pub fn attr(&mut self, el: Short, span: Span, attr: Attr, prop: TokenStream) -> &mut Self {
+    pub fn event(&mut self, event: &'static str, target: Ident) -> &mut Self {
+        self.kind = FieldKind::Event { event, target };
+        self
+    }
+
+    pub fn attr(&mut self, el: Short, name: Ident, attr: Attr, prop: TokenStream) -> &mut Self {
         self.kind = FieldKind::Attribute {
             el,
-            span,
+            name,
             attr,
             prop,
         };
         self
-    }
-
-    fn is_static(&self) -> bool {
-        matches!(self.kind, FieldKind::StaticView)
-    }
-
-    fn is_view(&self) -> bool {
-        matches!(self.kind, FieldKind::View | FieldKind::StaticView)
     }
 
     fn name_value(&self) -> (&Short, &TokenStream) {
@@ -402,12 +456,21 @@ impl Field {
             FieldKind::View | FieldKind::StaticView => {
                 buf.write((typ.as_str(), ": ::kobold::View,"));
             }
-            FieldKind::Attribute { attr, span, .. } => {
+            FieldKind::Event { event, target } => {
+                buf.write(format_args!(
+                    "{typ}: ::kobold::event::Listener<\
+                        ::kobold::event::{event}<\
+                            ::kobold::reexport::web_sys::{target}\
+                        >
+                    >,"
+                ));
+            }
+            FieldKind::Attribute { attr, .. } => {
+                let attr_name = attr.name;
                 buf.write((
-                    typ.as_str(),
-                    ": ::kobold::attribute::AttributeView<::kobold::attribute::",
-                    Ident::new(attr.name, *span),
-                    '>',
+                    format_args!(
+                        "{typ}: ::kobold::attribute::Attribute<::kobold::attribute::{attr_name}>"
+                    ),
                     attr.abi.map(InlineAbi::bound),
                     ',',
                 ));
@@ -423,10 +486,13 @@ impl Field {
     }
 
     fn build(&self, buf: &mut String) {
-        let Field { name, .. } = self;
+        let Field { name, kind, .. } = self;
 
-        if self.is_view() {
-            let _ = write!(buf, "let {name} = self.{name}.build();");
+        match kind {
+            FieldKind::View | FieldKind::StaticView | FieldKind::Event { .. } => {
+                let _ = write!(buf, "let {name} = self.{name}.build();");
+            }
+            _ => (),
         }
     }
 
@@ -436,6 +502,9 @@ impl Field {
         match kind {
             FieldKind::StaticView => (),
             FieldKind::View => {
+                let _ = write!(buf, "{name},");
+            }
+            FieldKind::Event { .. } => {
                 let _ = write!(buf, "{name},");
             }
             FieldKind::Attribute { attr, .. } if attr.abi.is_some() => {
@@ -452,7 +521,7 @@ impl Field {
 
         match kind {
             FieldKind::StaticView => (),
-            FieldKind::View => {
+            FieldKind::View | FieldKind::Event { .. } => {
                 let _ = write!(buf, "self.{name}.update(&mut p.{name});");
             }
             FieldKind::Attribute { el, prop, .. } => {

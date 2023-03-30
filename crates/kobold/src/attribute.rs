@@ -7,27 +7,27 @@ use web_sys::Node;
 
 use crate::diff::{Diff, Ref};
 use crate::dom::Property;
-use crate::util;
+use crate::internal;
 use crate::value::Value;
 
 /// Arbitrary attribute: <https://developer.mozilla.org/en-US/docs/Web/API/Element/setAttribute>
-pub type Attribute = &'static str;
+pub type AttributeName = &'static str;
 
-impl Property<&str> for Attribute {
+impl Property<&str> for AttributeName {
     fn set(self, this: &Node, value: &str) {
-        util::set_attr(this, self, value)
+        internal::set_attr(this, self, value)
     }
 }
 
-impl Property<f64> for Attribute {
+impl Property<f64> for AttributeName {
     fn set(self, this: &Node, value: f64) {
-        util::set_attr_num(this, self, value)
+        internal::set_attr_num(this, self, value)
     }
 }
 
-impl Property<bool> for Attribute {
+impl Property<bool> for AttributeName {
     fn set(self, this: &Node, value: bool) {
-        util::set_attr_bool(this, self, value)
+        internal::set_attr_bool(this, self, value)
     }
 }
 
@@ -40,7 +40,7 @@ macro_rules! attribute {
             $(
                 impl Property<$abi> for $name {
                     fn set(self, this: &Node, value: $abi) {
-                        util::$util(this, value)
+                        internal::$util(this, value)
                     }
                 }
             )*
@@ -64,7 +64,7 @@ attribute!(
     InputValue [value: &str, value_num: f64]
 );
 
-pub trait AttributeView<P> {
+pub trait Attribute<P> {
     type Product: 'static;
 
     fn build(self) -> Self::Product;
@@ -74,7 +74,7 @@ pub trait AttributeView<P> {
     fn update_in(self, prop: P, node: &Node, memo: &mut Self::Product);
 }
 
-impl<P> AttributeView<P> for String
+impl<P> Attribute<P> for String
 where
     P: for<'a> Property<&'a str>,
 {
@@ -97,7 +97,7 @@ where
     }
 }
 
-impl<P> AttributeView<P> for bool
+impl<P> Attribute<P> for bool
 where
     Self: Value<P>,
 {
@@ -119,7 +119,7 @@ where
 macro_rules! impl_attribute_view {
     ($($ty:ty),*) => {
         $(
-            impl<P> AttributeView<P> for $ty
+            impl<P> Attribute<P> for $ty
             where
                 Self: Value<P>,
             {
@@ -157,21 +157,21 @@ fn debug_test_class(class: &str) {
 
 fn set_class(node: &Node, class: &str) {
     if !class.is_empty() {
-        util::add_class(node, class);
+        internal::add_class(node, class);
     }
 }
 
 fn diff_class(node: &Node, new: &str, old: &str) -> bool {
     match (new, old) {
         (new, old) if new == old => return false,
-        (new, "") => util::add_class(node, new),
-        ("", old) => util::remove_class(node, old),
-        (new, old) => util::replace_class(node, old, new),
+        (new, "") => internal::add_class(node, new),
+        ("", old) => internal::remove_class(node, old),
+        (new, old) => internal::replace_class(node, old, new),
     }
     true
 }
 
-impl<T> AttributeView<Class> for T
+impl<T> Attribute<Class> for T
 where
     T: Diff<Memo = String> + AsRef<str>,
 {
@@ -195,7 +195,7 @@ where
     }
 }
 
-impl AttributeView<Class> for String {
+impl Attribute<Class> for String {
     type Product = String;
 
     fn build(self) -> String {
@@ -237,7 +237,7 @@ impl OptionalClass {
     }
 }
 
-impl AttributeView<Class> for OptionalClass {
+impl Attribute<Class> for OptionalClass {
     type Product = bool;
 
     fn build(self) -> bool {
@@ -246,19 +246,19 @@ impl AttributeView<Class> for OptionalClass {
     }
 
     fn build_in(self, _: Class, node: &Node) -> bool {
-        util::toggle_class(node, self.class, self.on);
+        internal::toggle_class(node, self.class, self.on);
         self.on
     }
 
     fn update_in(self, _: Class, node: &Node, memo: &mut bool) {
         if self.on != *memo {
-            util::toggle_class(node, self.class, self.on);
+            internal::toggle_class(node, self.class, self.on);
             *memo = self.on;
         }
     }
 }
 
-impl AttributeView<ClassName> for OptionalClass {
+impl Attribute<ClassName> for OptionalClass {
     type Product = bool;
 
     fn build(self) -> bool {
@@ -268,14 +268,14 @@ impl AttributeView<ClassName> for OptionalClass {
 
     fn build_in(self, _: ClassName, node: &Node) -> bool {
         if self.on {
-            util::class_name(node, self.class);
+            internal::class_name(node, self.class);
         }
         self.on
     }
 
     fn update_in(self, _: ClassName, node: &Node, memo: &mut bool) {
         if self.on != *memo {
-            util::class_name(node, self.as_ref());
+            internal::class_name(node, self.as_ref());
             *memo = self.on;
         }
     }

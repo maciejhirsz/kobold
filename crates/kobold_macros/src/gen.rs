@@ -52,14 +52,6 @@ pub struct Generator {
 }
 
 impl Generator {
-    fn set_js_type(&mut self, ty: &'static str) {
-        if self.out.js_type.is_some() {
-            return;
-        }
-
-        self.out.js_type = Some(ty);
-    }
-
     fn add_field(&mut self, value: TokenStream) -> &mut Field {
         let name = self.names.next();
 
@@ -80,6 +72,7 @@ impl Generator {
             }
             DomNode::Element(JsElement {
                 tag,
+                typ,
                 var,
                 code,
                 args,
@@ -91,7 +84,7 @@ impl Generator {
                     format!("let {var}=document.createElement(\"{tag}\");\n{code}return {var};\n")
                 };
 
-                (var, body, args, Anchor::Node)
+                (var, body, args, Anchor::Element(typ))
             }
             DomNode::Fragment(JsFragment { var, code, args }) => {
                 assert!(
