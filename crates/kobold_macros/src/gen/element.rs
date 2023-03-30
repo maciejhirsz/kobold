@@ -124,9 +124,11 @@ impl IntoGenerator for HtmlElement {
                         let event_type = event_js_type(&event);
                         let target = el.typ.clone();
 
-                        let coerce = block((
+                        let fn_name = name.to_string();
+
+                        let coerce = (
                             call(
-                                "fn coerce",
+                                format_args!("pub fn {fn_name}"),
                                 (
                                     name.clone(),
                                     format_args!(
@@ -144,7 +146,13 @@ impl IntoGenerator for HtmlElement {
                                 >"
                             ),
                             block(name.tokenize()),
-                            call("coerce", expr.stream),
+                        )
+                            .tokenize();
+
+                        let coerce = block((
+                            "mod __coerce",
+                            block(coerce),
+                            call(format_args!("__coerce::{fn_name}"), expr.stream),
                         ))
                         .tokenize();
 
@@ -171,7 +179,7 @@ impl IntoGenerator for HtmlElement {
                         el.hoisted = true;
 
                         let prop = name.with_str(Literal::string).tokenize();
-                        let attr = Attr::new("Attribute");
+                        let attr = Attr::new("AttributeName");
                         gen.add_field(expr.stream).attr(var, name, attr, prop);
                     }
                 },

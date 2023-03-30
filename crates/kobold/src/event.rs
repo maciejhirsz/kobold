@@ -137,6 +137,6 @@ impl<T> Deref for EventTarget<T> {
 
 impl EventTarget<HtmlInputElement> {
     pub fn focus(&self) {
-        let _ = self.0.focus();
+        drop(self.0.focus());
     }
 }
