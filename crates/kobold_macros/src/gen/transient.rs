@@ -5,7 +5,7 @@
 use std::fmt::{self, Debug, Display, Write};
 
 use arrayvec::ArrayString;
-use proc_macro::{Ident, Literal, Span, TokenStream};
+use proc_macro::{Ident, Literal, TokenStream};
 
 use crate::gen::element::{Attr, InlineAbi};
 use crate::gen::Short;
@@ -74,6 +74,35 @@ impl Transient {
         )
             .tokenize()
     }
+
+    fn attr_hints(&self) -> TokenStream {
+        let mut stream = TokenStream::new();
+
+        for field in self.fields.iter() {
+            if let FieldKind::Attribute { el, name, attr, .. } = &field.kind {
+                let attr_name = attr.name;
+
+                stream.write((
+                    "#[allow(unused_variables)]",
+                    call(
+                        format_args!("fn _hint_{el}_{name}"),
+                        (
+                            name,
+                            format_args!(
+                                ":\
+                                    impl ::kobold::attribute::AttributeView<\
+                                        ::kobold::attribute::{attr_name}\
+                                    >\
+                                "
+                            ),
+                        ),
+                    ),
+                    block(()),
+                ))
+            }
+        }
+        block(stream).tokenize()
+    }
 }
 
 impl Tokenize for Transient {
@@ -84,6 +113,7 @@ impl Tokenize for Transient {
         }
 
         let transient_signature = self.transient_signature();
+        let attr_hints = self.attr_hints();
 
         if self.els.is_empty() {
             return self.fields.remove(0).value.tokenize_in(stream);
@@ -209,10 +239,13 @@ impl Tokenize for Transient {
                     }}\
                 }}\
                 \
-                Transient\
                 "
             ),
-            block(each(self.fields.iter().map(Field::invoke))),
+            (
+                attr_hints,
+                "Transient",
+                block(each(self.fields.iter().map(Field::invoke))),
+            ),
         ))
         .tokenize_in(stream)
     }
@@ -351,7 +384,7 @@ pub enum FieldKind {
     Attribute {
         el: Short,
         attr: Attr,
-        span: Span,
+        name: Ident,
         prop: TokenStream,
     },
 }
@@ -391,10 +424,10 @@ impl Field {
         self
     }
 
-    pub fn attr(&mut self, el: Short, span: Span, attr: Attr, prop: TokenStream) -> &mut Self {
+    pub fn attr(&mut self, el: Short, name: Ident, attr: Attr, prop: TokenStream) -> &mut Self {
         self.kind = FieldKind::Attribute {
             el,
-            span,
+            name,
             attr,
             prop,
         };
@@ -432,12 +465,13 @@ impl Field {
                     >,"
                 ));
             }
-            FieldKind::Attribute { attr, span, .. } => {
+            FieldKind::Attribute { attr, .. } => {
+                let attr_name = attr.name;
                 buf.write((
                     ident(typ.as_str()),
-                    ": ::kobold::attribute::AttributeView<::kobold::attribute::",
-                    Ident::new(attr.name, *span),
-                    '>',
+                    format_args!(
+                        ": ::kobold::attribute::AttributeView<::kobold::attribute::{attr_name}>"
+                    ),
                     attr.abi.map(InlineAbi::bound),
                     ',',
                 ));
