@@ -80,6 +80,7 @@ impl Generator {
             }
             DomNode::Element(JsElement {
                 tag,
+                typ: _,
                 var,
                 code,
                 args,
