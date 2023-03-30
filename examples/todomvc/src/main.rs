@@ -98,7 +98,7 @@ fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl View + '_ {
 }
 
 #[component]
-fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl View + 'a {
+pub fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl View + 'a {
     let input = entry.editing.then(move || {
         bind! {
             state:

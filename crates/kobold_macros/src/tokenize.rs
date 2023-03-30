@@ -96,6 +96,10 @@ impl<T: Tokenize + Clone> Tokenize for &T {
 
 pub struct TokenizeIter<I>(I);
 
+impl Tokenize for () {
+    fn tokenize_in(self, _: &mut TokenStream) {}
+}
+
 impl<I> Tokenize for TokenizeIter<I>
 where
     I: IntoIterator,

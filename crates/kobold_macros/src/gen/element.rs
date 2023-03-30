@@ -63,10 +63,11 @@ impl IntoGenerator for HtmlElement {
                         name: "ClassName",
                         abi: Some(InlineAbi::Str),
                     };
+                    let name = Ident::new("class", span);
 
                     let class = gen
                         .add_field(expr.stream)
-                        .attr(el.var, span, attr, attr.prop())
+                        .attr(el.var, name, attr, attr.prop())
                         .name;
 
                     el.args.push(JsArgument::with_abi(class, InlineAbi::Str));
@@ -92,13 +93,14 @@ impl IntoGenerator for HtmlElement {
                     abi: Some(InlineAbi::Str),
                 };
 
-                for class in self.classes {
+                for (i, class) in self.classes.into_iter().enumerate() {
                     if let (span, CssValue::Expression(expr)) = class {
                         el.hoisted = true;
+                        let name = Ident::new(&format!("class_{i}"), span);
 
                         let class = gen
                             .add_field(expr.stream)
-                            .attr(el.var, span, attr, attr.prop())
+                            .attr(el.var, name, attr, attr.prop())
                             .name;
 
                         el.args.push(JsArgument::with_abi(class, InlineAbi::Str));
@@ -110,7 +112,6 @@ impl IntoGenerator for HtmlElement {
         }
 
         for Attribute { name, value } in self.attributes {
-            let span = name.span();
             match value {
                 AttributeValue::Literal(value) => {
                     writeln!(el, "{var}.setAttribute(\"{name}\",{value});");
@@ -158,7 +159,7 @@ impl IntoGenerator for HtmlElement {
 
                         let value = gen
                             .add_field(expr.stream)
-                            .attr(var, span, attr, attr.prop())
+                            .attr(var, name.clone(), attr, attr.prop())
                             .name;
 
                         if let Some(abi) = attr.abi {
@@ -171,7 +172,7 @@ impl IntoGenerator for HtmlElement {
 
                         let prop = name.with_str(Literal::string).tokenize();
                         let attr = Attr::new("Attribute");
-                        gen.add_field(expr.stream).attr(var, span, attr, prop);
+                        gen.add_field(expr.stream).attr(var, name, attr, prop);
                     }
                 },
             };
