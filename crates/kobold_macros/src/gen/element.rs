@@ -43,8 +43,6 @@ impl IntoGenerator for HtmlElement {
         let var = gen.names.next_el();
         let typ = Ident::new(element_js_type(&self.name), self.span);
 
-        gen.set_js_type(element_js_type(&self.name));
-
         let mut el = JsElement {
             tag: self.name,
             typ,
@@ -279,7 +277,6 @@ fn event_js_type(event: &str) -> &'static str {
 fn element_js_type(tag: &str) -> &'static str {
     match tag {
         "a" => "HtmlLinkElement",
-        "div" => "HtmlDivElement",
         "canvas" => "HtmlCanvasElement",
         "form" => "HtmlFormElement",
         "img" => "HtmlImageElement",
