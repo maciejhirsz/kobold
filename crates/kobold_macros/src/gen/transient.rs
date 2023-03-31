@@ -94,7 +94,7 @@ impl Transient {
             let name = hint.name.with_str(|h| Ident::new_raw(h, hint.name.span()));
 
             stream.write((
-                call(format_args!("fn _hint_{i}"), (name, ": impl", hint.typ)),
+                call(format_args!("fn _hint_{i}"), (name, ':', hint.typ)),
                 block(()),
             ))
         }

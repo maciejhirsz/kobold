@@ -171,7 +171,7 @@ impl IntoGenerator for HtmlElement {
                     gen.add_hint(
                         name.clone(),
                         format_args!(
-                            "Fn(\
+                            "impl Fn(\
                                 ::kobold::event::{event}<\
                                     ::kobold::reexport::web_sys::{target}\
                                 >\

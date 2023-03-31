@@ -19,13 +19,6 @@ fn App() -> impl View {
             let clear = move |_| state.clear();
         }
 
-        {
-            let _ = FilterView::<Filter, _> {
-                filter: Filter::All,
-                state,
-            };
-        }
-
         view! {
             <div .todomvc-wrapper>
                 <section .todoapp>

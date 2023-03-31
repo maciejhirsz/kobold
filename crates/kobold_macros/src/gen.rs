@@ -69,7 +69,7 @@ impl Generator {
     fn add_attr_hint(&mut self, name: Ident, lt: &str, attr: &str) {
         self.add_hint(
             name,
-            format_args!("::kobold::attribute::Attribute<{lt} ::kobold::attribute::{attr}>"),
+            format_args!("impl ::kobold::attribute::Attribute<{lt} ::kobold::attribute::{attr}>"),
         );
     }
 
