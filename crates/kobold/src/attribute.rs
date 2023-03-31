@@ -8,7 +8,7 @@ use web_sys::Node;
 use crate::diff::{Diff, Ref};
 use crate::dom::Property;
 use crate::internal;
-use crate::value::Value;
+use crate::value::Value as Text;
 
 /// Arbitrary attribute: <https://developer.mozilla.org/en-US/docs/Web/API/Element/setAttribute>
 pub type AttributeName = &'static str;
@@ -61,7 +61,7 @@ attribute!(
     /// The `href` attribute: <https://developer.mozilla.org/en-US/docs/Web/API/HTMLAnchorElement/href>
     Href [href: &str]
     /// The `value` attribute: <https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#value>
-    InputValue [value: &str, value_num: f64]
+    Value [value: &str, value_num: f64]
 );
 
 pub trait Attribute<P> {
@@ -99,7 +99,7 @@ where
 
 impl<P> Attribute<P> for bool
 where
-    Self: Value<P>,
+    Self: Text<P>,
 {
     /// `bool` attributes can have weird behavior, it's best to
     /// diff them in the DOM directly
@@ -121,7 +121,7 @@ macro_rules! impl_attribute_view {
         $(
             impl<P> Attribute<P> for $ty
             where
-                Self: Value<P>,
+                Self: Text<P>,
             {
                 type Product = <Self as Diff>::Memo;
 
