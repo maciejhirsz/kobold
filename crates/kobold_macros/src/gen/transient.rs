@@ -80,7 +80,7 @@ impl Transient {
 
         for field in self.fields.iter() {
             if let FieldKind::Attribute { el, name, attr, .. } = &field.kind {
-                let attr_name = attr.name;
+                let (amp, attr_name) = attr.as_parts();
 
                 stream.write((
                     "#[allow(unused_variables)]",
@@ -91,7 +91,7 @@ impl Transient {
                             format_args!(
                                 ":\
                                     impl ::kobold::attribute::Attribute<\
-                                        ::kobold::attribute::{attr_name}\
+                                        {amp}::kobold::attribute::{attr_name}\
                                     >\
                                 "
                             ),
@@ -466,10 +466,10 @@ impl Field {
                 ));
             }
             FieldKind::Attribute { attr, .. } => {
-                let attr_name = attr.name;
+                let (amp, attr_name) = attr.as_parts();
                 buf.write((
                     format_args!(
-                        "{typ}: ::kobold::attribute::Attribute<::kobold::attribute::{attr_name}>"
+                        "{typ}: ::kobold::attribute::Attribute<{amp}::kobold::attribute::{attr_name}>"
                     ),
                     attr.abi.map(InlineAbi::bound),
                     ',',

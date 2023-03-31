@@ -170,8 +170,8 @@ impl IntoGenerator for HtmlElement {
                     AttributeType::Unknown => {
                         el.hoisted = true;
 
-                        let prop = name.with_str(Literal::string).tokenize();
-                        let attr = Attr::new("AttributeName");
+                        let prop = (name.with_str(Literal::string), ".into()").tokenize();
+                        let attr = Attr::new("&AttributeName");
                         gen.add_field(expr.stream).attr(var, name, attr, prop);
                     }
                 },
@@ -231,6 +231,14 @@ pub struct Attr {
 impl Attr {
     const fn new(name: &'static str) -> Self {
         Attr { name, abi: None }
+    }
+
+    pub fn as_parts(&self) -> (&str, &str) {
+        if self.name.starts_with('&') {
+            ("&'static ", &self.name[1..])
+        } else {
+            ("", self.name)
+        }
     }
 
     fn prop(&self) -> TokenStream {
