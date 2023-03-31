@@ -5,8 +5,13 @@
 use kobold::prelude::*;
 use kobold::reexport::web_sys::HtmlTextAreaElement;
 use kobold_qr::KoboldQR;
+// use gloo_console::{log, info, debug, console_dbg};
+use log::{info, warn, debug};
 use web_sys::HtmlInputElement as InputElement;
+use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::spawn_local;
+use gloo_utils::format::JsValueSerdeExt;
+use serde::{Serialize, Deserialize};
 
 mod csv;
 mod state;
@@ -31,7 +36,11 @@ fn Editor() -> impl View {
 
                 spawn_local(async move {
                     if let Ok(table) = csv::read_file(file).await {
+                        let serialized = serde_json::to_string(&table).unwrap();
+                        // log!("table {:#?}", JsValueSerdeExt::from_serde(&serialized));
+                        info!("## table {:#?}", JsValue::from_serde(&serialized).unwrap());
                         signal.update(move |state| state.table = table);
+                        // signal.update(move |state| state.qr_code = qr_code);
                     }
                 })
             }
@@ -227,6 +236,7 @@ fn QRExample() -> impl View {
 }
 
 fn main() {
+    env_logger::init();
     kobold::start(view! {
         <Editor />
     });

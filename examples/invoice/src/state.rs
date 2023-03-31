@@ -5,6 +5,8 @@
 use std::str::FromStr;
 use gloo_storage::{LocalStorage, Storage};
 use wasm_bindgen::UnwrapThrowExt;
+// use wasm_bindgen::prelude::wasm_bindgen;
+use serde::{Serialize, Deserialize};
 
 use std::ops::{Deref, DerefMut, Range};
 
@@ -29,19 +31,22 @@ pub struct State {
     pub table: Table,
     pub entry: Entry,
     pub entry_editing: bool,
+    pub qr_code: String,
 }
 
 pub struct Entry {
     pub description: String,
     pub entry_editing: bool,
 }
-
+// #[wasm_bindgen]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Table {
     pub source: TextSource,
     pub columns: Vec<Text>,
     pub rows: Vec<Vec<Text>>,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub enum Text {
     Insitu(Range<usize>),
     Owned(Box<str>),
@@ -110,6 +115,7 @@ impl Default for State {
                 entry_editing: false,
             },
             entry_editing: false,
+            qr_code: "0x000".to_string(),
         }
     }
 }
@@ -125,6 +131,7 @@ impl State {
                 entry_editing: false,
             },
             entry_editing: false,
+            qr_code: "0x000".to_string(),
         }
     }
 
@@ -181,6 +188,7 @@ impl DerefMut for State {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct TextSource {
     source: String,
 }
