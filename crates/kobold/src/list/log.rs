@@ -1,6 +1,7 @@
-use std::ops::{Deref, Index, IndexMut, Range};
 use std::cell::Cell;
 use std::cmp::max;
+use std::ops::{Deref, Index, IndexMut, Range, RangeFull};
+use std::ops::{RangeFrom, RangeInclusive, RangeTo, RangeToInclusive};
 use std::vec::Drain;
 
 enum Entry {
@@ -30,7 +31,9 @@ impl<T> Log<T> {
     pub const fn new(data: T) -> Self {
         Log {
             data,
-            log: ChangeLog { log: Cell::new(Vec::new()) },
+            log: ChangeLog {
+                log: Cell::new(Vec::new()),
+            },
         }
     }
 }
@@ -70,8 +73,8 @@ impl ChangeLog {
         match self.log.get_mut().last_mut() {
             Some(Entry::Insert(previous)) if previous.end == index => {
                 previous.end += 1;
-            },
-            _ => self.log.get_mut().push(Entry::Insert(index..index + 1))
+            }
+            _ => self.log.get_mut().push(Entry::Insert(index..index + 1)),
         }
     }
 
@@ -182,10 +185,32 @@ impl<T> Log<Vec<T>> {
         self.log.update_one(b);
     }
 
-    pub fn touch(&mut self) {
-        self.log.update(0..self.data.len());
+    pub fn touch(&mut self, range: impl AsRange) {
+        self.log.update(range.as_range(self.data.len()));
     }
 }
+
+pub trait AsRange {
+    fn as_range(&self, len: usize) -> Range<usize>;
+}
+
+macro_rules! as_range {
+    ($r:ty [$self:ident, $len:tt, $code:expr]) => {
+        impl AsRange for $r {
+            fn as_range(&$self, $len: usize) -> Range<usize> {
+                $code
+            }
+        }
+    };
+}
+
+as_range!(usize [self, _, *self..*self + 1]);
+as_range!(Range<usize> [self, _, self.clone()]);
+as_range!(RangeInclusive<usize> [self, _, *self.start()..*self.end() + 1]);
+as_range!(RangeFull [self, len, 0..len]);
+as_range!(RangeFrom<usize> [self, len, self.start..len]);
+as_range!(RangeTo<usize> [self, _, 0..self.end]);
+as_range!(RangeToInclusive<usize> [self, _, 0..self.end + 1]);
 
 impl<T, E> Extend<E> for Log<Vec<T>>
 where
@@ -198,32 +223,25 @@ where
     }
 }
 
-impl<T> Index<usize> for Log<Vec<T>> {
-    type Output = T;
+impl<T, I> Index<I> for Log<Vec<T>>
+where
+    Vec<T>: Index<I>,
+{
+    type Output = <Vec<T> as Index<I>>::Output;
 
-    fn index(&self, index: usize) -> &T {
-        &self.data[index]
+    fn index(&self, index: I) -> &Self::Output {
+        self.data.index(index)
     }
 }
 
-impl<T> IndexMut<usize> for Log<Vec<T>> {
-    fn index_mut(&mut self, index: usize) -> &mut T {
-        self.log.update_one(index);
-        &mut self.data[index]
-    }
-}
-
-impl<T> Index<Range<usize>> for Log<Vec<T>> {
-    type Output = [T];
-
-    fn index(&self, index: Range<usize>) -> &Self::Output {
-        &self.data[index]
-    }
-}
-
-impl<T> IndexMut<Range<usize>> for Log<Vec<T>> {
-    fn index_mut(&mut self, index: Range<usize>) -> &mut Self::Output {
-        &mut self.data[index]
+impl<T, I> IndexMut<I> for Log<Vec<T>>
+where
+    I: AsRange,
+    Vec<T>: IndexMut<I>,
+{
+    fn index_mut(&mut self, index: I) -> &mut Self::Output {
+        self.log.update(index.as_range(self.data.len()));
+        self.data.index_mut(index)
     }
 }
 
