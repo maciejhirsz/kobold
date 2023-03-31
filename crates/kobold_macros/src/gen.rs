@@ -6,7 +6,7 @@ use std::fmt::{Debug, Write};
 use std::hash::Hash;
 
 use arrayvec::ArrayString;
-use proc_macro::TokenStream;
+use proc_macro::{Ident, TokenStream};
 
 use crate::dom::{Expression, Node};
 use crate::itertools::IteratorExt;
@@ -19,7 +19,7 @@ mod transient;
 
 pub use element::JsElement;
 pub use fragment::{append, JsFragment};
-pub use transient::{Anchor, Field, FieldKind, Transient};
+pub use transient::{Anchor, Field, FieldKind, Hint, Transient};
 pub use transient::{JsArgument, JsFnName, JsFunction, JsModule, JsString};
 
 // Short string for auto-generated variable names
@@ -52,19 +52,25 @@ pub struct Generator {
 }
 
 impl Generator {
-    fn set_js_type(&mut self, ty: &'static str) {
-        if self.out.js_type.is_some() {
-            return;
-        }
-
-        self.out.js_type = Some(ty);
-    }
-
     fn add_field(&mut self, value: TokenStream) -> &mut Field {
         let name = self.names.next();
 
         self.out.fields.push(Field::new(name, value));
         self.out.fields.last_mut().unwrap()
+    }
+
+    fn add_hint(&mut self, name: Ident, typ: impl Tokenize) {
+        self.out.hints.push(Hint {
+            name,
+            typ: typ.tokenize(),
+        });
+    }
+
+    fn add_attr_hint(&mut self, name: Ident, lt: &str, attr: &str) {
+        self.add_hint(
+            name,
+            format_args!("impl ::kobold::attribute::Attribute<{lt} ::kobold::attribute::{attr}>"),
+        );
     }
 
     fn hoist(&mut self, node: DomNode) -> Option<JsFnName> {
@@ -80,6 +86,7 @@ impl Generator {
             }
             DomNode::Element(JsElement {
                 tag,
+                typ,
                 var,
                 code,
                 args,
@@ -91,7 +98,7 @@ impl Generator {
                     format!("let {var}=document.createElement(\"{tag}\");\n{code}return {var};\n")
                 };
 
-                (var, body, args, Anchor::Node)
+                (var, body, args, Anchor::Element(typ))
             }
             DomNode::Fragment(JsFragment { var, code, args }) => {
                 assert!(

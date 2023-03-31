@@ -8,7 +8,7 @@ use std::ops::Deref;
 
 use web_sys::Node;
 
-use crate::attribute::AttributeView;
+use crate::attribute::Attribute;
 use crate::dom::{Anchor, TextContent};
 use crate::value::{IntoText, Value};
 use crate::{Mountable, View};
@@ -89,7 +89,7 @@ where
     P: Mountable,
 {
     type Js = P::Js;
-    type Anchor = P;
+    type Target = P;
 
     fn anchor(&self) -> &P {
         &self.inner
@@ -107,12 +107,6 @@ pub trait Diff: Copy {
     /// Diff current value against the `Memo`, update it if necessary and return
     /// `true` if it has changed.
     fn diff(self, memo: &mut Self::Memo) -> bool;
-
-    #[doc(hidden)]
-    #[deprecated(since = "0.6.0", note = "please use `{ static <expression> }` instead")]
-    fn no_diff(self) -> Static<Self> {
-        Static(self)
-    }
 }
 
 macro_rules! impl_diff_str {
@@ -167,39 +161,31 @@ impl_diff!(bool, u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize,
 /// Smart [`View`](View) that only updates its content when the reference to T has changed.
 /// See [`ref`](crate::keywords::ref).
 #[repr(transparent)]
-pub struct Ref<'a, T: ?Sized>(pub(crate) &'a T);
+pub struct Ref<T: ?Sized>(T);
 
-impl<T: ?Sized> Clone for Ref<'_, T> {
-    fn clone(&self) -> Self {
-        Ref(self.0)
-    }
-}
-
-impl<T: ?Sized> Copy for Ref<'_, T> {}
-
-impl<T: ?Sized> Deref for Ref<'_, T> {
+impl<T: ?Sized> Deref for Ref<T> {
     type Target = T;
 
     fn deref(&self) -> &T {
-        self.0
+        &self.0
     }
 }
 
-impl<T: ?Sized> AsRef<T> for Ref<'_, T> {
+impl<T: ?Sized> AsRef<T> for Ref<T> {
     fn as_ref(&self) -> &T {
-        self.0
+        &self.0
     }
 }
 
-impl<T: ?Sized> Diff for Ref<'_, T> {
+impl<T: ?Sized> Diff for &Ref<T> {
     type Memo = *const ();
 
     fn into_memo(self) -> Self::Memo {
-        self.0 as *const _ as *const ()
+        &self.0 as *const _ as *const ()
     }
 
     fn diff(self, memo: &mut Self::Memo) -> bool {
-        let ptr = self.0 as *const _ as *const ();
+        let ptr = &self.0 as *const _ as *const ();
 
         if ptr != *memo {
             *memo = ptr;
@@ -253,7 +239,7 @@ macro_rules! impl_no_diff {
             }
         }
 
-        impl<T, P> AttributeView<P> for $name<T>
+        impl<T, P> Attribute<P> for $name<T>
         where
             T: Value<P>,
         {
@@ -295,16 +281,3 @@ macro_rules! impl_no_diff {
 
 impl_no_diff!(Eager, true);
 impl_no_diff!(Static, false);
-
-#[doc(hidden)]
-pub trait StrExt {
-    #[deprecated(since = "0.6.0", note = "please use `{ ref <expression> }` instead")]
-    fn fast_diff(&self) -> Ref<str>;
-}
-
-#[doc(hidden)]
-impl StrExt for str {
-    fn fast_diff(&self) -> Ref<str> {
-        Ref(self)
-    }
-}

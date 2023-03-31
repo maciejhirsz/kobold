@@ -33,6 +33,7 @@ macro_rules! unwrap_err {
     };
 }
 
+#[allow(clippy::let_and_return)]
 #[proc_macro_attribute]
 pub fn component(args: TokenStream, input: TokenStream) -> TokenStream {
     let args = unwrap_err!(fn_component::args(args));

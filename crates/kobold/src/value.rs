@@ -6,11 +6,11 @@ use web_sys::Node;
 
 use crate::diff::{Diff, Ref};
 use crate::dom::{Anchor, Property, TextContent};
-use crate::util;
+use crate::internal;
 use crate::View;
 
 /// Value that can be set as a property on DOM node
-pub trait Value<P> {
+pub trait Value<P>: IntoText {
     fn set_prop(self, prop: P, node: &Node);
 }
 
@@ -25,7 +25,7 @@ macro_rules! impl_text {
             $(
                 impl IntoText for $ty {
                     fn into_text(self) -> Node {
-                        util::$util(self as _)
+                        internal::$util(self as _)
                     }
                 }
             )*
@@ -34,7 +34,7 @@ macro_rules! impl_text {
 }
 
 impl_text! {
-    text_node [&str, &String]
+    text_node [&str, &String, &Ref<str>]
     text_node_num [i8, i16, i32, isize, u8, u16, u32, usize, f32, f64]
     text_node_bool [bool]
 }
@@ -54,18 +54,9 @@ macro_rules! impl_value {
     };
 }
 
-impl_value!(&'a str: &str, &String);
+impl_value!(&'a str: &str, &String, &Ref<str>);
 impl_value!(bool: bool);
 impl_value!(f64: u8, u16, u32, usize, i8, i16, i32, isize, f32, f64);
-
-impl<P> Value<P> for Ref<'_, str>
-where
-    P: for<'a> Property<&'a str>,
-{
-    fn set_prop(self, prop: P, node: &Node) {
-        prop.set(node, &self);
-    }
-}
 
 pub struct TextProduct<M> {
     memo: M,
@@ -74,7 +65,7 @@ pub struct TextProduct<M> {
 
 impl<M> Anchor for TextProduct<M> {
     type Js = web_sys::Text;
-    type Anchor = Node;
+    type Target = Node;
 
     fn anchor(&self) -> &Node {
         &self.node
@@ -135,7 +126,7 @@ macro_rules! large_int {
                 fn into_text(self) -> Node {
                     match <$d>::try_from(self) {
                         Ok(downcast) => downcast.into_text(),
-                        Err(_) => self.stringify(util::text_node),
+                        Err(_) => self.stringify(internal::text_node),
                     }
                 }
             }
@@ -168,7 +159,7 @@ macro_rules! impl_text_view {
     };
 }
 
-impl_text_view!(&str, &String, Ref<'_, str>);
+impl_text_view!(&str, &String, &Ref<str>);
 impl_text_view!(bool, u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64);
 
 impl<'a> View for &&'a str {

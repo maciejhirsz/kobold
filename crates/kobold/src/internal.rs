@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//! Kobold internals and types used by the [`view!`](crate::view) macro.
+
 use wasm_bindgen::prelude::*;
 use web_sys::Node;
 
@@ -9,7 +11,11 @@ use crate::View;
 
 /// Wrapper that turns `extern` precompiled JavaScript functions into [`View`](View)s.
 #[repr(transparent)]
-pub struct Precompiled<F = fn() -> Node>(pub F);
+pub struct Precompiled<F>(pub F);
+
+pub fn fn_type_hint<T, F: Fn(T)>(f: F) -> F {
+    f
+}
 
 impl<F> View for Precompiled<F>
 where
