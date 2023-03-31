@@ -195,22 +195,26 @@ pub trait AsRange {
 }
 
 macro_rules! as_range {
-    ($r:ty [$self:ident, $len:tt, $code:expr]) => {
-        impl AsRange for $r {
-            fn as_range(&$self, $len: usize) -> Range<usize> {
-                $code
+    ($($r:ty [$self:ident, $len:tt, $code:expr],)*) => {
+        $(
+            impl AsRange for $r {
+                fn as_range(&$self, $len: usize) -> Range<usize> {
+                    $code
+                }
             }
-        }
+        )*
     };
 }
 
-as_range!(usize [self, _, *self..*self + 1]);
-as_range!(Range<usize> [self, _, self.clone()]);
-as_range!(RangeInclusive<usize> [self, _, *self.start()..*self.end() + 1]);
-as_range!(RangeFull [self, len, 0..len]);
-as_range!(RangeFrom<usize> [self, len, self.start..len]);
-as_range!(RangeTo<usize> [self, _, 0..self.end]);
-as_range!(RangeToInclusive<usize> [self, _, 0..self.end + 1]);
+as_range! {
+    usize [self, _, *self..*self + 1],
+    Range<usize> [self, _, self.clone()],
+    RangeInclusive<usize> [self, _, *self.start()..*self.end() + 1],
+    RangeFull [self, len, 0..len],
+    RangeFrom<usize> [self, len, self.start..len],
+    RangeTo<usize> [self, _, 0..self.end],
+    RangeToInclusive<usize> [self, _, 0..self.end + 1],
+}
 
 impl<T, E> Extend<E> for Log<Vec<T>>
 where
