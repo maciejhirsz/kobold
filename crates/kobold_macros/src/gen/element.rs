@@ -124,11 +124,9 @@ impl IntoGenerator for HtmlElement {
                         let event_type = event_js_type(&event);
                         let target = el.typ.clone();
 
-                        let fn_name = name.to_string();
-
-                        let coerce = (
+                        let coerce = block((
                             call(
-                                format_args!("pub fn {fn_name}"),
+                                "pub fn __type_hint",
                                 (
                                     name.clone(),
                                     format_args!(
@@ -146,13 +144,7 @@ impl IntoGenerator for HtmlElement {
                                 >"
                             ),
                             block(name.tokenize()),
-                        )
-                            .tokenize();
-
-                        let coerce = block((
-                            "mod __coerce",
-                            block(coerce),
-                            call(format_args!("__coerce::{fn_name}"), expr.stream),
+                            call("__type_hint", expr.stream),
                         ))
                         .tokenize();
 
