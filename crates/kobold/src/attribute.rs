@@ -3,29 +3,45 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //! Utilities for dealing with DOM attributes
+use std::ops::Deref;
+
 use web_sys::Node;
 
 use crate::diff::{Diff, Ref};
 use crate::dom::Property;
 use crate::internal;
-use crate::value::Value;
+use crate::value::Value as Text;
 
 /// Arbitrary attribute: <https://developer.mozilla.org/en-US/docs/Web/API/Element/setAttribute>
-pub type AttributeName = &'static str;
+pub struct AttributeName(str);
 
-impl Property<&str> for AttributeName {
+impl From<&str> for &AttributeName {
+    fn from(attr: &str) -> Self {
+        unsafe { &*(attr as *const _ as *const AttributeName) }
+    }
+}
+
+impl Deref for AttributeName {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Property<&str> for &AttributeName {
     fn set(self, this: &Node, value: &str) {
         internal::set_attr(this, self, value)
     }
 }
 
-impl Property<f64> for AttributeName {
+impl Property<f64> for &AttributeName {
     fn set(self, this: &Node, value: f64) {
         internal::set_attr_num(this, self, value)
     }
 }
 
-impl Property<bool> for AttributeName {
+impl Property<bool> for &AttributeName {
     fn set(self, this: &Node, value: bool) {
         internal::set_attr_bool(this, self, value)
     }
@@ -61,7 +77,7 @@ attribute!(
     /// The `href` attribute: <https://developer.mozilla.org/en-US/docs/Web/API/HTMLAnchorElement/href>
     Href [href: &str]
     /// The `value` attribute: <https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#value>
-    InputValue [value: &str, value_num: f64]
+    Value [value: &str, value_num: f64]
 );
 
 pub trait Attribute<P> {
@@ -99,7 +115,7 @@ where
 
 impl<P> Attribute<P> for bool
 where
-    Self: Value<P>,
+    Self: Text<P>,
 {
     /// `bool` attributes can have weird behavior, it's best to
     /// diff them in the DOM directly
@@ -121,7 +137,7 @@ macro_rules! impl_attribute_view {
         $(
             impl<P> Attribute<P> for $ty
             where
-                Self: Value<P>,
+                Self: Text<P>,
             {
                 type Product = <Self as Diff>::Memo;
 

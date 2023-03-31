@@ -10,6 +10,7 @@ use proc_macro::{Ident, Literal, TokenStream};
 use crate::gen::element::{Attr, InlineAbi};
 use crate::gen::Short;
 use crate::itertools::IteratorExt;
+use crate::parse::IdentExt;
 use crate::tokenize::prelude::*;
 
 // JS function name, capacity must fit a `Short`, a hash, and few underscores
@@ -18,8 +19,15 @@ pub type JsFnName = ArrayString<24>;
 #[derive(Default, Debug)]
 pub struct Transient {
     pub js: JsModule,
+    pub hints: Vec<Hint>,
     pub fields: Vec<Field>,
     pub els: Vec<Short>,
+}
+
+#[derive(Debug)]
+pub struct Hint {
+    pub name: Ident,
+    pub typ: TokenStream,
 }
 
 impl Transient {
@@ -75,33 +83,23 @@ impl Transient {
             .tokenize()
     }
 
-    fn attr_hints(&self) -> TokenStream {
+    fn type_hints(&mut self) -> TokenStream {
+        if self.hints.is_empty() {
+            return TokenStream::new();
+        }
+
         let mut stream = TokenStream::new();
 
-        for field in self.fields.iter() {
-            if let FieldKind::Attribute { el, name, attr, .. } = &field.kind {
-                let attr_name = attr.name;
+        for (i, hint) in self.hints.drain(..).enumerate() {
+            let name = hint.name.with_str(|h| Ident::new_raw(h, hint.name.span()));
 
-                stream.write((
-                    "#[allow(unused_variables)]",
-                    call(
-                        format_args!("fn _hint_{el}_{name}"),
-                        (
-                            name,
-                            format_args!(
-                                ":\
-                                    impl ::kobold::attribute::Attribute<\
-                                        ::kobold::attribute::{attr_name}\
-                                    >\
-                                "
-                            ),
-                        ),
-                    ),
-                    block(()),
-                ))
-            }
+            stream.write((
+                call(format_args!("fn _hint_{i}"), (name, ':', hint.typ)),
+                block(()),
+            ))
         }
-        block(stream).tokenize()
+
+        ("#[allow(unused_variables)]", block(stream)).tokenize()
     }
 }
 
@@ -113,7 +111,7 @@ impl Tokenize for Transient {
         }
 
         let transient_signature = self.transient_signature();
-        let attr_hints = self.attr_hints();
+        let attr_hints = self.type_hints();
 
         if self.els.is_empty() {
             return self.fields.remove(0).value.tokenize_in(stream);
@@ -304,18 +302,18 @@ pub struct JsFunction {
     pub args: Vec<JsArgument>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Anchor {
-    Element(Ident),
+    Element(&'static str),
     Node,
     Fragment,
 }
 
 impl Anchor {
-    fn as_js_type(&self) -> Ident {
+    fn as_js_type(&self) -> &'static str {
         match self {
-            Anchor::Element(typ) => typ.clone(),
-            Anchor::Node | Anchor::Fragment => ident("Node"),
+            Anchor::Element(typ) => typ,
+            Anchor::Node | Anchor::Fragment => "Node",
         }
     }
 
@@ -379,12 +377,11 @@ pub enum FieldKind {
     View,
     Event {
         event: &'static str,
-        target: Ident,
+        target: &'static str,
     },
     Attribute {
         el: Short,
         attr: Attr,
-        name: Ident,
         prop: TokenStream,
     },
 }
@@ -419,18 +416,13 @@ impl Field {
         }
     }
 
-    pub fn event(&mut self, event: &'static str, target: Ident) -> &mut Self {
+    pub fn event(&mut self, event: &'static str, target: &'static str) -> &mut Self {
         self.kind = FieldKind::Event { event, target };
         self
     }
 
-    pub fn attr(&mut self, el: Short, name: Ident, attr: Attr, prop: TokenStream) -> &mut Self {
-        self.kind = FieldKind::Attribute {
-            el,
-            name,
-            attr,
-            prop,
-        };
+    pub fn attr(&mut self, el: Short, attr: Attr, prop: TokenStream) -> &mut Self {
+        self.kind = FieldKind::Attribute { el, attr, prop };
         self
     }
 
@@ -466,10 +458,10 @@ impl Field {
                 ));
             }
             FieldKind::Attribute { attr, .. } => {
-                let attr_name = attr.name;
+                let (amp, attr_name) = attr.as_parts();
                 buf.write((
                     format_args!(
-                        "{typ}: ::kobold::attribute::Attribute<::kobold::attribute::{attr_name}>"
+                        "{typ}: ::kobold::attribute::Attribute<{amp}::kobold::attribute::{attr_name}>"
                     ),
                     attr.abi.map(InlineAbi::bound),
                     ',',

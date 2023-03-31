@@ -4,7 +4,7 @@
 
 use std::fmt::{Arguments, Write};
 
-use proc_macro::{Ident, Literal, TokenStream};
+use proc_macro::{Literal, TokenStream};
 
 use crate::dom::{Attribute, AttributeValue, CssValue, HtmlElement};
 use crate::gen::{append, DomNode, Generator, IntoGenerator, JsArgument, Short};
@@ -17,7 +17,7 @@ pub struct JsElement {
     pub tag: String,
 
     /// The `web-sys` type of this element, such as `HtmlElement`, spanned to tag invocation.
-    pub typ: Ident,
+    pub typ: &'static str,
 
     /// Variable name of the element, such as `e0`
     pub var: Short,
@@ -41,7 +41,7 @@ impl JsElement {
 impl IntoGenerator for HtmlElement {
     fn into_gen(mut self, gen: &mut Generator) -> DomNode {
         let var = gen.names.next_el();
-        let typ = Ident::new(element_js_type(&self.name), self.span);
+        let typ = element_js_type(&self.name);
 
         let mut el = JsElement {
             tag: self.name,
@@ -55,19 +55,17 @@ impl IntoGenerator for HtmlElement {
         match self.classes.len() {
             0 => (),
             1 => match self.classes.remove(0) {
-                (_, CssValue::Literal(class)) => writeln!(el, "{var}.className={class};"),
-                (span, CssValue::Expression(expr)) => {
+                CssValue::Literal(class) => writeln!(el, "{var}.className={class};"),
+                CssValue::Expression(expr) => {
                     el.hoisted = true;
 
                     let attr = Attr {
                         name: "ClassName",
                         abi: Some(InlineAbi::Str),
                     };
-                    let name = Ident::new("class", span);
-
                     let class = gen
                         .add_field(expr.stream)
-                        .attr(el.var, name, attr, attr.prop())
+                        .attr(el.var, attr, attr.prop())
                         .name;
 
                     el.args.push(JsArgument::with_abi(class, InlineAbi::Str));
@@ -76,13 +74,13 @@ impl IntoGenerator for HtmlElement {
                 }
             },
             _ => {
-                let lit_count = self.classes.iter().map(|v| v.1.is_literal()).count();
+                let lit_count = self.classes.iter().map(CssValue::is_literal).count();
 
                 if lit_count > 0 {
                     let classes = self
                         .classes
                         .iter()
-                        .filter_map(|v| v.1.as_literal())
+                        .filter_map(CssValue::as_literal)
                         .join(",");
 
                     writeln!(el, "{var}.classList.add({classes});");
@@ -93,14 +91,12 @@ impl IntoGenerator for HtmlElement {
                     abi: Some(InlineAbi::Str),
                 };
 
-                for (i, class) in self.classes.into_iter().enumerate() {
-                    if let (span, CssValue::Expression(expr)) = class {
+                for class in self.classes {
+                    if let CssValue::Expression(expr) = class {
                         el.hoisted = true;
-                        let name = Ident::new(&format!("class_{i}"), span);
-
                         let class = gen
                             .add_field(expr.stream)
-                            .attr(el.var, name, attr, attr.prop())
+                            .attr(el.var, attr, attr.prop())
                             .name;
 
                         el.args.push(JsArgument::with_abi(class, InlineAbi::Str));
@@ -112,6 +108,8 @@ impl IntoGenerator for HtmlElement {
         }
 
         for Attribute { name, value } in self.attributes {
+            let attr_type = name.with_str(attribute_type);
+
             match value {
                 AttributeValue::Literal(value) => {
                     writeln!(el, "{var}.setAttribute(\"{name}\",{value});");
@@ -119,46 +117,26 @@ impl IntoGenerator for HtmlElement {
                 AttributeValue::Boolean(value) => {
                     writeln!(el, "{var}.{name}={value};");
                 }
-                AttributeValue::Expression(expr) => match name.with_str(attribute_type) {
-                    AttributeType::Event { event } => {
-                        let event_type = event_js_type(&event);
-                        let target = el.typ.clone();
-
-                        let fn_name = name.to_string();
-
-                        let coerce = (
-                            call(
-                                format_args!("pub fn {fn_name}"),
-                                (
-                                    name.clone(),
-                                    format_args!(
-                                        ": impl Fn(::kobold::event::{event_type}<\
-                                            ::kobold::reexport::web_sys::{target}\
-                                        >) + 'static"
-                                    ),
-                                ),
-                            ),
+                AttributeValue::Expression(expr) => match &attr_type {
+                    AttributeType::Event(event) => {
+                        let target = el.typ;
+                        let coerce = call(
                             format_args!(
-                                " -> impl ::kobold::event::Listener<\
-                                    ::kobold::event::{event_type}<\
+                                "::kobold::internal::fn_type_hint::<\
+                                    ::kobold::event::{event}<\
                                         ::kobold::reexport::web_sys::{target}\
-                                    >\
+                                    >,\
+                                    _,\
                                 >"
                             ),
-                            block(name.tokenize()),
-                        )
-                            .tokenize();
+                            expr.stream,
+                        );
 
-                        let coerce = block((
-                            "mod __coerce",
-                            block(coerce),
-                            call(format_args!("__coerce::{fn_name}"), expr.stream),
-                        ))
-                        .tokenize();
+                        let value = gen.add_field(coerce).event(event, el.typ).name;
 
-                        let value = gen.add_field(coerce).event(event_type, target).name;
-
-                        writeln!(el, "{var}.addEventListener(\"{event}\",{value});");
+                        name.with_str(|name| {
+                            writeln!(el, "{var}.addEventListener(\"{}\",{value});", &name[2..])
+                        });
 
                         el.args.push(JsArgument::new(value))
                     }
@@ -167,7 +145,7 @@ impl IntoGenerator for HtmlElement {
 
                         let value = gen
                             .add_field(expr.stream)
-                            .attr(var, name.clone(), attr, attr.prop())
+                            .attr(var, *attr, attr.prop())
                             .name;
 
                         if let Some(abi) = attr.abi {
@@ -178,12 +156,36 @@ impl IntoGenerator for HtmlElement {
                     AttributeType::Unknown => {
                         el.hoisted = true;
 
-                        let prop = name.with_str(Literal::string).tokenize();
-                        let attr = Attr::new("AttributeName");
-                        gen.add_field(expr.stream).attr(var, name, attr, prop);
+                        let prop = (name.with_str(Literal::string), ".into()").tokenize();
+                        let attr = Attr::new("&AttributeName");
+
+                        gen.add_field(expr.stream).attr(var, attr, prop);
                     }
                 },
             };
+
+            match attr_type {
+                AttributeType::Event(event) => {
+                    let target = el.typ;
+
+                    gen.add_hint(
+                        name.clone(),
+                        format_args!(
+                            "impl Fn(\
+                                ::kobold::event::{event}<\
+                                    ::kobold::reexport::web_sys::{target}\
+                                >\
+                            ) + 'static"
+                        ),
+                    );
+                }
+                AttributeType::Provided(attr) => {
+                    gen.add_attr_hint(name, "", attr.name);
+                }
+                AttributeType::Unknown => {
+                    gen.add_attr_hint(name, "&'static", "AttributeName");
+                }
+            }
         }
 
         if let Some(children) = self.children {
@@ -224,9 +226,10 @@ impl InlineAbi {
     }
 }
 
+#[derive(Clone, Copy)]
 enum AttributeType {
     Provided(Attr),
-    Event { event: Box<str> },
+    Event(&'static str),
     Unknown,
 }
 
@@ -241,6 +244,14 @@ impl Attr {
         Attr { name, abi: None }
     }
 
+    pub fn as_parts(&self) -> (&str, &str) {
+        if self.name.starts_with('&') {
+            ("&'static ", &self.name[1..])
+        } else {
+            ("", self.name)
+        }
+    }
+
     fn prop(&self) -> TokenStream {
         format_args!("::kobold::attribute::{}", self.name).tokenize()
     }
@@ -248,9 +259,7 @@ impl Attr {
 
 fn attribute_type(attr: &str) -> AttributeType {
     if attr.starts_with("on") && attr.len() > 2 {
-        return AttributeType::Event {
-            event: attr[2..].into(),
-        };
+        return AttributeType::Event(event_js_type(&attr[2..]));
     }
 
     let attr = match attr {
@@ -267,7 +276,7 @@ fn attribute_type(attr: &str) -> AttributeType {
             abi: Some(InlineAbi::Str),
         },
         "value" => Attr {
-            name: "InputValue",
+            name: "Value",
             abi: None,
         },
         _ => return AttributeType::Unknown,

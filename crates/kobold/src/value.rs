@@ -10,7 +10,7 @@ use crate::internal;
 use crate::View;
 
 /// Value that can be set as a property on DOM node
-pub trait Value<P> {
+pub trait Value<P>: IntoText {
     fn set_prop(self, prop: P, node: &Node);
 }
 
@@ -34,7 +34,7 @@ macro_rules! impl_text {
 }
 
 impl_text! {
-    text_node [&str, &String]
+    text_node [&str, &String, &Ref<str>]
     text_node_num [i8, i16, i32, isize, u8, u16, u32, usize, f32, f64]
     text_node_bool [bool]
 }

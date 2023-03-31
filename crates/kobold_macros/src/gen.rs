@@ -6,7 +6,7 @@ use std::fmt::{Debug, Write};
 use std::hash::Hash;
 
 use arrayvec::ArrayString;
-use proc_macro::TokenStream;
+use proc_macro::{Ident, TokenStream};
 
 use crate::dom::{Expression, Node};
 use crate::itertools::IteratorExt;
@@ -19,7 +19,7 @@ mod transient;
 
 pub use element::JsElement;
 pub use fragment::{append, JsFragment};
-pub use transient::{Anchor, Field, FieldKind, Transient};
+pub use transient::{Anchor, Field, FieldKind, Hint, Transient};
 pub use transient::{JsArgument, JsFnName, JsFunction, JsModule, JsString};
 
 // Short string for auto-generated variable names
@@ -57,6 +57,20 @@ impl Generator {
 
         self.out.fields.push(Field::new(name, value));
         self.out.fields.last_mut().unwrap()
+    }
+
+    fn add_hint(&mut self, name: Ident, typ: impl Tokenize) {
+        self.out.hints.push(Hint {
+            name,
+            typ: typ.tokenize(),
+        });
+    }
+
+    fn add_attr_hint(&mut self, name: Ident, lt: &str, attr: &str) {
+        self.add_hint(
+            name,
+            format_args!("impl ::kobold::attribute::Attribute<{lt} ::kobold::attribute::{attr}>"),
+        );
     }
 
     fn hoist(&mut self, node: DomNode) -> Option<JsFnName> {
