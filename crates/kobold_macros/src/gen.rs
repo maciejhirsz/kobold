@@ -59,8 +59,18 @@ impl Generator {
         self.out.fields.last_mut().unwrap()
     }
 
-    fn add_hint(&mut self, name: Ident, typ: TokenStream) {
-        self.out.hints.push(Hint { name, typ });
+    fn add_hint(&mut self, name: Ident, typ: impl Tokenize) {
+        self.out.hints.push(Hint {
+            name,
+            typ: typ.tokenize(),
+        });
+    }
+
+    fn add_attr_hint(&mut self, name: Ident, lt: &str, attr: &str) {
+        self.add_hint(
+            name,
+            format_args!("::kobold::attribute::Attribute<{lt} ::kobold::attribute::{attr}>"),
+        );
     }
 
     fn hoist(&mut self, node: DomNode) -> Option<JsFnName> {

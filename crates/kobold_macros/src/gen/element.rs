@@ -143,38 +143,23 @@ impl IntoGenerator for HtmlElement {
                     AttributeType::Provided(attr) => {
                         el.hoisted = true;
 
-                        gen.add_hint(
-                            name.clone(),
-                            format_args!(
-                                "::kobold::attribute::Attribute<\
-                                    ::kobold::attribute::{}\
-                                >",
-                                attr.name
-                            )
-                            .tokenize(),
-                        );
-
                         let value = gen.add_field(expr.stream).attr(var, attr, attr.prop()).name;
 
                         if let Some(abi) = attr.abi {
                             writeln!(el, "{var}.{name}={value};");
                             el.args.push(JsArgument::with_abi(value, abi))
                         }
+
+                        gen.add_attr_hint(name, "", attr.name);
                     }
                     AttributeType::Unknown => {
                         el.hoisted = true;
 
-                        gen.add_hint(
-                            name.clone(),
-                            "::kobold::attribute::Attribute<\
-                                &'static ::kobold::attribute::AttributeName\
-                            >"
-                            .tokenize(),
-                        );
-
                         let prop = (name.with_str(Literal::string), ".into()").tokenize();
                         let attr = Attr::new("&AttributeName");
+
                         gen.add_field(expr.stream).attr(var, attr, prop);
+                        gen.add_attr_hint(name, "&'static", "AttributeName");
                     }
                 },
             };
