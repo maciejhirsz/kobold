@@ -13,6 +13,10 @@ use crate::View;
 #[repr(transparent)]
 pub struct Precompiled<F>(pub F);
 
+pub fn fn_type_hint<T, F: Fn(T)>(f: F) -> F {
+    f
+}
+
 impl<F> View for Precompiled<F>
 where
     F: Fn() -> Node,

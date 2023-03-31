@@ -124,29 +124,19 @@ impl IntoGenerator for HtmlElement {
                         let event_type = event_js_type(&event);
                         let target = el.typ.clone();
 
-                        let coerce = block((
-                            call(
-                                "pub fn __type_hint",
-                                (
-                                    name.clone(),
-                                    format_args!(
-                                        ": impl Fn(::kobold::event::{event_type}<\
-                                            ::kobold::reexport::web_sys::{target}\
-                                        >) + 'static"
-                                    ),
-                                ),
-                            ),
-                            format_args!(
-                                " -> impl ::kobold::event::Listener<\
-                                    ::kobold::event::{event_type}<\
-                                        ::kobold::reexport::web_sys::{target}\
-                                    >\
-                                >"
-                            ),
-                            block(name.tokenize()),
-                            call("__type_hint", expr.stream),
-                        ))
+                        let typ = format_args!(
+                            "::kobold::event::{event_type}<\
+                                ::kobold::reexport::web_sys::{target}\
+                            >"
+                        )
                         .tokenize();
+
+                        gen.add_hint(name.clone(), format_args!("Fn({typ}) + 'static").tokenize());
+
+                        let coerce = call(
+                            ("::kobold::internal::fn_type_hint::<", typ, ", _>"),
+                            expr.stream,
+                        );
 
                         let value = gen.add_field(coerce).event(event_type, target).name;
 
@@ -156,6 +146,17 @@ impl IntoGenerator for HtmlElement {
                     }
                     AttributeType::Provided(attr) => {
                         el.hoisted = true;
+
+                        gen.add_hint(
+                            name.clone(),
+                            format_args!(
+                                "::kobold::attribute::Attribute<\
+                                    ::kobold::attribute::{}\
+                                >",
+                                attr.name
+                            )
+                            .tokenize(),
+                        );
 
                         let value = gen
                             .add_field(expr.stream)
@@ -169,6 +170,14 @@ impl IntoGenerator for HtmlElement {
                     }
                     AttributeType::Unknown => {
                         el.hoisted = true;
+
+                        gen.add_hint(
+                            name.clone(),
+                            "::kobold::attribute::Attribute<\
+                                &'static ::kobold::attribute::AttributeName\
+                            >"
+                            .tokenize(),
+                        );
 
                         let prop = (name.with_str(Literal::string), ".into()").tokenize();
                         let attr = Attr::new("&AttributeName");

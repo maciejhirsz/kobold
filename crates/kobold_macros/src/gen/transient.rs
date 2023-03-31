@@ -18,8 +18,15 @@ pub type JsFnName = ArrayString<24>;
 #[derive(Default, Debug)]
 pub struct Transient {
     pub js: JsModule,
+    pub hints: Vec<Hint>,
     pub fields: Vec<Field>,
     pub els: Vec<Short>,
+}
+
+#[derive(Debug)]
+pub struct Hint {
+    pub name: Ident,
+    pub typ: TokenStream,
 }
 
 impl Transient {
@@ -75,32 +82,20 @@ impl Transient {
             .tokenize()
     }
 
-    fn attr_hints(&self) -> TokenStream {
+    fn type_hints(&mut self) -> TokenStream {
         let mut stream = TokenStream::new();
 
-        for field in self.fields.iter() {
-            if let FieldKind::Attribute { el, name, attr, .. } = &field.kind {
-                let (amp, attr_name) = attr.as_parts();
-
-                stream.write((
-                    "#[allow(unused_variables)]",
-                    call(
-                        format_args!("fn _hint_{el}_{name}"),
-                        (
-                            name,
-                            format_args!(
-                                ":\
-                                    impl ::kobold::attribute::Attribute<\
-                                        {amp}::kobold::attribute::{attr_name}\
-                                    >\
-                                "
-                            ),
-                        ),
-                    ),
-                    block(()),
-                ))
-            }
+        for (i, hint) in self.hints.drain(..).enumerate() {
+            stream.write((
+                "#[allow(unused_variables)]",
+                call(
+                    format_args!("fn _hint_{i}"),
+                    (hint.name, ": impl", hint.typ),
+                ),
+                block(()),
+            ))
         }
+
         block(stream).tokenize()
     }
 }
@@ -113,7 +108,7 @@ impl Tokenize for Transient {
         }
 
         let transient_signature = self.transient_signature();
-        let attr_hints = self.attr_hints();
+        let attr_hints = self.type_hints();
 
         if self.els.is_empty() {
             return self.fields.remove(0).value.tokenize_in(stream);
