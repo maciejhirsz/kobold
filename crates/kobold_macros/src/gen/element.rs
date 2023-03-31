@@ -55,19 +55,17 @@ impl IntoGenerator for HtmlElement {
         match self.classes.len() {
             0 => (),
             1 => match self.classes.remove(0) {
-                (_, CssValue::Literal(class)) => writeln!(el, "{var}.className={class};"),
-                (span, CssValue::Expression(expr)) => {
+                CssValue::Literal(class) => writeln!(el, "{var}.className={class};"),
+                CssValue::Expression(expr) => {
                     el.hoisted = true;
 
                     let attr = Attr {
                         name: "ClassName",
                         abi: Some(InlineAbi::Str),
                     };
-                    let name = Ident::new("class", span);
-
                     let class = gen
                         .add_field(expr.stream)
-                        .attr(el.var, name, attr, attr.prop())
+                        .attr(el.var, attr, attr.prop())
                         .name;
 
                     el.args.push(JsArgument::with_abi(class, InlineAbi::Str));
@@ -76,13 +74,13 @@ impl IntoGenerator for HtmlElement {
                 }
             },
             _ => {
-                let lit_count = self.classes.iter().map(|v| v.1.is_literal()).count();
+                let lit_count = self.classes.iter().map(CssValue::is_literal).count();
 
                 if lit_count > 0 {
                     let classes = self
                         .classes
                         .iter()
-                        .filter_map(|v| v.1.as_literal())
+                        .filter_map(CssValue::as_literal)
                         .join(",");
 
                     writeln!(el, "{var}.classList.add({classes});");
@@ -93,14 +91,12 @@ impl IntoGenerator for HtmlElement {
                     abi: Some(InlineAbi::Str),
                 };
 
-                for (i, class) in self.classes.into_iter().enumerate() {
-                    if let (span, CssValue::Expression(expr)) = class {
+                for class in self.classes {
+                    if let CssValue::Expression(expr) = class {
                         el.hoisted = true;
-                        let name = Ident::new(&format!("class_{i}"), span);
-
                         let class = gen
                             .add_field(expr.stream)
-                            .attr(el.var, name, attr, attr.prop())
+                            .attr(el.var, attr, attr.prop())
                             .name;
 
                         el.args.push(JsArgument::with_abi(class, InlineAbi::Str));
@@ -158,10 +154,7 @@ impl IntoGenerator for HtmlElement {
                             .tokenize(),
                         );
 
-                        let value = gen
-                            .add_field(expr.stream)
-                            .attr(var, name.clone(), attr, attr.prop())
-                            .name;
+                        let value = gen.add_field(expr.stream).attr(var, attr, attr.prop()).name;
 
                         if let Some(abi) = attr.abi {
                             writeln!(el, "{var}.{name}={value};");
@@ -181,7 +174,7 @@ impl IntoGenerator for HtmlElement {
 
                         let prop = (name.with_str(Literal::string), ".into()").tokenize();
                         let attr = Attr::new("&AttributeName");
-                        gen.add_field(expr.stream).attr(var, name, attr, prop);
+                        gen.add_field(expr.stream).attr(var, attr, prop);
                     }
                 },
             };

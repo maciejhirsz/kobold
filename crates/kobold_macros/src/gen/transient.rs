@@ -379,7 +379,6 @@ pub enum FieldKind {
     Attribute {
         el: Short,
         attr: Attr,
-        name: Ident,
         prop: TokenStream,
     },
 }
@@ -419,13 +418,8 @@ impl Field {
         self
     }
 
-    pub fn attr(&mut self, el: Short, name: Ident, attr: Attr, prop: TokenStream) -> &mut Self {
-        self.kind = FieldKind::Attribute {
-            el,
-            name,
-            attr,
-            prop,
-        };
+    pub fn attr(&mut self, el: Short, attr: Attr, prop: TokenStream) -> &mut Self {
+        self.kind = FieldKind::Attribute { el, attr, prop };
         self
     }
 
