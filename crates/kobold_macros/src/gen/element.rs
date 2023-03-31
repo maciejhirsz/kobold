@@ -259,7 +259,7 @@ fn attribute_type(attr: &str) -> AttributeType {
             abi: Some(InlineAbi::Str),
         },
         "value" => Attr {
-            name: "InputValue",
+            name: "Value",
             abi: None,
         },
         _ => return AttributeType::Unknown,
