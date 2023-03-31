@@ -10,6 +10,7 @@ use proc_macro::{Ident, Literal, TokenStream};
 use crate::gen::element::{Attr, InlineAbi};
 use crate::gen::Short;
 use crate::itertools::IteratorExt;
+use crate::parse::IdentExt;
 use crate::tokenize::prelude::*;
 
 // JS function name, capacity must fit a `Short`, a hash, and few underscores
@@ -83,20 +84,22 @@ impl Transient {
     }
 
     fn type_hints(&mut self) -> TokenStream {
+        if self.hints.is_empty() {
+            return TokenStream::new();
+        }
+
         let mut stream = TokenStream::new();
 
         for (i, hint) in self.hints.drain(..).enumerate() {
+            let name = hint.name.with_str(|h| Ident::new_raw(h, hint.name.span()));
+
             stream.write((
-                "#[allow(unused_variables)]",
-                call(
-                    format_args!("fn _hint_{i}"),
-                    (hint.name, ": impl", hint.typ),
-                ),
+                call(format_args!("fn _hint_{i}"), (name, ": impl", hint.typ)),
                 block(()),
             ))
         }
 
-        block(stream).tokenize()
+        ("#[allow(unused_variables)]", block(stream)).tokenize()
     }
 }
 
@@ -299,18 +302,18 @@ pub struct JsFunction {
     pub args: Vec<JsArgument>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Anchor {
-    Element(Ident),
+    Element(&'static str),
     Node,
     Fragment,
 }
 
 impl Anchor {
-    fn as_js_type(&self) -> Ident {
+    fn as_js_type(&self) -> &'static str {
         match self {
-            Anchor::Element(typ) => typ.clone(),
-            Anchor::Node | Anchor::Fragment => ident("Node"),
+            Anchor::Element(typ) => typ,
+            Anchor::Node | Anchor::Fragment => "Node",
         }
     }
 
@@ -374,7 +377,7 @@ pub enum FieldKind {
     View,
     Event {
         event: &'static str,
-        target: Ident,
+        target: &'static str,
     },
     Attribute {
         el: Short,
@@ -413,7 +416,7 @@ impl Field {
         }
     }
 
-    pub fn event(&mut self, event: &'static str, target: Ident) -> &mut Self {
+    pub fn event(&mut self, event: &'static str, target: &'static str) -> &mut Self {
         self.kind = FieldKind::Event { event, target };
         self
     }
