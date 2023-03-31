@@ -22,9 +22,11 @@ use state::{Editing, State, Text};
 fn Editor() -> impl View {
     stateful(State::mock, |state| {
         let onload = {
+            log::debug!("Editor()");
             let signal = state.signal();
 
             move |e: Event<InputElement>| {
+                log::debug!("move");
                 let file = match e.target().files().and_then(|list| list.get(0)) {
                     Some(file) => file,
                     None => return,
@@ -39,6 +41,7 @@ fn Editor() -> impl View {
                         let serialized = serde_json::to_string(&table).unwrap();
                         // log!("table {:#?}", JsValueSerdeExt::from_serde(&serialized));
                         info!("## table {:#?}", JsValue::from_serde(&serialized).unwrap());
+                        log::debug!("## table {:#?}", JsValue::from_serde(&serialized).unwrap());
                         signal.update(move |state| state.table = table);
                         // signal.update(move |state| state.qr_code = qr_code);
                     }
@@ -236,7 +239,9 @@ fn QRExample() -> impl View {
 }
 
 fn main() {
-    env_logger::init();
+    // env_logger::init();
+    wasm_logger::init(wasm_logger::Config::default());
+    log::debug!("main()");
     kobold::start(view! {
         <Editor />
     });
