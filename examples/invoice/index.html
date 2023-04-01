@@ -12,7 +12,17 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/todomvc-app-css@2.4.2/index.css"
     />
-    <link data-trunk rel="rust" />
+    <!-- https://github.com/thedodd/trunk/blob/master/src/pipelines/rust.rs -->
+    <link
+      data-trunk rel="rust"
+      data-type="main"
+      data-keep-debug={true}
+      data-typescript={false}
+      data-wasm-opt="0"
+      data-no-demangle={false}
+      data-reference-types={false}
+      data-weak-refs={true}
+    />
     <style>
       canvas {
         display: inline-block;
