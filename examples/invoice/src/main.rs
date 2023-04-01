@@ -10,8 +10,12 @@ use log::{info, warn, debug};
 use web_sys::HtmlInputElement as InputElement;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::spawn_local;
+use wasm_bindgen::throw_str;
 use gloo_utils::format::JsValueSerdeExt;
 use serde::{Serialize, Deserialize};
+// use std::mem::ManuallyDrop;
+// use gloo_events::EventListener;
+// use yew::{Callback};
 
 mod csv;
 mod state;
@@ -24,9 +28,23 @@ fn Editor() -> impl View {
         let onload = {
             log::debug!("Editor()");
             let signal = state.signal();
+            // let custard_listener;
+            // let oncustard = Callback::from(move |_: Event| {
+            //     log::debug!("## blahh 22222");
+            // });
 
             move |e: Event<InputElement>| {
                 log::debug!("move");
+
+                // // Create a Closure from a Box<dyn Fn> - this has to be 'static
+                // let listener = EventListener::new(
+                //     "custard",
+                //     move |e| oncustard.emit(e.clone())
+                // );
+
+                // custard_listener = Some(listener);
+
+
                 let file = match e.target().files().and_then(|list| list.get(0)) {
                     Some(file) => file,
                     None => return,
@@ -37,11 +55,15 @@ fn Editor() -> impl View {
                 let signal = signal.clone();
 
                 spawn_local(async move {
+                    log::debug!("## blahh");
                     if let Ok(table) = csv::read_file(file).await {
+                        // let serialized = ManuallyDrop::new(serde_json::to_string(&table).unwrap());
                         let serialized = serde_json::to_string(&table).unwrap();
                         // log!("table {:#?}", JsValueSerdeExt::from_serde(&serialized));
                         info!("## table {:#?}", JsValue::from_serde(&serialized).unwrap());
                         log::debug!("## table {:#?}", JsValue::from_serde(&serialized).unwrap());
+                        // throw_str("testing1");
+                        // assert_eq!(*serialized, "Hello");
                         signal.update(move |state| state.table = table);
                         // signal.update(move |state| state.qr_code = qr_code);
                     }
@@ -245,4 +267,5 @@ fn main() {
     kobold::start(view! {
         <Editor />
     });
+    // throw_str("testing2");
 }
