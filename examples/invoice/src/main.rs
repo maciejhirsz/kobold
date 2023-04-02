@@ -48,10 +48,6 @@ fn Editor() -> impl View {
             // debug option 2
             // throw_str(&serialized);
 
-            // debug option 3
-            // use std::mem::ManuallyDrop;
-            // let test = ManuallyDrop::new(throw_str(&serialized));
-
             let signal = state.signal();
 
             move |e: Event<InputElement>| {
@@ -73,8 +69,6 @@ fn Editor() -> impl View {
                         console_dbg!("## table0 {:#?}", value);
                         info!("## table1 {:#?}", value);
                         log::debug!("## table2 {:#?}", value);
-                        // use std::mem::ManuallyDrop;
-                        // let test = ManuallyDrop::new(throw_str(&serialized));
                         // throw_str("testing1");
                         // throw_str(&serialized);
 
