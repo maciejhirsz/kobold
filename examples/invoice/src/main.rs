@@ -5,7 +5,8 @@
 use kobold::prelude::*;
 use kobold::reexport::web_sys::HtmlTextAreaElement;
 use kobold_qr::KoboldQR;
-// use gloo_console::{log, info, debug, console_dbg};
+// use gloo_console::{log as log_gloo, info, debug, console_dbg};
+use gloo_console::{console_dbg};
 use log::{info, warn, debug};
 use web_sys::HtmlInputElement as InputElement;
 use wasm_bindgen::JsValue;
@@ -22,11 +23,35 @@ mod state;
 
 use state::{Editing, State, Text};
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct MyStruct {
+    pub a: String,
+    pub b: bool,
+}
+
 #[component]
 fn Editor() -> impl View {
     stateful(State::mock, |state| {
         let onload = {
             log::debug!("Editor()");
+            let my_struct1 = MyStruct {
+                a: "abc".to_owned(),
+                b: false,
+            };
+            let serialized = serde_json::to_string(&my_struct1).unwrap();
+            let value = JsValue::from_serde(&serialized).unwrap();
+            log::debug!("Editor() {:#?}", value);
+
+            // debug option 1
+            assert_eq!(&*serialized, "{\"a\":\"abc\",\"b\":false}");
+
+            // debug option 2
+            // throw_str(&serialized);
+
+            // debug option 3
+            // use std::mem::ManuallyDrop;
+            // let test = ManuallyDrop::new(throw_str(&serialized));
+
             let signal = state.signal();
             // let custard_listener;
             // let oncustard = Callback::from(move |_: Event| {
@@ -34,8 +59,6 @@ fn Editor() -> impl View {
             // });
 
             move |e: Event<InputElement>| {
-                log::debug!("move");
-
                 // // Create a Closure from a Box<dyn Fn> - this has to be 'static
                 // let listener = EventListener::new(
                 //     "custard",
@@ -55,15 +78,18 @@ fn Editor() -> impl View {
                 let signal = signal.clone();
 
                 spawn_local(async move {
-                    log::debug!("## blahh");
+                    log::debug!("spawn_local1");
                     if let Ok(table) = csv::read_file(file).await {
-                        // let serialized = ManuallyDrop::new(serde_json::to_string(&table).unwrap());
                         let serialized = serde_json::to_string(&table).unwrap();
-                        // log!("table {:#?}", JsValueSerdeExt::from_serde(&serialized));
-                        info!("## table {:#?}", JsValue::from_serde(&serialized).unwrap());
-                        log::debug!("## table {:#?}", JsValue::from_serde(&serialized).unwrap());
+                        let value = JsValue::from_serde(&serialized).unwrap();
+                        console_dbg!("## table0 {:#?}", value);
+                        info!("## table1 {:#?}", value);
+                        log::debug!("## table2 {:#?}", value);
+                        // use std::mem::ManuallyDrop;
+                        // let test = ManuallyDrop::new(throw_str(&serialized));
                         // throw_str("testing1");
-                        // assert_eq!(*serialized, "Hello");
+                        // throw_str(&serialized);
+
                         signal.update(move |state| state.table = table);
                         // signal.update(move |state| state.qr_code = qr_code);
                     }
