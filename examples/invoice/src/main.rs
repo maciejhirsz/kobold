@@ -53,21 +53,9 @@ fn Editor() -> impl View {
             // let test = ManuallyDrop::new(throw_str(&serialized));
 
             let signal = state.signal();
-            // let custard_listener;
-            // let oncustard = Callback::from(move |_: Event| {
-            //     log::debug!("## blahh 22222");
-            // });
 
             move |e: Event<InputElement>| {
-                // // Create a Closure from a Box<dyn Fn> - this has to be 'static
-                // let listener = EventListener::new(
-                //     "custard",
-                //     move |e| oncustard.emit(e.clone())
-                // );
-
-                // custard_listener = Some(listener);
-
-
+                log::debug!("move");
                 let file = match e.target().files().and_then(|list| list.get(0)) {
                     Some(file) => file,
                     None => return,
@@ -293,5 +281,4 @@ fn main() {
     kobold::start(view! {
         <Editor />
     });
-    // throw_str("testing2");
 }

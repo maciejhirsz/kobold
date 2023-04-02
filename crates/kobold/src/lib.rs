@@ -290,7 +290,7 @@ pub mod event;
 pub mod keywords;
 pub mod list;
 
-pub mod util;
+mod util;
 mod value;
 
 pub use util::Precompiled;

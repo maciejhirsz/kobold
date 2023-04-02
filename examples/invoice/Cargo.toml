@@ -32,7 +32,7 @@ yew = { version = "0.20.0", features = ["csr"] }
 version = "0.3.61"
 features = [
 	"console",
-    "Document",
+	"Document",
 	"HtmlInputElement",
 	"File",
 	"FileList",
