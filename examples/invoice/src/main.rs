@@ -70,7 +70,7 @@ fn Editor() -> impl View {
                         let qr_code = slice_qr.to_string();
 
                         signal.update(move |state| state.table = table);
-                        // signal.update(move |state| state.qr_code = qr_code);
+                        signal.update(move |state| state.qr_code = qr_code);
                     }
                 })
             }
@@ -173,11 +173,39 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
                 <input.edit {onchange} value={ ref value } />
             </td>
         }
+    } else if value.contains("0x") {
+        let ondblclick = state.bind(move |s, _| s.editing = Editing::Cell { row, col });
+
+        view! {
+            <td {ondblclick}>
+                { ref value }
+                <QRForTask {value} />
+            </td>
+        }
     } else {
         let ondblclick = state.bind(move |s, _| s.editing = Editing::Cell { row, col });
 
-        view! { <td {ondblclick}>{ ref value }</td> }
+        view! {
+            <td {ondblclick}>{ ref value }</td>
+        }
     }
+    // FIXME - https://github.com/maciejhirsz/kobold/issues/51
+    // } else {
+    //     let ondblclick = state.bind(move |s, _| s.editing = Editing::Cell { row, col });
+
+    //     if value.contains("0x") {
+    //         view! {
+    //             <td {ondblclick}>
+    //                 { ref value }
+    //                 <QRForTask {state} />
+    //             </td>
+    //         }
+    //     } else {
+    //         view! {
+    //             <td {ondblclick}>{ ref value }</td>
+    //         }
+    //     }
+    // }
 }
 
 #[component]
@@ -263,6 +291,15 @@ fn QRExample() -> impl View {
             <textarea {onkeyup}>{ static data.as_str() }</textarea>
         }
     })
+}
+
+#[component]
+fn QRForTask(value: &str) -> impl View + '_ {
+    let data = &value;
+
+    view! {
+        <KoboldQR {data} />
+    }
 }
 
 fn main() {
