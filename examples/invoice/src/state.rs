@@ -25,12 +25,15 @@ pub enum Editing {
     Cell { col: usize, row: usize },
 }
 
+pub struct Content {
+    pub name: String,
+    pub table: Table,
+}
+
 pub struct State {
     pub editing: Editing,
-    pub name: String,
-    pub name_file_details: String,
-    pub table: Table,
-    pub table_file_details: Table,
+    pub main: Content,
+    pub details: Content,
     pub entry: Entry,
     pub entry_editing: bool,
     pub qr_code: String,
@@ -110,10 +113,14 @@ impl Default for State {
 
         State {
             editing: Editing::None,
-            name:  "<no file>".to_owned(),
-            name_file_details: "<no details file>".to_owned(),
-            table: Table::mock(),
-            table_file_details: Table::mock_file_details(),
+            main: Content {
+                name: "<no main file>".to_owned(),
+                table: Table::mock(),
+            },
+            details: Content {
+                name: "<no details file>".to_owned(),
+                table: Table::mock_file_details(),   
+            },
             entry: Entry {
                 description: description.to_owned(),
                 entry_editing: false,
@@ -128,10 +135,14 @@ impl State {
     pub fn mock() -> Self {
         State {
             editing: Editing::None,
-            name: "<no file>".to_owned(),
-            name_file_details: "<no details file>".to_owned(),
-            table: Table::mock(),
-            table_file_details: Table::mock_file_details(),
+            main: Content {
+                name: "<no main file>".to_owned(),
+                table: Table::mock(),
+            },
+            details: Content {
+                name: "<no details file>".to_owned(),
+                table: Table::mock_file_details(),   
+            },
             entry: Entry {
                 description: "<enter billing address>".to_owned(),
                 entry_editing: false,
@@ -180,7 +191,7 @@ impl State {
     }
 }
 
-impl Deref for State {
+impl Deref for Content {
     type Target = Table;
 
     fn deref(&self) -> &Table {
@@ -188,7 +199,7 @@ impl Deref for State {
     }
 }
 
-impl DerefMut for State {
+impl DerefMut for Content {
     fn deref_mut(&mut self) -> &mut Table {
         &mut self.table
     }

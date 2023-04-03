@@ -25,7 +25,7 @@ fn Editor() -> impl View {
     stateful(State::mock, |state| {
         debug!("Editor()");
 
-        let onload_file_details = {
+        let onload_details = {
             let signal = state.signal();
 
             move |e: Event<InputElement>| {
@@ -34,34 +34,35 @@ fn Editor() -> impl View {
                     None => return,
                 };
 
-                signal.update(|state| state.name_file_details = file.name());
-
-                let signal = signal.clone();
-
-                spawn_local(async move {
-                    if let Ok(table_file_details) = csv::read_file(file).await {
-                        debug!("table_file_details {:#?}", table_file_details);
-                        signal.update(move |state| state.table_file_details = table_file_details);
-                    }
-                })
-            }
-        };
-
-        let onload = {
-            let signal = state.signal();
-
-            move |e: Event<InputElement>| {
-                let file = match e.target().files().and_then(|list| list.get(0)) {
-                    Some(file) => file,
-                    None => return,
-                };
-
-                signal.update(|state| state.name = file.name());
+                signal.update(|state| state.details.name = file.name());
 
                 let signal = signal.clone();
 
                 spawn_local(async move {
                     if let Ok(table) = csv::read_file(file).await {
+                        debug!("details.table{:#?}", table);
+                        signal.update(move |state| state.details.table = table);
+                    }
+                })
+            }
+        };
+
+        let onload_main = {
+            let signal = state.signal();
+
+            move |e: Event<InputElement>| {
+                let file = match e.target().files().and_then(|list| list.get(0)) {
+                    Some(file) => file,
+                    None => return,
+                };
+
+                signal.update(|state| state.main.name = file.name());
+
+                let signal = signal.clone();
+
+                spawn_local(async move {
+                    if let Ok(table) = csv::read_file(file).await {
+                        // TODO - find a better way to get the QR code from the file
                         let serialized = serde_json::to_string(&table).unwrap();
                         let value = JsValue::from_serde(&serialized).unwrap();
                         debug!("table {:#?}", value);
@@ -93,7 +94,8 @@ fn Editor() -> impl View {
                         debug!("slice_qr {:#?}", slice_qr);
                         let qr_code = slice_qr.to_string();
 
-                        signal.update(move |state| state.table = table);
+                        debug!("main.table{:#?}", table);
+                        signal.update(move |state| state.main.table = table);
                         signal.update(move |state| state.qr_code = qr_code);
                     }
                 })
@@ -120,28 +122,28 @@ fn Editor() -> impl View {
                     </header>
                     <section .main>
                         <div #input-file-select>
-                            <h1>{ ref state.name_file_details }</h1>
-                            <input type="file" accept="text/csv" onchange={onload_file_details} />
+                            <h1>{ ref state.details.name }</h1>
+                            <input type="file" accept="text/csv" onchange={onload_details} />
                         </div>
                         <EntryView {state} />
                         <div #input-file-select>
-                            <h1>{ ref state.name }</h1>
-                            <input type="file" accept="text/csv" onchange={onload} />
+                            <h1>{ ref state.main.name }</h1>
+                            <input type="file" accept="text/csv" onchange={onload_main} />
                         </div>
                         <table {onkeydown}>
                             <thead>
                                 <tr>
                                 {
-                                    for state.table.columns().map(|col| view! { <Head {col} {state} /> })
+                                    for state.main.table.columns().map(|col| view! { <Head {col} {state} /> })
                                 }
                                 </tr>
                             </thead>
                             <tbody>
                             {
-                                for state.table.rows().map(move |row| view! {
+                                for state.main.table.rows().map(move |row| view! {
                                     <tr>
                                     {
-                                        for state.table.columns().map(move |col| view! {
+                                        for state.main.table.columns().map(move |col| view! {
                                             <Cell {col} {row} {state} />
                                         })
                                     }
@@ -165,11 +167,11 @@ fn Editor() -> impl View {
 
 #[component(auto_branch)]
 fn Head(col: usize, state: &Hook<State>) -> impl View + '_ {
-    let value = state.table.source.get_text(&state.table.columns[col]);
+    let value = state.main.table.source.get_text(&state.main.table.columns[col]);
 
     if state.editing == (Editing::Column { col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
-            state.table.columns[col] = Text::Owned(e.target().value().into());
+            state.main.table.columns[col] = Text::Owned(e.target().value().into());
             state.editing = Editing::None;
         });
 
@@ -188,11 +190,11 @@ fn Head(col: usize, state: &Hook<State>) -> impl View + '_ {
 
 #[component]
 fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
-    let value = state.table.source.get_text(&state.rows[row][col]);
+    let value = state.main.table.source.get_text(&state.main.table.rows[row][col]);
 
     if state.editing == (Editing::Cell { row, col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
-            state.rows[row][col] = Text::Owned(e.target().value().into());
+            state.main.table.rows[row][col] = Text::Owned(e.target().value().into());
             state.editing = Editing::None;
         });
 
@@ -224,14 +226,14 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 #[component]
 fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
 
-    debug!("rows {:#?}", state.table_file_details.rows());
-    debug!("columns {:#?}", state.table_file_details.columns());
-    // let val = state.table_file_details.source.get_text(&state.table_file_details.rows[1][0]);
-    // let val = state.table_file_details.source.get_text(&state.columns[0][0]);
+    debug!("rows {:#?}", state.details.table.rows());
+    debug!("columns {:#?}", state.details.table.columns());
+    // let val = state.details.table.source.get_text(&state.details.table.rows[1][0]);
+    // let val = state.details.table.source.get_text(&state.columns[0][0]);
     // debug!("val {:#?}", val);
-    for row in state.table_file_details.rows() {
+    for row in state.details.table.rows() {
         debug!("row {:#?}", row);
-        for col in state.table_file_details.columns() {
+        for col in state.details.table.columns() {
             debug!("col {:#?}", col);
             // 
             // debug!("row {:#?} col {:#?}, val {:#?}", row, col, val.to_string());
