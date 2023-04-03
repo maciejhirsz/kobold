@@ -30,7 +30,7 @@ pub struct State {
     pub name: String,
     pub name_file_details: String,
     pub table: Table,
-    pub table_file_details: TableFileDetails,
+    pub table_file_details: Table,
     pub entry: Entry,
     pub entry_editing: bool,
     pub qr_code: String,
@@ -43,13 +43,6 @@ pub struct Entry {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Table {
-    pub source: TextSource,
-    pub columns: Vec<Text>,
-    pub rows: Vec<Vec<Text>>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct TableFileDetails {
     pub source: TextSource,
     pub columns: Vec<Text>,
     pub rows: Vec<Vec<Text>>,
@@ -120,7 +113,7 @@ impl Default for State {
             name:  "<no file>".to_owned(),
             name_file_details: "<no details file>".to_owned(),
             table: Table::mock(),
-            table_file_details: TableFileDetails::mock(),
+            table_file_details: Table::mock_file_details(),
             entry: Entry {
                 description: description.to_owned(),
                 entry_editing: false,
@@ -138,7 +131,7 @@ impl State {
             name: "<no file>".to_owned(),
             name_file_details: "<no details file>".to_owned(),
             table: Table::mock(),
-            table_file_details: TableFileDetails::mock(),
+            table_file_details: Table::mock_file_details(),
             entry: Entry {
                 description: "<enter billing address>".to_owned(),
                 entry_editing: false,
@@ -226,17 +219,7 @@ impl Table {
         "column 1,column 2\nA1,A2\nB1,B2".parse().unwrap()
     }
 
-    pub fn rows(&self) -> Range<usize> {
-        0..self.rows.len()
-    }
-
-    pub fn columns(&self) -> Range<usize> {
-        0..self.columns.len()
-    }
-}
-
-impl TableFileDetails {
-    fn mock() -> Self {
+    fn mock_file_details() -> Self {
         "inv_date,inv_no,from_attn_name,from_org_name,from_org_addr,from_email,to_attn_name,to_title,to_org_name,to_email\n
 01.04.2023,0001,luke,clawbird,1 metaverse ave,test@test.com,recipient_name,director,nftverse,test2@test.com".parse().unwrap()
     }

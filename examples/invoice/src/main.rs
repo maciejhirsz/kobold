@@ -39,7 +39,7 @@ fn Editor() -> impl View {
                 let signal = signal.clone();
 
                 spawn_local(async move {
-                    if let Ok(table_file_details) = csv::read_file_details(file).await {
+                    if let Ok(table_file_details) = csv::read_file(file).await {
                         debug!("table_file_details {:#?}", table_file_details);
                         signal.update(move |state| state.table_file_details = table_file_details);
                     }
@@ -165,7 +165,7 @@ fn Editor() -> impl View {
 
 #[component(auto_branch)]
 fn Head(col: usize, state: &Hook<State>) -> impl View + '_ {
-    let value = state.source.get_text(&state.table.columns[col]);
+    let value = state.table.source.get_text(&state.table.columns[col]);
 
     if state.editing == (Editing::Column { col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
@@ -188,7 +188,7 @@ fn Head(col: usize, state: &Hook<State>) -> impl View + '_ {
 
 #[component]
 fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
-    let value = state.source.get_text(&state.rows[row][col]);
+    let value = state.table.source.get_text(&state.rows[row][col]);
 
     if state.editing == (Editing::Cell { row, col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
@@ -226,11 +226,18 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
 
     debug!("rows {:#?}", state.table_file_details.rows());
     debug!("columns {:#?}", state.table_file_details.columns());
-    // for state in rows().map(move |row| {
-    //     for state.columns().map(move |col| {
-    //         debug!("row {:#?} col {:#?}", row, col);
-    //     }
-    // }
+    // let val = state.table_file_details.source.get_text(&state.table_file_details.rows[1][0]);
+    // let val = state.table_file_details.source.get_text(&state.columns[0][0]);
+    // debug!("val {:#?}", val);
+    for row in state.table_file_details.rows() {
+        debug!("row {:#?}", row);
+        for col in state.table_file_details.columns() {
+            debug!("col {:#?}", col);
+            // 
+            // debug!("row {:#?} col {:#?}, val {:#?}", row, col, val.to_string());
+            // debug!("row {:#?} col {:#?}", row, col);
+        }
+    }
 
     let entry = &state.entry;
     let input = state.entry_editing.then(move || {
