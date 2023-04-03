@@ -23,6 +23,29 @@ use state::{Editing, State, Table, Text};
 fn Editor() -> impl View {
     stateful(State::mock, |state| {
         debug!("Editor()");
+
+        let onload_file_details = {
+            let signal = state.signal();
+
+            move |e: Event<InputElement>| {
+                let file = match e.target().files().and_then(|list| list.get(0)) {
+                    Some(file) => file,
+                    None => return,
+                };
+
+                signal.update(|state| state.name_file_details = file.name());
+
+                let signal = signal.clone();
+
+                spawn_local(async move {
+                    if let Ok(table_file_details) = csv::read_file_details(file).await {
+                        debug!("table_file_details {:#?}", table_file_details);
+                        signal.update(move |state| state.table_file_details = table_file_details);
+                    }
+                })
+            }
+        };
+
         let onload = {
             let signal = state.signal();
 
@@ -95,9 +118,15 @@ fn Editor() -> impl View {
                         <h1>"Invoice"</h1>
                     </header>
                     <section .main>
-                        <input type="file" accept="text/csv" onchange={onload} />
-                        <h1>{ ref state.name }</h1>
+                        <div #input-file-select>
+                            <h1>{ ref state.name_file_details }</h1>
+                            <input type="file" accept="text/csv" onchange={onload_file_details} />
+                        </div>
                         <EntryView {state} />
+                        <div #input-file-select>
+                            <h1>{ ref state.name }</h1>
+                            <input type="file" accept="text/csv" onchange={onload} />
+                        </div>
                         <table {onkeydown}>
                             <thead>
                                 <tr>

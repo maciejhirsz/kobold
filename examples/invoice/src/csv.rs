@@ -8,7 +8,7 @@ use logos::{Lexer, Logos};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::File;
 
-use crate::state::{Table, Text, TextSource};
+use crate::state::{Table, TableFileDetails, Text, TextSource};
 
 #[derive(Logos)]
 enum Token {
@@ -110,6 +110,28 @@ impl TryFrom<String> for Table {
     }
 }
 
+impl TryFrom<String> for TableFileDetails {
+    type Error = Error;
+
+    fn try_from(source: String) -> Result<Self, Error> {
+        let mut lex = Token::lexer(&source);
+
+        let columns = parse_row(&mut lex, 0)?.ok_or(Error::NoData)?;
+
+        let mut rows = Vec::new();
+
+        while let Some(row) = parse_row(&mut lex, columns.len())? {
+            rows.push(row);
+        }
+
+        Ok(TableFileDetails {
+            source: TextSource::from(source),
+            columns,
+            rows,
+        })
+    }
+}
+
 impl FromStr for Table {
     type Err = Error;
 
@@ -118,7 +140,25 @@ impl FromStr for Table {
     }
 }
 
+impl FromStr for TableFileDetails {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Error> {
+        s.to_owned().try_into()
+    }
+}
+
 pub async fn read_file(file: File) -> Result<Table, Error> {
+    let text = JsFuture::from(file.text())
+        .await
+        .map_err(|_| Error::FailedToReadFile)?
+        .as_string()
+        .ok_or(Error::FailedToReadFile)?;
+
+    text.parse()
+}
+
+pub async fn read_file_details(file: File) -> Result<TableFileDetails, Error> {
     let text = JsFuture::from(file.text())
         .await
         .map_err(|_| Error::FailedToReadFile)?
