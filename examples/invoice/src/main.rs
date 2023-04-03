@@ -132,16 +132,16 @@ fn Editor() -> impl View {
                             <thead>
                                 <tr>
                                 {
-                                    for state.columns().map(|col| view! { <Head {col} {state} /> })
+                                    for state.table.columns().map(|col| view! { <Head {col} {state} /> })
                                 }
                                 </tr>
                             </thead>
                             <tbody>
                             {
-                                for state.rows().map(move |row| view! {
+                                for state.table.rows().map(move |row| view! {
                                     <tr>
                                     {
-                                        for state.columns().map(move |col| view! {
+                                        for state.table.columns().map(move |col| view! {
                                             <Cell {col} {row} {state} />
                                         })
                                     }
@@ -165,11 +165,11 @@ fn Editor() -> impl View {
 
 #[component(auto_branch)]
 fn Head(col: usize, state: &Hook<State>) -> impl View + '_ {
-    let value = state.source.get_text(&state.columns[col]);
+    let value = state.source.get_text(&state.table.columns[col]);
 
     if state.editing == (Editing::Column { col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
-            state.columns[col] = Text::Owned(e.target().value().into());
+            state.table.columns[col] = Text::Owned(e.target().value().into());
             state.editing = Editing::None;
         });
 
@@ -223,6 +223,15 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 
 #[component]
 fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
+
+    debug!("rows {:#?}", state.table_file_details.rows());
+    debug!("columns {:#?}", state.table_file_details.columns());
+    // for state in rows().map(move |row| {
+    //     for state.columns().map(move |col| {
+    //         debug!("row {:#?} col {:#?}", row, col);
+    //     }
+    // }
+
     let entry = &state.entry;
     let input = state.entry_editing.then(move || {
         bind! { state:
