@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use kobold::prelude::*;
+use kobold::branching::Branch3;
 use kobold::reexport::web_sys::HtmlTextAreaElement;
 use kobold_qr::KoboldQR;
 use gloo_console::{console_dbg};
@@ -185,7 +186,7 @@ fn Head(col: usize, state: &Hook<State>) -> impl View + '_ {
     }
 }
 
-#[component(auto_branch)]
+#[component]
 fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     let value = state.source.get_text(&state.rows[row][col]);
 
@@ -195,45 +196,29 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
             state.editing = Editing::None;
         });
 
-        view! {
+        Branch3::A(view! {
             <td.edit>
                 { ref value }
                 <input.edit {onchange} value={ ref value } />
             </td>
-        }
-    } else if value.contains("0x") {
-        let ondblclick = state.bind(move |s, _| s.editing = Editing::Cell { row, col });
-
-        view! {
-            <td {ondblclick}>
-                { ref value }
-                <QRForTask {value} />
-            </td>
-        }
+        })
+    // https://github.com/maciejhirsz/kobold/issues/51
     } else {
         let ondblclick = state.bind(move |s, _| s.editing = Editing::Cell { row, col });
 
-        view! {
-            <td {ondblclick}>{ ref value }</td>
+        if value.contains("0x") {
+            Branch3::B(view! {
+                <td {ondblclick}>
+                    { ref value }
+                    <QRForTask {value} />
+                </td>
+            })
+        } else {
+            Branch3::C(view! {
+                <td {ondblclick}>{ ref value }</td>
+            })
         }
     }
-    // FIXME - https://github.com/maciejhirsz/kobold/issues/51
-    // } else {
-    //     let ondblclick = state.bind(move |s, _| s.editing = Editing::Cell { row, col });
-
-    //     if value.contains("0x") {
-    //         view! {
-    //             <td {ondblclick}>
-    //                 { ref value }
-    //                 <QRForTask {state} />
-    //             </td>
-    //         }
-    //     } else {
-    //         view! {
-    //             <td {ondblclick}>{ ref value }</td>
-    //         }
-    //     }
-    // }
 }
 
 #[component]
