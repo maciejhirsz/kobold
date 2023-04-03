@@ -219,12 +219,7 @@ impl Node {
 
             match Node::parse(stream)? {
                 Some(node) => children.push(node),
-                None => {
-                    return Err(ParseError::new(
-                        format!("Missing closing tag for {name}"),
-                        name.span(),
-                    ))
-                }
+                None => break,
             }
         }
 

@@ -51,7 +51,7 @@ fn App() -> impl View {
                             <FilterView filter={Filter::Active} {state} />
                             <FilterView filter={Filter::Completed} {state} />
                         </ul>
-                        <button .clear-completed.{completed_hidden} onclick={clear}>
+                        <button.clear-completed.{completed_hidden} onclick={clear}>
                             "Clear completed"
                         </button>
                     </footer>
@@ -60,8 +60,6 @@ fn App() -> impl View {
                     <p>"Double-click to edit a todo"</p>
                     <p>"Written by "<a href="https://maciej.codes/" target="_blank">"Maciej Hirsz"</a></p>
                     <p>"Part of "<a href="http://todomvc.com/" target="_blank">"TodoMVC"</a></p>
-                </footer>
-            </div>
         }
     })
 }
@@ -147,7 +145,6 @@ pub fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> im
                 <button.destroy onclick={remove} />
             </div>
             { input }
-        </li>
     }
 }
 
@@ -161,11 +158,7 @@ fn FilterView(filter: Filter, state: &Hook<State>) -> impl View + '_ {
     }
 
     view! {
-        <li>
-            <a {class} {onclick} href={static filter.href()}>
-                { static filter.label() }
-            </a>
-        </li>
+        <li><a {class} {onclick} href={static filter.href()}> { static filter.label() }
     }
 }
 

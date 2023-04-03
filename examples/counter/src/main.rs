@@ -15,7 +15,6 @@ fn Counter() -> impl View {
                 // `{onclick}` here is shorthand for `onclick={onclick}`
                 <button {onclick}>"Click me!"</button>
                 <button onclick={reset}>"Reset"</button>
-            </p>
         }
     })
 }
@@ -28,7 +27,7 @@ fn ShowCount(count: u32) -> impl View {
         n => view! { { n }" times." },
     };
 
-    view! { <h3>"You've clicked the button "{ count }</h3> }
+    view! { <h3> "You've clicked the button "{ count } }
 }
 
 fn main() {
