@@ -127,7 +127,7 @@ impl State {
             name: "<no file>".to_owned(),
             table: Table::mock(),
             entry: Entry {
-                description: "<no entry>".to_owned(),
+                description: "<enter billing address>".to_owned(),
                 entry_editing: false,
             },
             entry_editing: false,

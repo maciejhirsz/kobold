@@ -93,7 +93,6 @@ fn Editor() -> impl View {
                 <section .invoiceapp>
                     <header .header>
                         <h1>"Invoice"</h1>
-                        <EntryInput {state} />
                     </header>
                     <section .main>
                         <input type="file" accept="text/csv" onchange={onload} />
@@ -209,29 +208,12 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 }
 
 #[component]
-fn EntryInput(state: &Hook<State>) -> impl View + '_ {
-    bind! { state:
-        let onchange = move |event: Event<InputElement>| {
-            let input = event.target();
-            let value = input.value();
-
-            input.set_value("");
-            state.add(value);
-        };
-    }
-
-    view! {
-        <input.new-invoice placeholder="<Enter biller address>" onchange={onchange} />
-    }
-}
-
-#[component]
 fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
     let entry = &state.entry;
     let input = state.entry_editing.then(move || {
         bind! { state:
             let onkeypress = move |event: KeyboardEvent<InputElement>| {
-                if event.key() == "Enter" {
+                if event.key() == "Enter" && event.target().value() != "" {
                     state.update(event.target().value());
 
                     Then::Render
@@ -240,7 +222,11 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
                 }
             };
 
-            let onblur = move |event: Event<InputElement>| state.update(event.target().value());
+            let onblur = move |event: Event<InputElement>| {
+                if event.target().value() != "" {
+                    state.update(event.target().value())
+                }
+            };
         }
 
         let onmouseover = move |event: MouseEvent<InputElement>| {
@@ -250,6 +236,7 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
         view! {
             <input .edit
                 type="text"
+                placeholder="<Enter biller address>"
                 value={ref entry.description}
                 {onmouseover}
                 {onkeypress}
