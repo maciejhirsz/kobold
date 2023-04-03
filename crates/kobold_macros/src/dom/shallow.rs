@@ -11,6 +11,7 @@ use std::fmt::{self, Display, Write};
 
 use proc_macro::{Group, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 
+use crate::dom::ElementTag;
 use crate::parse::prelude::*;
 use crate::syntax::Generics;
 use crate::tokenize::prelude::*;
@@ -64,7 +65,7 @@ impl Iterator for ShallowNodeIter {
 #[derive(Debug)]
 pub enum TagName {
     HtmlElement {
-        name: String,
+        name: ElementTag,
         span: Span,
     },
     Component {
@@ -92,6 +93,13 @@ impl TagName {
             TagName::Component { span, .. } => *span,
         }
     }
+
+    pub fn forbids_children(&self) -> bool {
+        match self {
+            TagName::HtmlElement { name, .. } => name.forbids_children(),
+            TagName::Component { .. } => false,
+        }
+    }
 }
 
 impl IntoSpan for TagName {
@@ -103,8 +111,8 @@ impl IntoSpan for TagName {
 impl Display for TagName {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let name = match self {
-            TagName::HtmlElement { name, .. } => name,
-            TagName::Component { name, .. } => name,
+            TagName::HtmlElement { name, .. } => &*name,
+            TagName::Component { name, .. } => name.as_str(),
         };
 
         f.write_str(name)
@@ -114,12 +122,15 @@ impl Display for TagName {
 impl Parse for TagName {
     fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
         let mut ident: Ident = stream.parse()?;
-        let mut name = ident.to_string();
         let mut span = ident.span();
 
-        if name.as_bytes()[0].is_ascii_lowercase() && !stream.allow((':', Spacing::Joint)) {
-            return Ok(TagName::HtmlElement { name, span });
+        if !stream.allow((':', Spacing::Joint)) {
+            if let Some(name) = ident.with_str(ElementTag::from_str) {
+                return Ok(TagName::HtmlElement { name, span });
+            }
         }
+
+        let mut name = ident.to_string();
 
         let mut path = ident.tokenize();
 
@@ -215,6 +226,10 @@ impl Parse for Tag {
             }
 
             if tt.is('>') {
+                if nesting == TagNesting::Opening && name.forbids_children() {
+                    nesting = TagNesting::SelfClosing;
+                }
+
                 return Ok(Tag {
                     name,
                     nesting,

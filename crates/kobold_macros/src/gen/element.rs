@@ -6,7 +6,7 @@ use std::fmt::{Arguments, Write};
 
 use proc_macro::{Literal, TokenStream};
 
-use crate::dom::{Attribute, AttributeValue, CssValue, HtmlElement};
+use crate::dom::{Attribute, AttributeValue, CssValue, HtmlElement, ElementTag};
 use crate::gen::{append, DomNode, Generator, IntoGenerator, JsArgument, Short};
 use crate::itertools::IteratorExt;
 use crate::parse::IdentExt;
@@ -14,7 +14,7 @@ use crate::tokenize::prelude::*;
 
 pub struct JsElement {
     /// Tag name of the element such as `div`
-    pub tag: String,
+    pub tag: ElementTag,
 
     /// The `web-sys` type of this element, such as `HtmlElement`, spanned to tag invocation.
     pub typ: &'static str,

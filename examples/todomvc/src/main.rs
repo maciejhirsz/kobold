@@ -20,15 +20,15 @@ fn App() -> impl View {
         }
 
         view! {
-            <div .todomvc-wrapper>
-                <section .todoapp>
-                    <header .header>
+            <div.todomvc-wrapper>
+                <section.todoapp>
+                    <header.header>
                         <h1>"todos"</h1>
                         <EntryInput {state} />
                     </header>
                     <section .main.{hidden}>
                         <ToggleAll {active_count} {state} />
-                        <ul .todo-list>
+                        <ul.todo-list>
                             {
                                 for state
                                     .filtered_entries()
@@ -36,8 +36,8 @@ fn App() -> impl View {
                             }
                         </ul>
                     </section>
-                    <footer .footer.{hidden}>
-                        <span .todo-count>
+                    <footer.footer.{hidden}>
+                        <span.todo-count>
                             <strong>{ active_count }</strong>
                             {
                                 ref match active_count {
@@ -46,7 +46,7 @@ fn App() -> impl View {
                                 }
                             }
                         </span>
-                        <ul .filters>
+                        <ul.filters>
                             <FilterView filter={Filter::All} {state} />
                             <FilterView filter={Filter::Active} {state} />
                             <FilterView filter={Filter::Completed} {state} />
@@ -56,7 +56,7 @@ fn App() -> impl View {
                         </button>
                     </footer>
                 </section>
-                <footer .info>
+                <footer.info>
                     <p>"Double-click to edit a todo"</p>
                     <p>"Written by "<a href="https://maciej.codes/" target="_blank">"Maciej Hirsz"</a></p>
                     <p>"Part of "<a href="http://todomvc.com/" target="_blank">"TodoMVC"</a></p>
@@ -81,7 +81,7 @@ fn EntryInput(state: &Hook<State>) -> impl View + '_ {
     }
 
     view! {
-        <input.new-todo placeholder="What needs to be done?" {onchange} />
+        <input.new-todo placeholder="What needs to be done?" {onchange}>
     }
 }
 
@@ -92,7 +92,7 @@ fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl View + '_ {
     }
 
     view! {
-        <input #toggle-all.toggle-all type="checkbox" checked={active_count == 0} {onclick} />
+        <input #toggle-all.toggle-all type="checkbox" checked={active_count == 0} {onclick}>
         <label for="toggle-all" />
     }
 }
@@ -123,7 +123,7 @@ pub fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> im
                 onmouseover={|event| event.target().focus()}
                 {onkeypress}
                 {onblur}
-            />
+            >
         }
     });
 
@@ -138,13 +138,13 @@ pub fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> im
     let completed = class!("completed" if entry.completed);
 
     view! {
-        <li .todo.{editing}.{completed}>
-            <div .view>
-                <input .toggle type="checkbox" checked={entry.completed} {onchange} />
+        <li.todo.{editing}.{completed}>
+            <div.view>
+                <input .toggle type="checkbox" checked={entry.completed} {onchange}>
                 <label ondblclick={edit} >
                     { ref entry.description }
                 </label>
-                <button .destroy onclick={remove} />
+                <button.destroy onclick={remove} />
             </div>
             { input }
         </li>

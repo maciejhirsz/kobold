@@ -14,6 +14,7 @@ mod els;
 
 pub use expression::Expression;
 pub use shallow::{ShallowNode, ShallowNodeIter, ShallowStream, TagName, TagNesting};
+pub use els::ElementTag;
 
 pub fn parse(tokens: TokenStream) -> Result<Vec<Node>, ParseError> {
     let mut stream = tokens.parse_stream().into_shallow_stream();
@@ -52,7 +53,7 @@ pub struct Component {
 
 #[derive(Debug)]
 pub struct HtmlElement {
-    pub name: String,
+    pub name: ElementTag,
     pub span: Span,
     pub classes: Vec<CssValue>,
     pub attributes: Vec<Attribute>,

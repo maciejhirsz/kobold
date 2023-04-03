@@ -93,9 +93,9 @@ impl Generator {
                 hoisted: _,
             }) => {
                 let body = if code.is_empty() {
-                    format!("return document.createElement(\"{tag}\");\n")
+                    format!("return document.createElement(\"{tag:?}\");\n")
                 } else {
-                    format!("let {var}=document.createElement(\"{tag}\");\n{code}return {var};\n")
+                    format!("let {var}=document.createElement(\"{tag:?}\");\n{code}return {var};\n")
                 };
 
                 (var, body, args, Anchor::Element(typ))

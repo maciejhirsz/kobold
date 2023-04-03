@@ -64,7 +64,7 @@ pub fn append(
 
                     args.push(JsArgument::new(var));
                 } else {
-                    let _ = writeln!(js, "let {}=document.createElement(\"{}\");", el.var, el.tag);
+                    let _ = writeln!(js, "let {}=document.createElement(\"{}\");", el.var, &*el.tag);
 
                     js.push_str(&el.code);
 
