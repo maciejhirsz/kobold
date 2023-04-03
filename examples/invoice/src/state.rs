@@ -38,7 +38,7 @@ pub struct Entry {
     pub description: String,
     pub entry_editing: bool,
 }
-// #[wasm_bindgen]
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Table {
     pub source: TextSource,
@@ -190,7 +190,7 @@ impl DerefMut for State {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TextSource {
-    source: String,
+    pub source: String,
 }
 
 impl From<String> for TextSource {

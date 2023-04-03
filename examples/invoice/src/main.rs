@@ -5,53 +5,28 @@
 use kobold::prelude::*;
 use kobold::reexport::web_sys::HtmlTextAreaElement;
 use kobold_qr::KoboldQR;
-// use gloo_console::{log as log_gloo, info, debug, console_dbg};
 use gloo_console::{console_dbg};
-use log::{info, warn, debug};
+use gloo_utils::format::JsValueSerdeExt;
+use log::{info, debug, error, warn};
+use serde::{Serialize, Deserialize};
 use web_sys::HtmlInputElement as InputElement;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::spawn_local;
 use wasm_bindgen::throw_str;
-use gloo_utils::format::JsValueSerdeExt;
-use serde::{Serialize, Deserialize};
-// use std::mem::ManuallyDrop;
-// use gloo_events::EventListener;
-// use yew::{Callback};
 
 mod csv;
 mod state;
 
-use state::{Editing, State, Text};
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct MyStruct {
-    pub a: String,
-    pub b: bool,
-}
+use state::{Editing, State, Table, Text};
 
 #[component]
 fn Editor() -> impl View {
     stateful(State::mock, |state| {
+        debug!("Editor()");
         let onload = {
-            log::debug!("Editor()");
-            let my_struct1 = MyStruct {
-                a: "abc".to_owned(),
-                b: false,
-            };
-            let serialized = serde_json::to_string(&my_struct1).unwrap();
-            let value = JsValue::from_serde(&serialized).unwrap();
-            log::debug!("Editor() {:#?}", value);
-
-            // debug option 1
-            assert_eq!(&*serialized, "{\"a\":\"abc\",\"b\":false}");
-
-            // debug option 2
-            // throw_str(&serialized);
-
             let signal = state.signal();
 
             move |e: Event<InputElement>| {
-                log::debug!("move");
                 let file = match e.target().files().and_then(|list| list.get(0)) {
                     Some(file) => file,
                     None => return,
@@ -62,15 +37,37 @@ fn Editor() -> impl View {
                 let signal = signal.clone();
 
                 spawn_local(async move {
-                    log::debug!("spawn_local1");
                     if let Ok(table) = csv::read_file(file).await {
                         let serialized = serde_json::to_string(&table).unwrap();
                         let value = JsValue::from_serde(&serialized).unwrap();
-                        console_dbg!("## table0 {:#?}", value);
-                        info!("## table1 {:#?}", value);
-                        log::debug!("## table2 {:#?}", value);
-                        // throw_str("testing1");
-                        // throw_str(&serialized);
+                        debug!("table {:#?}", value);
+                        let payload: Table = serde_json::from_str(&serialized).unwrap();
+                        debug!("payload {:#?}", &payload.source.source);
+
+                        let data: &str = &payload.source.source.to_string();
+                        // find qr column index
+                        let index = &data.find("qr").unwrap();
+                        debug!("index {:#?}", *&index);
+                        let slice = &data[..*index as usize];
+                        debug!("slice {:#?}", slice);
+                        let qr_column_count = slice.to_string().matches(",").count();
+                        debug!("column of qr {:#?}", qr_column_count+1);
+
+                        // get first row of data below header
+                        // https://play.rust-lang.org/?version=stable&mode=debug&edition=2015&gist=6195d6ef278d9552eba9f8d8a7d457d6
+                        let start_bytes: usize = data.find("\n").unwrap();
+                        let end_bytes: usize = data[(start_bytes+1)..].find("\n").unwrap();
+                        debug!("start_bytes {:#?}", start_bytes);
+                        debug!("end_bytes {:#?}", end_bytes);
+                        let index_end_next_row = start_bytes + 1 + end_bytes; // where +1 is to skip the `\n`
+                        debug!("index_end_next_row {:#?}", index_end_next_row);
+                        let row = &data[(start_bytes+1)..][..end_bytes];
+                        debug!("row {:#?}", row);
+                        let (qr_row_idx, qr_row_str) = row.match_indices(",").nth(qr_column_count-1).unwrap();
+                        debug!("qr_row_idx {:#?}", qr_row_idx);
+                        let slice_qr = &row[(qr_row_idx+1)..];
+                        debug!("slice_qr {:#?}", slice_qr);
+                        let qr_code = slice_qr.to_string();
 
                         signal.update(move |state| state.table = table);
                         // signal.update(move |state| state.qr_code = qr_code);
@@ -269,9 +266,8 @@ fn QRExample() -> impl View {
 }
 
 fn main() {
-    // env_logger::init();
     wasm_logger::init(wasm_logger::Config::default());
-    log::debug!("main()");
+    debug!("main()");
     kobold::start(view! {
         <Editor />
     });
