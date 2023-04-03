@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use kobold::prelude::*;
-use kobold::branching::Branch3;
+use kobold::branching::{Branch2, Branch3};
 use kobold::reexport::web_sys::HtmlTextAreaElement;
 use kobold_qr::KoboldQR;
 use gloo_console::{console_dbg};
@@ -225,73 +225,76 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 
 #[component]
 fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
-
+    // find a specific value
     debug!("rows {:#?}", state.details.table.rows());
     debug!("columns {:#?}", state.details.table.columns());
-    // let val = state.details.table.source.get_text(&state.details.table.rows[1][0]);
-    // let val = state.details.table.source.get_text(&state.columns[0][0]);
-    // debug!("val {:#?}", val);
+    let mut val;
     for row in state.details.table.rows() {
         debug!("row {:#?}", row);
         for col in state.details.table.columns() {
             debug!("col {:#?}", col);
-            // 
-            // debug!("row {:#?} col {:#?}, val {:#?}", row, col, val.to_string());
-            // debug!("row {:#?} col {:#?}", row, col);
+            val = state.details.table.source.get_text(&state.details.table.rows[row][col]);
+            debug!("val {:#?}", val);
         }
     }
 
-    let entry = &state.entry;
-    let input = state.entry_editing.then(move || {
-        bind! { state:
-            let onkeypress = move |event: KeyboardEvent<InputElement>| {
-                if event.key() == "Enter" && event.target().value() != "" {
-                    state.update(event.target().value());
+    // we know `state.details.table.rows[0][4]` corresponds to `from_org_addr`
+    let value = state.details.table.source.get_text(&state.details.table.rows[0][4]);
+    debug!("description{:#?}", value);
 
-                    Then::Render
-                } else {
-                    Then::Stop
-                }
-            };
+    if state.entry.editing == true {
+        let onchange = state.bind(move |state, e: Event<InputElement>| {
+            state.details.table.rows[0][4] = Text::Owned(e.target().value().into());
+            state.entry.editing = false;
+        });
 
-            let onblur = move |event: Event<InputElement>| {
-                if event.target().value() != "" {
-                    state.update(event.target().value())
-                }
-            };
-        }
+        let onblur = state.bind(move |state, e: Event<InputElement>| {
+            if e.target().value() != "" {
+                state.update(e.target().value())
+            }
+        });
 
-        let onmouseover = move |event: MouseEvent<InputElement>| {
-            let _ = event.target().focus();
-        };
+        let onmouseover = state.bind(move |state, e: MouseEvent<InputElement>| {
+            let _ = e.target().focus();
+        });
 
-        view! {
-            <input .edit
-                type="text"
-                placeholder="<Enter biller address>"
-                value={ref entry.description}
-                {onmouseover}
-                {onkeypress}
-                {onblur}
-            />
-        }
-    });
+        let onkeypress = state.bind(move |state, e: KeyboardEvent<InputElement>| {
+            if e.key() == "Enter" && e.target().value() != "" {
+                state.update(e.target().value());
 
-    bind! {
-        state:
-        let edit = move |_| state.edit_entry();
-    }
-    let editing = class!("editing" if entry.entry_editing);
+                Then::Render
+            } else {
+                Then::Stop
+            }
+        });
 
-    view! {
-        <div .todo.{editing}>
-            <div .view>
-                <label ondblclick={edit} >
-                    { ref entry.description }
-                </label>
+        Branch2::A(view! {
+            <div.edit>
+                { ref value }
+                <input.edit
+                    value={ ref value }
+                    type="text"
+                    placeholder="<Enter biller address>"
+                    {onchange}
+                    {onmouseover}
+                    {onkeypress}
+                    {onblur}
+                />
             </div>
-            { input }
-        </div>
+        })
+    } else {
+        let ondblclick = state.bind(move |s, _| s.entry.editing = true);
+        let editing = class!("editing" if state.entry.editing);
+
+        Branch2::B(view! {
+            <div .todo.{editing}>
+                <div .view>
+                    <label {ondblclick} >
+                        { ref value }
+                    </label>
+                </div>
+            </div>
+        })
     }
 }
 

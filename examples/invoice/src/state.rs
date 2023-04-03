@@ -35,13 +35,12 @@ pub struct State {
     pub main: Content,
     pub details: Content,
     pub entry: Entry,
-    pub entry_editing: bool,
     pub qr_code: String,
 }
 
 pub struct Entry {
     pub description: String,
-    pub entry_editing: bool,
+    pub editing: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -67,7 +66,7 @@ impl Entry {
 
         Some(Entry {
             description,
-            entry_editing: false,
+            editing: false,
         })
     }
 
@@ -85,10 +84,10 @@ impl FromStr for Entry {
     fn from_str(input: &str) -> Result<Self, Error> {
         let vec = input.lines().collect::<Vec<_>>();
         let description = vec[0].to_string();
-        let entry_editing = vec[1].to_string().parse::<bool>().or_else(|_i| Err(Error::ParseBoolError));
-        let _entry_editing = match entry_editing {
-            Ok(entry_editing) => {
-                Ok(Entry { description, entry_editing })
+        let editing = vec[1].to_string().parse::<bool>().or_else(|_i| Err(Error::ParseBoolError));
+        let _editing = match editing {
+            Ok(editing) => {
+                Ok(Entry { description, editing })
             },
             Err(_) => {
                 Err(Error::FailedToParseEntry)
@@ -123,9 +122,8 @@ impl Default for State {
             },
             entry: Entry {
                 description: description.to_owned(),
-                entry_editing: false,
+                editing: false,
             },
-            entry_editing: false,
             qr_code: "0x000".to_string(),
         }
     }
@@ -145,9 +143,8 @@ impl State {
             },
             entry: Entry {
                 description: "<enter billing address>".to_owned(),
-                entry_editing: false,
+                editing: false,
             },
-            entry_editing: false,
             qr_code: "0x000".to_string(),
         }
     }
@@ -164,7 +161,7 @@ impl State {
     }
 
     pub fn edit_entry(&mut self) {
-        self.entry_editing = true;
+        self.entry.editing = true;
 
         self.store();
     }
@@ -172,7 +169,7 @@ impl State {
     pub fn add(&mut self, description: String) {
         self.entry = Entry {
             description,
-            entry_editing: false,
+            editing: false,
         };
 
         self.store();
@@ -180,9 +177,7 @@ impl State {
 
     pub fn update(&mut self, description: String) {
         let entry = &mut self.entry;
-        let entry_editing = &mut self.entry_editing;
-
-        *entry_editing = false;
+        entry.editing = false;
 
         if description != entry.description {
             entry.description = description;
