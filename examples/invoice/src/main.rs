@@ -225,7 +225,7 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 }
 
 // use bevy_reflect https://crates.io/crates/bevy_reflect
-#[derive(Reflect, FromReflect, Debug)]
+#[derive(Reflect, FromReflect, Clone, Debug)]
 pub struct Details {
     inv_date: String,
     inv_no: String,
@@ -297,7 +297,7 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
     // TODO - might need to store `editing` status for all the labels instead of just one
     if state.entry.editing == true {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
-            if let Some(data_index) = e.target().get_attribute("data-index") {
+            if let Some(data_index) = e.target().get_attribute("data_index") {
                 let index: usize = data_index.parse::<usize>().unwrap();
                 state.details.table.rows[0][index] = Text::Owned(e.target().value().into());
                 state.entry.editing = false;
@@ -331,14 +331,14 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
                         for (0..indexes.len()-1).map(move |index|
                             view! {
                                 <div.edit>
-                                    { ref value }
+                                    { values[index].clone() }
                                     <input.edit
-                                        value={ ref value }
+                                        value={ values[index].clone() }
                                         type="text"
                                         placeholder="<Enter biller address>"
                                         // if i use `data-index` it gives error
                                         // `expected expression`
-                                        data_index={ ref index.to_string() }
+                                        data_index={ index.to_string() }
                                         {onchange}
                                         {onmouseover}
                                         {onkeypress}
@@ -364,7 +364,7 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
                                 <div .todo.{editing}>
                                     <div .view>
                                         <label {ondblclick} >
-                                            { ref value }
+                                            { values[index].clone() }
                                         </label>
                                     </div>
                                 </div>
