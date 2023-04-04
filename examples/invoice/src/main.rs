@@ -18,8 +18,35 @@ use wasm_bindgen::throw_str;
 
 mod csv;
 mod state;
+mod tests;
 
 use state::{Editing, State, Table, Text};
+
+// use bevy_reflect https://crates.io/crates/bevy_reflect
+#[derive(Reflect, FromReflect, Clone, Debug)]
+pub struct Details {
+    inv_date: String,
+    inv_no: String,
+    from_attn_name: String,
+    from_org_name: String,
+    from_org_addr: String,
+    from_email: String,
+    to_attn_name: String,
+    to_title: String,
+    to_org_name: String,
+    to_email: String,
+}
+
+pub fn get_details_data(details: &Details) -> Vec<(String, String)> {
+    let mut data: Vec<(String, String)> = Vec::new();
+    for (i, value) in details.iter_fields().enumerate() {
+        if let Some(value) = value.downcast_ref::<String>() {
+            let field_name = details.name_at(i).unwrap();
+            data.push((field_name.to_string(), (*value).to_string()));
+        }
+    }
+    data
+}
 
 #[component]
 fn Editor() -> impl View {
@@ -222,32 +249,6 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
             })
         }
     }
-}
-
-// use bevy_reflect https://crates.io/crates/bevy_reflect
-#[derive(Reflect, FromReflect, Clone, Debug)]
-pub struct Details {
-    inv_date: String,
-    inv_no: String,
-    from_attn_name: String,
-    from_org_name: String,
-    from_org_addr: String,
-    from_email: String,
-    to_attn_name: String,
-    to_title: String,
-    to_org_name: String,
-    to_email: String,
-}
-
-fn get_details_data(details: &Details) -> Vec<(String, String)> {
-    let mut data: Vec<(String, String)> = Vec::new();
-    for (i, value) in details.iter_fields().enumerate() {
-        if let Some(value) = value.downcast_ref::<String>() {
-            let field_name = details.name_at(i).unwrap();
-            data.push((field_name.to_string(), (*value).to_string()));
-        }
-    }
-    data
 }
 
 #[component]
