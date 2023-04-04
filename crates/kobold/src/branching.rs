@@ -188,7 +188,7 @@ pub struct Empty;
 
 impl Anchor for EmptyNode {
     type Js = Node;
-    type Anchor = Node;
+    type Target = Node;
 
     fn anchor(&self) -> &Node {
         &self.0

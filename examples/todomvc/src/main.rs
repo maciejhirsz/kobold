@@ -68,7 +68,9 @@ fn App() -> impl View {
 
 #[component]
 fn EntryInput(state: &Hook<State>) -> impl View + '_ {
-    bind! { state:
+    bind! {
+        state:
+
         let onchange = move |event: Event<InputElement>| {
             let input = event.target();
             let value = input.value();
@@ -80,22 +82,6 @@ fn EntryInput(state: &Hook<State>) -> impl View + '_ {
 
     view! {
         <input.new-todo placeholder="What needs to be done?" {onchange} />
-    }
-}
-
-mod test {
-    use super::*;
-
-    #[component]
-    fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl View + '_ {
-        bind! { state:
-            let onclick = move |_| state.set_all(active_count != 0);
-        }
-
-        view! {
-            <input #toggle-all.toggle-all type="checkbox" checked={active_count == 0} {onclick} />
-            <label for="toggle-all" />
-        }
     }
 }
 
@@ -112,9 +98,11 @@ fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl View + '_ {
 }
 
 #[component]
-fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl View + 'a {
+pub fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl View + 'a {
     let input = entry.editing.then(move || {
-        bind! { state:
+        bind! {
+            state:
+
             let onkeypress = move |event: KeyboardEvent<InputElement>| {
                 if event.key() == "Enter" {
                     state.update(idx, event.target().value());
@@ -128,15 +116,11 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl V
             let onblur = move |event: Event<InputElement>| state.update(idx, event.target().value());
         }
 
-        let onmouseover = move |event: MouseEvent<InputElement>| {
-            let _ = event.target().focus();
-        };
-
         view! {
             <input .edit
                 type="text"
                 value={static &entry.description}
-                {onmouseover}
+                onmouseover={|event| event.target().focus()}
                 {onkeypress}
                 {onblur}
             />
@@ -145,6 +129,7 @@ fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl V
 
     bind! {
         state:
+
         let onchange = move |_| state.toggle(idx);
         let edit = move |_| state.edit_entry(idx);
         let remove = move |_| state.remove(idx);

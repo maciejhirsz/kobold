@@ -8,129 +8,135 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 
 use wasm_bindgen::closure::Closure;
+use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
-use web_sys::HtmlElement;
+use web_sys::{HtmlElement, HtmlInputElement};
 
-use crate::{Mountable, View};
+#[wasm_bindgen]
+extern "C" {
+    type EventWithTarget;
 
-/// Smart wrapper around a [`web_sys::Event`](web_sys::Event) which includes type
-/// information for the target element of said event.
-#[repr(transparent)]
-pub struct Event<T = HtmlElement, E = web_sys::Event> {
-    event: web_sys::Event,
-    _target: PhantomData<(E, T)>,
+    #[wasm_bindgen(method, getter)]
+    fn target(this: &EventWithTarget) -> HtmlElement;
 }
 
-pub type MouseEvent<T = HtmlElement> = Event<T, web_sys::MouseEvent>;
+macro_rules! event {
+    ($(#[doc = $doc:literal] $event:ident,)*) => {
+        $(
+            #[doc = concat!("Smart wrapper around a ", $doc, "which includes the type information of the event target")]
+            #[repr(transparent)]
+            pub struct $event<T> {
+                event: web_sys::$event,
+                _target: PhantomData<T>,
+            }
 
-pub type KeyboardEvent<T = HtmlElement> = Event<T, web_sys::KeyboardEvent>;
+            impl<T> From<web_sys::Event> for $event<T> {
+                fn from(event: web_sys::Event) -> Self {
+                    $event {
+                        event: event.unchecked_into(),
+                        _target: PhantomData,
+                    }
+                }
+            }
 
-impl<T, E> Deref for Event<T, E>
+            impl<T> hidden::EventCast for $event<T> {}
+
+            impl<T> Deref for $event<T> {
+                type Target = web_sys::$event;
+
+                fn deref(&self) -> &Self::Target {
+                    &self.event.unchecked_ref()
+                }
+            }
+
+            impl<T> $event<T> {
+                /// Return a reference to the target element.
+                ///
+                /// This method shadows over the [`Event::target`](web_sys::Event::target)
+                /// method provided by `web-sys` and makes it infallible.
+                pub fn target(&self) -> EventTarget<T>
+                where
+                    T: JsCast,
+                {
+                    EventTarget(self.event.unchecked_ref::<EventWithTarget>().target().unchecked_into())
+                }
+            }
+        )*
+    };
+}
+
+mod hidden {
+    pub trait EventCast {}
+}
+
+event! {
+    /// [`web_sys::Event`](web_sys::Event)
+    Event,
+    /// [`web_sys::KeyboardEvent`](web_sys::KeyboardEvent)
+    KeyboardEvent,
+    /// [`web_sys::MouseEvent`](web_sys::MouseEvent)
+    MouseEvent,
+}
+
+pub trait Listener<E>
 where
-    E: JsCast,
+    E: hidden::EventCast,
+    Self: Sized + 'static,
 {
-    type Target = E;
+    fn build(self) -> ListenerProduct<Self>;
 
-    fn deref(&self) -> &E {
-        self.event.unchecked_ref()
-    }
+    fn update(self, p: &mut ListenerProduct<Self>);
 }
 
-impl<T, E> From<web_sys::Event> for Event<T, E> {
-    fn from(event: web_sys::Event) -> Self {
-        Event {
-            event,
-            _target: PhantomData,
-        }
-    }
-}
-
-impl<T, E> Event<T, E> {
-    pub fn target(&self) -> T
-    where
-        T: JsCast,
-    {
-        self.event.target().unwrap().unchecked_into()
-    }
-
-    pub fn stop_propagation(&self) {
-        self.event.stop_propagation();
-    }
-
-    pub fn stop_immediate_propagation(&self) {
-        self.event.stop_immediate_propagation();
-    }
-
-    pub fn prevent_default(&self) {
-        self.event.prevent_default();
-    }
-}
-
-pub fn event_handler<E>(
-    handler: impl Fn(E) + 'static,
-) -> EventHandler<impl Fn(web_sys::Event) + 'static>
+impl<E, F> Listener<E> for F
 where
-    E: From<web_sys::Event>,
+    F: Fn(E) + 'static,
+    E: hidden::EventCast,
 {
-    EventHandler(move |event| handler(E::from(event)))
-}
+    fn build(self) -> ListenerProduct<Self> {
+        let raw = Box::into_raw(Box::new(self));
 
-pub struct EventHandler<F>(F);
-
-pub struct ClosureProduct<F> {
-    js: JsValue,
-    boxed: Box<F>,
-}
-
-impl<F> ClosureProduct<F>
-where
-    F: FnMut(web_sys::Event) + 'static,
-{
-    fn make(f: F) -> Self {
-        let raw = Box::into_raw(Box::new(f));
-
-        let js = Closure::wrap(unsafe { Box::from_raw(raw) } as Box<dyn FnMut(web_sys::Event)>)
-            .into_js_value();
+        let js = Closure::wrap(unsafe {
+            Box::from_raw(raw as *mut dyn Fn(E) as *mut dyn Fn(web_sys::Event))
+        })
+        .into_js_value();
 
         // `into_js_value` will _forget_ the previous Box, so we can safely reconstruct it
         let boxed = unsafe { Box::from_raw(raw) };
 
-        ClosureProduct { js, boxed }
+        ListenerProduct { js, boxed }
     }
 
-    fn update(&mut self, f: F) {
-        *self.boxed = f;
-    }
-}
-
-impl<F> View for EventHandler<F>
-where
-    F: Fn(web_sys::Event) + 'static,
-{
-    type Product = ClosureProduct<F>;
-
-    fn build(self) -> Self::Product {
-        ClosureProduct::make(self.0)
-    }
-
-    fn update(self, p: &mut Self::Product) {
-        p.update(self.0)
+    fn update(self, p: &mut ListenerProduct<Self>) {
+        *p.boxed = self;
     }
 }
 
-impl<F> Mountable for ClosureProduct<F>
-where
-    F: 'static,
-{
-    type Js = JsValue;
+pub struct ListenerProduct<F> {
+    js: JsValue,
+    boxed: Box<F>,
+}
 
-    fn js(&self) -> &JsValue {
+impl<F> ListenerProduct<F> {
+    pub fn js(&self) -> &JsValue {
         &self.js
     }
+}
 
-    fn unmount(&self) {}
+/// A wrapper over some event target type from web-sys.
+#[repr(transparent)]
+pub struct EventTarget<T>(T);
 
-    fn replace_with(&self, _: &JsValue) {
-        debug_assert!(false, "Using JsClosure as a DOM Node");
+impl<T> Deref for EventTarget<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl EventTarget<HtmlInputElement> {
+    pub fn focus(&self) {
+        drop(self.0.focus());
     }
 }

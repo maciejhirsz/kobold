@@ -280,21 +280,18 @@ pub use kobold_macros::component;
 /// Macro for creating transient [`View`](View) types. See the [main documentation](crate) for details.
 pub use kobold_macros::view;
 
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::JsCast;
 
 pub mod attribute;
 pub mod branching;
 pub mod diff;
 pub mod dom;
 pub mod event;
+pub mod internal;
 pub mod keywords;
 pub mod list;
 
-mod util;
 mod value;
-
-pub use util::Precompiled;
-pub use value::Value;
 
 #[cfg(feature = "stateful")]
 pub mod stateful;
@@ -306,9 +303,7 @@ pub mod stateful;
 /// use kobold::prelude::*;
 /// ```
 pub mod prelude {
-    pub use crate::diff::{Diff as _, StrExt as _};
     pub use crate::event::{Event, KeyboardEvent, MouseEvent};
-    pub use crate::list::ListIteratorExt as _;
     pub use crate::{bind, class};
     pub use crate::{component, view, View};
 
@@ -316,7 +311,7 @@ pub mod prelude {
     pub use crate::stateful::{stateful, Hook, IntoState, Signal, Then};
 }
 
-use dom::Anchor;
+use dom::Mountable;
 
 /// Crate re-exports for the [`view!`](view) macro internals
 pub mod reexport {
@@ -414,37 +409,6 @@ where
     }
 }
 
-/// A type that can be mounted in the DOM
-pub trait Mountable: 'static {
-    type Js: JsCast;
-
-    fn js(&self) -> &JsValue;
-
-    fn unmount(&self);
-
-    fn replace_with(&self, new: &JsValue);
-}
-
-impl<T> Mountable for T
-where
-    T: Anchor + 'static,
-    T::Anchor: Mountable,
-{
-    type Js = T::Js;
-
-    fn js(&self) -> &JsValue {
-        self.anchor().js()
-    }
-
-    fn unmount(&self) {
-        self.anchor().unmount();
-    }
-
-    fn replace_with(&self, new: &JsValue) {
-        self.anchor().replace_with(new);
-    }
-}
-
 /// Start the Kobold app by mounting given [`View`](View) in the document `body`.
 pub fn start(html: impl View) {
     init_panic_hook();
@@ -453,7 +417,7 @@ pub fn start(html: impl View) {
 
     let product = ManuallyDrop::new(html.build());
 
-    util::append_body(product.js());
+    internal::append_body(product.js());
 }
 
 fn init_panic_hook() {

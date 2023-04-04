@@ -9,8 +9,8 @@ use web_sys::Node;
 use crate::dom::{Anchor, Fragment, FragmentBuilder};
 use crate::{Mountable, View};
 
-/// Wrapper type that implements `View` for iterators. Use the [`list`](ListIteratorExt::list)
-/// method on the iterator to create one.
+/// Wrapper type that implements `View` for iterators, created by the
+/// [`for`](crate::keywords::for) keyword.
 #[repr(transparent)]
 pub struct List<T>(pub(crate) T);
 
@@ -22,24 +22,12 @@ pub struct ListProduct<T> {
 
 impl<T> Anchor for ListProduct<T> {
     type Js = Node;
-    type Anchor = Fragment;
+    type Target = Fragment;
 
     fn anchor(&self) -> &Fragment {
         &self.fragment
     }
 }
-
-#[doc(hidden)]
-pub trait ListIteratorExt: Iterator + Sized {
-    #[doc(hidden)]
-    #[deprecated(since = "0.6.0", note = "please use `{ for <expression> }` instead")]
-    fn list(self) -> List<Self> {
-        List(self)
-    }
-}
-
-#[doc(hidden)]
-impl<T: Iterator> ListIteratorExt for T {}
 
 impl<T> View for List<T>
 where
