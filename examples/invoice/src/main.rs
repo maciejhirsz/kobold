@@ -239,14 +239,22 @@ pub struct Details {
     to_email: String,
 }
 
+fn get_details_data(details: &Details) -> Vec<(String, String)> {
+    let mut data: Vec<(String, String)> = Vec::new();
+    for (i, value) in details.iter_fields().enumerate() {
+        if let Some(value) = value.downcast_ref::<String>() {
+            let field_name = details.name_at(i).unwrap();
+            data.push((field_name.to_string(), (*value).to_string()));
+        }
+    }
+    data
+}
+
 #[component]
 fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
     // find a specific value
     debug!("rows {:#?}", state.details.table.rows());
     debug!("columns {:#?}", state.details.table.columns());
-
-    let mut label;
-    let mut val;
     let mut details = Details {
         inv_date: String::from("01.01.1970"),
         inv_no: String::from("0001"),
@@ -259,16 +267,13 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
         to_org_name: String::from("unknown"),
         to_email: String::from("unknown")
     };
-    let mut data: Vec<(String, String)> = Vec::new();
-    for (i, value) in details.iter_fields().enumerate() {
-        if let Some(value) = value.downcast_ref::<String>() {
-            let field_name = details.name_at(i).unwrap();
-            data.push((field_name.to_string(), (*value).to_string()));
-        }
-    }
+    let data = get_details_data(&details);
     debug!("data {:#?}", data);
     let (valid_labels, values): (Vec<String>, Vec<String>) = data.clone().into_iter().unzip();
     debug!("valid_labels {:#?}", valid_labels);
+
+    let mut label;
+    let mut val;
     let mut dynamic_struct = DynamicStruct::default();
     // `state.details.table` only has labels in `columns[col]` and data in its `rows[0][col]`
     for col in state.details.table.columns() {
