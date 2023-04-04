@@ -34,7 +34,6 @@ fn App() -> impl View {
                                     .filtered_entries()
                                     .map(move |(idx, entry)| view! { <EntryView {idx} {entry} {state} /> })
                             }
-                        </ul>
                     </section>
                     <footer.footer.{hidden}>
                         <span.todo-count>
@@ -53,8 +52,6 @@ fn App() -> impl View {
                         </ul>
                         <button.clear-completed.{completed_hidden} onclick={clear}>
                             "Clear completed"
-                        </button>
-                    </footer>
                 </section>
                 <footer.info>
                     <p>"Double-click to edit a todo"</p>

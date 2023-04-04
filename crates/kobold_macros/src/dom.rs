@@ -8,13 +8,13 @@ use crate::parse::prelude::*;
 use crate::syntax::CssLabel;
 use crate::tokenize::prelude::*;
 
+mod els;
 mod expression;
 mod shallow;
-mod els;
 
-pub use expression::Expression;
-pub use shallow::{ShallowNode, ShallowNodeIter, ShallowStream, TagName, TagNesting};
 pub use els::ElementTag;
+pub use expression::Expression;
+pub use shallow::{IsClosing, ShallowNode, ShallowNodeIter, ShallowStream, TagName, TagNesting};
 
 pub fn parse(tokens: TokenStream) -> Result<Vec<Node>, ParseError> {
     let mut stream = tokens.parse_stream().into_shallow_stream();
@@ -211,9 +211,15 @@ impl Node {
 
         loop {
             if let Some(Ok(ShallowNode::Tag(tag))) = stream.peek() {
-                if tag.is_closing(name) {
-                    stream.next();
-                    break;
+                match tag.is_closing(name) {
+                    IsClosing::Explicit => {
+                        stream.next();
+                        break;
+                    }
+                    IsClosing::Implicit => {
+                        break;
+                    }
+                    IsClosing::No => (),
                 }
             }
 

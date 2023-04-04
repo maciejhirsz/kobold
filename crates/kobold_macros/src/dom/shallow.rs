@@ -179,9 +179,23 @@ pub struct Tag {
     pub content: TokenStream,
 }
 
+pub enum IsClosing {
+    No,
+    Implicit,
+    Explicit,
+}
+
 impl Tag {
-    pub fn is_closing(&self, opening: &TagName) -> bool {
-        self.nesting == TagNesting::Closing && &self.name == opening
+    pub fn is_closing(&self, opening: &TagName) -> IsClosing {
+        if self.nesting == TagNesting::Closing {
+            if &self.name == opening {
+                IsClosing::Explicit
+            } else {
+                IsClosing::Implicit
+            }
+        } else {
+            IsClosing::No
+        }
     }
 }
 
