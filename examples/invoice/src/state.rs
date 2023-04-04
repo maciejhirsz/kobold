@@ -34,7 +34,7 @@ pub struct State {
     pub editing: Editing,
     pub main: Content,
     pub details: Content,
-    pub entry: Entry,
+    pub entry: Vec<Entry>,
     pub qr_code: String,
 }
 
@@ -105,9 +105,13 @@ impl Default for Text {
 
 impl Default for State {
     fn default() -> Self {
-        let mut description = String::new();
-        if let Some(storage) = LocalStorage::raw().get(KEY).ok() {
-            description = storage.unwrap();
+        let (mut index, mut description) = (0, String::with_capacity(3));
+        let mut storage = format!("{:#?}\n{:#?}", index, description);
+
+        LocalStorage::raw().set_item(KEY, &storage).ok();
+
+        if let Some(_storage) = LocalStorage::raw().get(KEY).ok() {
+            storage = _storage.unwrap();
         }
 
         State {
@@ -120,10 +124,10 @@ impl Default for State {
                 name: "<no details file>".to_owned(),
                 table: Table::mock_file_details(),   
             },
-            entry: Entry {
+            entry: vec![Entry {
                 description: description.to_owned(),
                 editing: false,
-            },
+            }],
             qr_code: "0x000".to_string(),
         }
     }
@@ -141,47 +145,48 @@ impl State {
                 name: "<no details file>".to_owned(),
                 table: Table::mock_file_details(),   
             },
-            entry: Entry {
-                description: "<enter billing address>".to_owned(),
+            entry: vec![Entry {
+                description: "<enter ??? address>".to_owned(),
                 editing: false,
-            },
+            }],
             qr_code: "0x000".to_string(),
         }
     }
 
     #[inline(never)]
-    pub fn store(&self) {
-        let capacity = self.entry.description.len() + 3;
+    pub fn store(&self, index: usize) {
+        let capacity = self.entry[index].description.len() + 3;
+        let (mut index, mut description) = (index, String::with_capacity(capacity));
 
-        let mut storage = String::with_capacity(capacity);
+        let mut storage = format!("{:#?}\n{:#?}", index, description);
 
-        self.entry.write(&mut storage);
+        self.entry[index].write(&mut storage);
 
         LocalStorage::raw().set_item(KEY, &storage).ok();
     }
 
-    pub fn edit_entry(&mut self) {
-        self.entry.editing = true;
+    pub fn edit_entry(&mut self, index: usize) {
+        self.entry[index].editing = true;
 
-        self.store();
+        self.store(index);
     }
 
-    pub fn add(&mut self, description: String) {
-        self.entry = Entry {
+    pub fn add(&mut self, index: usize, description: String) {
+        self.entry[index] = Entry {
             description,
             editing: false,
         };
 
-        self.store();
+        self.store(index);
     }
 
-    pub fn update(&mut self, description: String) {
-        let entry = &mut self.entry;
+    pub fn update(&mut self, index: usize, description: String) {
+        let entry = &mut self.entry[index];
         entry.editing = false;
 
         if description != entry.description {
             entry.description = description;
-            self.store();
+            self.store(index);
         }
     }
 }
