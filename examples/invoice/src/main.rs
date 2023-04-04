@@ -260,10 +260,17 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
         to_email: String::from("unknown")
     };
     let mut valid_labels: Vec<String> = Vec::new();
+    let mut values: Vec<String> = Vec::new();
+    let mut indexes: Vec<usize> = Vec::new();
     // let valid_labels = ["inv_date", "inv_no", "from_attn_name", "from_org_name", "from_org_addr", "from_email", "to_attn_name", "to_title", "to_org_name", "to_email"];
     for (i, value) in details.iter_fields().enumerate() {
         let field_name = details.name_at(i).unwrap();
         valid_labels.push(field_name.to_string());
+        if let Some(value) = value.downcast_ref::<String>() {
+            values.push((*value).to_string());
+        }
+        indexes.push(i);
+        
     }
     debug!("valid_labels {:#?}", valid_labels);
     let mut dynamic_struct = DynamicStruct::default();
@@ -287,10 +294,14 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
     let value = state.details.table.source.get_text(&state.details.table.rows[0][4]);
     debug!("description{:#?}", value);
 
+    // TODO - might need to store `editing` status for all the labels instead of just one
     if state.entry.editing == true {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
-            state.details.table.rows[0][4] = Text::Owned(e.target().value().into());
-            state.entry.editing = false;
+            if let Some(data_index) = e.target().get_attribute("data-index") {
+                let index: usize = data_index.parse::<usize>().unwrap();
+                state.details.table.rows[0][index] = Text::Owned(e.target().value().into());
+                state.entry.editing = false;
+            }
         });
 
         let onblur = state.bind(move |state, e: Event<InputElement>| {
@@ -313,33 +324,56 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
             }
         });
 
-        Branch2::A(view! {
-            <div.edit>
-                { ref value }
-                <input.edit
-                    value={ ref value }
-                    type="text"
-                    placeholder="<Enter biller address>"
-                    {onchange}
-                    {onmouseover}
-                    {onkeypress}
-                    {onblur}
-                />
-            </div>
-        })
+        Branch2::A(
+            view! {
+                <div>
+                    {
+                        for (0..indexes.len()-1).map(move |index|
+                            view! {
+                                <div.edit>
+                                    { ref value }
+                                    <input.edit
+                                        value={ ref value }
+                                        type="text"
+                                        placeholder="<Enter biller address>"
+                                        // if i use `data-index` it gives error
+                                        // `expected expression`
+                                        data_index={ ref index.to_string() }
+                                        {onchange}
+                                        {onmouseover}
+                                        {onkeypress}
+                                        {onblur}
+                                    />
+                                </div>
+                            }
+                        )
+                    }
+                </div>
+            }
+        )
     } else {
         let ondblclick = state.bind(move |s, _| s.entry.editing = true);
         let editing = class!("editing" if state.entry.editing);
 
-        Branch2::B(view! {
-            <div .todo.{editing}>
-                <div .view>
-                    <label {ondblclick} >
-                        { ref value }
-                    </label>
+        Branch2::B(
+            view! {
+                <div>
+                    {
+                        for (0..indexes.len()-1).map(move |index|
+                            view! {
+                                <div .todo.{editing}>
+                                    <div .view>
+                                        <label {ondblclick} >
+                                            { ref value }
+                                        </label>
+                                    </div>
+                                </div>
+                            }
+                        )
+                    }
                 </div>
-            </div>
-        })
+            }
+        )
     }
 }
 
