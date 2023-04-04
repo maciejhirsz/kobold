@@ -10,9 +10,9 @@ path = "src/main.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-kobold = { version = "0.6.0", path = "../../crates/kobold" }
-kobold_macros = { version = "0.6.0", path = "../../crates/kobold_macros" }
-kobold_qr = { version = "0.6.0", path = "../../crates/kobold_qr" }
+kobold = { version = "0.7.0", path = "../../crates/kobold" }
+kobold_macros = { version = "0.7.0", path = "../../crates/kobold_macros" }
+kobold_qr = { version = "0.7.0", path = "../../crates/kobold_qr" }
 bevy_reflect = "0.10.1"
 compact_str = "0.7.0"
 gloo-console = "0.2.3"
