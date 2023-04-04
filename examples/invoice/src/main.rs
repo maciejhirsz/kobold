@@ -259,19 +259,15 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
         to_org_name: String::from("unknown"),
         to_email: String::from("unknown")
     };
-    let mut valid_labels: Vec<String> = Vec::new();
-    let mut values: Vec<String> = Vec::new();
-    let mut indexes: Vec<usize> = Vec::new();
-    // let valid_labels = ["inv_date", "inv_no", "from_attn_name", "from_org_name", "from_org_addr", "from_email", "to_attn_name", "to_title", "to_org_name", "to_email"];
+    let mut data: Vec<(String, String)> = Vec::new();
     for (i, value) in details.iter_fields().enumerate() {
-        let field_name = details.name_at(i).unwrap();
-        valid_labels.push(field_name.to_string());
         if let Some(value) = value.downcast_ref::<String>() {
-            values.push((*value).to_string());
+            let field_name = details.name_at(i).unwrap();
+            data.push((field_name.to_string(), (*value).to_string()));
         }
-        indexes.push(i);
-        
     }
+    debug!("data {:#?}", data);
+    let (valid_labels, values): (Vec<String>, Vec<String>) = data.clone().into_iter().unzip();
     debug!("valid_labels {:#?}", valid_labels);
     let mut dynamic_struct = DynamicStruct::default();
     // `state.details.table` only has labels in `columns[col]` and data in its `rows[0][col]`
@@ -328,12 +324,12 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
             view! {
                 <div>
                     {
-                        for (0..indexes.len()-1).map(move |index|
+                        for (0..data.len()-1).map(move |index|
                             view! {
                                 <div.edit>
-                                    { values[index].clone() }
+                                    { data[index].1.clone() }
                                     <input.edit
-                                        value={ values[index].clone() }
+                                        value={ data[index].1.clone() }
                                         type="text"
                                         placeholder="<Enter biller address>"
                                         // if i use `data-index` it gives error
@@ -359,12 +355,12 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
             view! {
                 <div>
                     {
-                        for (0..indexes.len()-1).map(move |index|
+                        for (0..data.len()-1).map(move |index|
                             view! {
                                 <div .todo.{editing}>
                                     <div .view>
                                         <label {ondblclick} >
-                                            { values[index].clone() }
+                                            { data[index].1.clone() }
                                         </label>
                                     </div>
                                 </div>
