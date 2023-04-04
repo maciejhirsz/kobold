@@ -113,7 +113,7 @@ Because the `view!` macro produces unique transient types, `if` and `match` expr
 the macro will naturally fail to compile.
 
 Using the `auto_branch` flag on the `#[component]` attribute
-**Kobold** will scan the body of of your component render function, and make all `view!` macro invocations
+**Kobold** will scan the body of your component render function, and make all `view!` macro invocations
 inside an `if` or `match` expression, and wrap them in an enum making them the same type:
 
 ```rust
