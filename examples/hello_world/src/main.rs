@@ -6,15 +6,16 @@ mod state;
 use state::{State};
 
 #[component]
-fn Hello(state: bool) -> impl View + 'static {
-    stateful(State::mock, |state| {
+fn Hello(new_state: bool) -> impl View + 'static {
+    stateful(State::mock, move |state| {
         let signal: Signal<State> = state.signal();
 
         let s = state.get();
         debug!("my_state {:#?}", s);
 
         signal.update(|state| state.toggle());
-        signal.set(State { my_state: true });
+
+        signal.set(State { my_state: new_state });
         debug!("my_state new {:#?}", s);
         let s_new = state.get();
         debug!("my_state new {:#?}", s_new);
@@ -30,6 +31,6 @@ fn Hello(state: bool) -> impl View + 'static {
 fn main() {
     wasm_logger::init(wasm_logger::Config::default());
     kobold::start(view! {
-        <Hello state=true />
+        <Hello new_state=true />
     });
 }
