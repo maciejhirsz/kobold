@@ -6,7 +6,7 @@ use kobold::prelude::*;
 use kobold::branching::{Branch2, Branch3};
 use kobold::reexport::web_sys::HtmlTextAreaElement;
 use kobold_qr::KoboldQR;
-use bevy_reflect::{FromReflect, Reflect, DynamicStruct};
+use bevy_reflect::{FromReflect, Reflect, DynamicStruct, Struct};
 use gloo_console::{console_dbg};
 use gloo_utils::format::JsValueSerdeExt;
 use log::{info, debug, error, warn};
@@ -228,7 +228,15 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 #[derive(Reflect, FromReflect, Debug)]
 pub struct Details {
     inv_date: String,
-    from_org_addr: String
+    inv_no: String,
+    from_attn_name: String,
+    from_org_name: String,
+    from_org_addr: String,
+    from_email: String,
+    to_attn_name: String,
+    to_title: String,
+    to_org_name: String,
+    to_email: String,
 }
 
 #[component]
@@ -239,11 +247,25 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
 
     let mut label;
     let mut val;
-    let valid_labels = ["inv_date", "inv_no", "from_attn_name", "from_org_name", "from_org_addr", "from_email", "to_attn_name", "to_title", "to_org_name", "to_email"];
     let mut details = Details {
         inv_date: String::from("01.01.1970"),
+        inv_no: String::from("0001"),
+        from_attn_name: String::from("unknown"),
+        from_org_name: String::from("unknown"),
         from_org_addr: String::from("unknown"),
+        from_email: String::from("unknown"),
+        to_attn_name: String::from("unknown"),
+        to_title: String::from("unknown"),
+        to_org_name: String::from("unknown"),
+        to_email: String::from("unknown")
     };
+    let mut valid_labels: Vec<String> = Vec::new();
+    // let valid_labels = ["inv_date", "inv_no", "from_attn_name", "from_org_name", "from_org_addr", "from_email", "to_attn_name", "to_title", "to_org_name", "to_email"];
+    for (i, value) in details.iter_fields().enumerate() {
+        let field_name = details.name_at(i).unwrap();
+        valid_labels.push(field_name.to_string());
+    }
+    debug!("valid_labels {:#?}", valid_labels);
     let mut dynamic_struct = DynamicStruct::default();
     // `state.details.table` only has labels in `columns[col]` and data in its `rows[0][col]`
     for col in state.details.table.columns() {
@@ -252,7 +274,7 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
         label = state.details.table.source.get_text(&state.details.table.columns[col]);
         val = state.details.table.source.get_text(&state.details.table.rows[row][col]);
         debug!("col {:#?} - label / val - {:#?} / {:#?}", col, label, val);
-        if valid_labels.contains(&label) {
+        if valid_labels.contains(&label.to_string()) {
             // use https://crates.io/crates/bevy_reflect to emulate `details[`${label}`] = val`
             // that is possible in JavaScript since Rust dot notation is not adequate
             dynamic_struct.insert(label, val.to_string());
