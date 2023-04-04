@@ -298,32 +298,6 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
 
     // TODO - might need to store `editing` status for all the labels instead of just one
     if state.entry.editing == true {
-        let onchange = state.bind(move |state, e: Event<InputElement>| {
-            if let Some(data_index) = e.target().get_attribute("data_index") {
-                let index: usize = data_index.parse::<usize>().unwrap();
-                state.details.table.rows[0][index] = Text::Owned(e.target().value().into());
-                state.entry.editing = false;
-            }
-        });
-
-        let onblur = state.bind(move |state, e: Event<InputElement>| {
-            if e.target().value() != "" {
-                state.update(e.target().value())
-            }
-        });
-
-        let onmouseover = |e: MouseEvent<InputElement>| e.target().focus();
-
-        let onkeypress = state.bind(move |state, e: KeyboardEvent<InputElement>| {
-            if e.key() == "Enter" && e.target().value() != "" {
-                state.update(e.target().value());
-
-                Then::Render
-            } else {
-                Then::Stop
-            }
-        });
-
         Branch2::A(
             view! {
                 <div>
@@ -339,10 +313,47 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
                                         // if i use `data-index` it gives error
                                         // `expected expression`
                                         data_index={ index.to_string() }
-                                        // {onchange}
-                                        // {onmouseover}
-                                        // {onkeypress}
-                                        // {onblur}
+                                        onchange={
+                                            state.bind(move |state, e: Event<InputElement>| {
+                                                if let Some(data_index) = e.target().get_attribute("data_index") {
+                                                    let index: usize = data_index.parse::<usize>().unwrap();
+                                                    state.details.table.rows[0][index] = Text::Owned(e.target().value().into());
+                                                    state.entry.editing = false;
+                                                }
+                                            })
+                                        }
+                                        onmouseover={
+                                            |e: MouseEvent<InputElement>| e.target().focus()
+                                        }
+                                        onkeypress={
+                                            state.bind(move |state, e: KeyboardEvent<InputElement>| {
+                                                if e.key() == "Enter" && e.target().value() != "" {
+                                                    state.update(e.target().value());
+                                    
+                                                    Then::Render
+                                                } else {
+                                                    Then::Stop
+                                                }
+                                            })
+                                        }
+                                        onkeypress={
+                                            state.bind(move |state, e: KeyboardEvent<InputElement>| {
+                                                if e.key() == "Enter" && e.target().value() != "" {
+                                                    state.update(e.target().value());
+                                    
+                                                    Then::Render
+                                                } else {
+                                                    Then::Stop
+                                                }
+                                            })
+                                        }
+                                        onblur={
+                                            state.bind(move |state, e: Event<InputElement>| {
+                                                if e.target().value() != "" {
+                                                    state.update(e.target().value())
+                                                }
+                                            })
+                                        }
                                     />
                                 </div>
                             }
@@ -352,7 +363,6 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
             }
         )
     } else {
-        // let ondblclick = state.bind(move |s, _| s.entry.editing = true);
         let editing = class!("editing" if state.entry.editing);
 
         Branch2::B(
@@ -363,9 +373,13 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
                             view! {
                                 <div .todo.{editing}>
                                     <div .view>
-                                        // <label {ondblclick} >
-                                        //     { data[index].1.clone() }
-                                        // </label>
+                                        <label
+                                            ondblclick={
+                                                state.bind(move |s, _| s.entry.editing = true)
+                                            }
+                                        >
+                                            { data[index].1.clone() }
+                                        </label>
                                     </div>
                                 </div>
                             }
