@@ -312,9 +312,7 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
             }
         });
 
-        let onmouseover = state.bind(move |state, e: MouseEvent<InputElement>| {
-            let _ = e.target().focus();
-        });
+        let onmouseover = |e: MouseEvent<InputElement>| e.target().focus();
 
         let onkeypress = state.bind(move |state, e: KeyboardEvent<InputElement>| {
             if e.key() == "Enter" && e.target().value() != "" {
@@ -330,7 +328,7 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
             view! {
                 <div>
                     {
-                        for (0..data.len()-1).map(move |index|
+                        for (0..data.len()).map(move |index|
                             view! {
                                 <div.edit>
                                     { data[index].1.clone() }
@@ -341,10 +339,10 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
                                         // if i use `data-index` it gives error
                                         // `expected expression`
                                         data_index={ index.to_string() }
-                                        {onchange}
-                                        {onmouseover}
-                                        {onkeypress}
-                                        {onblur}
+                                        // {onchange}
+                                        // {onmouseover}
+                                        // {onkeypress}
+                                        // {onblur}
                                     />
                                 </div>
                             }
@@ -354,20 +352,20 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
             }
         )
     } else {
-        let ondblclick = state.bind(move |s, _| s.entry.editing = true);
+        // let ondblclick = state.bind(move |s, _| s.entry.editing = true);
         let editing = class!("editing" if state.entry.editing);
 
         Branch2::B(
             view! {
                 <div>
                     {
-                        for (0..data.len()-1).map(move |index|
+                        for (0..data.len()).map(move |index|
                             view! {
                                 <div .todo.{editing}>
                                     <div .view>
-                                        <label {ondblclick} >
-                                            { data[index].1.clone() }
-                                        </label>
+                                        // <label {ondblclick} >
+                                        //     { data[index].1.clone() }
+                                        // </label>
                                     </div>
                                 </div>
                             }
