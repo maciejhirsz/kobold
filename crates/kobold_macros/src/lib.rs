@@ -59,3 +59,12 @@ pub fn view(body: TokenStream) -> TokenStream {
 
     out
 }
+
+// https://doc.rust-lang.org/reference/procedural-macros.html#derive-macros
+
+#[proc_macro]
+pub fn derive_struct_var_index_fn(_item: TokenStream) -> TokenStream {
+    "fn struct_var_index_fn() -> u32 { 42 }".parse().unwrap()
+}
+
+//serde_json::to_value -> obj[label] = val; -> serde_json::from_value

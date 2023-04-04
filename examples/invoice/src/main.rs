@@ -3,9 +3,11 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use kobold::prelude::*;
+use kobold_macros::derive_struct_var_index_fn;
 use kobold::branching::{Branch2, Branch3};
 use kobold::reexport::web_sys::HtmlTextAreaElement;
 use kobold_qr::KoboldQR;
+use bevy_reflect::{FromReflect, Reflect, DynamicStruct};
 use gloo_console::{console_dbg};
 use gloo_utils::format::JsValueSerdeExt;
 use log::{info, debug, error, warn};
@@ -19,6 +21,9 @@ mod csv;
 mod state;
 
 use state::{Editing, State, Table, Text};
+
+// macro
+derive_struct_var_index_fn!();
 
 #[component]
 fn Editor() -> impl View {
@@ -223,20 +228,47 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     }
 }
 
+// use bevy_reflect https://crates.io/crates/bevy_reflect
+#[derive(Reflect, FromReflect, Debug)]
+pub struct Details {
+    inv_date: String,
+    from_org_addr: String
+}
+
 #[component]
 fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
     // find a specific value
     debug!("rows {:#?}", state.details.table.rows());
     debug!("columns {:#?}", state.details.table.columns());
+
+    let mut label;
     let mut val;
-    for row in state.details.table.rows() {
-        debug!("row {:#?}", row);
-        for col in state.details.table.columns() {
-            debug!("col {:#?}", col);
-            val = state.details.table.source.get_text(&state.details.table.rows[row][col]);
-            debug!("val {:#?}", val);
+    let valid_labels = ["inv_date", "inv_no", "from_attn_name", "from_org_name", "from_org_addr", "from_email", "to_attn_name", "to_title", "to_org_name", "to_email"];
+    let mut details = Details {
+        inv_date: String::from("01.01.1970"),
+        from_org_addr: String::from("unknown"),
+    };
+    let mut dynamic_struct = DynamicStruct::default();
+    // `state.details.table` only has labels in `columns[col]` and data in its `rows[0][col]`
+    for col in state.details.table.columns() {
+        let row = 0;
+        debug!("col {:#?}", col);
+        label = state.details.table.source.get_text(&state.details.table.columns[col]);
+        val = state.details.table.source.get_text(&state.details.table.rows[row][col]);
+        debug!("col {:#?} - label / val - {:#?} / {:#?}", col, label, val);
+        // TODO - replace with derive macro since below isn't valid rust
+        if valid_labels.contains(&label) {
+            // use https://crates.io/crates/bevy_reflect to emulate `details[`${label}`] = val`
+            // that is possible in JavaScript since Rust dot notation is not adequate
+            // *details.get_field_mut::<String>(label).unwrap() = val;
+            dynamic_struct.insert(label, val.to_string());
         }
+
+        // call macro
+        // debug!("struct_var_index_fn {:#?}", struct_var_index_fn());
     }
+    details.apply(&dynamic_struct);
+    debug!("details {:#?}", details);
 
     // we know `state.details.table.rows[0][4]` corresponds to `from_org_addr`
     let value = state.details.table.source.get_text(&state.details.table.rows[0][4]);
