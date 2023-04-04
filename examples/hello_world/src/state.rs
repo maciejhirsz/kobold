@@ -62,7 +62,7 @@ impl State {
     pub fn toggle(&mut self) {
         self.my_state = !self.my_state;
 
-        // self.store();
-        State::store(self);
+        self.store();
+        // State::store(self);
     }
 }
