@@ -318,8 +318,6 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
                         value={ data[index].1.clone() }
                         type="text"
                         placeholder={ format!("<Enter {:#?}>", placeholders_file[index]) }
-                        // if i use `data-index` it gives error
-                        // `expected expression`
                         data_index={ index.to_string() }
                         onchange={
                             state.bind(move |state, e: Event<InputElement>| {
