@@ -253,9 +253,8 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 
 #[component]
 fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
-    // find a specific value
-    debug!("rows {:#?}", state.details.table.rows());
-    debug!("columns {:#?}", state.details.table.columns());
+    // debug!("rows {:#?}", state.details.table.rows());
+    // debug!("columns {:#?}", state.details.table.columns());
     let mut details = Details {
         inv_date: String::from("01.01.1970"),
         inv_no: String::from("0001"),
@@ -268,33 +267,45 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
         to_org_name: String::from("unknown"),
         to_email: String::from("unknown")
     };
-    let data = get_details_data(&details);
+    let valid_placeholders_arr: [&str; 10] = ["invoice date","invoice number","name person from","organisation name from","organisation address from","email from","name person attention to","title to","organisation name to","email to"];
+    let valid_placeholders: Vec<String> = valid_placeholders_arr.iter().map(|x| x.to_string()).collect();
+    debug!("valid_placeholders {:#?}", valid_placeholders);
+    let mut data = get_details_data(&details);
     debug!("data {:#?}", data);
     let (valid_labels, values): (Vec<String>, Vec<String>) = data.clone().into_iter().unzip();
     debug!("valid_labels {:#?}", valid_labels);
 
     let mut label;
     let mut val;
+    let mut placeholders_file: Vec<String> = Vec::new();
     let mut dynamic_struct = DynamicStruct::default();
     // `state.details.table` only has labels in `columns[col]` and data in its `rows[0][col]`
     for col in state.details.table.columns() {
-        let row = 0;
-        debug!("col {:#?}", col);
+        // debug!("col {:#?}", col);
         label = state.details.table.source.get_text(&state.details.table.columns[col]);
-        val = state.details.table.source.get_text(&state.details.table.rows[row][col]);
-        debug!("col {:#?} - label / val - {:#?} / {:#?}", col, label, val);
+        val = state.details.table.source.get_text(&state.details.table.rows[0][col]);
+        placeholders_file.push(state.details.table.source.get_text(&state.details.table.rows[1][col]).to_string());
+        // debug!("col {:#?} - label / val - {:#?} / {:#?}", col, label, val);
         if valid_labels.contains(&label.to_string()) {
             // use https://crates.io/crates/bevy_reflect to emulate `details[`${label}`] = val`
             // that is possible in JavaScript since Rust dot notation is not adequate
             dynamic_struct.insert(label, val.to_string());
         }
     }
+    debug!("placeholders_file {:#?}", placeholders_file);
+    assert_eq!(placeholders_file, valid_placeholders);
+
     details.apply(&dynamic_struct);
     debug!("details {:#?}", details);
 
+    // update `data` with new `details`
+    data = get_details_data(&details);
+    debug!("data {:#?}", data);
+    let (valid_labels, values): (Vec<String>, Vec<String>) = data.clone().into_iter().unzip();
+
     // we know `state.details.table.rows[0][4]` corresponds to `from_org_addr`
-    let value = state.details.table.source.get_text(&state.details.table.rows[0][4]);
-    debug!("description{:#?}", value);
+    // let value = state.details.table.source.get_text(&state.details.table.rows[0][4]);
+    // debug!("description{:#?}", value);
 
     // TODO - might need to store `editing` status for all the labels instead of just one
     if state.entry.editing == true {
@@ -309,7 +320,7 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
                                     <input.edit
                                         value={ data[index].1.clone() }
                                         type="text"
-                                        placeholder="<Enter biller address>"
+                                        placeholder={ format!("<Enter {:#?}>", placeholders_file[index]) }
                                         // if i use `data-index` it gives error
                                         // `expected expression`
                                         data_index={ index.to_string() }
