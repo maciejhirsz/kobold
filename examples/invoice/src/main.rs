@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use kobold::prelude::*;
-use kobold_macros::derive_struct_var_index_fn;
 use kobold::branching::{Branch2, Branch3};
 use kobold::reexport::web_sys::HtmlTextAreaElement;
 use kobold_qr::KoboldQR;
@@ -21,9 +20,6 @@ mod csv;
 mod state;
 
 use state::{Editing, State, Table, Text};
-
-// macro
-derive_struct_var_index_fn!();
 
 #[component]
 fn Editor() -> impl View {
@@ -256,16 +252,11 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
         label = state.details.table.source.get_text(&state.details.table.columns[col]);
         val = state.details.table.source.get_text(&state.details.table.rows[row][col]);
         debug!("col {:#?} - label / val - {:#?} / {:#?}", col, label, val);
-        // TODO - replace with derive macro since below isn't valid rust
         if valid_labels.contains(&label) {
             // use https://crates.io/crates/bevy_reflect to emulate `details[`${label}`] = val`
             // that is possible in JavaScript since Rust dot notation is not adequate
-            // *details.get_field_mut::<String>(label).unwrap() = val;
             dynamic_struct.insert(label, val.to_string());
         }
-
-        // call macro
-        // debug!("struct_var_index_fn {:#?}", struct_var_index_fn());
     }
     details.apply(&dynamic_struct);
     debug!("details {:#?}", details);
