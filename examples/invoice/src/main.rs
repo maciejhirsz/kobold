@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use kobold::prelude::*;
+use kobold::attribute::{OptionalClass};
 use kobold::branching::{Branch2, Branch3};
 use kobold::reexport::web_sys::HtmlTextAreaElement;
 use kobold_qr::KoboldQR;
@@ -251,7 +252,80 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     }
 }
 
-#[component]
+#[component(auto_branch)]
+fn DetailEditing(index: usize, data: Vec<(String, String)>, placeholders_file: Vec<String>, state: &Hook<State>) -> impl View + '_ {
+    view! {
+        <div .edit>
+            { data[index].1.clone() }
+            <input.edit
+                value={ data[index].1.clone() }
+                type="text"
+                placeholder={ format!("<Enter {:#?}>", placeholders_file[index]) }
+                data_index={ index.to_string() }
+                onchange={
+                    state.bind(move |state, e: Event<InputElement>| {
+                        if let Some(data_index) = e.target().get_attribute("data_index") {
+                            let index: usize = data_index.parse::<usize>().unwrap();
+                            state.details.table.rows[0][index] = Text::Owned(e.target().value().into());
+                            state.entry[index].editing = false;
+                        }
+                    })
+                }
+                onmouseover={
+                    |e: MouseEvent<InputElement>| e.target().focus()
+                }
+                onkeypress={
+                    state.bind(move |state, e: KeyboardEvent<InputElement>| {
+                        if e.key() == "Enter" && e.target().value() != "" {
+                            state.update(index, e.target().value());
+
+                            Then::Render
+                        } else {
+                            Then::Stop
+                        }
+                    })
+                }
+                onkeypress={
+                    state.bind(move |state, e: KeyboardEvent<InputElement>| {
+                        if e.key() == "Enter" && e.target().value() != "" {
+                            state.update(index, e.target().value());
+
+                            Then::Render
+                        } else {
+                            Then::Stop
+                        }
+                    })
+                }
+                onblur={
+                    state.bind(move |state, e: Event<InputElement>| {
+                        if e.target().value() != "" {
+                            state.update(index, e.target().value())
+                        }
+                    })
+                }
+            />
+        </div>
+    }
+}
+
+#[component(auto_branch)]
+fn DetailView(index: usize, data: Vec<(String, String)>, state: &Hook<State>) -> impl View + '_ {
+    view! {
+        <div>
+            <div .view>
+                <label
+                    ondblclick={
+                        state.bind(move |s, _| s.entry[index].editing = true)
+                    }
+                >
+                    { data[index].1.clone() }
+                </label>
+            </div>
+        </div>
+    }
+}
+
+#[component(auto_branch)]
 fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
     // debug!("rows {:#?}", state.details.table.rows());
     // debug!("columns {:#?}", state.details.table.columns());
@@ -307,77 +381,14 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
     // let value = state.details.table.source.get_text(&state.details.table.rows[0][4]);
     // debug!("description{:#?}", value);
 
-    // TODO - might need to store `editing` status for all the labels instead of just one
-
     for index in 0..data.len() {
         if state.entry[index].editing == true {
             Branch2::A(view! {
-                <div.edit>
-                    { data[index].1.clone() }
-                    <input.edit
-                        value={ data[index].1.clone() }
-                        type="text"
-                        placeholder={ format!("<Enter {:#?}>", placeholders_file[index]) }
-                        data_index={ index.to_string() }
-                        onchange={
-                            state.bind(move |state, e: Event<InputElement>| {
-                                if let Some(data_index) = e.target().get_attribute("data_index") {
-                                    let index: usize = data_index.parse::<usize>().unwrap();
-                                    state.details.table.rows[0][index] = Text::Owned(e.target().value().into());
-                                    state.entry[index].editing = false;
-                                }
-                            })
-                        }
-                        onmouseover={
-                            |e: MouseEvent<InputElement>| e.target().focus()
-                        }
-                        onkeypress={
-                            state.bind(move |state, e: KeyboardEvent<InputElement>| {
-                                if e.key() == "Enter" && e.target().value() != "" {
-                                    state.update(index, e.target().value());
-
-                                    Then::Render
-                                } else {
-                                    Then::Stop
-                                }
-                            })
-                        }
-                        onkeypress={
-                            state.bind(move |state, e: KeyboardEvent<InputElement>| {
-                                if e.key() == "Enter" && e.target().value() != "" {
-                                    state.update(index, e.target().value());
-
-                                    Then::Render
-                                } else {
-                                    Then::Stop
-                                }
-                            })
-                        }
-                        onblur={
-                            state.bind(move |state, e: Event<InputElement>| {
-                                if e.target().value() != "" {
-                                    state.update(index, e.target().value())
-                                }
-                            })
-                        }
-                    />
-                </div>
+                <DetailEditing {index} {data} {placeholders_file} {state} />
             })
         } else {
-            let editing = class!("editing" if state.entry[index].editing);
-
-            Branch2::A(view! {
-                <div .todo.{editing}>
-                    <div .view>
-                        <label
-                            ondblclick={
-                                state.bind(move |s, _| s.entry[index].editing = true)
-                            }
-                        >
-                            { data[index].1.clone() }
-                        </label>
-                    </div>
-                </div>
+            Branch2::B(view! {
+                <DetailView {index} {data} {state} />
             })
         }
     }
