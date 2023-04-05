@@ -188,14 +188,22 @@ pub enum IsClosing {
 impl Tag {
     pub fn is_closing(&self, opening: &TagName) -> IsClosing {
         if self.nesting == TagNesting::Closing {
-            if &self.name == opening {
+            return if &self.name == opening {
                 IsClosing::Explicit
             } else {
                 IsClosing::Implicit
-            }
-        } else {
-            IsClosing::No
+            };
         }
+
+        if let (TagName::HtmlElement { name, .. }, TagName::HtmlElement { name: opening, .. }) =
+            (&self.name, opening)
+        {
+            if opening.closes_on(*name) {
+                return IsClosing::Implicit;
+            }
+        }
+
+        IsClosing::No
     }
 }
 

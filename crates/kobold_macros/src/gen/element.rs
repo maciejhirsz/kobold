@@ -6,7 +6,7 @@ use std::fmt::{Arguments, Write};
 
 use proc_macro::{Literal, TokenStream};
 
-use crate::dom::{Attribute, AttributeValue, CssValue, HtmlElement, ElementTag};
+use crate::dom::{Attribute, AttributeValue, CssValue, ElementTag, HtmlElement};
 use crate::gen::{append, DomNode, Generator, IntoGenerator, JsArgument, Short};
 use crate::itertools::IteratorExt;
 use crate::parse::IdentExt;

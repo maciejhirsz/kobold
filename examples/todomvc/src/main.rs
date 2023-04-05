@@ -50,13 +50,12 @@ fn App() -> impl View {
                             <FilterView filter={Filter::Active} {state} />
                             <FilterView filter={Filter::Completed} {state} />
                         </ul>
-                        <button.clear-completed.{completed_hidden} onclick={clear}>
-                            "Clear completed"
+                        <button.clear-completed.{completed_hidden} onclick={clear}> "Clear completed"
                 </section>
                 <footer.info>
-                    <p>"Double-click to edit a todo"</p>
-                    <p>"Written by "<a href="https://maciej.codes/" target="_blank">"Maciej Hirsz"</a></p>
-                    <p>"Part of "<a href="http://todomvc.com/" target="_blank">"TodoMVC"</a></p>
+                    <p> "Double-click to edit a todo"
+                    <p> "Written by "<a href="https://maciej.codes/" target="_blank">"Maciej Hirsz"</a>
+                    <p> "Part of "<a href="http://todomvc.com/" target="_blank">"TodoMVC"</a>
         }
     })
 }
@@ -112,7 +111,7 @@ pub fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> im
         }
 
         view! {
-            <input .edit
+            <input.edit
                 type="text"
                 value={static &entry.description}
                 onmouseover={|event| event.target().focus()}
@@ -135,7 +134,7 @@ pub fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> im
     view! {
         <li.todo.{editing}.{completed}>
             <div.view>
-                <input .toggle type="checkbox" checked={entry.completed} {onchange}>
+                <input.toggle type="checkbox" checked={entry.completed} {onchange}>
                 <label ondblclick={edit} >
                     { ref entry.description }
                 </label>
