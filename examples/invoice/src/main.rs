@@ -130,18 +130,6 @@ fn Editor() -> impl View {
             }
         };
 
-        bind! { state:
-            let onkeydown = move |event: KeyboardEvent<_>| {
-                if matches!(event.key().as_str(), "Esc" | "Escape") {
-                    state.editing = Editing::None;
-
-                    Then::Render
-                } else {
-                    Then::Stop
-                }
-            };
-        }
-
         view! {
             <div .invoice-wrapper>
                 <section .invoiceapp>
@@ -153,12 +141,56 @@ fn Editor() -> impl View {
                             <h1>{ ref state.details.name }</h1>
                             <input type="file" accept="text/csv" onchange={onload_details} />
                         </div>
-                        <EntryView {state} />
+                        // <EntryView {state} />
+                        <table
+                            onkeydown={
+                                state.bind(move |state, event: KeyboardEvent<_>| {
+                                    if matches!(event.key().as_str(), "Esc" | "Escape") {
+                                        state.editing_details = Editing::None;
+                    
+                                        Then::Render
+                                    } else {
+                                        Then::Stop
+                                    }
+                                })
+                            }
+                        >
+                            <thead.details>
+                                <tr>
+                                {
+                                    for state.details.table.columns().map(|col| view! {
+                                        <HeadDetails {col} row={1} {state} />
+                                    })
+                                }
+                                </tr>
+                            </thead>
+                            <tbody.details>
+                                <tr>
+                                {
+                                    for state.details.table.columns().map(|col| view! {
+                                        <CellDetails {col} row={0} {state} />
+                                    })
+                                }
+                                </tr>
+                            </tbody>
+                        </table>
                         <div #input-file-select>
                             <h1>{ ref state.main.name }</h1>
                             <input type="file" accept="text/csv" onchange={onload_main} />
                         </div>
-                        <table {onkeydown}>
+                        <table
+                            onkeydown={
+                                state.bind(move |state, event: KeyboardEvent<_>| {
+                                    if matches!(event.key().as_str(), "Esc" | "Escape") {
+                                        state.editing = Editing::None;
+                    
+                                        Then::Render
+                                    } else {
+                                        Then::Stop
+                                    }
+                                })
+                            }
+                        >
                             <thead>
                                 <tr>
                                 {
@@ -235,6 +267,64 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     // https://github.com/maciejhirsz/kobold/issues/51
     } else {
         let ondblclick = state.bind(move |s, _| s.editing = Editing::Cell { row, col });
+
+        if value.contains("0x") {
+            Branch3::B(view! {
+                <td {ondblclick}>
+                    { ref value }
+                    <QRForTask {value} />
+                </td>
+            })
+        } else {
+            Branch3::C(view! {
+                <td {ondblclick}>{ ref value }</td>
+            })
+        }
+    }
+}
+
+#[component(auto_branch)]
+fn HeadDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
+    let value = state.details.table.source.get_text(&state.details.table.rows[row][col]);
+
+    if state.editing_details == (Editing::Cell { row, col }) {
+        let onchange = state.bind(move |state, e: Event<InputElement>| {
+            state.details.table.rows[row][col] = Text::Owned(e.target().value().into());
+            state.editing_details = Editing::None;
+        });
+
+        view! {
+            <th.edit>
+                { ref value }
+                <input.edit.edit-head {onchange} value={ ref value } />
+            </th>
+        }
+    } else {
+        let ondblclick = state.bind(move |s, _| s.editing_details = Editing::Cell { row, col });
+
+        view! { <th {ondblclick}>{ ref value }</th> }
+    }
+}
+
+#[component]
+fn CellDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
+    let value = state.details.table.source.get_text(&state.details.table.rows[row][col]);
+
+    if state.editing_details == (Editing::Cell { row, col }) {
+        let onchange = state.bind(move |state, e: Event<InputElement>| {
+            state.details.table.rows[row][col] = Text::Owned(e.target().value().into());
+            state.editing_details = Editing::None;
+        });
+
+        Branch3::A(view! {
+            <td.edit>
+                { ref value }
+                <input.edit {onchange} value={ ref value } />
+            </td>
+        })
+    // https://github.com/maciejhirsz/kobold/issues/51
+    } else {
+        let ondblclick = state.bind(move |s, _| s.editing_details = Editing::Cell { row, col });
 
         if value.contains("0x") {
             Branch3::B(view! {

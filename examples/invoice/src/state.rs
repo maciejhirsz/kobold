@@ -32,6 +32,7 @@ pub struct Content {
 
 pub struct State {
     pub editing: Editing,
+    pub editing_details: Editing,
     pub main: Content,
     pub details: Content,
     pub entry: Vec<Entry>,
@@ -116,6 +117,7 @@ impl Default for State {
 
         State {
             editing: Editing::None,
+            editing_details: Editing::None,
             main: Content {
                 name: "<no main file>".to_owned(),
                 table: Table::mock(),
@@ -137,6 +139,7 @@ impl State {
     pub fn mock() -> Self {
         State {
             editing: Editing::None,
+            editing_details: Editing::None,
             main: Content {
                 name: "<no main file>".to_owned(),
                 table: Table::mock(),
