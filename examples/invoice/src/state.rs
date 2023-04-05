@@ -145,10 +145,12 @@ impl State {
                 name: "<no details file>".to_owned(),
                 table: Table::mock_file_details(),   
             },
-            entry: vec![Entry {
-                description: "<enter ??? address>".to_owned(),
-                editing: false,
-            }],
+            entry: vec![
+                Entry {
+                    description: "<enter ??? address>".to_owned(),
+                    editing: false,
+                }
+            ],
             qr_code: "0x000".to_string(),
         }
     }
