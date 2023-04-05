@@ -36,7 +36,6 @@ pub struct State {
     pub main: Content,
     pub details: Content,
     pub entry: Vec<Entry>,
-    pub qr_code: String,
 }
 
 pub struct Entry {
@@ -130,7 +129,6 @@ impl Default for State {
                 description: description.to_owned(),
                 editing: false,
             }],
-            qr_code: "0x000".to_string(),
         }
     }
 }
@@ -154,7 +152,6 @@ impl State {
                     editing: false,
                 }
             ],
-            qr_code: "0x000".to_string(),
         }
     }
 
@@ -232,7 +229,7 @@ impl TextSource {
 
 impl Table {
     fn mock() -> Self {
-        "column 1,column 2\nA1,A2\nB1,B2".parse().unwrap()
+        "description,total,qr\ntask1,10,0x000|h160\ntask2,20,0x100|h160".parse().unwrap()
     }
 
     fn mock_file_details() -> Self {

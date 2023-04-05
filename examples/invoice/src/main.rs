@@ -90,7 +90,7 @@ fn Editor() -> impl View {
 
                 spawn_local(async move {
                     if let Ok(table) = csv::read_file(file).await {
-                        // TODO - find a better way to get the QR code from the file
+                        // NOTE - this section isn't required but left for reference:
                         let serialized = serde_json::to_string(&table).unwrap();
                         let value = JsValue::from_serde(&serialized).unwrap();
                         debug!("table {:#?}", value);
@@ -123,8 +123,9 @@ fn Editor() -> impl View {
                         let qr_code = slice_qr.to_string();
 
                         debug!("main.table{:#?}", table);
+
+                        // NOTE - this section is required
                         signal.update(move |state| state.main.table = table);
-                        signal.update(move |state| state.qr_code = qr_code);
                     }
                 })
             }
@@ -213,9 +214,6 @@ fn Editor() -> impl View {
                             </tbody>
                         </table>
                     </section>
-                    <section .qr>
-                        <QRExample />
-                    </section>
                 </section>
                 <footer .info>
                     <p>"Hint: Double-click to edit an invoice field"</p>
@@ -271,7 +269,6 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
         if value.contains("0x") {
             Branch3::B(view! {
                 <td {ondblclick}>
-                    { ref value }
                     <QRForTask {value} />
                 </td>
             })
@@ -329,7 +326,6 @@ fn CellDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
         if value.contains("0x") {
             Branch3::B(view! {
                 <td {ondblclick}>
-                    { ref value }
                     <QRForTask {value} />
                 </td>
             })
@@ -564,28 +560,19 @@ fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
 }
 
 #[component]
-fn QRExample() -> impl View {
-    stateful("Enter something", |data| {
-        bind! {
-            data:
-
-            let onkeyup = move |event: KeyboardEvent<HtmlTextAreaElement>| *data = event.target().value();
-        }
-
-        view! {
-            <h1>"QR code example"</h1>
-            <KoboldQR {data} />
-            <textarea {onkeyup}>{ static data.as_str() }</textarea>
-        }
-    })
-}
-
-#[component]
 fn QRForTask(value: &str) -> impl View + '_ {
-    let data = &value;
-
+    let v: Vec<&str> = value.split("|").collect();
+    // assert_eq!(&v, &Vec::from(["0x100", "h160"]));
+    debug!("{:#?} {:#?}", &v[0], &v[1]);
+    let data: &str = v[0];
+    let format: &str = v[1];
+    // 
     view! {
-        <KoboldQR {data} />
+        <div.qr>
+            <KoboldQR data={data} />
+            <div>{data}</div>
+            <div>{format}</div>
+        </div>
     }
 }
 

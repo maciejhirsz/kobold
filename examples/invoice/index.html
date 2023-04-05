@@ -26,7 +26,9 @@
       canvas {
         display: inline-block;
         margin: 10px;
-        vertical-align: top;
+        vertical-align: middle;
+        width: 50px;
+        height: 50px;
       }
 
       html, body {
@@ -49,11 +51,12 @@
       }
 
       thead.details {
-        float: left;   
+        float: left;
       }
 
       thead.details th {
-        display: block;   
+        display: block;
+        text-align: left;
       }
 
       tbody.details {
@@ -61,7 +64,8 @@
       }
 
       tbody.details td {
-        display: block;   
+        display: block;
+        text-align: center;
       }
 
       div.edit, td.edit, th.edit {
@@ -103,6 +107,10 @@
         min-width: 150px;
         min-height: 30px;
         vertical-align: top;
+      }
+
+      div.qr > div {
+        text-align: center;
       }
     </style>
   </head>
