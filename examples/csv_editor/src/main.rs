@@ -52,8 +52,6 @@ fn Editor() -> impl View {
                     {
                         for state.columns().map(|col| view! { <Head {col} {state} /> })
                     }
-                    </tr>
-                </thead>
                 <tbody>
                 {
                     for state.rows().map(move |row| view! {
@@ -96,15 +94,30 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     let value = state.source.get_text(&state.rows[row][col]);
 
     if state.editing == (Editing::Cell { row, col }) {
-        let onchange = state.bind(move |state, e: Event<Input>| {
-            state.rows[row][col] = Text::Owned(e.target().value().into());
-            state.editing = Editing::None;
-        });
+        bind! {
+            state:
+
+            let onchange = move |e: Event<Input>| {
+                state.rows[row][col] = Text::Owned(e.target().value().into());
+                state.editing = Editing::None;
+            };
+        }
+
+        let mut selected = false;
+
+        let onmouseenter = move |e: MouseEvent<Input>| {
+            if !selected {
+                let input = e.target();
+                input.focus();
+                input.select();
+                selected = true;
+            }
+        };
 
         view! {
             <td.edit>
                 { ref value }
-                <input.edit {onchange} value={ ref value }>
+                <input.edit {onchange} {onmouseenter} value={ ref value }>
         }
     } else {
         let ondblclick = state.bind(move |s, _| s.editing = Editing::Cell { row, col });

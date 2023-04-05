@@ -90,14 +90,14 @@ where
 
 impl<E, F> Listener<E> for F
 where
-    F: Fn(E) + 'static,
+    F: FnMut(E) + 'static,
     E: hidden::EventCast,
 {
     fn build(self) -> ListenerProduct<Self> {
         let raw = Box::into_raw(Box::new(self));
 
         let js = Closure::wrap(unsafe {
-            Box::from_raw(raw as *mut dyn Fn(E) as *mut dyn Fn(web_sys::Event))
+            Box::from_raw(raw as *mut dyn FnMut(E) as *mut dyn FnMut(web_sys::Event))
         })
         .into_js_value();
 
