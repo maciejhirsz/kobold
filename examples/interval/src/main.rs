@@ -13,7 +13,6 @@ fn Elapsed() -> impl View {
                 "Elapsed seconds: "{ seconds }" "
                 // `{onclick}` here is shorthand for `onclick={onclick}`
                 <button {onclick}>"Reset"</button>
-            </p>
         }
     })
     .once(|hook| {

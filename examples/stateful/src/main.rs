@@ -43,7 +43,6 @@ fn App() -> impl View {
                 " "
                 <button onclick={adult}>"18"</button>
                 <button onclick={inc_age}>"+"</button>
-            </div>
         }
     })
 }
