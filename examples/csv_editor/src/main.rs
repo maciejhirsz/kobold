@@ -47,14 +47,14 @@ fn Editor() -> impl View {
             <input type="file" accept="text/csv" onchange={onload} />
             <h1>{ ref state.name }</h1>
             <table {onkeydown}>
-                <thead>
+                <thead.rotate>
                     <tr>
                     {
                         for state.columns().map(|col| view! { <Head {col} {state} /> })
                     }
                     </tr>
                 </thead>
-                <tbody>
+                <tbody.rotate>
                 {
                     for state.rows().map(move |row| view! {
                         <tr>
