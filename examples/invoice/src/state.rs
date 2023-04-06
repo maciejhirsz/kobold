@@ -7,16 +7,18 @@ use gloo_storage::{LocalStorage, Storage};
 use wasm_bindgen::UnwrapThrowExt;
 // use wasm_bindgen::prelude::wasm_bindgen;
 use serde::{Serialize, Deserialize};
+use log::{info, debug, error, warn};
 
 use std::ops::{Deref, DerefMut, Range};
 
-const KEY: &str = "kobold.invoice.example";
+const KEY_MAIN: &str = "kobold.invoice.main";
+const KEY_DETAILS: &str = "kobold.invoice.details";
 
-#[derive(Debug)]
-pub enum Error {
-    FailedToParseEntry,
-    ParseBoolError,
-}
+// #[derive(Debug)]
+// pub enum Error {
+//     FailedToParseEntry,
+//     ParseBoolError,
+// }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum Editing {
@@ -35,13 +37,13 @@ pub struct State {
     pub editing_details: Editing,
     pub main: Content,
     pub details: Content,
-    pub entry: Vec<Entry>,
+    // pub entry: Vec<Entry>,
 }
 
-pub struct Entry {
-    pub description: String,
-    pub editing: bool,
-}
+// pub struct Entry {
+//     pub description: String,
+//     pub editing: bool,
+// }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Table {
@@ -56,46 +58,46 @@ pub enum Text {
     Owned(Box<str>),
 }
 
-impl Entry {
-    fn mock() -> Self {
-        "my address\nyes".parse().unwrap()
-    }
+// impl Entry {
+//     fn mock() -> Self {
+//         "my address\nyes".parse().unwrap()
+//     }
 
-    fn read(from: &str) -> Option<Self> {
-        let description = from.to_string();
+//     fn read(from: &str) -> Option<Self> {
+//         let description = from.to_string();
 
-        Some(Entry {
-            description,
-            editing: false,
-        })
-    }
+//         Some(Entry {
+//             description,
+//             editing: false,
+//         })
+//     }
 
-    fn write(&self, storage: &mut String) {
-        storage.extend([
-            &self.description,
-            "\n",
-        ]);
-    }
-}
+//     fn write(&self, storage: &mut String) {
+//         storage.extend([
+//             &self.description,
+//             "\n",
+//         ]);
+//     }
+// }
 
-impl FromStr for Entry {
-    type Err = Error;
+// impl FromStr for Entry {
+//     type Err = Error;
 
-    fn from_str(input: &str) -> Result<Self, Error> {
-        let vec = input.lines().collect::<Vec<_>>();
-        let description = vec[0].to_string();
-        let editing = vec[1].to_string().parse::<bool>().or_else(|_i| Err(Error::ParseBoolError));
-        let _editing = match editing {
-            Ok(editing) => {
-                Ok(Entry { description, editing })
-            },
-            Err(_) => {
-                Err(Error::FailedToParseEntry)
-            }
-        };
-        Err(Error::FailedToParseEntry)
-    }
-}
+//     fn from_str(input: &str) -> Result<Self, Error> {
+//         let vec = input.lines().collect::<Vec<_>>();
+//         let description = vec[0].to_string();
+//         let editing = vec[1].to_string().parse::<bool>().or_else(|_i| Err(Error::ParseBoolError));
+//         let _editing = match editing {
+//             Ok(editing) => {
+//                 Ok(Entry { description, editing })
+//             },
+//             Err(_) => {
+//                 Err(Error::FailedToParseEntry)
+//             }
+//         };
+//         Err(Error::FailedToParseEntry)
+//     }
+// }
 
 impl Default for Text {
     fn default() -> Self {
@@ -105,14 +107,18 @@ impl Default for Text {
 
 impl Default for State {
     fn default() -> Self {
-        let (mut index, mut description) = (0, String::with_capacity(3));
-        let mut storage = format!("{:#?}\n{:#?}", index, description);
+        // let (mut index, mut description) = (0, String::with_capacity(3));
+        // let mut storage = format!("{:#?}\n{:#?}", index, description);
+        let mut default_data = "_,_,_,_";
+        let mut storage = format!("{:#?},{:#?},{:#?},{:#?}", default_data);
 
-        LocalStorage::raw().set_item(KEY, &storage).ok();
+        LocalStorage::raw().set_item(KEY_MAIN, &storage).ok();
+        LocalStorage::raw().set_item(KEY_DETAILS, &storage).ok();
 
-        if let Some(_storage) = LocalStorage::raw().get(KEY).ok() {
-            storage = _storage.unwrap();
-        }
+        // if let Some(_storage) = LocalStorage::raw().get(KEY_MAIN).ok() {
+        //     storage = _storage.unwrap();
+        // }
+
 
         State {
             editing: Editing::None,
@@ -125,10 +131,10 @@ impl Default for State {
                 name: "<no details file>".to_owned(),
                 table: Table::mock_file_details(),   
             },
-            entry: vec![Entry {
-                description: description.to_owned(),
-                editing: false,
-            }],
+            // entry: vec![Entry {
+            //     description: description.to_owned(),
+            //     editing: false,
+            // }],
         }
     }
 }
@@ -146,50 +152,98 @@ impl State {
                 name: "<no details file>".to_owned(),
                 table: Table::mock_file_details(),   
             },
-            entry: vec![
-                Entry {
-                    description: "<enter ??? address>".to_owned(),
-                    editing: false,
-                }
-            ],
+            // entry: vec![
+            //     Entry {
+            //         description: "<enter ??? address>".to_owned(),
+            //         editing: false,
+            //     }
+            // ],
         }
     }
 
     #[inline(never)]
-    pub fn store(&self, index: usize) {
-        let capacity = self.entry[index].description.len() + 3;
-        let (mut index, mut description) = (index, String::with_capacity(capacity));
+    pub fn store(&self, content_name: String, new_storage: String) {
+        // let capacity = self.entry[index].description.len() + 3;
+        // let (mut index, mut description) = (index, String::with_capacity(capacity));
 
-        let mut storage = format!("{:#?}\n{:#?}", index, description);
+        String::with_capacity(capacity));
 
-        self.entry[index].write(&mut storage);
+        // self.entry[index].write(&mut storage);
 
-        LocalStorage::raw().set_item(KEY, &storage).ok();
-    }
+        
 
-    pub fn edit_entry(&mut self, index: usize) {
-        self.entry[index].editing = true;
-
-        self.store(index);
-    }
-
-    pub fn add(&mut self, index: usize, description: String) {
-        self.entry[index] = Entry {
-            description,
-            editing: false,
-        };
-
-        self.store(index);
-    }
-
-    pub fn update(&mut self, index: usize, description: String) {
-        let entry = &mut self.entry[index];
-        entry.editing = false;
-
-        if description != entry.description {
-            entry.description = description;
-            self.store(index);
+        if content_name == KEY_MAIN.to_string() {
+            LocalStorage::raw().set_item(KEY_MAIN, &new_storage).ok();
+        } else if content_name == KEY_DETAILS.to_string() {
+            LocalStorage::raw().set_item(KEY_DETAILS, &new_storage).ok();
+        } else {
+            throw_str("unknown content_name");
         }
+    }
+
+    // pub fn edit_entry(&mut self, index: usize) {
+    //     self.entry[index].editing = true;
+
+    //     self.store(index);
+    // }
+
+    pub fn edit(&mut self, index: usize) {
+        // self.entry[index].editing = true;
+
+        self.store(index);
+    }
+
+    // pub fn add(&mut self, index: usize, description: String) {
+    //     self.entry[index] = Entry {
+    //         description,
+    //         editing: false,
+    //     };
+
+    //     self.store(index);
+    // }
+
+    pub fn add(&mut self, index: usize) {
+        // self.entry[index] = Entry {
+        //     description,
+        //     editing: false,
+        // };
+
+        self.store(index);
+    }
+
+    // pub fn update(&mut self, index: usize, description: String) {
+    //     let entry = &mut self.entry[index];
+    //     entry.editing = false;
+
+    //     if description != entry.description {
+    //         entry.description = description;
+    //         self.store(index);
+    //     }
+    // }
+
+    pub fn update(&mut self, content_name: String, row: Text, col: Text, value: String) {
+
+        // WRONG -- see todomvc example of fn store for use of LocalStorage
+
+        // let new_storage = format!("{:#?},{:#?},{:#?}", row, col, value);
+        // let mut existing_storage;
+        // if content_name == KEY_MAIN.to_string() {
+        //     if let Some(_storage) = LocalStorage::raw().get(KEY_MAIN).ok() {
+        //         existing_storage = _storage.unwrap();
+        //         debug!("existing_storage main: {:#?}", existing_storage);
+        //     }
+        // } else if content_name == KEY_DETAILS.to_string() {
+        //     if let Some(_storage) = LocalStorage::raw().get(KEY_DETAILS).ok() {
+        //         existing_storage = _storage.unwrap();
+        //         debug!("existing_storage details: {:#?}", existing_storage);
+        //     }
+        // } else {
+        //     throw_str("unknown content_name");
+        // }
+
+        // if new_storage != existing_storage {
+        //     self.store(content_name, new_storage);
+        // }
     }
 }
 

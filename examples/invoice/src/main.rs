@@ -148,7 +148,7 @@ fn Editor() -> impl View {
                                 state.bind(move |state, event: KeyboardEvent<_>| {
                                     if matches!(event.key().as_str(), "Esc" | "Escape") {
                                         state.editing_details = Editing::None;
-                    
+
                                         Then::Render
                                     } else {
                                         Then::Stop
@@ -293,7 +293,22 @@ fn HeadDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
         view! {
             <th.edit>
                 { ref value }
-                <input.edit.edit-head {onchange} value={ ref value } />
+                <input.edit.edit-head
+                    // TODO - repeat in CellDetails to update LocalStorage
+                    onkeypress={
+                        state.bind(move |state, e: KeyboardEvent<InputElement>| {
+                            if e.key() == "Enter" && e.target().value() != "" {
+                                state.update(state.details.name, row, col, e.target().value());
+
+                                Then::Render
+                            } else {
+                                Then::Stop
+                            }
+                        })
+                    }
+
+                    {onchange} value={ ref value }
+                />
             </th>
         }
     } else {
@@ -337,74 +352,74 @@ fn CellDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     }
 }
 
-#[component(auto_branch)]
-fn DetailEditing(index: usize, data: Vec<(String, String)>, placeholders_file: Vec<String>, state: &Hook<State>) -> impl View + '_ {
-    view! {
-        <div .edit>
-            { data[index].1.clone() }
-            <input.edit
-                value={ data[index].1.clone() }
-                type="text"
-                placeholder={ format!("<Enter {:#?}>", placeholders_file[index]) }
-                onchange={
-                    state.bind(move |state, e: Event<InputElement>| {
-                        state.details.table.rows[0][index] = Text::Owned(e.target().value().into());
-                        state.entry[index].editing = false;
-                    })
-                }
-                onmouseover={
-                    |e: MouseEvent<InputElement>| e.target().focus()
-                }
-                onkeypress={
-                    state.bind(move |state, e: KeyboardEvent<InputElement>| {
-                        if e.key() == "Enter" && e.target().value() != "" {
-                            state.update(index, e.target().value());
+// #[component(auto_branch)]
+// fn DetailEditing(index: usize, data: Vec<(String, String)>, placeholders_file: Vec<String>, state: &Hook<State>) -> impl View + '_ {
+//     view! {
+//         <div .edit>
+//             { data[index].1.clone() }
+//             <input.edit
+//                 value={ data[index].1.clone() }
+//                 type="text"
+//                 placeholder={ format!("<Enter {:#?}>", placeholders_file[index]) }
+//                 onchange={
+//                     state.bind(move |state, e: Event<InputElement>| {
+//                         state.details.table.rows[0][index] = Text::Owned(e.target().value().into());
+//                         state.entry[index].editing = false;
+//                     })
+//                 }
+//                 onmouseover={
+//                     |e: MouseEvent<InputElement>| e.target().focus()
+//                 }
+//                 onkeypress={
+//                     state.bind(move |state, e: KeyboardEvent<InputElement>| {
+//                         if e.key() == "Enter" && e.target().value() != "" {
+//                             state.update(index, e.target().value());
 
-                            Then::Render
-                        } else {
-                            Then::Stop
-                        }
-                    })
-                }
-                onkeypress={
-                    state.bind(move |state, e: KeyboardEvent<InputElement>| {
-                        if e.key() == "Enter" && e.target().value() != "" {
-                            state.update(index, e.target().value());
+//                             Then::Render
+//                         } else {
+//                             Then::Stop
+//                         }
+//                     })
+//                 }
+//                 onkeypress={
+//                     state.bind(move |state, e: KeyboardEvent<InputElement>| {
+//                         if e.key() == "Enter" && e.target().value() != "" {
+//                             state.update(index, e.target().value());
 
-                            Then::Render
-                        } else {
-                            Then::Stop
-                        }
-                    })
-                }
-                onblur={
-                    state.bind(move |state, e: Event<InputElement>| {
-                        if e.target().value() != "" {
-                            state.update(index, e.target().value())
-                        }
-                    })
-                }
-            />
-        </div>
-    }
-}
+//                             Then::Render
+//                         } else {
+//                             Then::Stop
+//                         }
+//                     })
+//                 }
+//                 onblur={
+//                     state.bind(move |state, e: Event<InputElement>| {
+//                         if e.target().value() != "" {
+//                             state.update(index, e.target().value())
+//                         }
+//                     })
+//                 }
+//             />
+//         </div>
+//     }
+// }
 
-#[component(auto_branch)]
-fn DetailView(index: usize, data: Vec<(String, String)>, state: &Hook<State>) -> impl View + '_ {
-    view! {
-        <div>
-            <div .view>
-                <label
-                    ondblclick={
-                        state.bind(move |s, _| s.entry[index].editing = true)
-                    }
-                >
-                    { data[index].1.clone() }
-                </label>
-            </div>
-        </div>
-    }
-}
+// #[component(auto_branch)]
+// fn DetailView(index: usize, data: Vec<(String, String)>, state: &Hook<State>) -> impl View + '_ {
+//     view! {
+//         <div>
+//             <div .view>
+//                 <label
+//                     ondblclick={
+//                         state.bind(move |s, _| s.entry[index].editing = true)
+//                     }
+//                 >
+//                     { data[index].1.clone() }
+//                 </label>
+//             </div>
+//         </div>
+//     }
+// }
 
 // #[component]
 // fn EntryView<'a>(state: &'a Hook<State>) -> impl View + 'a {
