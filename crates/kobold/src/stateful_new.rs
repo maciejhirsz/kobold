@@ -6,7 +6,7 @@ use std::rc::Rc;
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
-use crate::stateful::{IntoState, WithCell, ShouldRender};
+use crate::stateful::{IntoState, ShouldRender, WithCell};
 use crate::{Mountable, View};
 
 mod hook;
@@ -26,6 +26,14 @@ impl<S, P> Inner<S, MaybeUninit<P>> {
 
     unsafe fn into_init(self: Rc<Self>) -> Rc<Inner<S, P>> {
         std::mem::transmute(self)
+    }
+}
+
+impl<S> Inner<S, dyn Product<S>> {
+    fn update(&self) {
+        let hook = Hook::new(self);
+
+        unsafe { (*self.prod.get()).update(hook) }
     }
 }
 
@@ -123,7 +131,7 @@ where
             prod: UnsafeCell::new(MaybeUninit::uninit()),
         });
 
-        let product = (self.render)(unsafe { Hook::new(inner.as_init()) }).build();
+        let product = (self.render)(Hook::new(unsafe { inner.as_init() })).build();
 
         unsafe { &mut *inner.prod.get() }.write(ProductHandler {
             updater: move |hook, product: *mut V::Product| {
@@ -141,8 +149,7 @@ where
     fn update(self, p: &mut Self::Product) {
         p.inner.state.with(|state| {
             if self.state.update(state).should_render() {
-                let hook = unsafe { Hook::new(&p.inner) };
-                unsafe { (*p.inner.prod.get()).update(hook) }
+                p.inner.update();
             }
         })
     }

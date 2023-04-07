@@ -1,6 +1,7 @@
 use std::ops::Deref;
 
 use crate::stateful::ShouldRender;
+use crate::View;
 
 use super::{Inner, Product};
 
@@ -10,8 +11,8 @@ pub struct Hook<S> {
 }
 
 impl<S> Hook<S> {
-    pub(super) unsafe fn new(inner: &Inner<S, dyn Product<S>>) -> &Self {
-        &*(inner as *const _ as *const Hook<S>)
+    pub(super) fn new(inner: &Inner<S, dyn Product<S>>) -> &Self {
+        unsafe { &*(inner as *const _ as *const Hook<S>) }
     }
 }
 
@@ -34,20 +35,17 @@ impl<S> Hook<S> {
         F: Fn(&mut S, E) -> O + 'static,
         O: ShouldRender,
     {
-        let inner = &self.inner as *const _;
+        let inner = &self.inner as *const Inner<S, dyn Product<S>>;
 
-        panic!();
+        move |e| {
+            let inner = unsafe { &*inner };
 
-        move |e| {}
-        // move |e| {
-        //     if let Some(inner) = inner.weak().upgrade() {
-        //         inner.with(|inner| {
-        //             if callback(&mut inner.hook.state, e).should_render() {
-        //                 inner.update()
-        //             }
-        //         });
-        //     }
-        // }
+            inner.state.with(|state| {
+                if callback(state, e).should_render() {
+                    inner.update();
+                }
+            });
+        }
     }
 
     /// Get the value of state if state implements `Copy`. This is equivalent to writing
@@ -65,5 +63,20 @@ impl<S> Deref for Hook<S> {
 
     fn deref(&self) -> &Self::Target {
         unsafe { self.inner.state.borrow_unchecked() }
+    }
+}
+
+impl<'a, H> View for &'a Hook<H>
+where
+    &'a H: View + 'a,
+{
+    type Product = <&'a H as View>::Product;
+
+    fn build(self) -> Self::Product {
+        (**self).build()
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        (**self).update(p)
     }
 }
