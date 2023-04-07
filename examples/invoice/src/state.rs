@@ -134,14 +134,14 @@ impl State {
         }
         for col in &self.details.table.columns {
             let (capacity, value) = get_data_for_col(&col);
-            capacity_main += capacity;
-            new_entries_main.push(value);
+            capacity_details += capacity;
+            new_entries_details.push(value);
         }
         for row in &self.details.table.rows {
             for col in row.iter() {
                 let (capacity, value) = get_data_for_col(&col);
-                capacity_main += capacity;
-                new_entries_main.push(value);
+                capacity_details += capacity;
+                new_entries_details.push(value);
             }
         }
         debug!("capacity_main {:#?}", capacity_main);
