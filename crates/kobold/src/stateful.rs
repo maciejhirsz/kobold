@@ -266,7 +266,7 @@ where
     }
 }
 
-struct WithCell<T> {
+pub(crate) struct WithCell<T> {
     borrowed: Cell<bool>,
     data: UnsafeCell<T>,
 }

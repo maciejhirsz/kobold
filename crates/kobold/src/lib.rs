@@ -296,6 +296,8 @@ mod value;
 #[cfg(feature = "stateful")]
 pub mod stateful;
 
+pub mod stateful_new;
+
 /// The prelude module with most commonly used types.
 ///
 /// Intended use is:
