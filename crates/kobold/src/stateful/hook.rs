@@ -9,6 +9,11 @@ use std::rc::{Rc, Weak};
 use crate::stateful::{Inner, ShouldRender};
 use crate::View;
 
+/// A hook into some state `S`. A reference to `Hook` is obtained by using the [`stateful`](crate::stateful::stateful)
+/// function.
+///
+/// Hook can be read from though its `Deref` implementation, and it allows for mutations either by [`bind`ing](Hook::bind)
+/// closures to it, or the creation of [`signal`s](Hook::signal).
 #[repr(transparent)]
 pub struct Hook<S> {
     inner: Inner<S>,
