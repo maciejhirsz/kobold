@@ -90,6 +90,8 @@
 //! }
 //! ```
 
+use std::mem::MaybeUninit;
+
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
@@ -173,7 +175,7 @@ macro_rules! branch {
     };
 }
 
-branch!(Branch2<A, B>);
+// branch!(Branch2<A, B>);
 branch!(Branch3<A, B, C>);
 branch!(Branch4<A, B, C, D>);
 branch!(Branch5<A, B, C, D, E>);
@@ -182,9 +184,163 @@ branch!(Branch7<A, B, C, D, E, F, G>);
 branch!(Branch8<A, B, C, D, E, F, G, H>);
 branch!(Branch9<A, B, C, D, E, F, G, H, I>);
 
-pub struct EmptyNode(Node);
+#[repr(C)]
+pub struct EitherProduct<A, B> {
+    tag: EitherTag,
+    a: MaybeUninit<A>,
+    b: MaybeUninit<B>,
+}
 
-pub struct Empty;
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EitherTag {
+    A,
+    B,
+    AB,
+    BA,
+}
+
+impl<A, B> EitherProduct<A, B>
+where
+    A: Mountable,
+    B: Mountable,
+{
+    fn a(prod: A) -> Self {
+        EitherProduct {
+            tag: EitherTag::A,
+            a: MaybeUninit::new(prod),
+            b: MaybeUninit::uninit(),
+        }
+    }
+
+    fn b(prod: B) -> Self {
+        EitherProduct {
+            tag: EitherTag::B,
+            a: MaybeUninit::uninit(),
+            b: MaybeUninit::new(prod),
+        }
+    }
+
+    fn update_a<V>(&mut self, view: V)
+    where
+        V: View<Product = A>,
+    {
+        if matches!(self.tag, EitherTag::B) {
+            self.a.write(view.build());
+        } else {
+            view.update(unsafe { self.a.assume_init_mut() })
+        }
+
+        match self.tag {
+            EitherTag::B | EitherTag::BA => {
+                let a = unsafe { self.a.assume_init_ref() };
+                let b = unsafe { self.b.assume_init_ref() };
+
+                b.replace_with(a.js());
+
+                self.tag = EitherTag::AB;
+            }
+            EitherTag::A | EitherTag::AB => (),
+        }
+    }
+
+    fn update_b<V>(&mut self, view: V)
+    where
+        V: View<Product = B>,
+    {
+        if matches!(self.tag, EitherTag::A) {
+            self.b.write(view.build());
+        } else {
+            view.update(unsafe { self.b.assume_init_mut() })
+        }
+
+        match self.tag {
+            EitherTag::A | EitherTag::AB => {
+                let a = unsafe { self.a.assume_init_ref() };
+                let b = unsafe { self.b.assume_init_ref() };
+
+                a.replace_with(b.js());
+
+                self.tag = EitherTag::BA;
+            }
+            EitherTag::B | EitherTag::BA => (),
+        }
+    }
+}
+
+impl<A, B> Mountable for EitherProduct<A, B>
+where
+    A: Mountable,
+    B: Mountable,
+{
+    type Js = Node;
+
+    fn js(&self) -> &JsValue {
+        match self.tag {
+            EitherTag::A | EitherTag::AB => unsafe { self.a.assume_init_ref() }.js(),
+            EitherTag::B | EitherTag::BA => unsafe { self.b.assume_init_ref() }.js(),
+        }
+    }
+
+    fn replace_with(&self, new: &JsValue) {
+        match self.tag {
+            EitherTag::A | EitherTag::AB => unsafe { self.a.assume_init_ref() }.replace_with(new),
+            EitherTag::B | EitherTag::BA => unsafe { self.b.assume_init_ref() }.replace_with(new),
+        }
+    }
+
+    fn unmount(&self) {
+        match self.tag {
+            EitherTag::A | EitherTag::AB => unsafe { self.a.assume_init_ref() }.unmount(),
+            EitherTag::B | EitherTag::BA => unsafe { self.b.assume_init_ref() }.unmount(),
+        }
+    }
+}
+
+pub enum Branch2<A, B> {
+    A(A),
+    B(B),
+}
+
+impl<A, B> View for Branch2<A, B>
+where
+    A: View,
+    B: View,
+{
+    type Product = EitherProduct<A::Product, B::Product>;
+
+    fn build(self) -> Self::Product {
+        match self {
+            Branch2::A(view) => EitherProduct::a(view.build()),
+            Branch2::B(view) => EitherProduct::b(view.build()),
+        }
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        match self {
+            Branch2::A(view) => p.update_a(view),
+            Branch2::B(view) => p.update_b(view),
+        }
+    }
+}
+
+impl<A, B> Drop for EitherProduct<A, B> {
+    fn drop(&mut self) {
+        // drop A if tag is either A, AB, or BA
+        if self.tag != EitherTag::B {
+            unsafe {
+                self.a.assume_init_drop();
+            }
+        }
+        // drop B if tag is either B, AB, or BA
+        if self.tag != EitherTag::A {
+            unsafe {
+                self.b.assume_init_drop();
+            }
+        }
+    }
+}
+
+pub struct EmptyNode(Node);
 
 impl Anchor for EmptyNode {
     type Js = Node;
@@ -195,7 +351,7 @@ impl Anchor for EmptyNode {
     }
 }
 
-impl View for Empty {
+impl View for () {
     type Product = EmptyNode;
 
     fn build(self) -> Self::Product {
@@ -205,28 +361,23 @@ impl View for Empty {
     fn update(self, _: &mut Self::Product) {}
 }
 
-impl<T: View> View for Option<T> {
-    type Product = Branch2<T::Product, EmptyNode>;
+impl<T> View for Option<T>
+where
+    T: View,
+{
+    type Product = EitherProduct<T::Product, EmptyNode>;
 
     fn build(self) -> Self::Product {
         match self {
-            Some(html) => Branch2::A(html.build()),
-            None => Branch2::B(Empty.build()),
+            Some(html) => EitherProduct::a(html.build()),
+            None => EitherProduct::b(().build()),
         }
     }
 
     fn update(self, p: &mut Self::Product) {
-        match (self, p) {
-            (Some(html), Branch2::A(p)) => html.update(p),
-            (None, Branch2::B(_)) => (),
-
-            (html, old) => {
-                let new = html.build();
-
-                old.replace_with(new.js());
-
-                *old = new;
-            }
+        match self {
+            Some(html) => p.update_a(html),
+            None => p.update_b(()),
         }
     }
 }
