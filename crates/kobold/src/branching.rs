@@ -192,6 +192,7 @@ pub struct EitherProduct<A, B> {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 enum EitherTag {
     A,
     B,
@@ -204,7 +205,7 @@ where
     A: Mountable,
     B: Mountable,
 {
-    fn a(prod: A) -> Self {
+    const fn a(prod: A) -> Self {
         EitherProduct {
             tag: EitherTag::A,
             a: MaybeUninit::new(prod),
@@ -212,7 +213,7 @@ where
         }
     }
 
-    fn b(prod: B) -> Self {
+    const fn b(prod: B) -> Self {
         EitherProduct {
             tag: EitherTag::B,
             a: MaybeUninit::uninit(),
@@ -230,16 +231,13 @@ where
             view.update(unsafe { self.a.assume_init_mut() })
         }
 
-        match self.tag {
-            EitherTag::B | EitherTag::BA => {
-                let a = unsafe { self.a.assume_init_ref() };
-                let b = unsafe { self.b.assume_init_ref() };
+        if matches!(self.tag, EitherTag::B | EitherTag::BA) {
+            let a = unsafe { self.a.assume_init_ref() };
+            let b = unsafe { self.b.assume_init_ref() };
 
-                b.replace_with(a.js());
+            b.replace_with(a.js());
 
-                self.tag = EitherTag::AB;
-            }
-            EitherTag::A | EitherTag::AB => (),
+            self.tag = EitherTag::AB;
         }
     }
 
@@ -253,16 +251,13 @@ where
             view.update(unsafe { self.b.assume_init_mut() })
         }
 
-        match self.tag {
-            EitherTag::A | EitherTag::AB => {
-                let a = unsafe { self.a.assume_init_ref() };
-                let b = unsafe { self.b.assume_init_ref() };
+        if matches!(self.tag, EitherTag::A | EitherTag::AB) {
+            let a = unsafe { self.a.assume_init_ref() };
+            let b = unsafe { self.b.assume_init_ref() };
 
-                a.replace_with(b.js());
+            a.replace_with(b.js());
 
-                self.tag = EitherTag::BA;
-            }
-            EitherTag::B | EitherTag::BA => (),
+            self.tag = EitherTag::BA;
         }
     }
 }
@@ -276,22 +271,22 @@ where
 
     fn js(&self) -> &JsValue {
         match self.tag {
-            EitherTag::A | EitherTag::AB => unsafe { self.a.assume_init_ref() }.js(),
-            EitherTag::B | EitherTag::BA => unsafe { self.b.assume_init_ref() }.js(),
+            EitherTag::A | EitherTag::AB => unsafe { self.a.assume_init_ref().js() },
+            EitherTag::B | EitherTag::BA => unsafe { self.b.assume_init_ref().js() },
         }
     }
 
     fn replace_with(&self, new: &JsValue) {
         match self.tag {
-            EitherTag::A | EitherTag::AB => unsafe { self.a.assume_init_ref() }.replace_with(new),
-            EitherTag::B | EitherTag::BA => unsafe { self.b.assume_init_ref() }.replace_with(new),
+            EitherTag::A | EitherTag::AB => unsafe { self.a.assume_init_ref().replace_with(new) },
+            EitherTag::B | EitherTag::BA => unsafe { self.b.assume_init_ref().replace_with(new) },
         }
     }
 
     fn unmount(&self) {
         match self.tag {
-            EitherTag::A | EitherTag::AB => unsafe { self.a.assume_init_ref() }.unmount(),
-            EitherTag::B | EitherTag::BA => unsafe { self.b.assume_init_ref() }.unmount(),
+            EitherTag::A | EitherTag::AB => unsafe { self.a.assume_init_ref().unmount() },
+            EitherTag::B | EitherTag::BA => unsafe { self.b.assume_init_ref().unmount() },
         }
     }
 }
