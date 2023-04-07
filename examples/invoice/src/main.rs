@@ -195,7 +195,9 @@ fn Editor() -> impl View {
                             <thead>
                                 <tr>
                                 {
-                                    for state.main.table.columns().map(|col| view! { <Head {col} {state} /> })
+                                    for state.main.table.columns().map(|col| view! {
+                                        <Head {col} row={0} {state} />
+                                    })
                                 }
                                 </tr>
                             </thead>
@@ -224,7 +226,7 @@ fn Editor() -> impl View {
 }
 
 #[component(auto_branch)]
-fn Head(col: usize, state: &Hook<State>) -> impl View + '_ {
+fn Head(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     let value = state.main.table.source.get_text(&state.main.table.columns[col]);
 
     if state.editing == (Editing::Column { col }) {
@@ -236,7 +238,21 @@ fn Head(col: usize, state: &Hook<State>) -> impl View + '_ {
         view! {
             <th.edit>
                 { ref value }
-                <input.edit.edit-head {onchange} value={ ref value } />
+                <input.edit.edit-head
+                    onkeypress={
+                        state.bind(move |state, e: KeyboardEvent<InputElement>| {
+                            if e.key() == "Enter" && e.target().value() != "" {
+                                state.update_main(row, col, e.target().value());
+
+                                Then::Render
+                            } else {
+                                Then::Stop
+                            }
+                        })
+                    }
+
+                    {onchange} value={ ref value }
+                />
             </th>
         }
     } else {
@@ -259,7 +275,21 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
         Branch3::A(view! {
             <td.edit>
                 { ref value }
-                <input.edit {onchange} value={ ref value } />
+                <input.edit
+                    onkeypress={
+                        state.bind(move |state, e: KeyboardEvent<InputElement>| {
+                            if e.key() == "Enter" && e.target().value() != "" {
+                                state.update_main(row, col, e.target().value());
+
+                                Then::Render
+                            } else {
+                                Then::Stop
+                            }
+                        })
+                    }
+                    {onchange}
+                    value={ ref value }
+                />
             </td>
         })
     // https://github.com/maciejhirsz/kobold/issues/51
@@ -282,6 +312,7 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 
 #[component(auto_branch)]
 fn HeadDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
+    debug!("row/col: {:?}/{:?}", row, col);
     let value = state.details.table.source.get_text(&state.details.table.rows[row][col]);
 
     if state.editing_details == (Editing::Cell { row, col }) {
@@ -294,11 +325,11 @@ fn HeadDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
             <th.edit>
                 { ref value }
                 <input.edit.edit-head
-                    // TODO - repeat in CellDetails to update LocalStorage
+                    // duplicate in CellDetails
                     onkeypress={
                         state.bind(move |state, e: KeyboardEvent<InputElement>| {
                             if e.key() == "Enter" && e.target().value() != "" {
-                                state.update(state.details.name, row, col, e.target().value());
+                                state.update_details(row, col, e.target().value());
 
                                 Then::Render
                             } else {
@@ -306,7 +337,6 @@ fn HeadDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
                             }
                         })
                     }
-
                     {onchange} value={ ref value }
                 />
             </th>
@@ -331,7 +361,20 @@ fn CellDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
         Branch3::A(view! {
             <td.edit>
                 { ref value }
-                <input.edit {onchange} value={ ref value } />
+                <input.edit
+                    onkeypress={
+                        state.bind(move |state, e: KeyboardEvent<InputElement>| {
+                            if e.key() == "Enter" && e.target().value() != "" {
+                                state.update_details(row, col, e.target().value());
+
+                                Then::Render
+                            } else {
+                                Then::Stop
+                            }
+                        })
+                    }
+                    {onchange} value={ ref value }
+                />
             </td>
         })
     // https://github.com/maciejhirsz/kobold/issues/51
@@ -558,13 +601,20 @@ fn CellDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 //     }
 // }
 
+// Credit: maciejhirsz
+fn sword(input: &str) -> (&str, &str) {
+    let (left, right) = input.split_once('|').unwrap();
+
+    (left.trim(), right.trim())
+}
+
 #[component]
 fn QRForTask(value: &str) -> impl View + '_ {
-    let v: Vec<&str> = value.split("|").collect();
+    let (left, right): (&str, &str) = sword(value);
     // assert_eq!(&v, &Vec::from(["0x100", "h160"]));
-    debug!("{:#?} {:#?}", &v[0], &v[1]);
-    let data: &str = v[0];
-    let format: &str = v[1];
+    debug!("{:#?} {:#?}", &left, &right);
+    let data: &str = left;
+    let format: &str = right;
     // 
     view! {
         <div.qr>

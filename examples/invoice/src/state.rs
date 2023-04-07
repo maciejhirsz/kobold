@@ -8,17 +8,12 @@ use wasm_bindgen::UnwrapThrowExt;
 // use wasm_bindgen::prelude::wasm_bindgen;
 use serde::{Serialize, Deserialize};
 use log::{info, debug, error, warn};
+use std::convert::TryInto;
 
 use std::ops::{Deref, DerefMut, Range};
 
 const KEY_MAIN: &str = "kobold.invoice.main";
 const KEY_DETAILS: &str = "kobold.invoice.details";
-
-// #[derive(Debug)]
-// pub enum Error {
-//     FailedToParseEntry,
-//     ParseBoolError,
-// }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum Editing {
@@ -37,13 +32,7 @@ pub struct State {
     pub editing_details: Editing,
     pub main: Content,
     pub details: Content,
-    // pub entry: Vec<Entry>,
 }
-
-// pub struct Entry {
-//     pub description: String,
-//     pub editing: bool,
-// }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Table {
@@ -58,47 +47,6 @@ pub enum Text {
     Owned(Box<str>),
 }
 
-// impl Entry {
-//     fn mock() -> Self {
-//         "my address\nyes".parse().unwrap()
-//     }
-
-//     fn read(from: &str) -> Option<Self> {
-//         let description = from.to_string();
-
-//         Some(Entry {
-//             description,
-//             editing: false,
-//         })
-//     }
-
-//     fn write(&self, storage: &mut String) {
-//         storage.extend([
-//             &self.description,
-//             "\n",
-//         ]);
-//     }
-// }
-
-// impl FromStr for Entry {
-//     type Err = Error;
-
-//     fn from_str(input: &str) -> Result<Self, Error> {
-//         let vec = input.lines().collect::<Vec<_>>();
-//         let description = vec[0].to_string();
-//         let editing = vec[1].to_string().parse::<bool>().or_else(|_i| Err(Error::ParseBoolError));
-//         let _editing = match editing {
-//             Ok(editing) => {
-//                 Ok(Entry { description, editing })
-//             },
-//             Err(_) => {
-//                 Err(Error::FailedToParseEntry)
-//             }
-//         };
-//         Err(Error::FailedToParseEntry)
-//     }
-// }
-
 impl Default for Text {
     fn default() -> Self {
         Text::Insitu(0..0)
@@ -107,36 +55,46 @@ impl Default for Text {
 
 impl Default for State {
     fn default() -> Self {
-        // let (mut index, mut description) = (0, String::with_capacity(3));
-        // let mut storage = format!("{:#?}\n{:#?}", index, description);
         let mut default_data = "_,_,_,_";
-        let mut storage = format!("{:#?},{:#?},{:#?},{:#?}", default_data);
+        let mut storage = format!("{:#?}", default_data);
 
         LocalStorage::raw().set_item(KEY_MAIN, &storage).ok();
         LocalStorage::raw().set_item(KEY_DETAILS, &storage).ok();
-
-        // if let Some(_storage) = LocalStorage::raw().get(KEY_MAIN).ok() {
-        //     storage = _storage.unwrap();
-        // }
-
 
         State {
             editing: Editing::None,
             editing_details: Editing::None,
             main: Content {
-                name: "<no main file>".to_owned(),
+                name: "main".to_owned(),
                 table: Table::mock(),
             },
             details: Content {
-                name: "<no details file>".to_owned(),
+                name: "details".to_owned(),
                 table: Table::mock_file_details(),   
             },
-            // entry: vec![Entry {
-            //     description: description.to_owned(),
-            //     editing: false,
-            // }],
         }
     }
+}
+
+fn convert_vec_to_arr<T, const N: usize>(v: Vec<T>) -> [T; N] {
+    v.try_into()
+        .unwrap_or_else(|v: Vec<T>| panic!("Expected a Vec of length {} but it was {}", N, v.len()))
+}
+
+fn get_data_for_col(col: &Text) -> (usize, Box<str>) {
+    let mut capacity = 0;
+    let mut value = String::new();
+    match col {
+        Text::Insitu(range) => {
+            debug!("{:#?}", range.len());
+            capacity += range.len() + 3;
+        },
+        Text::Owned(o) => {
+            debug!("{:#?}", o);
+            value = format!("{:#?}\n", o);
+        },
+    }
+    (capacity, value.into())
 }
 
 impl State {
@@ -145,105 +103,74 @@ impl State {
             editing: Editing::None,
             editing_details: Editing::None,
             main: Content {
-                name: "<no main file>".to_owned(),
+                name: "main".to_owned(),
                 table: Table::mock(),
             },
             details: Content {
-                name: "<no details file>".to_owned(),
+                name: "details".to_owned(),
                 table: Table::mock_file_details(),   
             },
-            // entry: vec![
-            //     Entry {
-            //         description: "<enter ??? address>".to_owned(),
-            //         editing: false,
-            //     }
-            // ],
         }
     }
 
     #[inline(never)]
-    pub fn store(&self, content_name: String, new_storage: String) {
-        // let capacity = self.entry[index].description.len() + 3;
-        // let (mut index, mut description) = (index, String::with_capacity(capacity));
+    pub fn store(&self) {
+        // determine the capacity required
+        let mut capacity_main = 0;
+        let mut capacity_details = 0;
+        let mut new_entries_main: Vec<Box<str>> = Vec::new();
+        let mut new_entries_details: Vec<Box<str>> = Vec::new();
+        for col in &self.main.table.columns {
+            let (capacity, value) = get_data_for_col(&col);
+            capacity_main += capacity;
+            new_entries_main.push(value);
+        }
+        for row in &self.main.table.rows {
+            for col in row.iter() {
+                let (capacity, value) = get_data_for_col(&col);
+                capacity_main += capacity;
+                new_entries_main.push(value);
+            }
+        }
+        for col in &self.details.table.columns {
+            let (capacity, value) = get_data_for_col(&col);
+            capacity_main += capacity;
+            new_entries_main.push(value);
+        }
+        for row in &self.details.table.rows {
+            for col in row.iter() {
+                let (capacity, value) = get_data_for_col(&col);
+                capacity_main += capacity;
+                new_entries_main.push(value);
+            }
+        }
+        debug!("capacity_main {:#?}", capacity_main);
+        let mut storage_main = String::with_capacity(capacity_main);
 
-        String::with_capacity(capacity));
+        debug!("capacity_details {:#?}", capacity_details);
+        let mut storage_details = String::with_capacity(capacity_details);
 
-        // self.entry[index].write(&mut storage);
+        let joined_storage_main = new_entries_main.join(storage_main.as_str());
+        let joined_storage_details = new_entries_details.join(storage_details.as_str());
+        debug!("joined_storage_main {:#?}", joined_storage_main);
+        debug!("joined_storage_details {:#?}", joined_storage_details);
 
-        
+        LocalStorage::raw().set_item(KEY_MAIN, &joined_storage_main).ok();
+        LocalStorage::raw().set_item(KEY_DETAILS, &joined_storage_details).ok();
+    }
 
-        if content_name == KEY_MAIN.to_string() {
-            LocalStorage::raw().set_item(KEY_MAIN, &new_storage).ok();
-        } else if content_name == KEY_DETAILS.to_string() {
-            LocalStorage::raw().set_item(KEY_DETAILS, &new_storage).ok();
-        } else {
-            throw_str("unknown content_name");
+    pub fn update_main(&mut self, row: usize, col: usize, value: String) {
+        let old_storage = self.main.table.source.get_text(&self.main.table.rows[row][col]);
+        if value != old_storage {
+            self.store();
         }
     }
 
-    // pub fn edit_entry(&mut self, index: usize) {
-    //     self.entry[index].editing = true;
-
-    //     self.store(index);
-    // }
-
-    pub fn edit(&mut self, index: usize) {
-        // self.entry[index].editing = true;
-
-        self.store(index);
-    }
-
-    // pub fn add(&mut self, index: usize, description: String) {
-    //     self.entry[index] = Entry {
-    //         description,
-    //         editing: false,
-    //     };
-
-    //     self.store(index);
-    // }
-
-    pub fn add(&mut self, index: usize) {
-        // self.entry[index] = Entry {
-        //     description,
-        //     editing: false,
-        // };
-
-        self.store(index);
-    }
-
-    // pub fn update(&mut self, index: usize, description: String) {
-    //     let entry = &mut self.entry[index];
-    //     entry.editing = false;
-
-    //     if description != entry.description {
-    //         entry.description = description;
-    //         self.store(index);
-    //     }
-    // }
-
-    pub fn update(&mut self, content_name: String, row: Text, col: Text, value: String) {
-
-        // WRONG -- see todomvc example of fn store for use of LocalStorage
-
-        // let new_storage = format!("{:#?},{:#?},{:#?}", row, col, value);
-        // let mut existing_storage;
-        // if content_name == KEY_MAIN.to_string() {
-        //     if let Some(_storage) = LocalStorage::raw().get(KEY_MAIN).ok() {
-        //         existing_storage = _storage.unwrap();
-        //         debug!("existing_storage main: {:#?}", existing_storage);
-        //     }
-        // } else if content_name == KEY_DETAILS.to_string() {
-        //     if let Some(_storage) = LocalStorage::raw().get(KEY_DETAILS).ok() {
-        //         existing_storage = _storage.unwrap();
-        //         debug!("existing_storage details: {:#?}", existing_storage);
-        //     }
-        // } else {
-        //     throw_str("unknown content_name");
-        // }
-
-        // if new_storage != existing_storage {
-        //     self.store(content_name, new_storage);
-        // }
+    pub fn update_details(&mut self, row: usize, col: usize, value: String) {
+        let old_storage = self.details.table.source.get_text(&self.details.table.rows[row][col]);
+        if value != old_storage {
+            self.store();
+        }
     }
 }
 
@@ -287,9 +214,7 @@ impl Table {
     }
 
     fn mock_file_details() -> Self {
-        "inv_date,inv_no,from_attn_name,from_org_name,from_org_addr,from_email,to_attn_name,to_title,to_org_name,to_email\n
-01.04.2023,0001,luke,clawbird,1 metaverse ave,test@test.com,recipient_name,director,nftverse,test2@test.com\n
-invoice date,invoice number,name person from,organisation name from,organisation address from,email from,name person attention to,title to,organisation name to,email to".parse().unwrap()
+        "inv_date,inv_no,from_attn_name,from_org_name,from_org_addr,from_email,to_attn_name,to_title,to_org_name,to_email\n01.04.2023,0001,luke,clawbird,1 metaverse ave,test@test.com,recipient_name,director,nftverse,test2@test.com\ninvoice date,invoice number,name person from,organisation name from,organisation address from,email from,name person attention to,title to,organisation name to,email to".parse().unwrap()
     }
 
     pub fn rows(&self) -> Range<usize> {
