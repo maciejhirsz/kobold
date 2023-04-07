@@ -10,26 +10,22 @@ use state::{Editing, State, Text};
 #[component]
 fn Editor() -> impl View {
     stateful(State::mock, |state| {
-        let onload = {
-            let signal = state.signal();
+        let onload = state.bind_signal(|signal, e: Event<Input>| {
+            let file = match e.target().files().and_then(|list| list.get(0)) {
+                Some(file) => file,
+                None => return,
+            };
 
-            move |e: Event<Input>| {
-                let file = match e.target().files().and_then(|list| list.get(0)) {
-                    Some(file) => file,
-                    None => return,
-                };
+            signal.update(|state| state.name = file.name());
 
-                signal.update(|state| state.name = file.name());
+            let signal = signal.clone();
 
-                let signal = signal.clone();
-
-                spawn_local(async move {
-                    if let Ok(table) = csv::read_file(file).await {
-                        signal.update(move |state| state.table = table);
-                    }
-                })
-            }
-        };
+            spawn_local(async move {
+                if let Ok(table) = csv::read_file(file).await {
+                    signal.update(move |state| state.table = table);
+                }
+            })
+        });
 
         bind! { state:
             let onkeydown = move |event: KeyboardEvent<_>| {

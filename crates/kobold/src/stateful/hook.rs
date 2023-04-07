@@ -87,16 +87,6 @@ impl<S> Hook<S> {
         unsafe { &*(inner as *const _ as *const Hook<S>) }
     }
 
-    /// Create an owned `Signal` to the state. This is effectively a weak reference
-    /// that allows for remote updates, particularly useful in async code.
-    pub fn signal(&self) -> Signal<S> {
-        let rc = ManuallyDrop::new(unsafe { Rc::from_raw(&self.inner) });
-
-        Signal {
-            weak: Rc::downgrade(&*rc),
-        }
-    }
-
     /// Binds a closure to a mutable reference of the state. While this method is public
     /// it's recommended to use the [`bind!`](crate::bind) macro instead.
     pub fn bind<E, F, O>(&self, callback: F) -> impl Fn(E) + 'static
@@ -115,6 +105,24 @@ impl<S> Hook<S> {
                     inner.update();
                 }
             });
+        }
+    }
+
+    pub fn bind_signal<E, F>(&self, callback: F) -> impl Fn(E) + 'static
+    where
+        S: 'static,
+        F: Fn(Signal<S>, E) + 'static,
+    {
+        let inner = &self.inner as *const Inner<S>;
+
+        move |e| {
+            let rc = ManuallyDrop::new(unsafe { Rc::from_raw(inner) });
+
+            let signal = Signal {
+                weak: Rc::downgrade(&*rc),
+            };
+
+            callback(signal, e);
         }
     }
 
