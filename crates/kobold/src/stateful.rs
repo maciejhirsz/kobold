@@ -11,66 +11,32 @@
 //! could ever do is render itself once. To get around this the [`stateful`](stateful) function can
 //! be used to create views that have ownership over some arbitrary mutable state.
 //!
-use std::cell::{Cell, UnsafeCell};
-use std::marker::PhantomData;
+use std::cell::UnsafeCell;
 use std::mem::MaybeUninit;
 use std::rc::Rc;
 
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
-use crate::diff::Diff;
 use crate::{Mountable, View};
 
+mod cell;
 mod hook;
+mod into_state;
+mod product;
 mod should_render;
 
+use cell::WithCell;
+use product::{Product, ProductHandler};
+
 pub use hook::{Hook, Signal};
+pub use into_state::IntoState;
 pub use should_render::{ShouldRender, Then};
 
 #[repr(C)]
 struct Inner<S, P: ?Sized = dyn Product<S>> {
     state: WithCell<S>,
     prod: UnsafeCell<P>,
-}
-
-trait Product<S> {
-    fn update(&mut self, hook: &Hook<S>);
-
-    fn js(&self) -> &JsValue;
-
-    fn unmount(&self);
-
-    fn replace_with(&self, new: &JsValue);
-}
-
-struct ProductHandler<S, P, F> {
-    updater: F,
-    product: P,
-    _state: PhantomData<S>,
-}
-
-impl<S, P, F> Product<S> for ProductHandler<S, P, F>
-where
-    S: 'static,
-    P: Mountable,
-    F: FnMut(*const Hook<S>, *mut P),
-{
-    fn update(&mut self, hook: &Hook<S>) {
-        (self.updater)(hook, &mut self.product);
-    }
-
-    fn js(&self) -> &JsValue {
-        self.product.js()
-    }
-
-    fn unmount(&self) {
-        self.product.unmount()
-    }
-
-    fn replace_with(&self, new: &JsValue) {
-        self.product.replace_with(new)
-    }
 }
 
 impl<S, P> Inner<S, MaybeUninit<P>> {
@@ -88,31 +54,6 @@ impl<S> Inner<S> {
         let hook = Hook::new(self);
 
         unsafe { (*self.prod.get()).update(hook) }
-    }
-}
-
-/// Trait used to create stateful components, see [`stateful`](crate::stateful::stateful) for details.
-pub trait IntoState: Sized {
-    type State: 'static;
-
-    fn init(self) -> Self::State;
-
-    fn update(self, state: &mut Self::State) -> Then;
-}
-
-impl<F, S> IntoState for F
-where
-    S: 'static,
-    F: FnOnce() -> S,
-{
-    type State = S;
-
-    fn init(self) -> Self::State {
-        (self)()
-    }
-
-    fn update(self, _: &mut Self::State) -> Then {
-        Then::Stop
     }
 }
 
@@ -173,13 +114,12 @@ where
 
         let product = (self.render)(Hook::new(unsafe { inner.as_init() })).build();
 
-        unsafe { &mut *inner.prod.get() }.write(ProductHandler {
-            updater: move |hook, product: *mut V::Product| {
+        unsafe { &mut *inner.prod.get() }.write(ProductHandler::new(
+            move |hook, product: *mut V::Product| {
                 (self.render)(hook).update(unsafe { &mut *product })
             },
             product,
-            _state: PhantomData,
-        });
+        ));
 
         StatefulProduct {
             inner: unsafe { inner.into_init() },
@@ -258,59 +198,3 @@ where
         self.with_state.update(p);
     }
 }
-
-struct WithCell<T> {
-    borrowed: Cell<bool>,
-    data: UnsafeCell<T>,
-}
-
-impl<T> WithCell<T> {
-    pub const fn new(data: T) -> Self {
-        WithCell {
-            borrowed: Cell::new(false),
-            data: UnsafeCell::new(data),
-        }
-    }
-
-    pub fn with<F>(&self, mutator: F)
-    where
-        F: FnOnce(&mut T),
-    {
-        if self.borrowed.get() {
-            return;
-        }
-
-        self.borrowed.set(true);
-        mutator(unsafe { &mut *self.data.get() });
-        self.borrowed.set(false);
-    }
-
-    pub unsafe fn borrow_unchecked(&self) -> &T {
-        &*self.data.get()
-    }
-}
-
-macro_rules! impl_into_state {
-    ($($ty:ty),*) => {
-        $(
-            impl IntoState for $ty {
-                type State = <Self as Diff>::Memo;
-
-                fn init(self) -> Self::State {
-                    self.into_memo()
-                }
-
-                fn update(self, state: &mut Self::State) -> Then {
-                    match self.diff(state) {
-                        false => Then::Stop,
-                        true => Then::Render,
-                    }
-                }
-            }
-        )*
-    };
-}
-
-impl_into_state!(
-    &str, &String, bool, u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64
-);
