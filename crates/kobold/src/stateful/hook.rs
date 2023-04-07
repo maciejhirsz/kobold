@@ -1,25 +1,18 @@
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at https://mozilla.org/MPL/2.0/.
-
+use std::mem::ManuallyDrop;
 use std::ops::Deref;
-use std::rc::Weak;
+use std::rc::{Rc, Weak};
 
-use crate::stateful::{Inner, ShouldRender, WeakRef, WithCell};
+use crate::stateful::{Inner, ShouldRender};
 use crate::View;
 
-/// A hook into some state `S`. A reference to `Hook` is obtained by using the [`stateful`](crate::stateful::stateful)
-/// function.
-///
-/// Hook can be read from though its `Deref` implementation, and it allows for mutations either by [`bind`ing](Hook::bind)
-/// closures to it, or the creation of [`signal`s](Hook::signal).
+#[repr(transparent)]
 pub struct Hook<S> {
-    pub(super) state: S,
-    pub(super) inner: WeakRef<WithCell<Inner<S>>>,
+    inner: Inner<S>,
 }
 
+#[repr(transparent)]
 pub struct Signal<S> {
-    pub(super) weak: Weak<WithCell<Inner<S>>>,
+    pub(super) weak: Weak<Inner<S>>,
 }
 
 impl<S> Signal<S> {
@@ -48,8 +41,8 @@ impl<S> Signal<S> {
         O: ShouldRender,
     {
         if let Some(inner) = self.weak.upgrade() {
-            inner.with(move |inner| {
-                if mutator(&mut inner.hook.state).should_render() {
+            inner.state.with(|state| {
+                if mutator(state).should_render() {
                     inner.update()
                 }
             });
@@ -62,7 +55,7 @@ impl<S> Signal<S> {
         F: FnOnce(&mut S),
     {
         if let Some(inner) = self.weak.upgrade() {
-            inner.with(move |inner| mutator(&mut inner.hook.state));
+            inner.state.with(move |state| mutator(state));
         }
     }
 
@@ -81,13 +74,17 @@ impl<S> Clone for Signal<S> {
 }
 
 impl<S> Hook<S> {
+    pub(super) fn new(inner: &Inner<S>) -> &Self {
+        unsafe { &*(inner as *const _ as *const Hook<S>) }
+    }
+
     /// Create an owned `Signal` to the state. This is effectively a weak reference
     /// that allows for remote updates, particularly useful in async code.
     pub fn signal(&self) -> Signal<S> {
-        let weak = self.inner.weak();
+        let rc = ManuallyDrop::new(unsafe { Rc::from_raw(&self.inner) });
 
         Signal {
-            weak: (*weak).clone(),
+            weak: Rc::downgrade(&*rc),
         }
     }
 
@@ -99,16 +96,16 @@ impl<S> Hook<S> {
         F: Fn(&mut S, E) -> O + 'static,
         O: ShouldRender,
     {
-        let inner = self.inner;
+        let inner = &self.inner as *const Inner<S>;
 
         move |e| {
-            if let Some(inner) = inner.weak().upgrade() {
-                inner.with(|inner| {
-                    if callback(&mut inner.hook.state, e).should_render() {
-                        inner.update()
-                    }
-                });
-            }
+            let inner = unsafe { &*inner };
+
+            inner.state.with(|state| {
+                if callback(state, e).should_render() {
+                    inner.update();
+                }
+            });
         }
     }
 
@@ -118,15 +115,15 @@ impl<S> Hook<S> {
     where
         S: Copy,
     {
-        self.state
+        unsafe { *self.inner.state.borrow_unchecked() }
     }
 }
 
 impl<S> Deref for Hook<S> {
     type Target = S;
 
-    fn deref(&self) -> &S {
-        &self.state
+    fn deref(&self) -> &Self::Target {
+        unsafe { self.inner.state.borrow_unchecked() }
     }
 }
 

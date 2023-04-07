@@ -13,8 +13,8 @@
 //!
 use std::cell::{Cell, UnsafeCell};
 use std::marker::PhantomData;
-use std::mem::ManuallyDrop;
-use std::rc::{Rc, Weak};
+use std::mem::MaybeUninit;
+use std::rc::Rc;
 
 use wasm_bindgen::JsValue;
 use web_sys::Node;
@@ -28,9 +28,10 @@ mod should_render;
 pub use hook::{Hook, Signal};
 pub use should_render::{ShouldRender, Then};
 
-pub struct Inner<S> {
-    hook: Hook<S>,
-    prod: Box<dyn Product<S>>,
+#[repr(C)]
+struct Inner<S, P: ?Sized = dyn Product<S>> {
+    state: WithCell<S>,
+    prod: UnsafeCell<P>,
 }
 
 trait Product<S> {
@@ -72,9 +73,21 @@ where
     }
 }
 
+impl<S, P> Inner<S, MaybeUninit<P>> {
+    unsafe fn as_init(&self) -> &Inner<S, P> {
+        &*(self as *const _ as *const Inner<S, P>)
+    }
+
+    unsafe fn into_init(self: Rc<Self>) -> Rc<Inner<S, P>> {
+        std::mem::transmute(self)
+    }
+}
+
 impl<S> Inner<S> {
-    fn update(&mut self) {
-        self.prod.update(&self.hook)
+    fn update(&self) {
+        let hook = Hook::new(self);
+
+        unsafe { (*self.prod.get()).update(hook) }
     }
 }
 
@@ -109,7 +122,7 @@ pub struct Stateful<S, F> {
 }
 
 pub struct StatefulProduct<S> {
-    inner: Rc<WithCell<Inner<S>>>,
+    inner: Rc<Inner<S>>,
 }
 
 /// Create a stateful [`View`](crate::View) over some mutable state. The state
@@ -144,23 +157,6 @@ where
     Stateful { state, render }
 }
 
-#[repr(transparent)]
-struct WeakRef<T>(*const T);
-
-impl<T> Clone for WeakRef<T> {
-    fn clone(&self) -> WeakRef<T> {
-        WeakRef(self.0)
-    }
-}
-
-impl<T> Copy for WeakRef<T> {}
-
-impl<T> WeakRef<T> {
-    pub fn weak(self) -> ManuallyDrop<Weak<T>> {
-        ManuallyDrop::new(unsafe { Weak::from_raw(self.0) })
-    }
-}
-
 impl<S, F, V> View for Stateful<S, F>
 where
     S: IntoState,
@@ -170,35 +166,32 @@ where
     type Product = StatefulProduct<S::State>;
 
     fn build(self) -> Self::Product {
-        let inner = Rc::new_cyclic(move |weak| {
-            let hook = Hook {
-                state: self.state.init(),
-                inner: WeakRef(weak.as_ptr()),
-            };
-
-            let product = (self.render)(&hook).build();
-
-            WithCell::new(Inner {
-                hook,
-                prod: Box::new(ProductHandler {
-                    updater: move |hook, product: *mut V::Product| {
-                        (self.render)(hook).update(unsafe { &mut *product })
-                    },
-                    product,
-                    _state: PhantomData,
-                }),
-            })
+        let inner = Rc::new(Inner {
+            state: WithCell::new(self.state.init()),
+            prod: UnsafeCell::new(MaybeUninit::uninit()),
         });
 
-        StatefulProduct { inner }
+        let product = (self.render)(Hook::new(unsafe { inner.as_init() })).build();
+
+        unsafe { &mut *inner.prod.get() }.write(ProductHandler {
+            updater: move |hook, product: *mut V::Product| {
+                (self.render)(hook).update(unsafe { &mut *product })
+            },
+            product,
+            _state: PhantomData,
+        });
+
+        StatefulProduct {
+            inner: unsafe { inner.into_init() },
+        }
     }
 
     fn update(self, p: &mut Self::Product) {
-        p.inner.with(|inner| {
-            if self.state.update(&mut inner.hook.state).should_render() {
-                inner.update();
+        p.inner.state.with(|state| {
+            if self.state.update(state).should_render() {
+                p.inner.update();
             }
-        });
+        })
     }
 }
 
@@ -209,15 +202,15 @@ where
     type Js = Node;
 
     fn js(&self) -> &JsValue {
-        unsafe { self.inner.borrow_unchecked().prod.js() }
+        unsafe { (*self.inner.prod.get()).js() }
     }
 
     fn unmount(&self) {
-        unsafe { self.inner.borrow_unchecked().prod.unmount() }
+        unsafe { (*self.inner.prod.get()).unmount() }
     }
 
     fn replace_with(&self, new: &JsValue) {
-        unsafe { self.inner.borrow_unchecked().prod.replace_with(new) }
+        unsafe { (*self.inner.prod.get()).replace_with(new) }
     }
 }
 
@@ -252,11 +245,11 @@ where
     fn build(self) -> Self::Product {
         let product = self.with_state.build();
 
-        product.inner.with(move |inner| {
-            let signal = inner.hook.signal();
+        let signal = Signal {
+            weak: Rc::downgrade(&product.inner),
+        };
 
-            (self.handler)(signal);
-        });
+        (self.handler)(signal);
 
         product
     }
