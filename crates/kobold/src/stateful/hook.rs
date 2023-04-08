@@ -6,8 +6,8 @@ use std::mem::ManuallyDrop;
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
 
+use crate::event::{EventCast, Listener};
 use crate::stateful::{Inner, ShouldRender};
-use crate::event::{Listener, EventCast};
 use crate::View;
 
 /// A hook into some state `S`. A reference to `Hook` is obtained by using the [`stateful`](crate::stateful::stateful)
