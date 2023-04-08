@@ -109,7 +109,6 @@ where
     Stateful { state, render }
 }
 
-
 impl<S, F, V> View for Stateful<S, F>
 where
     S: IntoState,
