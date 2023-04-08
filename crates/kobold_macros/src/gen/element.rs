@@ -8,8 +8,8 @@ use proc_macro::{Literal, TokenStream};
 
 use crate::dom::{Attribute, AttributeValue, CssValue, ElementTag, HtmlElement};
 use crate::gen::{append, DomNode, Generator, IntoGenerator, JsArgument, Short};
-use crate::itertools::IteratorExt;
-use crate::parse::IdentExt;
+use crate::itertools::IteratorExt as _;
+use crate::parse::{IdentExt, IteratorExt as _};
 use crate::tokenize::prelude::*;
 
 pub struct JsElement {
@@ -117,20 +117,25 @@ impl IntoGenerator for HtmlElement {
                 AttributeValue::Boolean(value) => {
                     writeln!(el, "{var}.{name}={value};");
                 }
-                AttributeValue::Expression(expr) => match &attr_type {
+                AttributeValue::Expression(mut expr) => match &attr_type {
                     AttributeType::Event(event) => {
                         let target = el.typ;
-                        let coerce = call(
-                            format_args!(
-                                "::kobold::internal::fn_type_hint::<\
+
+                        let coerce = if is_inline_closure(&mut expr.stream) {
+                            call(
+                                format_args!(
+                                    "::kobold::internal::fn_type_hint::<\
                                     ::kobold::event::{event}<\
                                         ::kobold::reexport::web_sys::{target}\
                                     >,\
                                     _,\
                                 >"
-                            ),
-                            expr.stream,
-                        );
+                                ),
+                                expr.stream,
+                            )
+                        } else {
+                            expr.stream
+                        };
 
                         let value = gen.add_field(coerce).event(event, el.typ).name;
 
@@ -255,6 +260,24 @@ impl Attr {
     fn prop(&self) -> TokenStream {
         format_args!("::kobold::attribute::{}", self.name).tokenize()
     }
+}
+
+fn is_inline_closure(out: &mut TokenStream) -> bool {
+    let mut is_closure = false;
+    let mut stream = std::mem::replace(out, TokenStream::new()).parse_stream();
+
+    if let Some(tt) = stream.allow_consume("move") {
+        out.write(tt);
+    }
+
+    if let Some(tt) = stream.allow_consume('|') {
+        is_closure = true;
+        out.write(tt);
+    }
+
+    out.extend(stream);
+
+    is_closure
 }
 
 fn attribute_type(attr: &str) -> AttributeType {

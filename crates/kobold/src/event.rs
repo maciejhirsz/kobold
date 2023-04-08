@@ -67,7 +67,11 @@ macro_rules! event {
 
 mod hidden {
     pub trait EventCast {}
+
+    impl EventCast for web_sys::Event {}
 }
+
+pub(crate) use hidden::EventCast;
 
 event! {
     /// [`web_sys::Event`](web_sys::Event)
@@ -80,7 +84,7 @@ event! {
 
 pub trait Listener<E>
 where
-    E: hidden::EventCast,
+    E: EventCast,
     Self: Sized + 'static,
 {
     fn build(self) -> ListenerProduct<Self>;
@@ -91,7 +95,7 @@ where
 impl<E, F> Listener<E> for F
 where
     F: FnMut(E) + 'static,
-    E: hidden::EventCast,
+    E: EventCast,
 {
     fn build(self) -> ListenerProduct<Self> {
         let raw = Box::into_raw(Box::new(self));

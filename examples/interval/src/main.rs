@@ -15,9 +15,9 @@ fn Elapsed() -> impl View {
                 <button {onclick}>"Reset"</button>
         }
     })
-    .once(|hook| {
+    .once(|signal| {
         Interval::new(1000, move || {
-            hook.update(|seconds| *seconds += 1);
+            signal.update(|seconds| *seconds += 1);
         })
         .forget();
     })

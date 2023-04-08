@@ -3,3 +3,6 @@ node_modules
 target
 **/*.rs.bk
 examples/*/dist
+examples/*/Cargo.lock
+crates/*/Cargo.lock
+.DS_Store
