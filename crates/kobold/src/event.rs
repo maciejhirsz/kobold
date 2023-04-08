@@ -98,7 +98,7 @@ where
     E: EventCast,
 {
     fn build(self) -> ListenerProduct<Self> {
-        let raw = Box::into_raw(Box::new(self));
+        let raw = Box::leak(Box::new(self));
 
         let js = Closure::wrap(unsafe {
             Box::from_raw(raw as *mut dyn FnMut(E) as *mut dyn FnMut(web_sys::Event))

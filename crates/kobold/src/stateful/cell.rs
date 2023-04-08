@@ -22,7 +22,7 @@ impl<T> WithCell<T> {
         F: FnOnce(&mut T),
     {
         if self.borrowed.get() {
-            return;
+            wasm_bindgen::throw_str("Cyclic state borrowing");
         }
 
         self.borrowed.set(true);
@@ -30,7 +30,15 @@ impl<T> WithCell<T> {
         self.borrowed.set(false);
     }
 
-    pub unsafe fn borrow_unchecked(&self) -> &T {
+    pub unsafe fn ref_unchecked(&self) -> &T {
+        debug_assert_eq!(self.borrowed.get(), false);
+
         &*self.data.get()
+    }
+
+    pub unsafe fn mut_unchecked(&self) -> &mut T {
+        debug_assert_eq!(self.borrowed.get(), false);
+
+        &mut *self.data.get()
     }
 }

@@ -100,13 +100,18 @@ impl<S> Hook<S> {
         let inner = &self.inner as *const Inner<S>;
 
         move |e| {
+            // ⚠️ Safety:
+            // ==========
+            //
+            // This is fired only as event listener from the DOM, which guarantees that
+            // state is not currently borrowed, as events cannot interrupt normal
+            // control flow, and `Signal`s cannot borrow state across .await points.
             let inner = unsafe { &*inner };
+            let state = unsafe { inner.state.mut_unchecked() };
 
-            inner.state.with(|state| {
-                if callback(state, e).should_render() {
-                    inner.update();
-                }
-            });
+            if callback(state, e).should_render() {
+                inner.update();
+            }
         }
     }
 
@@ -135,7 +140,7 @@ impl<S> Hook<S> {
     where
         S: Copy,
     {
-        unsafe { *self.inner.state.borrow_unchecked() }
+        unsafe { *self.inner.state.ref_unchecked() }
     }
 }
 
@@ -143,7 +148,7 @@ impl<S> Deref for Hook<S> {
     type Target = S;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { self.inner.state.borrow_unchecked() }
+        unsafe { self.inner.state.ref_unchecked() }
     }
 }
 
