@@ -7,6 +7,7 @@ use std::ops::Deref;
 use std::rc::{Rc, Weak};
 
 use crate::stateful::{Inner, ShouldRender};
+use crate::event::{Listener, EventCast};
 use crate::View;
 
 /// A hook into some state `S`. A reference to `Hook` is obtained by using the [`stateful`](crate::stateful::stateful)
@@ -89,9 +90,10 @@ impl<S> Hook<S> {
 
     /// Binds a closure to a mutable reference of the state. While this method is public
     /// it's recommended to use the [`bind!`](crate::bind) macro instead.
-    pub fn bind<E, F, O>(&self, callback: F) -> impl Fn(E) + 'static
+    pub fn bind<E, F, O>(&self, callback: F) -> impl Listener<E>
     where
         S: 'static,
+        E: EventCast,
         F: Fn(&mut S, E) -> O + 'static,
         O: ShouldRender,
     {
@@ -108,9 +110,10 @@ impl<S> Hook<S> {
         }
     }
 
-    pub fn bind_signal<E, F>(&self, callback: F) -> impl Fn(E) + 'static
+    pub fn bind_signal<E, F>(&self, callback: F) -> impl Listener<E>
     where
         S: 'static,
+        E: EventCast,
         F: Fn(Signal<S>, E) + 'static,
     {
         let inner = &self.inner as *const Inner<S>;
