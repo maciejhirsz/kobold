@@ -338,7 +338,7 @@ pub trait View {
         Self: Sized,
     {
         OnMount {
-            html: self,
+            view: self,
             handler,
         }
     }
@@ -351,26 +351,26 @@ pub trait View {
         Self: Sized,
     {
         OnRender {
-            html: self,
+            view: self,
             handler,
         }
     }
 }
 
-pub struct OnMount<H, F> {
-    html: H,
+pub struct OnMount<V, F> {
+    view: V,
     handler: F,
 }
 
-impl<H, F> View for OnMount<H, F>
+impl<V, F> View for OnMount<V, F>
 where
-    H: View,
-    F: FnOnce(&<H::Product as Mountable>::Js),
+    V: View,
+    F: FnOnce(&<V::Product as Mountable>::Js),
 {
-    type Product = H::Product;
+    type Product = V::Product;
 
     fn build(self) -> Self::Product {
-        let prod = self.html.build();
+        let prod = self.view.build();
 
         (self.handler)(prod.js().unchecked_ref());
 
@@ -378,24 +378,24 @@ where
     }
 
     fn update(self, p: &mut Self::Product) {
-        self.html.update(p);
+        self.view.update(p);
     }
 }
 
-pub struct OnRender<H, F> {
-    html: H,
+pub struct OnRender<V, F> {
+    view: V,
     handler: F,
 }
 
-impl<H, F> View for OnRender<H, F>
+impl<V, F> View for OnRender<V, F>
 where
-    H: View,
-    F: FnOnce(&<H::Product as Mountable>::Js),
+    V: View,
+    F: FnOnce(&<V::Product as Mountable>::Js),
 {
-    type Product = H::Product;
+    type Product = V::Product;
 
     fn build(self) -> Self::Product {
-        let prod = self.html.build();
+        let prod = self.view.build();
 
         (self.handler)(prod.js().unchecked_ref());
 
@@ -403,19 +403,19 @@ where
     }
 
     fn update(self, p: &mut Self::Product) {
-        self.html.update(p);
+        self.view.update(p);
 
         (self.handler)(p.js().unchecked_ref());
     }
 }
 
 /// Start the Kobold app by mounting given [`View`](View) in the document `body`.
-pub fn start(html: impl View) {
+pub fn start(view: impl View) {
     init_panic_hook();
 
     use std::mem::ManuallyDrop;
 
-    let product = ManuallyDrop::new(html.build());
+    let product = ManuallyDrop::new(view.build());
 
     internal::append_body(product.js());
 }

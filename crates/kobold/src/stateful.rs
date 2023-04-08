@@ -91,14 +91,14 @@ pub struct StatefulProduct<S> {
 /// // ...or a function with no parameters
 /// let vec_view = stateful(Vec::new, |counts: &Hook<Vec<i32>>| { "TODO" });
 /// ```
-pub fn stateful<'a, S, F, H>(
+pub fn stateful<'a, S, F, V>(
     state: S,
     render: F,
-) -> Stateful<S, impl Fn(*const Hook<S::State>) -> H + 'static>
+) -> Stateful<S, impl Fn(*const Hook<S::State>) -> V + 'static>
 where
     S: IntoState,
-    F: Fn(&'a Hook<S::State>) -> H + 'static,
-    H: View + 'a,
+    F: Fn(&'a Hook<S::State>) -> V + 'static,
+    V: View + 'a,
 {
     // There is no safe way to represent a generic closure with generic return type
     // that borrows from that closure's arguments, without also slapping a lifetime.
@@ -108,6 +108,7 @@ where
     let render = move |hook: *const Hook<S::State>| render(unsafe { &*hook });
     Stateful { state, render }
 }
+
 
 impl<S, F, V> View for Stateful<S, F>
 where

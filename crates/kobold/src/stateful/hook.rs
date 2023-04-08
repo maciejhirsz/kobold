@@ -124,6 +124,15 @@ impl<S> Hook<S> {
         let inner = &self.inner as *const Inner<S>;
 
         move |e| {
+            // ⚠️ Safety:
+            // ==========
+            //
+            // This is fired only as event listener from the DOM, which guarantees that
+            // state is not currently borrowed, as events cannot interrupt normal
+            // control flow, and `Signal`s cannot borrow state across .await points.
+            //
+            // This temporary `Rc` will not mess with the `strong_count` value, we only
+            // need it to construct a `Weak` reference to `Inner`.
             let rc = ManuallyDrop::new(unsafe { Rc::from_raw(inner) });
 
             let signal = Signal {
@@ -140,7 +149,7 @@ impl<S> Hook<S> {
     where
         S: Copy,
     {
-        unsafe { *self.inner.state.ref_unchecked() }
+        **self
     }
 }
 
@@ -148,15 +157,20 @@ impl<S> Deref for Hook<S> {
     type Target = S;
 
     fn deref(&self) -> &Self::Target {
+        // ⚠️ Safety:
+        // ==========
+        //
+        // Hook only lives inside the inner closure of `stateful`, and no mutable
+        // references to `Inner` are present while it's around.
         unsafe { self.inner.state.ref_unchecked() }
     }
 }
 
-impl<'a, H> View for &'a Hook<H>
+impl<'a, V> View for &'a Hook<V>
 where
-    &'a H: View + 'a,
+    &'a V: View + 'a,
 {
-    type Product = <&'a H as View>::Product;
+    type Product = <&'a V as View>::Product;
 
     fn build(self) -> Self::Product {
         (**self).build()
