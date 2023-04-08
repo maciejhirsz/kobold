@@ -53,6 +53,17 @@ impl<S> Inner<S> {
     fn update(&self) {
         let hook = Hook::new(self);
 
+        // ⚠️ Safety:
+        // ==========
+        //
+        // `prod` is an implementation detail and it's never mut borrowed
+        // unless `state` is borrowed first, which is guarded by `WithCell`
+        // or otherwise guaranteed to be safe.
+        //
+        // Ideally whole `Inner` would be wrapped in `WithCell`, but we
+        // can't do that until `CoerceUnsized` is stabilized.
+        //
+        // <https://github.com/rust-lang/rust/issues/18598>
         unsafe { (*self.prod.get()).update(hook) }
     }
 }
@@ -80,14 +91,14 @@ pub struct StatefulProduct<S> {
 /// // ...or a function with no parameters
 /// let vec_view = stateful(Vec::new, |counts: &Hook<Vec<i32>>| { "TODO" });
 /// ```
-pub fn stateful<'a, S, F, H>(
+pub fn stateful<'a, S, F, V>(
     state: S,
     render: F,
-) -> Stateful<S, impl Fn(*const Hook<S::State>) -> H + 'static>
+) -> Stateful<S, impl Fn(*const Hook<S::State>) -> V + 'static>
 where
     S: IntoState,
-    F: Fn(&'a Hook<S::State>) -> H + 'static,
-    H: View + 'a,
+    F: Fn(&'a Hook<S::State>) -> V + 'static,
+    V: View + 'a,
 {
     // There is no safe way to represent a generic closure with generic return type
     // that borrows from that closure's arguments, without also slapping a lifetime.
@@ -112,15 +123,30 @@ where
             prod: UnsafeCell::new(MaybeUninit::uninit()),
         });
 
+        // ⚠️ Safety:
+        // ==========
+        //
+        // Initial render can only access the `state` from the hook, the `prod` is
+        // not touched until an event is fired, which happens after this method
+        // completes and initializes the `prod`.
         let product = (self.render)(Hook::new(unsafe { inner.as_init() })).build();
 
-        unsafe { &mut *inner.prod.get() }.write(ProductHandler::new(
-            move |hook, product: *mut V::Product| {
-                (self.render)(hook).update(unsafe { &mut *product })
-            },
-            product,
-        ));
+        // ⚠️ Safety:
+        // ==========
+        //
+        // This looks scary, but it just initializes the `prod`. We need to use the
+        // closure syntax with a raw pointer to get around lifetime restrictions.
+        unsafe {
+            (*inner.prod.get()).write(ProductHandler::new(
+                move |hook, product: *mut V::Product| (self.render)(hook).update(&mut *product),
+                product,
+            ));
+        }
 
+        // ⚠️ Safety:
+        // ==========
+        //
+        // At this point `Inner` is fully initialized.
         StatefulProduct {
             inner: unsafe { inner.into_init() },
         }

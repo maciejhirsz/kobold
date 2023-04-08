@@ -92,8 +92,8 @@ where
     }
 }
 
-impl<H: View> View for Vec<H> {
-    type Product = ListProduct<H::Product>;
+impl<V: View> View for Vec<V> {
+    type Product = ListProduct<V::Product>;
 
     fn build(self) -> Self::Product {
         List(self).build()
@@ -104,11 +104,11 @@ impl<H: View> View for Vec<H> {
     }
 }
 
-impl<'a, H> View for &'a [H]
+impl<'a, V> View for &'a [V]
 where
-    &'a H: View,
+    &'a V: View,
 {
-    type Product = ListProduct<<&'a H as View>::Product>;
+    type Product = ListProduct<<&'a V as View>::Product>;
 
     fn build(self) -> Self::Product {
         List(self).build()
@@ -119,8 +119,8 @@ where
     }
 }
 
-impl<H: View, const N: usize> View for [H; N] {
-    type Product = ListProduct<H::Product>;
+impl<V: View, const N: usize> View for [V; N] {
+    type Product = ListProduct<V::Product>;
 
     fn build(self) -> Self::Product {
         List(self).build()
