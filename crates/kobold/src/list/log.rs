@@ -1,6 +1,7 @@
 use std::cell::Cell;
 use std::cmp::max;
-use std::ops::{Deref, Index, IndexMut, Range, RangeFull};
+use std::fmt::{self, Debug};
+use std::ops::{Deref, Index, IndexMut, Range, RangeFull, RangeBounds};
 use std::ops::{RangeFrom, RangeInclusive, RangeTo, RangeToInclusive};
 use std::vec::Drain;
 
@@ -15,8 +16,26 @@ pub struct Log<T> {
     log: ChangeLog,
 }
 
-impl<T> Deref for Log<T> {
-    type Target = T;
+impl<T> Debug for Log<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.data.fmt(f)
+    }
+}
+
+impl<T, U> PartialEq<U> for Log<T>
+where
+    T: PartialEq<U>,
+{
+    fn eq(&self, other: &U) -> bool {
+        self.data.eq(other)
+    }
+}
+
+impl<T> Deref for Log<Vec<T>> {
+    type Target = [T];
 
     fn deref(&self) -> &Self::Target {
         &self.data
@@ -96,11 +115,67 @@ impl ChangeLog {
 }
 
 impl<T> Log<Vec<T>> {
-    pub fn drain(&mut self, range: Range<usize>) -> Drain<T> {
-        self.log.remove(range.clone());
+    /// Removes the specified range from the vector in bulk, returning all
+    /// removed elements as an iterator. If the iterator is dropped before
+    /// being fully consumed, it drops the remaining removed elements.
+    ///
+    /// The returned iterator keeps a mutable borrow on the vector to optimize
+    /// its implementation.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the starting point is greater than the end point or if
+    /// the end point is greater than the length of the vector.
+    ///
+    /// # Leaking
+    ///
+    /// If the returned iterator goes out of scope without being dropped (due to
+    /// [`mem::forget`], for example), the vector may have lost and leaked
+    /// elements arbitrarily, including elements outside the range.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kobold::list::Log;
+    ///
+    /// let mut v = Log::new(vec![1, 2, 3]);
+    /// let u: Vec<_> = v.drain(1..).collect();
+    /// assert_eq!(v, &[1]);
+    /// assert_eq!(u, &[2, 3]);
+    ///
+    /// // A full range clears the vector, like `clear()` does
+    /// v.drain(..);
+    /// assert_eq!(v, &[]);
+    /// ```
+    pub fn drain<R>(&mut self, range: R) -> Drain<T>
+    where
+        R: RangeBounds<usize> + AsRange,
+    {
+        self.log.remove(range.as_range(self.data.len()));
         self.data.drain(range)
     }
 
+    /// Clones and appends all elements in a slice to the `Vec`.
+    ///
+    /// Iterates over the slice `other`, clones each element, and then appends
+    /// it to this `Vec`. The `other` slice is traversed in-order.
+    ///
+    /// Note that this function is same as [`extend`] except that it is
+    /// specialized to work with slices instead. If and when Rust gets
+    /// specialization this function will likely be deprecated (but still
+    /// available).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kobold::list::Log;
+    ///
+    /// let mut vec = Log::new(vec![1]);
+    /// vec.extend_from_slice(&[2, 3, 4]);
+    /// assert_eq!(vec, [1, 2, 3, 4]);
+    /// ```
+    ///
+    /// [`extend`]: Log::extend
     pub fn extend_from_slice(&mut self, other: &[T])
     where
         T: Clone,
@@ -110,6 +185,23 @@ impl<T> Log<Vec<T>> {
         self.data.extend_from_slice(other);
     }
 
+    /// Returns a mutable reference to an element or subslice depending on the
+    /// type of index (see [`get`]) or `None` if the index is out of bounds.
+    ///
+    /// [`get`]: slice::get
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kobold::list::Log;
+    ///
+    /// let mut x = Log::new(vec![0, 1, 2]);
+    ///
+    /// if let Some(elem) = x.get_mut(1) {
+    ///     *elem = 42;
+    /// }
+    /// assert_eq!(x, &[0, 42, 2]);
+    /// ```
     pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
         let item = self.data.get_mut(index);
 
@@ -120,11 +212,41 @@ impl<T> Log<Vec<T>> {
         item
     }
 
+    /// Inserts an element at position `index` within the vector, shifting all
+    /// elements after it to the right.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index > len`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kobold::list::Log;
+    ///
+    /// let mut vec = Log::new(vec![1, 2, 3]);
+    /// vec.insert(1, 4);
+    /// assert_eq!(vec, [1, 4, 2, 3]);
+    /// vec.insert(4, 5);
+    /// assert_eq!(vec, [1, 4, 2, 3, 5]);
+    /// ```
     pub fn insert(&mut self, index: usize, element: T) {
         self.log.insert_one(index);
         self.data.insert(index, element)
     }
 
+    /// Removes the last element from a vector and returns it, or [`None`] if it
+    /// is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kobold::list::Log;
+    ///
+    /// let mut vec = Log::new(vec![1, 2, 3]);
+    /// assert_eq!(vec.pop(), Some(3));
+    /// assert_eq!(vec, [1, 2]);
+    /// ```
     pub fn pop(&mut self) -> Option<T> {
         let pop = self.data.pop();
 
@@ -135,16 +257,79 @@ impl<T> Log<Vec<T>> {
         pop
     }
 
+    /// Appends an element to the back of a collection.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the new capacity exceeds `isize::MAX` bytes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kobold::list::Log;
+    ///
+    /// let mut vec = Log::new(vec![1, 2]);
+    /// vec.push(3);
+    /// assert_eq!(vec, [1, 2, 3]);
+    /// ```
     pub fn push(&mut self, val: T) {
         self.log.push(self.data.len());
         self.data.push(val);
     }
 
+    /// Removes and returns the element at position `index` within the vector,
+    /// shifting all elements after it to the left.
+    ///
+    /// Note: Because this shifts over the remaining elements, it has a
+    /// worst-case performance of *O*(*n*). If you don't need the order of elements
+    /// to be preserved, use [`swap_remove`] instead.
+    ///
+    /// [`swap_remove`]: Log::swap_remove
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is out of bounds.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kobold::list::Log;
+    ///
+    /// let mut v = Log::new(vec![1, 2, 3]);
+    /// assert_eq!(v.remove(1), 2);
+    /// assert_eq!(v, [1, 3]);
+    /// ```
     pub fn remove(&mut self, index: usize) -> T {
         self.log.remove(index..index + 1);
         self.data.remove(index)
     }
 
+    /// Retains only the elements specified by the predicate.
+    ///
+    /// In other words, remove all elements `e` for which `f(&e)` returns `false`.
+    /// This method operates in place, visiting each element exactly once in the
+    /// original order, and preserves the order of the retained elements.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut vec = vec![1, 2, 3, 4];
+    /// vec.retain(|&x| x % 2 == 0);
+    /// assert_eq!(vec, [2, 4]);
+    /// ```
+    ///
+    /// Because the elements are visited exactly once in the original order,
+    /// external state may be used to decide which elements to keep.
+    ///
+    /// ```
+    /// use kobold::list::Log;
+    ///
+    /// let mut vec = Log::new(vec![1, 2, 3, 4, 5]);
+    /// let keep = [false, true, true, false, true];
+    /// let mut iter = keep.iter();
+    /// vec.retain(|_| *iter.next().unwrap());
+    /// assert_eq!(vec, [2, 3, 5]);
+    /// ```
     pub fn retain<F>(&mut self, mut f: F)
     where
         F: FnMut(&T) -> bool,
@@ -152,6 +337,26 @@ impl<T> Log<Vec<T>> {
         self.retain_mut(|elem| f(elem));
     }
 
+    /// Retains only the elements specified by the predicate, passing a mutable reference to it.
+    ///
+    /// In other words, remove all elements `e` such that `f(&mut e)` returns `false`.
+    /// This method operates in place, visiting each element exactly once in the
+    /// original order, and preserves the order of the retained elements.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kobold::list::Log;
+    ///
+    /// let mut vec = Log::new(vec![1, 2, 3, 4]);
+    /// vec.retain_mut(|x| if *x <= 3 {
+    ///     *x += 1;
+    ///     true
+    /// } else {
+    ///     false
+    /// });
+    /// assert_eq!(vec, [2, 3, 4]);
+    /// ```
     pub fn retain_mut<F>(&mut self, mut f: F)
     where
         F: FnMut(&mut T) -> bool,
@@ -175,6 +380,26 @@ impl<T> Log<Vec<T>> {
         self.log.log.get_mut()[reverse_from..].reverse()
     }
 
+    /// Swaps two elements in the vector.
+    ///
+    /// # Arguments
+    ///
+    /// * a - The index of the first element
+    /// * b - The index of the second element
+    ///
+    /// # Panics
+    ///
+    /// Panics if `a` or `b` are out of bounds.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kobold::list::Log;
+    ///
+    /// let mut v = Log::new(vec!["a", "b", "c", "d", "e"]);
+    /// v.swap(2, 4);
+    /// assert!(v == ["a", "b", "e", "d", "c"]);
+    /// ```
     pub fn swap(&mut self, a: usize, b: usize) {
         if a == b {
             return;
