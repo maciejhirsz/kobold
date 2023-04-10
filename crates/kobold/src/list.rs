@@ -11,7 +11,7 @@ use crate::{Mountable, View};
 
 mod log;
 
-pub use log::Log;
+pub use log::Tracking;
 
 /// Wrapper type that implements `View` for iterators, created by the
 /// [`for`](crate::keywords::for) keyword.

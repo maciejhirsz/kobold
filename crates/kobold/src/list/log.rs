@@ -11,30 +11,30 @@ enum Entry {
     Remove(Range<usize>),
 }
 
-pub struct Log<T> {
-    data: T,
+pub struct Tracking<T> {
+    data: Vec<T>,
     log: ChangeLog,
 }
 
-impl<T> Debug for Log<T>
+impl<T> Debug for Tracking<T>
 where
-    T: Debug,
+    Vec<T>: Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.data.fmt(f)
     }
 }
 
-impl<T, U> PartialEq<U> for Log<T>
+impl<T, U> PartialEq<U> for Tracking<T>
 where
-    T: PartialEq<U>,
+    Vec<T>: PartialEq<U>,
 {
     fn eq(&self, other: &U) -> bool {
         self.data.eq(other)
     }
 }
 
-impl<T> Deref for Log<Vec<T>> {
+impl<T> Deref for Tracking<T> {
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
@@ -46,14 +46,18 @@ struct ChangeLog {
     log: Cell<Vec<Entry>>,
 }
 
-impl<T> Log<T> {
-    pub const fn new(data: T) -> Self {
-        Log {
+impl<T> Tracking<T> {
+    pub const fn new(data: Vec<T>) -> Self {
+        Tracking {
             data,
             log: ChangeLog {
                 log: Cell::new(Vec::new()),
             },
         }
+    }
+
+    pub fn touch(&mut self, range: impl AsRange) {
+        self.log.update(range.as_range(self.data.len()));
     }
 }
 
@@ -114,7 +118,8 @@ impl ChangeLog {
     }
 }
 
-impl<T> Log<Vec<T>> {
+/// `Vec<T>` proxied methods.
+impl<T> Tracking<T> {
     /// Removes the specified range from the vector in bulk, returning all
     /// removed elements as an iterator. If the iterator is dropped before
     /// being fully consumed, it drops the remaining removed elements.
@@ -136,9 +141,9 @@ impl<T> Log<Vec<T>> {
     /// # Examples
     ///
     /// ```
-    /// use kobold::list::Log;
+    /// use kobold::list::Tracking;
     ///
-    /// let mut v = Log::new(vec![1, 2, 3]);
+    /// let mut v = Tracking::new(vec![1, 2, 3]);
     /// let u: Vec<_> = v.drain(1..).collect();
     /// assert_eq!(v, &[1]);
     /// assert_eq!(u, &[2, 3]);
@@ -168,14 +173,14 @@ impl<T> Log<Vec<T>> {
     /// # Examples
     ///
     /// ```
-    /// use kobold::list::Log;
+    /// use kobold::list::Tracking;
     ///
-    /// let mut vec = Log::new(vec![1]);
+    /// let mut vec = Tracking::new(vec![1]);
     /// vec.extend_from_slice(&[2, 3, 4]);
     /// assert_eq!(vec, [1, 2, 3, 4]);
     /// ```
     ///
-    /// [`extend`]: Log::extend
+    /// [`extend`]: Tracking::extend
     pub fn extend_from_slice(&mut self, other: &[T])
     where
         T: Clone,
@@ -193,9 +198,9 @@ impl<T> Log<Vec<T>> {
     /// # Examples
     ///
     /// ```
-    /// use kobold::list::Log;
+    /// use kobold::list::Tracking;
     ///
-    /// let mut x = Log::new(vec![0, 1, 2]);
+    /// let mut x = Tracking::new(vec![0, 1, 2]);
     ///
     /// if let Some(elem) = x.get_mut(1) {
     ///     *elem = 42;
@@ -222,9 +227,9 @@ impl<T> Log<Vec<T>> {
     /// # Examples
     ///
     /// ```
-    /// use kobold::list::Log;
+    /// use kobold::list::Tracking;
     ///
-    /// let mut vec = Log::new(vec![1, 2, 3]);
+    /// let mut vec = Tracking::new(vec![1, 2, 3]);
     /// vec.insert(1, 4);
     /// assert_eq!(vec, [1, 4, 2, 3]);
     /// vec.insert(4, 5);
@@ -241,9 +246,9 @@ impl<T> Log<Vec<T>> {
     /// # Examples
     ///
     /// ```
-    /// use kobold::list::Log;
+    /// use kobold::list::Tracking;
     ///
-    /// let mut vec = Log::new(vec![1, 2, 3]);
+    /// let mut vec = Tracking::new(vec![1, 2, 3]);
     /// assert_eq!(vec.pop(), Some(3));
     /// assert_eq!(vec, [1, 2]);
     /// ```
@@ -266,9 +271,9 @@ impl<T> Log<Vec<T>> {
     /// # Examples
     ///
     /// ```
-    /// use kobold::list::Log;
+    /// use kobold::list::Tracking;
     ///
-    /// let mut vec = Log::new(vec![1, 2]);
+    /// let mut vec = Tracking::new(vec![1, 2]);
     /// vec.push(3);
     /// assert_eq!(vec, [1, 2, 3]);
     /// ```
@@ -284,7 +289,7 @@ impl<T> Log<Vec<T>> {
     /// worst-case performance of *O*(*n*). If you don't need the order of elements
     /// to be preserved, use [`swap_remove`] instead.
     ///
-    /// [`swap_remove`]: Log::swap_remove
+    /// [`swap_remove`]: Tracking::swap_remove
     ///
     /// # Panics
     ///
@@ -293,9 +298,9 @@ impl<T> Log<Vec<T>> {
     /// # Examples
     ///
     /// ```
-    /// use kobold::list::Log;
+    /// use kobold::list::Tracking;
     ///
-    /// let mut v = Log::new(vec![1, 2, 3]);
+    /// let mut v = Tracking::new(vec![1, 2, 3]);
     /// assert_eq!(v.remove(1), 2);
     /// assert_eq!(v, [1, 3]);
     /// ```
@@ -322,9 +327,9 @@ impl<T> Log<Vec<T>> {
     /// external state may be used to decide which elements to keep.
     ///
     /// ```
-    /// use kobold::list::Log;
+    /// use kobold::list::Tracking;
     ///
-    /// let mut vec = Log::new(vec![1, 2, 3, 4, 5]);
+    /// let mut vec = Tracking::new(vec![1, 2, 3, 4, 5]);
     /// let keep = [false, true, true, false, true];
     /// let mut iter = keep.iter();
     /// vec.retain(|_| *iter.next().unwrap());
@@ -346,9 +351,9 @@ impl<T> Log<Vec<T>> {
     /// # Examples
     ///
     /// ```
-    /// use kobold::list::Log;
+    /// use kobold::list::Tracking;
     ///
-    /// let mut vec = Log::new(vec![1, 2, 3, 4]);
+    /// let mut vec = Tracking::new(vec![1, 2, 3, 4]);
     /// vec.retain_mut(|x| if *x <= 3 {
     ///     *x += 1;
     ///     true
@@ -394,9 +399,9 @@ impl<T> Log<Vec<T>> {
     /// # Examples
     ///
     /// ```
-    /// use kobold::list::Log;
+    /// use kobold::list::Tracking;
     ///
-    /// let mut v = Log::new(vec!["a", "b", "c", "d", "e"]);
+    /// let mut v = Tracking::new(vec!["a", "b", "c", "d", "e"]);
     /// v.swap(2, 4);
     /// assert!(v == ["a", "b", "e", "d", "c"]);
     /// ```
@@ -417,7 +422,7 @@ impl<T> Log<Vec<T>> {
     /// This does not preserve ordering, but is *O*(1).
     /// If you need to preserve the element order, use [`remove`] instead.
     ///
-    /// [`remove`]: Log::remove
+    /// [`remove`]: Tracking::remove
     ///
     /// # Panics
     ///
@@ -426,9 +431,9 @@ impl<T> Log<Vec<T>> {
     /// # Examples
     ///
     /// ```
-    /// use kobold::list::Log;
+    /// use kobold::list::Tracking;
     ///
-    /// let mut v = Log::new(vec!["foo", "bar", "baz", "qux"]);
+    /// let mut v = Tracking::new(vec!["foo", "bar", "baz", "qux"]);
     ///
     /// assert_eq!(v.swap_remove(1), "bar");
     /// assert_eq!(v, ["foo", "qux", "baz"]);
@@ -443,10 +448,6 @@ impl<T> Log<Vec<T>> {
         }
         self.log.remove_one(last);
         self.data.swap_remove(index)
-    }
-
-    pub fn touch(&mut self, range: impl AsRange) {
-        self.log.update(range.as_range(self.data.len()));
     }
 }
 
@@ -476,7 +477,7 @@ as_range! {
     RangeToInclusive<usize> [self, _, 0..self.end + 1],
 }
 
-impl<T, E> Extend<E> for Log<Vec<T>>
+impl<T, E> Extend<E> for Tracking<T>
 where
     Vec<T>: Extend<E>,
 {
@@ -487,7 +488,7 @@ where
     }
 }
 
-impl<T, I> Index<I> for Log<Vec<T>>
+impl<T, I> Index<I> for Tracking<T>
 where
     Vec<T>: Index<I>,
 {
@@ -498,7 +499,7 @@ where
     }
 }
 
-impl<T, I> IndexMut<I> for Log<Vec<T>>
+impl<T, I> IndexMut<I> for Tracking<T>
 where
     I: AsRange,
     Vec<T>: IndexMut<I>,
