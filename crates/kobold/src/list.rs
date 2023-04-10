@@ -9,9 +9,9 @@ use web_sys::Node;
 use crate::dom::{Anchor, Fragment, FragmentBuilder};
 use crate::{Mountable, View};
 
-mod log;
+mod tracking;
 
-pub use log::Tracking;
+pub use tracking::Tracking;
 
 /// Wrapper type that implements `View` for iterators, created by the
 /// [`for`](crate::keywords::for) keyword.
