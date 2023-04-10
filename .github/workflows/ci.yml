@@ -10,19 +10,13 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  fmt:
+  checkfmt:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Formatting
-        run: cargo fmt --check
-
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Formatting
-        run: cargo check
+      - name: Check and Fmt
+      - run: cargo check
+      - run: cargo fmt --check
 
   tests:
     strategy:
@@ -30,9 +24,12 @@ jobs:
         rust:
           - stable
           - nightly
-        os:
-          - ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    - uses: actions-rs/toolchain@v1
+      with:
+          toolchain: ${{ matrix.rust }}
+          override: true
     - name: Run tests
       run: cargo test --verbose
