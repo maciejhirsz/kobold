@@ -13,12 +13,11 @@ fn Elapsed() -> impl View {
                 "Elapsed seconds: "{ seconds }" "
                 // `{onclick}` here is shorthand for `onclick={onclick}`
                 <button {onclick}>"Reset"</button>
-            </p>
         }
     })
-    .once(|hook| {
+    .once(|signal| {
         Interval::new(1000, move || {
-            hook.update(|seconds| *seconds += 1);
+            signal.update(|seconds| *seconds += 1);
         })
         .forget();
     })

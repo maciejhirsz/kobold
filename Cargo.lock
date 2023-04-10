@@ -198,6 +198,7 @@ dependencies = [
  "arrayvec",
  "beef",
  "fnv",
+ "once_cell",
  "proc-macro2",
 ]
 

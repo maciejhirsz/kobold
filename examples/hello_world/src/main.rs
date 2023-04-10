@@ -2,9 +2,8 @@ use kobold::prelude::*;
 
 #[component]
 fn Hello(name: &str) -> impl View + '_ {
-    view! {
-        <h1>"Hello "{ name }"!"</h1>
-    }
+    // No need to close tags at the end of the macro
+    view! { <h1> "Hello "{ name }"!" }
 }
 
 fn main() {

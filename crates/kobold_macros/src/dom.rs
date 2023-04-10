@@ -2,17 +2,19 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use proc_macro::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
+use tokens::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 
 use crate::parse::prelude::*;
 use crate::syntax::CssLabel;
 use crate::tokenize::prelude::*;
 
+mod els;
 mod expression;
 mod shallow;
 
+pub use els::ElementTag;
 pub use expression::Expression;
-pub use shallow::{ShallowNode, ShallowNodeIter, ShallowStream, TagName, TagNesting};
+pub use shallow::{IsClosing, ShallowNode, ShallowNodeIter, ShallowStream, TagName, TagNesting};
 
 pub fn parse(tokens: TokenStream) -> Result<Vec<Node>, ParseError> {
     let mut stream = tokens.parse_stream().into_shallow_stream();
@@ -51,7 +53,7 @@ pub struct Component {
 
 #[derive(Debug)]
 pub struct HtmlElement {
-    pub name: String,
+    pub name: ElementTag,
     pub span: Span,
     pub classes: Vec<CssValue>,
     pub attributes: Vec<Attribute>,
@@ -209,20 +211,21 @@ impl Node {
 
         loop {
             if let Some(Ok(ShallowNode::Tag(tag))) = stream.peek() {
-                if tag.is_closing(name) {
-                    stream.next();
-                    break;
+                match tag.is_closing(name) {
+                    IsClosing::Explicit => {
+                        stream.next();
+                        break;
+                    }
+                    IsClosing::Implicit => {
+                        break;
+                    }
+                    IsClosing::No => (),
                 }
             }
 
             match Node::parse(stream)? {
                 Some(node) => children.push(node),
-                None => {
-                    return Err(ParseError::new(
-                        format!("Missing closing tag for {name}"),
-                        name.span(),
-                    ))
-                }
+                None => break,
             }
         }
 

@@ -39,7 +39,7 @@ macro_rules! event {
                 }
             }
 
-            impl<T> hidden::EventCast for $event<T> {}
+            impl<T> EventCast for $event<T> {}
 
             impl<T> Deref for $event<T> {
                 type Target = web_sys::$event;
@@ -65,9 +65,13 @@ macro_rules! event {
     };
 }
 
-mod hidden {
+mod sealed {
     pub trait EventCast {}
+
+    impl EventCast for web_sys::Event {}
 }
+
+pub(crate) use sealed::EventCast;
 
 event! {
     /// [`web_sys::Event`](web_sys::Event)
@@ -80,7 +84,7 @@ event! {
 
 pub trait Listener<E>
 where
-    E: hidden::EventCast,
+    E: EventCast,
     Self: Sized + 'static,
 {
     fn build(self) -> ListenerProduct<Self>;
@@ -90,14 +94,14 @@ where
 
 impl<E, F> Listener<E> for F
 where
-    F: Fn(E) + 'static,
-    E: hidden::EventCast,
+    F: FnMut(E) + 'static,
+    E: EventCast,
 {
     fn build(self) -> ListenerProduct<Self> {
-        let raw = Box::into_raw(Box::new(self));
+        let raw = Box::leak(Box::new(self));
 
         let js = Closure::wrap(unsafe {
-            Box::from_raw(raw as *mut dyn Fn(E) as *mut dyn Fn(web_sys::Event))
+            Box::from_raw(raw as *mut dyn FnMut(E) as *mut dyn FnMut(web_sys::Event))
         })
         .into_js_value();
 

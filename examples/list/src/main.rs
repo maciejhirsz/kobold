@@ -27,8 +27,6 @@ fn ListExample(count: u32) -> impl View {
                     // `{n}` is just shorthand for `n={n}`.
                     for (1..=count.get()).map(|n| view! { <ListItem {n} /> })
                 }
-                </ul>
-            </div>
         }
     })
 }

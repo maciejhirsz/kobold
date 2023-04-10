@@ -5,7 +5,7 @@
 use std::fmt::{self, Debug, Display, Write};
 
 use arrayvec::ArrayString;
-use proc_macro::{Ident, Literal, TokenStream};
+use tokens::{Ident, Literal, TokenStream};
 
 use crate::gen::element::{Attr, InlineAbi};
 use crate::gen::Short;
