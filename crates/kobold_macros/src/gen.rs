@@ -6,7 +6,7 @@ use std::fmt::{Debug, Write};
 use std::hash::Hash;
 
 use arrayvec::ArrayString;
-use proc_macro::{Ident, TokenStream};
+use tokens::{Ident, TokenStream};
 
 use crate::dom::{Expression, Node};
 use crate::itertools::IteratorExt;

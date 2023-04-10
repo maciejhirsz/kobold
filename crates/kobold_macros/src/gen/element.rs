@@ -4,7 +4,7 @@
 
 use std::fmt::{Arguments, Write};
 
-use proc_macro::{Literal, TokenStream};
+use tokens::{Literal, TokenStream};
 
 use crate::dom::{Attribute, AttributeValue, CssValue, ElementTag, HtmlElement};
 use crate::gen::{append, DomNode, Generator, IntoGenerator, JsArgument, Short};

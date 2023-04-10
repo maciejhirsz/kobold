@@ -6,7 +6,7 @@
 
 use std::fmt::Write;
 
-use proc_macro::{Ident, Literal, Span, TokenStream};
+use tokens::{Ident, Literal, Span, TokenStream};
 
 use crate::parse::prelude::*;
 use crate::tokenize::prelude::*;
