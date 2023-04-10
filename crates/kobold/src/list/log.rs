@@ -1,7 +1,7 @@
 use std::cell::Cell;
 use std::cmp::max;
 use std::fmt::{self, Debug};
-use std::ops::{Deref, Index, IndexMut, Range, RangeFull, RangeBounds};
+use std::ops::{Deref, Index, IndexMut, Range, RangeBounds, RangeFull};
 use std::ops::{RangeFrom, RangeInclusive, RangeTo, RangeToInclusive};
 use std::vec::Drain;
 
@@ -408,6 +408,41 @@ impl<T> Log<Vec<T>> {
         self.data.swap(a, b);
         self.log.update_one(a);
         self.log.update_one(b);
+    }
+
+    /// Removes an element from the vector and returns it.
+    ///
+    /// The removed element is replaced by the last element of the vector.
+    ///
+    /// This does not preserve ordering, but is *O*(1).
+    /// If you need to preserve the element order, use [`remove`] instead.
+    ///
+    /// [`remove`]: Log::remove
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is out of bounds.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kobold::list::Log;
+    ///
+    /// let mut v = Log::new(vec!["foo", "bar", "baz", "qux"]);
+    ///
+    /// assert_eq!(v.swap_remove(1), "bar");
+    /// assert_eq!(v, ["foo", "qux", "baz"]);
+    ///
+    /// assert_eq!(v.swap_remove(0), "foo");
+    /// assert_eq!(v, ["baz", "qux"]);
+    /// ```
+    pub fn swap_remove(&mut self, index: usize) -> T {
+        let last = self.data.len() - 1;
+        if index < last {
+            self.log.update_one(index);
+        }
+        self.log.remove_one(last);
+        self.data.swap_remove(index)
     }
 
     pub fn touch(&mut self, range: impl AsRange) {
