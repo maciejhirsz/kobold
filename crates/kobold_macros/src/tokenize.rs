@@ -6,7 +6,7 @@ use std::cell::RefCell;
 use std::fmt::{Arguments, Write};
 use std::str::FromStr;
 
-use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree};
+use tokens::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree};
 
 use crate::parse::ParseStream;
 

@@ -4,7 +4,7 @@
 
 use std::fmt::{self, Debug};
 
-use proc_macro::{Group, Ident, Span, TokenStream, TokenTree};
+use tokens::{Group, Ident, Span, TokenStream, TokenTree};
 
 use crate::dom::Node;
 use crate::parse::IdentExt;

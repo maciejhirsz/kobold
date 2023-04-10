@@ -14,11 +14,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Run tests
+      - name: Formatting
         run: cargo fmt --check
 
-  tests:
+  check:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Formatting
+        run: cargo check
+
+  tests:
+    strategy:
+      matrix:
+        rust:
+          - stable
+          - nightly
+        os:
+          - ubuntu-latest
     steps:
     - uses: actions/checkout@v3
     - name: Run tests

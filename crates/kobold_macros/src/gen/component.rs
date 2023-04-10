@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use proc_macro::TokenStream;
+use tokens::TokenStream;
 
 use crate::dom::{Component, Property};
 use crate::gen::{DomNode, Field, Generator, IntoGenerator, TokenStreamExt};

@@ -6,10 +6,10 @@
 #![warn(clippy::all, clippy::cast_possible_truncation, clippy::unused_self)]
 
 #[cfg(not(test))]
-extern crate proc_macro;
+extern crate proc_macro as tokens;
 
 #[cfg(test)]
-extern crate proc_macro2 as proc_macro;
+extern crate proc_macro2 as tokens;
 
 use proc_macro::TokenStream;
 
@@ -28,7 +28,7 @@ macro_rules! unwrap_err {
     ($expr:expr) => {
         match $expr {
             Ok(dom) => dom,
-            Err(err) => return err.tokenize(),
+            Err(err) => return err.tokenize().into(),
         }
     };
 }
@@ -36,19 +36,19 @@ macro_rules! unwrap_err {
 #[allow(clippy::let_and_return)]
 #[proc_macro_attribute]
 pub fn component(args: TokenStream, input: TokenStream) -> TokenStream {
-    let args = unwrap_err!(fn_component::args(args));
+    let args = unwrap_err!(fn_component::args(args.into()));
 
-    let out = unwrap_err!(fn_component::component(args, input));
+    let out = unwrap_err!(fn_component::component(args, input.into()));
 
     // panic!("{out}");
 
-    out
+    out.into()
 }
 
 #[allow(clippy::let_and_return)]
 #[proc_macro]
 pub fn view(body: TokenStream) -> TokenStream {
-    let nodes = unwrap_err!(dom::parse(body));
+    let nodes = unwrap_err!(dom::parse(body.into()));
 
     // panic!("{nodes:#?}");
 
@@ -58,5 +58,5 @@ pub fn view(body: TokenStream) -> TokenStream {
 
     // panic!("{out}");
 
-    out
+    out.into()
 }

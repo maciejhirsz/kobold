@@ -39,35 +39,6 @@ struct Inner<S, P: ?Sized = dyn Product<S>> {
     prod: UnsafeCell<P>,
 }
 
-impl<S, P> Inner<S, MaybeUninit<P>> {
-    unsafe fn as_init(&self) -> &Inner<S, P> {
-        &*(self as *const _ as *const Inner<S, P>)
-    }
-
-    unsafe fn into_init(self: Rc<Self>) -> Rc<Inner<S, P>> {
-        std::mem::transmute(self)
-    }
-}
-
-impl<S> Inner<S> {
-    fn update(&self) {
-        let hook = Hook::new(self);
-
-        // ⚠️ Safety:
-        // ==========
-        //
-        // `prod` is an implementation detail and it's never mut borrowed
-        // unless `state` is borrowed first, which is guarded by `WithCell`
-        // or otherwise guaranteed to be safe.
-        //
-        // Ideally whole `Inner` would be wrapped in `WithCell`, but we
-        // can't do that until `CoerceUnsized` is stabilized.
-        //
-        // <https://github.com/rust-lang/rust/issues/18598>
-        unsafe { (*self.prod.get()).update(hook) }
-    }
-}
-
 pub struct Stateful<S, F> {
     state: S,
     render: F,
@@ -107,6 +78,33 @@ where
     // erase them for the use in the `Stateful` struct.
     let render = move |hook: *const Hook<S::State>| render(unsafe { &*hook });
     Stateful { state, render }
+}
+
+impl<S, P> Inner<S, MaybeUninit<P>> {
+    unsafe fn as_init(&self) -> &Inner<S, P> {
+        &*(self as *const _ as *const Inner<S, P>)
+    }
+
+    unsafe fn into_init(self: Rc<Self>) -> Rc<Inner<S, P>> {
+        std::mem::transmute(self)
+    }
+}
+
+impl<S> Inner<S> {
+    fn update(&self) {
+        // ⚠️ Safety:
+        // ==========
+        //
+        // `prod` is an implementation detail and it's never mut borrowed
+        // unless `state` is borrowed first, which is guarded by `WithCell`
+        // or otherwise guaranteed to be safe.
+        //
+        // Ideally whole `Inner` would be wrapped in `WithCell`, but we
+        // can't do that until `CoerceUnsized` is stabilized.
+        //
+        // <https://github.com/rust-lang/rust/issues/18598>
+        unsafe { (*self.prod.get()).update(Hook::new(self)) }
+    }
 }
 
 impl<S, F, V> View for Stateful<S, F>

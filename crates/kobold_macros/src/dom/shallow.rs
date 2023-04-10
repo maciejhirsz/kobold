@@ -9,7 +9,7 @@
 
 use std::fmt::{self, Display, Write};
 
-use proc_macro::{Group, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
+use tokens::{Group, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 
 use crate::dom::ElementTag;
 use crate::parse::prelude::*;

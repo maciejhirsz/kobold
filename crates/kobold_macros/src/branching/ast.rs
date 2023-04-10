@@ -6,7 +6,7 @@ use std::cell::Cell;
 use std::fmt::{self, Debug};
 use std::rc::Rc;
 
-use proc_macro::{Delimiter, Span, TokenStream, TokenTree};
+use tokens::{Delimiter, Span, TokenStream, TokenTree};
 
 #[derive(Default, Debug)]
 pub struct Scope {
