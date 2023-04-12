@@ -27,7 +27,7 @@ fn App() -> impl View {
                         <EntryInput {state} />
                     </header>
                     <section .main.{hidden}>
-                        <ToggleAll active_count={active_count} {state} />
+                        <ToggleAll {active_count} {state} />
                         <ul.todo-list>
                             {
                                 for state
