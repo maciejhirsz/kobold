@@ -241,9 +241,9 @@ impl Tokenize for FnComponent {
         let fn_render = match self.children {
             Some(children) => {
                 args.write((',', children));
-                "pub fn render_with"
+                "pub fn __render_with"
             }
-            None => "pub fn render",
+            None => "pub fn __render",
         };
 
         out.write((
@@ -264,15 +264,38 @@ impl Tokenize for FnComponent {
             ));
         };
 
-        out.write(("impl", name));
-
-        out.write(block((
+        let fn_render = (
             fn_render,
             self.generics,
             group('(', args),
             self.ret,
             block(self.render),
-        )));
+        );
+
+        let fn_props = (
+            "pub const fn __props() -> Self",
+            block((
+                "Self",
+                block(each(self.arguments.iter().map(Argument::default)).tokenize()),
+            )),
+        );
+
+        out.write(("impl", name, block((fn_props, fn_render))));
+
+        let generics = ('<', each(self.arguments.iter().map(Argument::name)), '>').tokenize();
+
+        out.write((
+            "#[allow(non_camel_case_types)] impl",
+            generics.clone(),
+            name,
+            generics,
+            block(each(
+                self.arguments
+                    .iter()
+                    .enumerate()
+                    .map(|(i, a)| a.setter(name, i, &self.arguments)),
+            )),
+        ));
     }
 }
 
@@ -287,6 +310,45 @@ impl Argument {
 
     fn generic(&self) -> impl Tokenize + '_ {
         (&self.name, "=(),")
+    }
+
+    fn setter<'a>(
+        &'a self,
+        comp: &'a Ident,
+        pos: usize,
+        args: &'a [Argument],
+    ) -> impl Tokenize + 'a {
+        let mut ret_generics = TokenStream::new();
+        let mut body = TokenStream::new();
+
+        for (i, arg) in args.iter().enumerate() {
+            if i == pos {
+                body.write((&self.name, ":value,"));
+                ret_generics.write((&arg.ty, ','));
+            } else {
+                body.write((&arg.name, ":self.", &arg.name, ','));
+                ret_generics.write((&arg.name, ','));
+            }
+        }
+
+        let ret_type = (
+            "->",
+            comp,
+            '<',
+            ret_generics,
+            '>',
+        );
+
+        (
+            "#[inline(always)] pub fn ",
+            call(&self.name, ("self, value:", &self.ty)),
+            ret_type,
+            block((comp, block(body))),
+        )
+    }
+
+    fn default(&self) -> impl Tokenize + '_ {
+        (&self.name, ":(),")
     }
 
     fn field(&self) -> impl Tokenize + '_ {
