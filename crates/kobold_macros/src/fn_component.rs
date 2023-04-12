@@ -20,7 +20,12 @@ use generic_finder::GenericFinder;
 pub struct ComponentArgs {
     branching: Option<Ident>,
     children: Option<Ident>,
-    defaults: Vec<(Ident, TokenStream)>,
+    defaults: Vec<(Ident, Value)>,
+}
+
+enum Value {
+    Default,
+    Expr(TokenStream),
 }
 
 pub fn component(mut args: ComponentArgs, stream: TokenStream) -> Result<TokenStream, ParseError> {
@@ -57,15 +62,18 @@ pub fn args(stream: TokenStream) -> Result<ComponentArgs, ParseError> {
     loop {
         let ident: Ident = stream.parse()?;
 
-        let token = ident.with_str(|s| match s {
-            "children" => Ok(Token::Children),
-            "auto_branch" => Ok(Token::AutoBranch),
-            "default" => Ok(Token::Default),
-            _ => Err(ParseError::new(
-                "Unknown attribute, allowed: auto_branch, children",
-                ident.span(),
-            )),
-        })?;
+        let token = if stream.allow_consume('?').is_some() {
+            Token::Default
+        } else {
+            ident.with_str(|s| match s {
+                "children" => Ok(Token::Children),
+                "auto_branch" => Ok(Token::AutoBranch),
+                _ => Err(ParseError::new(
+                    "Unknown attribute, allowed: `auto_branch`, `children`, or `<parameter>?`",
+                    ident.span(),
+                )),
+            })?
+        };
 
         match token {
             Token::AutoBranch => args.branching = Some(ident),
@@ -77,31 +85,23 @@ pub fn args(stream: TokenStream) -> Result<ComponentArgs, ParseError> {
                 }
             }
             Token::Default => {
-                if let TokenTree::Group(group) = stream.expect('(')? {
-                    let mut stream = group.stream().parse_stream();
+                let value = if stream.allow_consume(':').is_some() {
+                    let mut value = TokenStream::new();
 
-                    loop {
-                        let ident = stream.parse()?;
-
-                        stream.expect('=')?;
-
-                        let mut value = TokenStream::new();
-
-                        for token in &mut stream {
-                            if token.is(',') {
-                                break;
-                            }
-
-                            value.write(token);
-                        }
-
-                        args.defaults.push((ident, value));
-
-                        if stream.end() {
+                    while let Some(tt) = stream.peek() {
+                        if tt.is(',') {
                             break;
                         }
+
+                        value.extend(stream.next());
                     }
-                }
+
+                    Value::Expr(value)
+                } else {
+                    Value::Default
+                };
+
+                args.defaults.push((ident, value));
             }
         }
 
@@ -206,7 +206,7 @@ impl FnComponent {
 struct Argument {
     name: Ident,
     ty: TokenStream,
-    default: Option<TokenStream>,
+    default: Option<Value>,
 }
 
 impl Parse for Function {
