@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use std::fmt::Write;
+
 use tokens::{Ident, TokenStream, TokenTree};
 
 use crate::parse::prelude::*;
@@ -10,17 +12,22 @@ use crate::tokenize::prelude::*;
 use crate::branching::Scope;
 use crate::syntax::Generics;
 
+mod generic_finder;
+
+use generic_finder::GenericFinder;
+
 #[derive(Default)]
 pub struct ComponentArgs {
     branching: Option<Ident>,
     children: Option<Ident>,
+    defaults: Vec<(Ident, TokenStream)>,
 }
 
-pub fn component(args: ComponentArgs, stream: TokenStream) -> Result<TokenStream, ParseError> {
+pub fn component(mut args: ComponentArgs, stream: TokenStream) -> Result<TokenStream, ParseError> {
     let mut stream = stream.parse_stream();
 
     let sig: Function = stream.parse()?;
-    let mut component = FnComponent::new(&args, sig)?;
+    let mut component = FnComponent::new(&mut args, sig)?;
 
     if args.branching.is_some() {
         let scope: Scope = parse(component.render)?;
@@ -44,6 +51,7 @@ pub fn args(stream: TokenStream) -> Result<ComponentArgs, ParseError> {
     enum Token {
         Children,
         AutoBranch,
+        Default,
     }
 
     loop {
@@ -52,6 +60,7 @@ pub fn args(stream: TokenStream) -> Result<ComponentArgs, ParseError> {
         let token = ident.with_str(|s| match s {
             "children" => Ok(Token::Children),
             "auto_branch" => Ok(Token::AutoBranch),
+            "default" => Ok(Token::Default),
             _ => Err(ParseError::new(
                 "Unknown attribute, allowed: auto_branch, children",
                 ident.span(),
@@ -65,6 +74,33 @@ pub fn args(stream: TokenStream) -> Result<ComponentArgs, ParseError> {
 
                 if stream.allow_consume(':').is_some() {
                     args.children = Some(stream.parse()?);
+                }
+            }
+            Token::Default => {
+                if let TokenTree::Group(group) = stream.expect('(')? {
+                    let mut stream = group.stream().parse_stream();
+
+                    loop {
+                        let ident = stream.parse()?;
+
+                        stream.expect('=')?;
+
+                        let mut value = TokenStream::new();
+
+                        for token in &mut stream {
+                            if token.is(',') {
+                                break;
+                            }
+
+                            value.write(token);
+                        }
+
+                        args.defaults.push((ident, value));
+
+                        if stream.end() {
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -105,7 +141,7 @@ struct FnComponent {
 }
 
 impl FnComponent {
-    fn new(args: &ComponentArgs, mut fun: Function) -> Result<FnComponent, ParseError> {
+    fn new(args: &mut ComponentArgs, mut fun: Function) -> Result<FnComponent, ParseError> {
         let children = match &args.children {
             Some(children) => {
                 let ident = children.to_string();
@@ -126,6 +162,26 @@ impl FnComponent {
             }
             None => None,
         };
+
+        let mut temp_var = String::with_capacity(40);
+
+        'outer: for (var, value) in args.defaults.drain(..) {
+            temp_var.clear();
+
+            let _ = write!(temp_var, "{var}");
+
+            for arg in fun.arguments.iter_mut() {
+                if arg.name.eq_str(&temp_var) {
+                    arg.default = Some(value);
+                    continue 'outer;
+                }
+            }
+
+            return Err(ParseError::new(
+                format!("Parameter `{var}` missing in the component `{}`", fun.name),
+                var.span(),
+            ));
+        }
 
         let render = match fun.body {
             TokenTree::Group(group) => group.stream(),
@@ -150,6 +206,7 @@ impl FnComponent {
 struct Argument {
     name: Ident,
     ty: TokenStream,
+    default: Option<TokenStream>,
 }
 
 impl Parse for Function {
@@ -216,122 +273,11 @@ impl Parse for Argument {
 
         let ty = stream.take_while(|token| !token.is(',')).collect();
 
-        Ok(Argument { name, ty })
-    }
-}
-
-#[derive(Debug)]
-enum Generic {
-    Lifetime(Box<str>),
-    Type(Box<str>),
-}
-
-impl Tokenize for &Generic {
-    fn tokenize_in(self, stream: &mut TokenStream) {
-        match self {
-            Generic::Lifetime(lt) => stream.write(format_args!("'{lt},")),
-            Generic::Type(ty) => stream.write(format_args!("{ty},")),
-        }
-    }
-}
-
-impl Parse for Generic {
-    fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
-        let lifetime = stream.allow_consume('\'').is_some();
-
-        let ident: Ident = stream.parse()?;
-
-        if stream.allow_consume(':').is_some() {
-            while !stream.allow(',') {
-                stream.next();
-            }
-        }
-
-        stream.allow_consume(',');
-
-        let string = ident.to_string().into();
-
-        if lifetime {
-            Ok(Generic::Lifetime(string))
-        } else {
-            Ok(Generic::Type(string))
-        }
-    }
-}
-
-#[derive(Debug)]
-struct GenericFinder {
-    generics: Vec<Generic>,
-    matches: Vec<usize>,
-}
-
-impl Parse for GenericFinder {
-    fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
-        let mut out = Vec::new();
-
-        // skip opening <
-        stream.next();
-
-        loop {
-            let gen = stream.parse()?;
-
-            out.push(gen);
-
-            if stream.allow_consume('>').is_some() {
-                break;
-            }
-        }
-
-        Ok(GenericFinder::new(out))
-    }
-}
-
-impl GenericFinder {
-    pub fn in_type(&mut self, ty: &TokenStream) -> impl Iterator<Item = &Generic> {
-        self.find_inner(ty.clone());
-
-        self.matches.drain(..).map(|idx| &self.generics[idx])
-    }
-
-    fn find_inner(&mut self, tokens: TokenStream) {
-        let mut lifetime = false;
-
-        for token in tokens {
-            if token.is('\'') {
-                lifetime = true;
-                continue;
-            }
-
-            match token {
-                TokenTree::Group(group) => self.find_inner(group.stream()),
-                TokenTree::Ident(ident) => {
-                    ident.with_str(|ident| {
-                        for (idx, gen) in self.generics.iter().enumerate() {
-                            if match (lifetime, gen) {
-                                (true, Generic::Lifetime(lt)) => &**lt == ident,
-                                (false, Generic::Type(ty)) => &**ty == ident,
-                                _ => false,
-                            } {
-                                if let Err(i) = self.matches.binary_search(&idx) {
-                                    self.matches.insert(i, idx);
-                                }
-                            }
-                        }
-                    });
-                }
-                _ => (),
-            }
-
-            lifetime = false;
-        }
-    }
-}
-
-impl GenericFinder {
-    pub fn new(generics: Vec<Generic>) -> Self {
-        let matches = Vec::with_capacity(generics.len());
-
-        GenericFinder { generics, matches }
+        Ok(Argument {
+            name,
+            ty,
+            default: None,
+        })
     }
 }
 
@@ -426,7 +372,7 @@ impl Argument {
     }
 
     fn generic(&self) -> impl Tokenize + '_ {
-        (&self.name, "=(),")
+        (&self.name, "= ::kobold::internal::Prop,")
     }
 
     fn setter<'a>(
@@ -468,7 +414,7 @@ impl Argument {
     }
 
     fn default(&self) -> impl Tokenize + '_ {
-        (&self.name, ":(),")
+        (&self.name, ": ::kobold::internal::Prop,")
     }
 
     fn field(&self) -> impl Tokenize + '_ {

@@ -9,6 +9,27 @@ use web_sys::Node;
 
 use crate::View;
 
+pub struct Prop;
+
+pub trait Maybe<T> {
+    fn maybe_or(self, or: impl FnOnce() -> T) -> T;
+}
+
+impl<T> Maybe<T> for T
+where
+    T: Default,
+{
+    fn maybe_or(self, _: impl FnOnce() -> T) -> T {
+        self
+    }
+}
+
+impl<T> Maybe<T> for Prop {
+    fn maybe_or(self, or: impl FnOnce() -> T) -> T {
+        or()
+    }
+}
+
 /// Wrapper that turns `extern` precompiled JavaScript functions into [`View`](View)s.
 #[repr(transparent)]
 pub struct Precompiled<F>(pub F);
