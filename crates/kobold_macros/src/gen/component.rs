@@ -30,10 +30,6 @@ impl Component {
             params.write(('.', call(name, expr.stream)));
         }
 
-        if let Some(_) = self.spread {
-            unimplemented!();
-        }
-
         if let Some(children) = self.children {
             let children = crate::gen::generate(children);
 

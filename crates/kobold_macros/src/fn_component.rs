@@ -331,13 +331,7 @@ impl Argument {
             }
         }
 
-        let ret_type = (
-            "->",
-            comp,
-            '<',
-            ret_generics,
-            '>',
-        );
+        let ret_type = ("->", comp, '<', ret_generics, '>');
 
         (
             "#[inline(always)] pub fn ",

@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use tokens::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
+use tokens::{Delimiter, Ident, Literal, Span, TokenStream, TokenTree};
 
 use crate::parse::prelude::*;
 use crate::syntax::CssLabel;
@@ -47,7 +47,6 @@ pub struct Component {
     pub path: TokenStream,
     pub generics: Option<TokenStream>,
     pub props: Vec<Property>,
-    pub spread: Option<Expression>,
     pub children: Option<Vec<Node>>,
 }
 
@@ -126,28 +125,9 @@ impl Node {
                 generics,
             } => {
                 let mut content = tag.content.parse_stream();
-                let mut spread = None;
                 let mut props = Vec::new();
 
                 while !content.end() {
-                    if content.allow_consume(('.', Spacing::Joint)).is_some() {
-                        content.expect('.')?;
-
-                        if let Some(TokenTree::Group(expr)) = content.allow_consume('{') {
-                            spread = Some(Expression::from(expr));
-                        } else {
-                            let expr = Expression::from("Default::default()");
-
-                            spread = Some(expr);
-                        }
-
-                        if let Some(tt) = content.next() {
-                            return Err(ParseError::new("Not allowed after the .. spread", tt));
-                        }
-
-                        break;
-                    }
-
                     props.push(content.parse()?);
                 }
 
@@ -157,7 +137,6 @@ impl Node {
                     path,
                     generics,
                     props,
-                    spread,
                     children,
                 })))
             }
