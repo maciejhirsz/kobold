@@ -2,7 +2,7 @@
 
 # Kobold
 
-![Test](https://github.com/maciejhirsz/kobold/workflows/Test/badge.svg?branch=master)
+![Test](https://github.com/maciejhirsz/kobold/workflows/CI/badge.svg?branch=master)
 [![Crates.io version shield](https://img.shields.io/crates/v/kobold.svg)](https://crates.io/crates/kobold)
 [![Docs](https://docs.rs/kobold/badge.svg)](https://docs.rs/kobold)
 [![Crates.io license shield](https://img.shields.io/crates/l/kobold.svg)](https://crates.io/crates/kobold)
