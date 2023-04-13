@@ -444,7 +444,7 @@ impl Argument {
     }
 
     fn field(&self) -> impl Tokenize + '_ {
-        ("pub", &self.name, ':', &self.name, ',')
+        (&self.name, ':', &self.name, ',')
     }
 }
 
