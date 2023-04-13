@@ -9,7 +9,7 @@
 
 _Easy declarative web interfaces._
 
-**Kobold** uses macros to deliver familiar JSX-esque syntax for building declarative web interfaces,
+**Kobold** uses macros to deliver familiar HTML-esque syntax for building declarative web interfaces,
 while leveraging Rust's powerful type system for safety and performance.
 
 ### Zero-Cost Static HTML
