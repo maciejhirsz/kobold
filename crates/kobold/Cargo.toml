@@ -17,6 +17,7 @@ stateful = []
 
 [dependencies]
 wasm-bindgen = "0.2.84"
+wasm-bindgen-futures = "0.4.34"
 itoa = "1.0.6"
 kobold_macros = { version = "0.7.0", path = "../kobold_macros" }
 console_error_panic_hook = "0.1.7"

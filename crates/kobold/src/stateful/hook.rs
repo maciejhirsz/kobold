@@ -2,9 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use std::future::Future;
 use std::mem::ManuallyDrop;
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
+
+use wasm_bindgen_futures::spawn_local;
 
 use crate::event::{EventCast, Listener};
 use crate::stateful::{Inner, ShouldRender};
@@ -115,11 +118,12 @@ impl<S> Hook<S> {
         }
     }
 
-    pub fn bind_signal<E, F>(&self, callback: F) -> impl Listener<E>
+    pub fn bind_async<E, F, T>(&self, callback: F) -> impl Listener<E>
     where
         S: 'static,
         E: EventCast,
-        F: Fn(Signal<S>, E) + 'static,
+        F: Fn(Signal<S>, E) -> T + 'static,
+        T: Future<Output = ()> + 'static,
     {
         let inner = &self.inner as *const Inner<S>;
 
@@ -139,7 +143,7 @@ impl<S> Hook<S> {
                 weak: Rc::downgrade(&*rc),
             };
 
-            callback(signal, e);
+            spawn_local(callback(signal, e));
         }
     }
 

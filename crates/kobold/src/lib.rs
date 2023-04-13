@@ -553,9 +553,15 @@ macro_rules! class {
 /// ```
 #[macro_export]
 macro_rules! bind {
-    ($hook:ident: $(let $v:ident = move |$e:tt $(: $e_ty:ty)?| $body:expr;)+) => {
+    ($hook:ident: $(let $v:ident = $async_move:tt |$e:tt $(: $e_ty:ty)?| $body:expr;)+) => {
         $(
-            let $v = $hook.bind(move |$hook, $e $(: $e_ty)*| $body);
+            let $v = $crate::bind!(@$async_move($hook, $e $(: $e_ty)*) $body);
         )*
+    };
+    (@move ($hook:ident, $e:tt $(: $e_ty:ty)*) $body:expr) => {
+        $hook.bind(move |$hook, $e $(: $e_ty)*| $body)
+    };
+    (@async ($hook:ident, $e:tt $(: $e_ty:ty)*) $body:expr) => {
+        $hook.bind_async(move |$hook, $e $(: $e_ty)*| async move { $body })
     };
 }

@@ -147,6 +147,7 @@ dependencies = [
  "itoa",
  "kobold_macros",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 

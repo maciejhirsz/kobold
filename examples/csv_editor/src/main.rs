@@ -1,5 +1,4 @@
 use kobold::prelude::*;
-use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement as Input;
 
 mod csv;
@@ -10,24 +9,22 @@ use state::{Editing, State, Text};
 #[component]
 fn Editor() -> impl View {
     stateful(State::mock, |state| {
-        let onload = state.bind_signal(|signal, e: Event<Input>| {
-            let file = match e.target().files().and_then(|list| list.get(0)) {
-                Some(file) => file,
-                None => return,
+        bind! {
+            state:
+
+            let onload = async |event: Event<Input>| {
+                let file = match event.target().files().and_then(|list| list.get(0)) {
+                    Some(file) => file,
+                    None => return,
+                };
+
+                state.update(|state| state.name = file.name());
+
+                if let Ok(table) = csv::read_file(file).await {
+                    state.update(move |state| state.table = table);
+                }
             };
 
-            signal.update(|state| state.name = file.name());
-
-            let signal = signal.clone();
-
-            spawn_local(async move {
-                if let Ok(table) = csv::read_file(file).await {
-                    signal.update(move |state| state.table = table);
-                }
-            })
-        });
-
-        bind! { state:
             let onkeydown = move |event: KeyboardEvent<_>| {
                 if matches!(event.key().as_str(), "Esc" | "Escape") {
                     state.editing = Editing::None;
