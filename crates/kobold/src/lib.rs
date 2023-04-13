@@ -262,14 +262,66 @@
 /// The `#[component]` attribute accepts a few optional flags using syntax: `#[component(<flag>)]`.
 /// Multiple comma-separated flags can be used at once.
 ///
-/// ### `#[component(auto_branch)]`
+/// ### Optional parameters: `#[component(<param>?)]`
+///
+/// Allows for parameters to have default values. Available syntax:
+///
+/// * `#[component(foo?)]`: mark the parameter `foo` as optional, use [`Default`](Default) trait implementation if it's missing.
+/// * `#[component(foo?: <expression>)]`: mark the parameter `foo` as optional, default to `<expression>`.
+///
+/// #### Examples
+/// ```
+/// # use kobold::prelude::*;
+/// // `name` will default to `"Kobold"`
+/// // `age` will default to `0` (using `Default`)
+/// #[component(name?: "Kobold", age?)]
+/// fn Greeter<'a>(name: &'a str, age: u32) -> impl View + 'a {
+///     let age = (age > 0).then_some(view!(", you are "{ age }" years old"));
+///
+///     view! {
+///         <p> "Hello "{ name }{ age }
+///     }
+/// }
+///
+/// # let _ =
+/// view! {
+///     // Hello Kobold
+///     <Greeter />
+///     // Hello Alice
+///     <Greeter name="Alice" />
+///     // Hello Bob, you are 42 years old
+///     <Greeter name="Bob" age={42} />
+/// }
+/// # ;
+/// ```
+///
+/// All values are lazy-evaluated:
+///
+/// ```
+/// # use kobold::prelude::*;
+/// // The owned `String` will only be created if the `name` is not set.
+/// #[component(name?: "Kobold".to_string())]
+/// fn Greeter(name: String) -> impl View {
+///     view! {
+///         <p> "Hello "{ name }
+///     }
+/// }
+/// ```
+///
+/// #### 💡 Note:
+///
+/// You can only mark types that implement the [`Default`](Default) trait as optional, even if you provide
+/// a concrete value using `param?: value`. This requirement might be relaxed in the future if trait
+/// specialization is stabilized in Rust.
+///
+/// ### Enable auto-branching: `#[component(auto_branch)]`
 ///
 /// Automatically resolve all invocations of the [`view!`](view) macro inside `if` and `match` expressions
 /// to the same type.
 ///
 /// For more details visit the [`branching` module documentation](branching).
 ///
-/// ### `#[component(children)]`
+/// ### Accept children: `#[component(children)]`
 ///
 /// Turns the component into a component that accepts children. Available syntax:
 ///

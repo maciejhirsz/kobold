@@ -342,7 +342,7 @@ impl Tokenize for FnComponent {
         );
 
         let fn_props = (
-            "#[doc(hidden)] pub const fn __props() -> Self",
+            "#[doc(hidden)] pub const fn __undefined() -> Self",
             block((
                 "Self",
                 block(each(self.arguments.iter().map(Argument::default)).tokenize()),
@@ -385,7 +385,7 @@ impl Argument {
     }
 
     fn generic(&self) -> impl Tokenize + '_ {
-        (&self.name, "= ::kobold::internal::Prop,")
+        (&self.name, "= ::kobold::internal::Undefined,")
     }
 
     fn setter<'a>(
@@ -440,7 +440,7 @@ impl Argument {
     }
 
     fn default(&self) -> impl Tokenize + '_ {
-        (&self.name, ": ::kobold::internal::Prop,")
+        (&self.name, ": ::kobold::internal::Undefined,")
     }
 
     fn field(&self) -> impl Tokenize + '_ {

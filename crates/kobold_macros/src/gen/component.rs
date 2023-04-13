@@ -24,7 +24,7 @@ impl Component {
 
         let mut params = self.path;
 
-        params.write("::__props()");
+        params.write("::__undefined()");
 
         for Property { name, expr } in self.props {
             params.write(('.', call(name, expr.stream)));
