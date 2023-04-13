@@ -107,6 +107,32 @@ underlying state.
 
 For more details visit the [`stateful` module documentation](https://docs.rs/kobold/latest/kobold/stateful/index.html).
 
+### Optional parameters
+
+Use `#[component(<param>?)]` syntax to set a component parameter as default:
+
+```rust
+# use kobold::prelude::*;
+// `code` will default to `200` if omitted
+#[component(code?: 200)]
+fn Status(code: u32) -> impl View {
+    view! {
+        <p> "Status code was "{ code }
+    }
+}
+
+# let _ =
+view! {
+    // "Status code was 200"
+    <Status />
+    // "Status code was 404"
+    <Status code={404} />
+}
+# ;
+```
+
+For more details visit the [`#[component]` macro documentation](https://docs.rs/kobold/latest/kobold/attr.component.html#optional-parameters-componentparam).
+
 ### Conditional Rendering
 
 Because the `view!` macro produces unique transient types, `if` and `match` expressions that invoke
