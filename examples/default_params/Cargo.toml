@@ -1,5 +1,5 @@
 [package]
-name = "kobold_defaults_example"
+name = "kobold_default_params_example"
 version = "0.1.0"
 edition = "2021"
 
