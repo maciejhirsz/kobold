@@ -117,7 +117,6 @@ For more details visit the [`stateful` module documentation](https://docs.rs/kob
 Use `#[component(<param>?)]` syntax to set a component parameter as default:
 
 ```rust
-# use kobold::prelude::*;
 // `code` will default to `200` if omitted
 #[component(code?: 200)]
 fn Status(code: u32) -> impl View {
@@ -126,14 +125,12 @@ fn Status(code: u32) -> impl View {
     }
 }
 
-# let _ =
 view! {
     // "Status code was 200"
     <Status />
     // "Status code was 404"
     <Status code={404} />
 }
-# ;
 ```
 
 For more details visit the [`#[component]` macro documentation](https://docs.rs/kobold/latest/kobold/attr.component.html#optional-parameters-componentparam).
