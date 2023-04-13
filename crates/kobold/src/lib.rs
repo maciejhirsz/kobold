@@ -6,7 +6,7 @@
 //!
 //! # Kobold
 //!
-//! **Kobold** uses macros to deliver familiar JSX-esque syntax for building declarative web interfaces,
+//! **Kobold** uses macros to deliver familiar HTML-esque syntax for building declarative web interfaces,
 //! while leveraging Rust's powerful type system for safety and performance.
 //!
 //! ### Zero-Cost Static HTML
@@ -108,6 +108,32 @@
 //! underlying state.
 //!
 //! For more details visit the [`stateful` module documentation](stateful).
+//!
+//! ### Optional parameters
+//!
+//! Use `#[component(<param>?)]` syntax to set a component parameter as default:
+//!
+//! ```
+//! # use kobold::prelude::*;
+//! // `code` will default to `200` if omitted
+//! #[component(code?: 200)]
+//! fn Status(code: u32) -> impl View {
+//!     view! {
+//!         <p> "Status code was "{ code }
+//!     }
+//! }
+//!
+//! # let _ =
+//! view! {
+//!     // "Status code was 200"
+//!     <Status />
+//!     // "Status code was 404"
+//!     <Status code={404} />
+//! }
+//! # ;
+//! ```
+//!
+//! For more details visit the [`#[component]` macro documentation](component#optional-parameters-componentparam).
 //!
 //! ### Conditional Rendering
 //!
@@ -262,14 +288,66 @@
 /// The `#[component]` attribute accepts a few optional flags using syntax: `#[component(<flag>)]`.
 /// Multiple comma-separated flags can be used at once.
 ///
-/// ### `#[component(auto_branch)]`
+/// ### Optional parameters: `#[component(<param>?)]`
+///
+/// Allows for parameters to have default values. Available syntax:
+///
+/// * `#[component(foo?)]`: mark the parameter `foo` as optional, use [`Default`](Default) trait implementation if it's missing.
+/// * `#[component(foo?: <expression>)]`: mark the parameter `foo` as optional, default to `<expression>`.
+///
+/// #### Examples
+/// ```
+/// # use kobold::prelude::*;
+/// // `name` will default to `"Kobold"`
+/// // `age` will default to `0` (using `Default`)
+/// #[component(name?: "Kobold", age?)]
+/// fn Greeter<'a>(name: &'a str, age: u32) -> impl View + 'a {
+///     let age = (age > 0).then_some(view!(", you are "{ age }" years old"));
+///
+///     view! {
+///         <p> "Hello "{ name }{ age }
+///     }
+/// }
+///
+/// # let _ =
+/// view! {
+///     // "Hello Kobold"
+///     <Greeter />
+///     // "Hello Alice"
+///     <Greeter name="Alice" />
+///     // "Hello Bob, you are 42 years old"
+///     <Greeter name="Bob" age={42} />
+/// }
+/// # ;
+/// ```
+///
+/// All values are lazy-evaluated:
+///
+/// ```
+/// # use kobold::prelude::*;
+/// // The owned `String` will only be created if the `name` is not set.
+/// #[component(name?: "Kobold".to_string())]
+/// fn Greeter(name: String) -> impl View {
+///     view! {
+///         <p> "Hello "{ name }
+///     }
+/// }
+/// ```
+///
+/// #### 💡 Note:
+///
+/// You can only mark types that implement the [`Default`](Default) trait as optional, even if you provide
+/// a concrete value using `param?: value`. This requirement might be relaxed in the future if trait
+/// specialization is stabilized in Rust.
+///
+/// ### Enable auto-branching: `#[component(auto_branch)]`
 ///
 /// Automatically resolve all invocations of the [`view!`](view) macro inside `if` and `match` expressions
 /// to the same type.
 ///
 /// For more details visit the [`branching` module documentation](branching).
 ///
-/// ### `#[component(children)]`
+/// ### Accept children: `#[component(children)]`
 ///
 /// Turns the component into a component that accepts children. Available syntax:
 ///

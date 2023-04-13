@@ -147,9 +147,11 @@ pub fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> im
 #[component]
 fn FilterView(filter: Filter, state: &Hook<State>) -> impl View + '_ {
     let selected = state.filter;
-
     let class = class!("selected" if selected == filter);
-    bind! { state:
+
+    bind! {
+        state:
+
         let onclick = move |_| state.filter = filter;
     }
 

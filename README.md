@@ -2,9 +2,14 @@
 
 # Kobold
 
+![Test](https://github.com/maciejhirsz/kobold/workflows/CI/badge.svg?branch=master)
+[![Crates.io version shield](https://img.shields.io/crates/v/kobold.svg)](https://crates.io/crates/kobold)
+[![Docs](https://docs.rs/kobold/badge.svg)](https://docs.rs/kobold)
+[![Crates.io license shield](https://img.shields.io/crates/l/kobold.svg)](https://crates.io/crates/kobold)
+
 _Easy declarative web interfaces._
 
-**Kobold** uses macros to deliver familiar JSX-esque syntax for building declarative web interfaces,
+**Kobold** uses macros to deliver familiar HTML-esque syntax for building declarative web interfaces,
 while leveraging Rust's powerful type system for safety and performance.
 
 ### Zero-Cost Static HTML
@@ -106,6 +111,29 @@ state. The `bind!` macro can be invoked for any `Hook` to create closures with `
 underlying state.
 
 For more details visit the [`stateful` module documentation](https://docs.rs/kobold/latest/kobold/stateful/index.html).
+
+### Optional parameters
+
+Use `#[component(<param>?)]` syntax to set a component parameter as default:
+
+```rust
+// `code` will default to `200` if omitted
+#[component(code?: 200)]
+fn Status(code: u32) -> impl View {
+    view! {
+        <p> "Status code was "{ code }
+    }
+}
+
+view! {
+    // "Status code was 200"
+    <Status />
+    // "Status code was 404"
+    <Status code={404} />
+}
+```
+
+For more details visit the [`#[component]` macro documentation](https://docs.rs/kobold/latest/kobold/attr.component.html#optional-parameters-componentparam).
 
 ### Conditional Rendering
 

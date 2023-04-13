@@ -9,15 +9,17 @@ use fast_qr::qr::QRBuilder;
 use kobold::diff::fence;
 use web_sys::CanvasRenderingContext2d;
 
-#[component]
-pub fn KoboldQR(data: &str) -> impl View + '_ {
+#[component(size?: 200)]
+pub fn KoboldQR(data: &str, size: usize) -> impl View + '_ {
     fence(data, move || {
         let qr = QRBuilder::new(data).build().ok()?;
-        let size = qr.size * 8;
+        let pixel = ((size / qr.size) + 1) * 2;
+        let pixels = qr.size * pixel;
+        let style = format!("width: {size}px; height: {size}px;");
 
         Some(
             view! {
-                <canvas width={size} height={size} style="width: 200px; height: 200px;" />
+                <canvas width={pixels} height={pixels} {style} />
             }
             .on_render(move |canvas| {
                 let ctx = match canvas.get_context("2d") {
@@ -25,7 +27,7 @@ pub fn KoboldQR(data: &str) -> impl View + '_ {
                     _ => return,
                 };
 
-                ctx.clear_rect(0., 0., size as f64, size as f64);
+                ctx.clear_rect(0., 0., pixels as f64, pixels as f64);
 
                 for (y, row) in qr.data.chunks(qr.size).take(qr.size).enumerate() {
                     let mut row = row.iter().enumerate();
@@ -37,7 +39,12 @@ pub fn KoboldQR(data: &str) -> impl View + '_ {
 
                         let w = 1 + (&mut row).take_while(|(_, m)| m.value()).count();
 
-                        ctx.fill_rect((8 * x) as f64, (8 * y) as f64, (w * 8) as f64, 8.)
+                        ctx.fill_rect(
+                            (x * pixel) as f64,
+                            (y * pixel) as f64,
+                            (w * pixel) as f64,
+                            pixel as f64,
+                        )
                     }
                 }
             }),

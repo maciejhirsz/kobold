@@ -11,7 +11,8 @@ use tokens::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream
 use crate::parse::ParseStream;
 
 pub mod prelude {
-    pub use super::{block, call, each, group, ident, string, TokenStreamExt, Tokenize};
+    pub use super::{block, call, each, group, ident, string, tok_fn};
+    pub use super::{TokenStreamExt, Tokenize};
 }
 
 pub fn group(delim: char, tokens: impl Tokenize) -> Group {
@@ -95,6 +96,24 @@ impl<T: Tokenize + Clone> Tokenize for &T {
 }
 
 pub struct TokenizeIter<I>(I);
+
+pub struct TokFn<F>(F);
+
+pub const fn tok_fn<F>(f: F) -> TokFn<F>
+where
+    F: FnOnce(&mut TokenStream),
+{
+    TokFn(f)
+}
+
+impl<F> Tokenize for TokFn<F>
+where
+    F: FnOnce(&mut TokenStream),
+{
+    fn tokenize_in(self, stream: &mut TokenStream) {
+        (self.0)(stream)
+    }
+}
 
 impl Tokenize for () {
     fn tokenize_in(self, _: &mut TokenStream) {}

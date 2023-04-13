@@ -13,9 +13,9 @@ impl Component {
         let mut render = self.path.clone();
 
         render.write(if self.children.is_some() {
-            "::render_with"
+            "::__render_with"
         } else {
-            "::render"
+            "::__render"
         });
 
         if let Some(generics) = self.generics {
@@ -23,22 +23,11 @@ impl Component {
         }
 
         let mut params = self.path;
-        let mut props = None;
+
+        params.write("::__undefined()");
 
         for Property { name, expr } in self.props {
-            let props = props.get_or_insert_with(TokenStream::new);
-
-            props.write((name, ':', expr.stream, ','));
-        }
-
-        if let Some(spread) = self.spread {
-            let props = props.get_or_insert_with(TokenStream::new);
-
-            props.write(("..", spread.stream));
-        }
-
-        if let Some(props) = props {
-            params.write(block(props));
+            params.write(('.', call(name, expr.stream)));
         }
 
         if let Some(children) = self.children {

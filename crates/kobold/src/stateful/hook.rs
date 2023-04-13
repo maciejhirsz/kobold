@@ -14,7 +14,7 @@ use crate::View;
 /// function.
 ///
 /// Hook can be read from though its `Deref` implementation, and it allows for mutations either by [`bind`ing](Hook::bind)
-/// closures to it, or the creation of [`signal`s](Hook::signal).
+/// closures to it.
 #[repr(transparent)]
 pub struct Hook<S> {
     inner: Inner<S>,
