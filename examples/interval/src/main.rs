@@ -4,7 +4,9 @@ use kobold::prelude::*;
 #[component(seconds?)]
 fn Elapsed(seconds: u32) -> impl View {
     stateful(seconds, |seconds| {
-        bind! { seconds:
+        bind! {
+            seconds:
+
             let onclick = move |_| *seconds = 0;
         }
 

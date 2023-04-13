@@ -46,8 +46,7 @@ impl Parse for Generic {
 }
 
 pub struct GenericFinder {
-    generics: Vec<Generic>,
-    matches: Vec<usize>,
+    generics: Vec<(bool, Generic)>,
 }
 
 impl Parse for GenericFinder {
@@ -60,7 +59,7 @@ impl Parse for GenericFinder {
         loop {
             let gen = stream.parse()?;
 
-            out.push(gen);
+            out.push((false, gen));
 
             if stream.allow_consume('>').is_some() {
                 break;
@@ -75,7 +74,15 @@ impl GenericFinder {
     pub fn in_type(&mut self, ty: &TokenStream) -> impl Iterator<Item = &Generic> {
         self.find_inner(ty.clone());
 
-        self.matches.drain(..).map(|idx| &self.generics[idx])
+        self.generics.iter_mut().filter_map(|(m, gen)| {
+            if *m {
+                *m = false;
+
+                Some(&*gen)
+            } else {
+                None
+            }
+        })
     }
 
     fn find_inner(&mut self, tokens: TokenStream) {
@@ -91,15 +98,11 @@ impl GenericFinder {
                 TokenTree::Group(group) => self.find_inner(group.stream()),
                 TokenTree::Ident(ident) => {
                     ident.with_str(|ident| {
-                        for (idx, gen) in self.generics.iter().enumerate() {
-                            if match (lifetime, gen) {
+                        for (m, gen) in self.generics.iter_mut() {
+                            *m |= match (lifetime, gen) {
                                 (true, Generic::Lifetime(lt)) => &**lt == ident,
                                 (false, Generic::Type(ty)) => &**ty == ident,
                                 _ => false,
-                            } {
-                                if let Err(i) = self.matches.binary_search(&idx) {
-                                    self.matches.insert(i, idx);
-                                }
                             }
                         }
                     });
@@ -113,9 +116,7 @@ impl GenericFinder {
 }
 
 impl GenericFinder {
-    pub fn new(generics: Vec<Generic>) -> Self {
-        let matches = Vec::with_capacity(generics.len());
-
-        GenericFinder { generics, matches }
+    fn new(generics: Vec<(bool, Generic)>) -> Self {
+        GenericFinder { generics }
     }
 }
