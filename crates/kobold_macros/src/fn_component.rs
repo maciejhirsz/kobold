@@ -307,9 +307,9 @@ impl Tokenize for FnComponent {
         let fn_render = match self.children {
             Some(children) => {
                 args.write((',', children));
-                "pub fn __render_with"
+                "#[doc(hidden)] pub fn __render_with"
             }
-            None => "pub fn __render",
+            None => "#[doc(hidden)] pub fn __render",
         };
 
         out.write((
@@ -335,11 +335,14 @@ impl Tokenize for FnComponent {
             self.generics,
             group('(', args),
             self.ret,
-            block(self.render),
+            block((
+                each(self.arguments.iter().map(Argument::maybe)),
+                self.render,
+            )),
         );
 
         let fn_props = (
-            "pub const fn __props() -> Self",
+            "#[doc(hidden)] pub const fn __props() -> Self",
             block((
                 "Self",
                 block(each(self.arguments.iter().map(Argument::default)).tokenize()),
@@ -364,7 +367,17 @@ impl Tokenize for FnComponent {
 
 impl Argument {
     fn ty(&self) -> impl Tokenize + '_ {
-        (&self.ty, ',')
+        tok_fn(|stream| {
+            if self.default.is_some() {
+                stream.write("impl ::kobold::internal::Maybe<");
+                stream.write(&self.ty);
+                stream.write('>');
+            } else {
+                stream.write(&self.ty);
+            }
+
+            stream.write(',');
+        })
     }
 
     fn name(&self) -> impl Tokenize + '_ {
@@ -411,6 +424,19 @@ impl Argument {
             ret_type,
             block((comp, block(body))),
         )
+    }
+
+    fn maybe(&self) -> impl Tokenize + '_ {
+        tok_fn(|stream| {
+            if let Some(value) = &self.default {
+                stream.write(("let", &self.name, "=", &self.name));
+
+                match value {
+                    Value::Default => stream.write(".maybe_or(Default::default);"),
+                    Value::Expr(expr) => stream.write((call(".maybe_or", ("||", expr)), ';')),
+                }
+            }
+        })
     }
 
     fn default(&self) -> impl Tokenize + '_ {

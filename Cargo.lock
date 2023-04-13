@@ -170,6 +170,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "kobold_defaults_example"
+version = "0.1.0"
+dependencies = [
+ "kobold",
+]
+
+[[package]]
 name = "kobold_hello_world_example"
 version = "0.1.0"
 dependencies = [
