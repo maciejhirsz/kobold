@@ -18,7 +18,7 @@ use std::rc::Rc;
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
-use crate::{Mountable, View};
+use crate::{dom::Anchor, Mountable, View};
 
 mod cell;
 mod hook;
@@ -182,9 +182,9 @@ impl<S, R> Stateful<S, R>
 where
     S: IntoState,
 {
-    pub fn once<F>(self, handler: F) -> Once<S, R, F>
+    pub fn once<F, P>(self, handler: F) -> Once<S, R, F>
     where
-        F: FnOnce(Signal<S::State>),
+        F: FnOnce(Signal<S::State>) -> P,
     {
         Once {
             with_state: self,
@@ -198,13 +198,33 @@ pub struct Once<S, R, F> {
     handler: F,
 }
 
-impl<S, R, F> View for Once<S, R, F>
+pub struct OnceProduct<S, P> {
+    product: StatefulProduct<S>,
+    // hold onto the return value of the `handler`, so it can
+    // be safely dropped along with the `StatefulProduct`
+    _no_drop: P,
+}
+
+impl<S, P> Anchor for OnceProduct<S, P>
+where
+    StatefulProduct<S>: Mountable,
+{
+    type Js = <StatefulProduct<S> as Mountable>::Js;
+    type Target = StatefulProduct<S>;
+
+    fn anchor(&self) -> &Self::Target {
+        &self.product
+    }
+}
+
+impl<S, R, F, P> View for Once<S, R, F>
 where
     S: IntoState,
-    F: FnOnce(Signal<S::State>),
+    F: FnOnce(Signal<S::State>) -> P,
+    P: 'static,
     Stateful<S, R>: View<Product = StatefulProduct<S::State>>,
 {
-    type Product = StatefulProduct<S::State>;
+    type Product = OnceProduct<S::State, P>;
 
     fn build(self) -> Self::Product {
         let product = self.with_state.build();
@@ -213,12 +233,12 @@ where
             weak: Rc::downgrade(&product.inner),
         };
 
-        (self.handler)(signal);
+        let _no_drop = (self.handler)(signal);
 
-        product
+        OnceProduct { product, _no_drop }
     }
 
     fn update(self, p: &mut Self::Product) {
-        self.with_state.update(p);
+        self.with_state.update(&mut p.product);
     }
 }
