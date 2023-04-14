@@ -1,9 +1,9 @@
 use kobold::prelude::*;
 
 #[component(
-    // Make `name` an optional parameter, default to `"Kobold"`
+    // Make `name` an optional parameter, defaults to `"Kobold"`
     name?: "Kobold",
-    // Make `age` an optional parameter, use the `Default` trait
+    // Make `age` an optional parameter, use the `Default` value
     age?,
 )]
 fn Greeter<'a>(name: &'a str, age: Option<u32>) -> impl View + 'a {

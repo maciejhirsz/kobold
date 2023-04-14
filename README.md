@@ -126,9 +126,9 @@ fn Status(code: u32) -> impl View {
 }
 
 view! {
-    // "Status code was 200"
+    // Status code was 200
     <Status />
-    // "Status code was 404"
+    // Status code was 404
     <Status code={404} />
 }
 ```

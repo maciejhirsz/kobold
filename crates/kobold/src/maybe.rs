@@ -6,9 +6,14 @@
 
 /// Undefined component parameter. If you've encountered this type it usually means
 /// you've failed to set a required component parameter.
+///
+/// This is a zero-sized type that implements [`Maybe<T>`](Maybe) for all `T: Default`.
 pub struct Undefined;
 
 /// Helper trait for handling optional parameters in components.
+///
+/// Visit the [`#[component]` macro documentation](crate::component#optional-parameters-componentparam)
+/// to see how it's being used.
 pub trait Maybe<T> {
     fn maybe_or(self, or: impl FnOnce() -> T) -> T;
 }

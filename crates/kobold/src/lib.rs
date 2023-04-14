@@ -125,9 +125,9 @@
 //!
 //! # let _ =
 //! view! {
-//!     // "Status code was 200"
+//!     // Status code was 200
 //!     <Status />
-//!     // "Status code was 404"
+//!     // Status code was 404
 //!     <Status code={404} />
 //! }
 //! # ;
@@ -290,20 +290,20 @@
 ///
 /// Allows for parameters to have default values. Available syntax:
 ///
-/// * `#[component(foo?)]`: mark the parameter `foo` as optional, use [`Default`](Default) trait implementation if it's missing.
+/// * `#[component(foo?)]`: mark the parameter `foo` as optional, use [`Default`](Default) trait implementation if absent.
 /// * `#[component(foo?: <expression>)]`: mark the parameter `foo` as optional, default to `<expression>`.
 ///
 /// #### Examples
 /// ```
 /// # use kobold::prelude::*;
 /// #[component(
-///     // `name` will default to `"Kobold"`
+///     // Make `name` an optional parameter, defaults to `"Kobold"`
 ///     name?: "Kobold",
-///     // `age` will default to `0` (using `Default`)
+///     // Make `age` an optional parameter, use the `Default` value
 ///     age?,
 /// )]
-/// fn Greeter<'a>(name: &'a str, age: u32) -> impl View + 'a {
-///     let age = (age > 0).then_some(view!(", you are "{ age }" years old"));
+/// fn Greeter<'a>(name: &'a str, age: Option<u32>) -> impl View + 'a {
+///     let age = age.map(|age| view!(", you are "{ age }" years old"));
 ///
 ///     view! {
 ///         <p> "Hello "{ name }{ age }
@@ -312,12 +312,40 @@
 ///
 /// # let _ =
 /// view! {
-///     // "Hello Kobold"
+///     // Hello Kobold
 ///     <Greeter />
-///     // "Hello Alice"
+///     // Hello Alice
 ///     <Greeter name="Alice" />
-///     // "Hello Bob, you are 42 years old"
+///     // Hello Bob, you are 42 years old
 ///     <Greeter name="Bob" age={42} />
+/// }
+/// # ;
+/// ```
+///
+/// Optional parameters of any type `T` can be set using any type that implements
+/// [`Maybe<T>`](crate::maybe::Maybe).
+///
+/// This allows you to set optional parameters using an [`Option`](Option):
+/// ```
+/// # use kobold::prelude::*;
+/// #[component(code?: 200)]
+/// fn StatusCode(code: u32) -> impl View {
+///     view! {
+///         <p> "Status code was "{ code }
+///     }
+/// }
+///
+/// # let _ =
+/// view! {
+///     // Status code was 200
+///     <StatusCode />
+///     // Status code was 404
+///     <StatusCode code={404} />
+///
+///     // Status code was 200
+///     <StatusCode code={None} />
+///     // Status code was 500
+///     <StatusCode code={Some(500)} />
 /// }
 /// # ;
 /// ```
@@ -338,8 +366,8 @@
 /// #### 💡 Note:
 ///
 /// You can only mark types that implement the [`Default`](Default) trait as optional, even if you provide
-/// a concrete value using `param?: value`. This requirement might be relaxed in the future if trait
-/// specialization is stabilized in Rust.
+/// a concrete value using `param?: value`. This requirement might be relaxed in the future when trait
+/// specialization is stabilized.
 ///
 /// ### Enable auto-branching: `#[component(auto_branch)]`
 ///
