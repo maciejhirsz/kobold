@@ -171,13 +171,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kobold_default_params_example"
-version = "0.1.0"
-dependencies = [
- "kobold",
-]
-
-[[package]]
 name = "kobold_hello_world_example"
 version = "0.1.0"
 dependencies = [
@@ -208,6 +201,13 @@ dependencies = [
  "fnv",
  "once_cell",
  "proc-macro2",
+]
+
+[[package]]
+name = "kobold_optional_params_example"
+version = "0.1.0"
+dependencies = [
+ "kobold",
 ]
 
 [[package]]

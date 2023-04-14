@@ -18,10 +18,12 @@ fn Elapsed(seconds: u32) -> impl View {
         }
     })
     .once(|signal| {
+        // `signal` is an owned `Signal<u32>` and can be safely moved.
+        //
+        // `Interval` is returned here and will be safely dropped with the component.
         Interval::new(1000, move || {
             signal.update(|seconds| *seconds += 1);
         })
-        .forget();
     })
 }
 
