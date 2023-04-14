@@ -369,7 +369,7 @@ impl Argument {
     fn ty(&self) -> impl Tokenize + '_ {
         tok_fn(|stream| {
             if self.default.is_some() {
-                stream.write("impl ::kobold::internal::Maybe<");
+                stream.write("impl ::kobold::maybe::Maybe<");
                 stream.write(&self.ty);
                 stream.write('>');
             } else {
@@ -385,7 +385,7 @@ impl Argument {
     }
 
     fn generic(&self) -> impl Tokenize + '_ {
-        (&self.name, "= ::kobold::internal::Undefined,")
+        (&self.name, "= ::kobold::maybe::Undefined,")
     }
 
     fn setter<'a>(
@@ -398,17 +398,36 @@ impl Argument {
         let mut ret_generics = TokenStream::new();
         let mut body = TokenStream::new();
 
+        let maybe_generic = self.default.is_some().then_some("Maybe");
+
+        let where_clause = tok_fn(|stream| {
+            if self.default.is_some() {
+                stream.write("where Maybe: ::kobold::maybe::Maybe<");
+                stream.write(&self.ty);
+                stream.write('>');
+            }
+        });
+
+        let maybe_ty = tok_fn(|stream| match self.default {
+            Some(_) => stream.write("Maybe"),
+            None => stream.write(&self.ty),
+        });
+
         for (i, arg) in args.iter().enumerate() {
             if i == pos {
                 body.write((&self.name, ":value,"));
-                ret_generics.write((&arg.ty, ','));
+                if self.default.is_some() {
+                    ret_generics.write("Maybe,");
+                } else {
+                    ret_generics.write((&self.ty, ','));
+                }
             } else {
                 body.write((&arg.name, ":self.", &arg.name, ','));
                 ret_generics.write((&arg.name, ','));
             }
         }
 
-        let ret_type = ("->", comp, '<', ret_generics, '>');
+        let ret_type = ("->", comp, '<', ret_generics, '>', where_clause);
 
         (
             "#[inline(always)] pub fn ",
@@ -417,9 +436,10 @@ impl Argument {
                     &self.name,
                     '<',
                     finder.map(|finder| each(finder.in_type(&self.ty))),
+                    maybe_generic,
                     '>',
                 ),
-                ("self, value:", &self.ty),
+                ("self, value:", maybe_ty),
             ),
             ret_type,
             block((comp, block(body))),
@@ -440,7 +460,7 @@ impl Argument {
     }
 
     fn default(&self) -> impl Tokenize + '_ {
-        (&self.name, ": ::kobold::internal::Undefined,")
+        (&self.name, ": ::kobold::maybe::Undefined,")
     }
 
     fn field(&self) -> impl Tokenize + '_ {
