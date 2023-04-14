@@ -149,9 +149,9 @@
 //! #[component(auto_branch)]
 //! fn Conditional(illuminatus: bool) -> impl View {
 //!     if illuminatus {
-//!         view! { <p>"It was the year when they finally immanentized the Eschaton."</p> }
+//!         view! { <p> "It was the year when they finally immanentized the Eschaton." }
 //!     } else {
-//!         view! { <blockquote>"It was love at first sight."</blockquote> }
+//!         view! { <blockquote> "It was love at first sight." }
 //!     }
 //! }
 //! ```
@@ -170,9 +170,8 @@
 //!     view! {
 //!         <ul>
 //!         {
-//!             for (1..=count).map(|n| view! { <li>"Item #"{n}</li> })
+//!             for (1..=count).map(|n| view! { <li> "Item #"{n} })
 //!         }
-//!         </ul>
 //!     }
 //! }
 //! ```
@@ -196,9 +195,8 @@
 //!     view! {
 //!         <ul>
 //!         {
-//!             for names.iter().map(|name| view! { <li>{ name }</li> })
+//!             for names.iter().map(|name| view! { <li> { name } })
 //!         }
-//!         </ul>
 //!     }
 //! }
 //! ```
@@ -298,9 +296,12 @@
 /// #### Examples
 /// ```
 /// # use kobold::prelude::*;
-/// // `name` will default to `"Kobold"`
-/// // `age` will default to `0` (using `Default`)
-/// #[component(name?: "Kobold", age?)]
+/// #[component(
+///     // `name` will default to `"Kobold"`
+///     name?: "Kobold",
+///     // `age` will default to `0` (using `Default`)
+///     age?,
+/// )]
 /// fn Greeter<'a>(name: &'a str, age: u32) -> impl View + 'a {
 ///     let age = (age > 0).then_some(view!(", you are "{ age }" years old"));
 ///
@@ -368,6 +369,7 @@ pub mod event;
 pub mod internal;
 pub mod keywords;
 pub mod list;
+pub mod maybe;
 
 mod value;
 

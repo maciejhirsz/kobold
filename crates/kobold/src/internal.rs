@@ -9,35 +9,6 @@ use web_sys::Node;
 
 use crate::View;
 
-/// Undefined component parameter. If you've encountered this type it usually means
-/// you've failed to set a required component parameter.
-pub struct Undefined;
-
-/// Helper trait for handling optional parameters in components.
-pub trait Maybe<T> {
-    /// This implementation is a no-op that always returns `self`
-    /// for all types but [`Undefined`](Undefined)
-    fn maybe_or(self, or: impl FnOnce() -> T) -> T;
-}
-
-impl<T> Maybe<T> for T
-where
-    T: Default,
-{
-    /// This implementation is a no-op that always returns `self`
-    fn maybe_or(self, _: impl FnOnce() -> T) -> T {
-        self
-    }
-}
-
-impl<T> Maybe<T> for Undefined {
-    /// This implementation is a no-op that always returns the result of
-    /// the `or` closure
-    fn maybe_or(self, or: impl FnOnce() -> T) -> T {
-        or()
-    }
-}
-
 /// Wrapper that turns `extern` precompiled JavaScript functions into [`View`](View)s.
 #[repr(transparent)]
 pub struct Precompiled<F>(pub F);

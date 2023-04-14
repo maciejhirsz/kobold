@@ -148,9 +148,9 @@ inside an `if` or `match` expression, and wrap them in an enum making them the s
 #[component(auto_branch)]
 fn Conditional(illuminatus: bool) -> impl View {
     if illuminatus {
-        view! { <p>"It was the year when they finally immanentized the Eschaton."</p> }
+        view! { <p> "It was the year when they finally immanentized the Eschaton." }
     } else {
-        view! { <blockquote>"It was love at first sight."</blockquote> }
+        view! { <blockquote> "It was love at first sight." }
     }
 }
 ```
@@ -170,9 +170,8 @@ fn IterateNumbers(count: u32) -> impl View {
     view! {
         <ul>
         {
-            for (1..=count).map(|n| view! { <li>"Item #"{n}</li> })
+            for (1..=count).map(|n| view! { <li> "Item #"{n} })
         }
-        </ul>
     }
 }
 ```
@@ -195,9 +194,8 @@ fn Users<'a>(names: &'a [&'a str]) -> impl View + 'a {
     view! {
         <ul>
         {
-            for names.iter().map(|name| view! { <li>{ name }</li> })
+            for names.iter().map(|name| view! { <li> { name } })
         }
-        </ul>
     }
 }
 ```
