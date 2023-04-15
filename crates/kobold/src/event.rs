@@ -6,6 +6,7 @@
 
 use std::marker::PhantomData;
 use std::ops::Deref;
+use std::ptr::NonNull;
 
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -103,24 +104,24 @@ where
 
     fn build(self) -> ListenerProduct<Self, E> {
         ListenerProduct {
-            raw: Box::leak(Box::new(self)),
+            raw: Box::leak(Box::new(self)).into(),
             _event: PhantomData,
         }
     }
 
     fn update(self, p: &mut ListenerProduct<Self, E>) {
-        unsafe { *p.raw = self };
+        unsafe { *p.raw.as_ptr() = self };
     }
 }
 
 pub struct ListenerProduct<F, E> {
-    raw: *mut F,
+    raw: NonNull<F>,
     _event: PhantomData<E>,
 }
 
 impl<F, E> Drop for ListenerProduct<F, E> {
     fn drop(&mut self) {
-        unsafe { drop(Box::from_raw(self.raw)) }
+        unsafe { drop(Box::from_raw(self.raw.as_ptr())) }
     }
 }
 
@@ -135,7 +136,7 @@ where
 {
     fn js(&self) -> JsValue {
         Closure::wrap(unsafe {
-            Box::from_raw(self.raw as *mut dyn FnMut(E) as *mut dyn FnMut(web_sys::Event))
+            Box::from_raw(self.raw.as_ptr() as *mut dyn FnMut(E) as *mut dyn FnMut(web_sys::Event))
         })
         .into_js_value()
     }
