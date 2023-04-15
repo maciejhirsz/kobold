@@ -140,17 +140,9 @@ impl Tokenize for Transient {
 
             match field.kind {
                 FieldKind::StaticView => (),
-                FieldKind::View | FieldKind::Attribute { .. } => {
+                _ => {
                     let _ = write!(product_generics, "{typ},");
                     let _ = write!(product_generics_binds, "{typ}::Product,");
-                    field.declare(&mut product_declare);
-                }
-                FieldKind::Event { .. } => {
-                    let _ = write!(product_generics, "{typ},");
-                    let _ = write!(
-                        product_generics_binds,
-                        "::kobold::event::ListenerProduct<{typ}>,"
-                    );
                     field.declare(&mut product_declare);
                 }
             }
@@ -170,7 +162,7 @@ impl Tokenize for Transient {
                 .map(|a| {
                     let mut temp = ArrayString::<24>::new();
                     let name = a.name;
-                    let _ = match a.abi.map(InlineAbi::method) {
+                    let _ = match a.abi.and_then(|abi| abi.method()) {
                         Some(method) => write!(temp, "self.{name}{method}"),
                         None => write!(temp, "{name}.js()"),
                     };
@@ -189,7 +181,8 @@ impl Tokenize for Transient {
         block((
             (
                 "\
-                use ::kobold::dom::{Mountable as _};\
+                use ::kobold::dom::Mountable as _;\
+                use ::kobold::event::ListenerHandle as _;\
                 use ::kobold::reexport::wasm_bindgen;\
                 ",
                 self.js,

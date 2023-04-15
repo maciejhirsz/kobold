@@ -87,9 +87,11 @@ where
     E: EventCast,
     Self: Sized + 'static,
 {
-    fn build(self) -> ListenerProduct<Self>;
+    type Product: ListenerHandle;
 
-    fn update(self, p: &mut ListenerProduct<Self>);
+    fn build(self) -> Self::Product;
+
+    fn update(self, p: &mut Self::Product);
 }
 
 impl<E, F> Listener<E> for F
@@ -97,33 +99,45 @@ where
     F: FnMut(E) + 'static,
     E: EventCast,
 {
-    fn build(self) -> ListenerProduct<Self> {
-        let raw = Box::leak(Box::new(self));
+    type Product = ListenerProduct<Self, E>;
 
-        let js = Closure::wrap(unsafe {
-            Box::from_raw(raw as *mut dyn FnMut(E) as *mut dyn FnMut(web_sys::Event))
+    fn build(self) -> ListenerProduct<Self, E> {
+        ListenerProduct {
+            raw: Box::leak(Box::new(self)),
+            _event: PhantomData,
+        }
+    }
+
+    fn update(self, p: &mut ListenerProduct<Self, E>) {
+        unsafe { *p.raw = self };
+    }
+}
+
+pub struct ListenerProduct<F, E> {
+    raw: *mut F,
+    _event: PhantomData<E>,
+}
+
+impl<F, E> Drop for ListenerProduct<F, E> {
+    fn drop(&mut self) {
+        unsafe { drop(Box::from_raw(self.raw)) }
+    }
+}
+
+pub trait ListenerHandle {
+    fn js(&self) -> JsValue;
+}
+
+impl<F, E> ListenerHandle for ListenerProduct<F, E>
+where
+    F: FnMut(E) + 'static,
+    E: EventCast,
+{
+    fn js(&self) -> JsValue {
+        Closure::wrap(unsafe {
+            Box::from_raw(self.raw as *mut dyn FnMut(E) as *mut dyn FnMut(web_sys::Event))
         })
-        .into_js_value();
-
-        // `into_js_value` will _forget_ the previous Box, so we can safely reconstruct it
-        let boxed = unsafe { Box::from_raw(raw) };
-
-        ListenerProduct { js, boxed }
-    }
-
-    fn update(self, p: &mut ListenerProduct<Self>) {
-        *p.boxed = self;
-    }
-}
-
-pub struct ListenerProduct<F> {
-    js: JsValue,
-    boxed: Box<F>,
-}
-
-impl<F> ListenerProduct<F> {
-    pub fn js(&self) -> &JsValue {
-        &self.js
+        .into_js_value()
     }
 }
 
