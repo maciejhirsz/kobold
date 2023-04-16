@@ -4,10 +4,71 @@
 
 //! Kobold internals and types used by the [`view!`](crate::view) macro.
 
+use std::mem::MaybeUninit;
+
 use wasm_bindgen::prelude::*;
 use web_sys::Node;
 
 use crate::View;
+
+/// Safe abstraction for initialize-in-place strategy employed by the `View::build` method.
+///
+/// ```
+/// use kobold::internal::Container;
+///
+/// let boxed: Box<u32> = Container::boxed(|container| container.put(42));
+/// ```
+#[must_use]
+#[repr(transparent)]
+pub struct Container<'a, T>(&'a mut MaybeUninit<T>);
+
+#[must_use]
+#[repr(transparent)]
+pub struct Receipt<'a, T>(&'a mut T);
+
+impl<'a, T> Container<'a, T> {
+    pub fn boxed<F>(f: F) -> Box<T>
+    where
+        F: FnOnce(Container<T>) -> Receipt<T>,
+    {
+        // Use `Box::new_uninit` when it's stabilized
+        // <https://github.com/rust-lang/rust/issues/63291>
+        let mut boxed = Box::new(MaybeUninit::uninit());
+
+        let Receipt(_) = f(Container(&mut boxed));
+
+        // ⚠️ Safety:
+        // ==========
+        //
+        // Since `F` needs to produce a receipt, and the only way to do it
+        // is by putting a `T` in the container, the `Box` is now guaranteed
+        // to be initialized.
+        //
+        // Use `Box::assume_init` when it's stabilized
+        // <https://github.com/rust-lang/rust/issues/63291>
+        unsafe { Box::from_raw(Box::into_raw(boxed) as *mut T) }
+    }
+
+    pub unsafe fn in_raw<F>(ptr: *mut T, f: F)
+    where
+        F: FnOnce(Container<T>) -> Receipt<T>,
+    {
+        Container::in_uninit(&mut *(ptr as *mut MaybeUninit<T>), f);
+    }
+
+    pub fn in_uninit<F>(uninit: &mut MaybeUninit<T>, f: F) -> &mut T
+    where
+        F: FnOnce(Container<T>) -> Receipt<T>,
+    {
+        let Receipt(init) = f(Container(uninit));
+
+        init
+    }
+
+    pub fn put(self, val: T) -> Receipt<'a, T> {
+        Receipt(self.0.write(val))
+    }
+}
 
 /// Wrapper that turns `extern` precompiled JavaScript functions into [`View`](View)s.
 #[repr(transparent)]
