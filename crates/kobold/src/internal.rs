@@ -5,6 +5,7 @@
 //! Kobold internals and types used by the [`view!`](crate::view) macro.
 
 use std::mem::MaybeUninit;
+use std::pin::Pin;
 
 use wasm_bindgen::prelude::*;
 use web_sys::Node;
@@ -20,22 +21,21 @@ use crate::View;
 /// ```
 #[must_use]
 #[repr(transparent)]
-pub struct Container<'a, T>(&'a mut MaybeUninit<T>);
+pub struct Container<'a, T>(Pin<&'a mut MaybeUninit<T>>);
 
 #[must_use]
-#[repr(transparent)]
-pub struct Receipt<'a, T>(&'a mut T);
+pub struct Receipt<'a, T>(Pin<&'a mut T>);
 
 impl<'a, T> Container<'a, T> {
-    pub fn boxed<F>(f: F) -> Box<T>
+    pub fn boxed<F>(f: F) -> Pin<Box<T>>
     where
         F: FnOnce(Container<T>) -> Receipt<T>,
     {
         // Use `Box::new_uninit` when it's stabilized
         // <https://github.com/rust-lang/rust/issues/63291>
-        let mut boxed = Box::new(MaybeUninit::uninit());
+        let mut boxed = Box::pin(MaybeUninit::uninit());
 
-        let Receipt(_) = f(Container(&mut boxed));
+        let Receipt(_) = f(Container(boxed.as_mut()));
 
         // ⚠️ Safety:
         // ==========
@@ -44,19 +44,26 @@ impl<'a, T> Container<'a, T> {
         // is by putting a `T` in the container, the `Box` is now guaranteed
         // to be initialized.
         //
+        // `Pin` and `MaybeUninit` are both `#[repr(transparent)]` so transmute
+        // is fine here.
+        //
         // Use `Box::assume_init` when it's stabilized
         // <https://github.com/rust-lang/rust/issues/63291>
-        unsafe { Box::from_raw(Box::into_raw(boxed) as *mut T) }
+        unsafe { std::mem::transmute(boxed) }
+    }
+
+    pub unsafe fn assume_init(self) -> Pin<&'a mut T> {
+        self.0.map_unchecked_mut(|t| t.assume_init_mut())
     }
 
     pub unsafe fn in_raw<F>(ptr: *mut T, f: F)
     where
         F: FnOnce(Container<T>) -> Receipt<T>,
     {
-        Container::in_uninit(&mut *(ptr as *mut MaybeUninit<T>), f);
+        Container::in_uninit(Pin::new_unchecked(&mut *(ptr as *mut MaybeUninit<T>)), f);
     }
 
-    pub fn in_uninit<F>(uninit: &mut MaybeUninit<T>, f: F) -> &mut T
+    pub fn in_uninit<F>(uninit: Pin<&mut MaybeUninit<T>>, f: F) -> Pin<&mut T>
     where
         F: FnOnce(Container<T>) -> Receipt<T>,
     {
@@ -66,7 +73,12 @@ impl<'a, T> Container<'a, T> {
     }
 
     pub fn put(self, val: T) -> Receipt<'a, T> {
-        Receipt(self.0.write(val))
+        // ⚠️ Safety:
+        // ==========
+        //
+        // `MaybeUninit::write` is safe. The memory in the `Container` is guaranteed to
+        // be uninitialized, therefore we don't violate `Pin` guarantees.
+        Receipt(unsafe { self.0.map_unchecked_mut(move |t| t.write(val)) })
     }
 }
 
