@@ -84,7 +84,7 @@ where
 
     fn update(self, p: &mut Self::Product) {
         if self.guard.diff(&mut p.guard) {
-            (self.inner)().update(&mut p.inner);
+            (self.inner)().update(p.inner.get_mut());
         }
     }
 }
@@ -98,7 +98,7 @@ where
     type Target = P;
 
     fn anchor(&self) -> &P {
-        &self.inner
+        self.inner.get_ref()
     }
 }
 

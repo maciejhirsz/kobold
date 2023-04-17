@@ -22,29 +22,34 @@ use crate::View;
 /// ```
 #[must_use]
 #[repr(transparent)]
-pub struct Pre<'a, T>(Pin<&'a mut MaybeUninit<T>>);
+pub struct Pre<'a, T>(&'a mut MaybeUninit<T>);
 
-pub type Mut<'a, T> = Pin<&'a mut T>;
+#[must_use]
+#[repr(transparent)]
+pub struct Mut<'a, T>(&'a mut T);
 
-pub struct Field<T>(MaybeUninit<T>);
-
-impl<T> Deref for Field<T> {
+impl<T> Deref for Mut<'_, T>
+where
+    T: Unpin,
+{
     type Target = T;
 
     fn deref(&self) -> &T {
-        // Safety: it's not possible to create an `Stable`
-        // uninitialized `Stable` without unsafe code
-        unsafe { self.0.assume_init_ref() }
+        self.0
     }
 }
 
-impl<T> DerefMut for Field<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        // Safety: it's not possible to create an `Stable`
-        // uninitialized `Stable` without unsafe code
-        unsafe { self.0.assume_init_mut() }
+impl<T> DerefMut for Mut<'_, T>
+where
+    T: Unpin,
+{
+    fn deref_mut(&mut self) -> &mut T {
+        self.0
     }
 }
+
+#[repr(transparent)]
+pub struct Field<T>(MaybeUninit<T>);
 
 impl<T> Field<T> {
     // `MaybeUninit::uninit` is safe, however `Field` must
@@ -62,7 +67,10 @@ impl<T> Field<T> {
     ///
     /// You must guarantee that this is a structural field inside a struct
     /// that's being placed in stable memory.
-    pub const unsafe fn new(val: T) -> Self {
+    pub const unsafe fn new(val: T) -> Self
+    where
+        T: Unpin,
+    {
         Field(MaybeUninit::new(val))
     }
 
@@ -71,17 +79,21 @@ impl<T> Field<T> {
         F: FnOnce(Pre<T>) -> Mut<T>,
     {
         // This will leak memory if done more than once, but it is safe
-        f(Pre(unsafe { Pin::new_unchecked(&mut self.0) }));
+        let Mut(_) = f(Pre(&mut self.0));
     }
 
-    pub fn as_mut(&mut self) -> Mut<T> {
-        // Safety: Field is guaranteed to be a structural field of
-        // a pinned struct or enum, and is guaranteed to be initialized
-        unsafe { Pin::new_unchecked(self.0.assume_init_mut()) }
+    pub fn get_ref(&self) -> &T {
+        // Safety: it's not possible to create an `Stable`
+        // uninitialized `Stable` without unsafe code
+        unsafe { self.0.assume_init_ref() }
+    }
+
+    pub fn get_mut(&mut self) -> &mut T {
+        // Safety: it's not possible to create an `Stable`
+        // uninitialized `Stable` without unsafe code
+        unsafe { self.0.assume_init_mut() }
     }
 }
-
-impl<T> Unpin for Field<T> {}
 
 impl<T> Drop for Field<T> {
     fn drop(&mut self) {
@@ -91,16 +103,18 @@ impl<T> Drop for Field<T> {
     }
 }
 
-impl<'a, T> Pre<'a, T> {
+impl<'a, T> Pre<'a, T>
+where
+    T: Unpin,
+{
     pub fn boxed<F>(f: F) -> Pin<Box<T>>
     where
         F: FnOnce(Pre<T>) -> Mut<T>,
     {
         // Use `Box::new_uninit` when it's stabilized
         // <https://github.com/rust-lang/rust/issues/63291>
-        let mut boxed = Box::pin(MaybeUninit::uninit());
-
-        f(Pre(boxed.as_mut()));
+        let mut boxed = Box::new(MaybeUninit::uninit());
+        let Mut(_) = f(Pre(boxed.as_mut()));
 
         // ⚠️ Safety:
         // ==========
@@ -109,12 +123,18 @@ impl<'a, T> Pre<'a, T> {
         // is by putting a `T` in the container, the `Box` is now guaranteed
         // to be initialized.
         //
-        // `Pin` and `MaybeUninit` are both `#[repr(transparent)]` so transmute
-        // is fine here.
+        // `MaybeUninit` is `#[repr(transparent)]` so transmute is safe.
         //
         // Use `Box::assume_init` when it's stabilized
         // <https://github.com/rust-lang/rust/issues/63291>
         unsafe { std::mem::transmute(boxed) }
+    }
+
+    pub fn pinned<F>(pin: Pin<&'a mut MaybeUninit<T>>, f: F) -> Mut<'a, T>
+    where
+        F: FnOnce(Pre<T>) -> Mut<T>,
+    {
+        f(Pre(pin.get_mut()))
     }
 
     pub fn replace<F>(at: &mut T, f: F) -> T
@@ -123,27 +143,14 @@ impl<'a, T> Pre<'a, T> {
         T: Unpin,
     {
         let at = unsafe { &mut *(at as *mut T as *mut MaybeUninit<T>) };
-
         let old = unsafe { at.assume_init_read() };
-
-        f(Pre(Pin::new(at)));
+        let Mut(_) = f(Pre(at));
 
         old
     }
-    pub fn in_uninit<F>(uninit: Pin<&mut MaybeUninit<T>>, f: F) -> Mut<T>
-    where
-        F: FnOnce(Pre<T>) -> Mut<T>,
-    {
-        f(Pre(uninit))
-    }
 
     pub fn put(self, val: T) -> Mut<'a, T> {
-        // ⚠️ Safety:
-        // ==========
-        //
-        // `MaybeUninit::write` is safe. The memory in the `Container` is guaranteed to
-        // be uninitialized, therefore we don't violate `Pin` guarantees.
-        unsafe { self.0.map_unchecked_mut(move |t| t.write(val)) }
+        Mut(self.0.write(val))
     }
 }
 

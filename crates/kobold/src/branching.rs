@@ -90,8 +90,6 @@
 //! }
 //! ```
 
-use std::pin::Pin;
-
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
@@ -119,13 +117,14 @@ macro_rules! branch {
                 match self {
                     $(
                         $name::$var(html) => {
-                            let p = p.put($name::$var(unsafe { Field::uninit() })).get_mut();
+                            let mut p = p.put($name::$var(unsafe { Field::uninit() }));
 
-                            if let $name::$var(field) = p {
-                                field.init(move |p| html.build(p));
+                            match &mut *p {
+                                $name::$var(field) => field.init(move |p| html.build(p)),
+                                _ => unsafe { std::hint::unreachable_unchecked() }
                             }
 
-                            Pin::new(p)
+                            p
                         },
                     )*
                 }
@@ -134,7 +133,7 @@ macro_rules! branch {
             fn update(self, p: &mut Self::Product) {
                 match (self, p) {
                     $(
-                        ($name::$var(html), $name::$var(p)) => html.update(p),
+                        ($name::$var(html), $name::$var(p)) => html.update(p.get_mut()),
                     )*
 
                     (html, p) => {
@@ -157,7 +156,7 @@ macro_rules! branch {
             fn js(&self) -> &JsValue {
                 match self {
                     $(
-                        $name::$var(p) => p.js(),
+                        $name::$var(p) => p.get_ref().js(),
                     )*
                 }
             }
@@ -165,7 +164,7 @@ macro_rules! branch {
             fn replace_with(&self, new: &JsValue) {
                 match self {
                     $(
-                        $name::$var(p) => p.replace_with(new),
+                        $name::$var(p) => p.get_ref().replace_with(new),
                     )*
                 }
             }
@@ -173,7 +172,7 @@ macro_rules! branch {
             fn unmount(&self) {
                 match self {
                     $(
-                        $name::$var(p) => p.unmount(),
+                        $name::$var(p) => p.get_ref().unmount(),
                     )*
                 }
             }
@@ -220,25 +219,24 @@ impl<T: View> View for Option<T> {
     fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
         match self {
             Some(html) => {
-                let p = p.put(Branch2::A(unsafe { Field::uninit() })).get_mut();
+                let mut p = p.put(Branch2::A(unsafe { Field::uninit() }));
 
-                if let Branch2::A(uninit) = p {
-                    uninit.init(move |p| html.build(p));
+                match &mut *p {
+                    Branch2::A(field) => field.init(move |p| html.build(p)),
+                    Branch2::B(_) => unsafe { std::hint::unreachable_unchecked() },
                 }
 
-                Pin::new(p)
+                p
             }
-            None => {
-                p.put(Branch2::B(unsafe {
-                    Field::new(EmptyNode(dom::empty_node()))
-                }))
-            }
+            None => p.put(Branch2::B(unsafe {
+                Field::new(EmptyNode(dom::empty_node()))
+            })),
         }
     }
 
     fn update(self, p: &mut Self::Product) {
         match (self, p) {
-            (Some(html), Branch2::A(p)) => html.update(p),
+            (Some(html), Branch2::A(p)) => html.update(p.get_mut()),
             (None, Branch2::B(_)) => (),
 
             (html, p) => {

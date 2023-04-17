@@ -523,9 +523,11 @@ where
 pub fn start(view: impl View) {
     init_panic_hook();
 
-    use std::mem::ManuallyDrop;
+    use std::mem::MaybeUninit;
+    use std::pin::pin;
 
-    let product = ManuallyDrop::new(Pre::boxed(|container| view.build(container)));
+    let product = pin!(MaybeUninit::uninit());
+    let product = Pre::pinned(product, move |p| view.build(p));
 
     internal::append_body(product.js());
 }
