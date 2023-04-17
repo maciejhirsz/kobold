@@ -25,8 +25,6 @@ use crate::View;
 pub struct Pre<'a, T>(Pin<&'a mut MaybeUninit<T>>);
 
 pub type Mut<'a, T> = Pin<&'a mut T>;
-// #[must_use]
-// pub struct Mut<'a, T>(Pin<&'a mut T>);
 
 pub struct Field<T>(MaybeUninit<T>);
 
@@ -58,7 +56,13 @@ impl<T> Field<T> {
         Field(MaybeUninit::uninit())
     }
 
-    pub const fn new(val: T) -> Self {
+    /// Creates a new field with value `T`.
+    ///
+    /// # Safety
+    ///
+    /// You must guarantee that this is a structural field inside a struct
+    /// that's being placed in stable memory.
+    pub const unsafe fn new(val: T) -> Self {
         Field(MaybeUninit::new(val))
     }
 

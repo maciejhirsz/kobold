@@ -229,8 +229,9 @@ impl<T: View> View for Option<T> {
                 Pin::new(p)
             }
             None => {
-                // let p = p.put(Branch2::B(Empty.build()),
-                p.put(Branch2::B(Field::new(EmptyNode(dom::empty_node()))))
+                p.put(Branch2::B(unsafe {
+                    Field::new(EmptyNode(dom::empty_node()))
+                }))
             }
         }
     }
