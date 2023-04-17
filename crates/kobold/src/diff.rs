@@ -10,6 +10,7 @@ use web_sys::Node;
 
 use crate::attribute::Attribute;
 use crate::dom::{Anchor, TextContent};
+use crate::internal::{Field, Mut, Pre};
 use crate::value::{IntoText, Value};
 use crate::{Mountable, View};
 
@@ -67,14 +68,18 @@ where
     D: Diff,
     F: FnOnce() -> V,
     V: View,
+    D::Memo: Unpin,
 {
-    type Product = Fence<D::Memo, V::Product>;
+    type Product = Fence<D::Memo, Field<V::Product>>;
 
-    fn build(self) -> Self::Product {
-        Fence {
+    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+        let mut p = p.put(Fence {
             guard: self.guard.into_memo(),
-            inner: (self.inner)().build(),
-        }
+            inner: unsafe { Field::uninit() },
+        });
+
+        p.inner.init(move |p| (self.inner)().build(p));
+        p
     }
 
     fn update(self, p: &mut Self::Product) {
@@ -84,8 +89,9 @@ where
     }
 }
 
-impl<D, P> Anchor for Fence<D, P>
+impl<D, P> Anchor for Fence<D, Field<P>>
 where
+    D: Unpin,
     P: Mountable,
 {
     type Js = P::Js;
@@ -228,8 +234,8 @@ macro_rules! impl_no_diff {
         {
             type Product = Node;
 
-            fn build(self) -> Node {
-                self.into_text()
+            fn build(self, p: Pre<Node>) -> Mut<Node> {
+                p.put(self.into_text())
             }
 
             fn update(self, node: &mut Node) {

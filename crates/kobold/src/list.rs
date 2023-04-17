@@ -4,9 +4,12 @@
 
 //! Utilities for rendering lists
 
+use std::pin::Pin;
+
 use web_sys::Node;
 
 use crate::dom::{Anchor, Fragment, FragmentBuilder};
+use crate::internal::{Mut, Pre};
 use crate::{Mountable, View};
 
 /// Wrapper type that implements `View` for iterators, created by the
@@ -15,7 +18,7 @@ use crate::{Mountable, View};
 pub struct List<T>(pub(crate) T);
 
 pub struct ListProduct<T> {
-    list: Vec<T>,
+    list: Vec<Pin<Box<T>>>,
     visible: usize,
     fragment: FragmentBuilder,
 }
@@ -36,13 +39,13 @@ where
 {
     type Product = ListProduct<<T::Item as View>::Product>;
 
-    fn build(self) -> Self::Product {
+    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
         let iter = self.0.into_iter();
         let fragment = FragmentBuilder::new();
 
         let list: Vec<_> = iter
             .map(|item| {
-                let built = item.build();
+                let built = Pre::boxed(|p| item.build(p));
 
                 fragment.append(built.js());
 
@@ -52,11 +55,11 @@ where
 
         let visible = list.len();
 
-        ListProduct {
+        p.put(ListProduct {
             list,
             visible,
             fragment,
-        }
+        })
     }
 
     fn update(self, p: &mut Self::Product) {
@@ -82,7 +85,7 @@ where
             }
 
             for new in new {
-                let built = new.build();
+                let built = Pre::boxed(|p| new.build(p));
 
                 p.fragment.append(built.js());
                 p.list.push(built);
@@ -95,8 +98,8 @@ where
 impl<V: View> View for Vec<V> {
     type Product = ListProduct<V::Product>;
 
-    fn build(self) -> Self::Product {
-        List(self).build()
+    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+        List(self).build(p)
     }
 
     fn update(self, p: &mut Self::Product) {
@@ -110,8 +113,8 @@ where
 {
     type Product = ListProduct<<&'a V as View>::Product>;
 
-    fn build(self) -> Self::Product {
-        List(self).build()
+    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+        List(self).build(p)
     }
 
     fn update(self, p: &mut Self::Product) {
@@ -122,8 +125,8 @@ where
 impl<V: View, const N: usize> View for [V; N] {
     type Product = ListProduct<V::Product>;
 
-    fn build(self) -> Self::Product {
-        List(self).build()
+    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+        List(self).build(p)
     }
 
     fn update(self, p: &mut Self::Product) {

@@ -401,8 +401,10 @@ pub mod maybe;
 
 mod value;
 
-#[cfg(feature = "stateful")]
-pub mod stateful;
+// #[cfg(feature = "stateful")]
+// pub mod stateful;
+
+use internal::{Mut, Pre};
 
 /// The prelude module with most commonly used types.
 ///
@@ -415,8 +417,8 @@ pub mod prelude {
     pub use crate::{bind, class};
     pub use crate::{component, view, View};
 
-    #[cfg(feature = "stateful")]
-    pub use crate::stateful::{stateful, Hook, IntoState, Signal, Then};
+    // #[cfg(feature = "stateful")]
+    // pub use crate::stateful::{stateful, Hook, IntoState, Signal, Then};
 }
 
 use dom::Mountable;
@@ -434,7 +436,7 @@ pub trait View {
     type Product: Mountable;
 
     /// Build a product that can be mounted in the DOM from this type.
-    fn build(self) -> Self::Product;
+    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product>;
 
     /// Update the product and apply changes to the DOM if necessary.
     fn update(self, p: &mut Self::Product);
@@ -477,8 +479,8 @@ where
 {
     type Product = V::Product;
 
-    fn build(self) -> Self::Product {
-        let prod = self.view.build();
+    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+        let prod = self.view.build(p);
 
         (self.handler)(prod.js().unchecked_ref());
 
@@ -502,8 +504,8 @@ where
 {
     type Product = V::Product;
 
-    fn build(self) -> Self::Product {
-        let prod = self.view.build();
+    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+        let prod = self.view.build(p);
 
         (self.handler)(prod.js().unchecked_ref());
 
@@ -523,7 +525,7 @@ pub fn start(view: impl View) {
 
     use std::mem::ManuallyDrop;
 
-    let product = ManuallyDrop::new(view.build());
+    let product = ManuallyDrop::new(Pre::boxed(|container| view.build(container)));
 
     internal::append_body(product.js());
 }

@@ -5,6 +5,7 @@
 //! Kobold internals and types used by the [`view!`](crate::view) macro.
 
 use std::mem::MaybeUninit;
+use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
 
 use wasm_bindgen::prelude::*;
@@ -21,21 +22,81 @@ use crate::View;
 /// ```
 #[must_use]
 #[repr(transparent)]
-pub struct Container<'a, T>(Pin<&'a mut MaybeUninit<T>>);
+pub struct Pre<'a, T>(Pin<&'a mut MaybeUninit<T>>);
 
-#[must_use]
-pub struct Receipt<'a, T>(Pin<&'a mut T>);
+pub type Mut<'a, T> = Pin<&'a mut T>;
+// #[must_use]
+// pub struct Mut<'a, T>(Pin<&'a mut T>);
 
-impl<'a, T> Container<'a, T> {
+pub struct Field<T>(MaybeUninit<T>);
+
+impl<T> Deref for Field<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        // Safety: it's not possible to create an `Stable`
+        // uninitialized `Stable` without unsafe code
+        unsafe { self.0.assume_init_ref() }
+    }
+}
+
+impl<T> DerefMut for Field<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        // Safety: it's not possible to create an `Stable`
+        // uninitialized `Stable` without unsafe code
+        unsafe { self.0.assume_init_mut() }
+    }
+}
+
+impl<T> Field<T> {
+    // `MaybeUninit::uninit` is safe, however `Field` must
+    // meet additional guarantees:
+    //
+    // 1. It's created inside a stable (pinned) memory.
+    // 2. It's not derefed before it's initialized.
+    pub const unsafe fn uninit() -> Self {
+        Field(MaybeUninit::uninit())
+    }
+
+    pub const fn new(val: T) -> Self {
+        Field(MaybeUninit::new(val))
+    }
+
+    pub fn init<F>(&mut self, f: F)
+    where
+        F: FnOnce(Pre<T>) -> Mut<T>,
+    {
+        // This will leak memory if done more than once, but it is safe
+        f(Pre(unsafe { Pin::new_unchecked(&mut self.0) }));
+    }
+
+    pub fn as_mut(&mut self) -> Mut<T> {
+        // Safety: Field is guaranteed to be a structural field of
+        // a pinned struct or enum, and is guaranteed to be initialized
+        unsafe { Pin::new_unchecked(self.0.assume_init_mut()) }
+    }
+}
+
+impl<T> Unpin for Field<T> {}
+
+impl<T> Drop for Field<T> {
+    fn drop(&mut self) {
+        // Safety: it's not possible to create an `Stable`
+        // uninitialized `Stable` without unsafe code
+        unsafe { self.0.assume_init_drop() }
+    }
+}
+
+impl<'a, T> Pre<'a, T> {
     pub fn boxed<F>(f: F) -> Pin<Box<T>>
     where
-        F: FnOnce(Container<T>) -> Receipt<T>,
+        F: FnOnce(Pre<T>) -> Mut<T>,
     {
         // Use `Box::new_uninit` when it's stabilized
         // <https://github.com/rust-lang/rust/issues/63291>
         let mut boxed = Box::pin(MaybeUninit::uninit());
 
-        let Receipt(_) = f(Container(boxed.as_mut()));
+        f(Pre(boxed.as_mut()));
 
         // ⚠️ Safety:
         // ==========
@@ -52,33 +113,33 @@ impl<'a, T> Container<'a, T> {
         unsafe { std::mem::transmute(boxed) }
     }
 
-    pub unsafe fn assume_init(self) -> Pin<&'a mut T> {
-        self.0.map_unchecked_mut(|t| t.assume_init_mut())
-    }
-
-    pub unsafe fn in_raw<F>(ptr: *mut T, f: F)
+    pub fn replace<F>(at: &mut T, f: F) -> T
     where
-        F: FnOnce(Container<T>) -> Receipt<T>,
+        F: FnOnce(Pre<T>) -> Mut<T>,
+        T: Unpin,
     {
-        Container::in_uninit(Pin::new_unchecked(&mut *(ptr as *mut MaybeUninit<T>)), f);
-    }
+        let at = unsafe { &mut *(at as *mut T as *mut MaybeUninit<T>) };
 
-    pub fn in_uninit<F>(uninit: Pin<&mut MaybeUninit<T>>, f: F) -> Pin<&mut T>
+        let old = unsafe { at.assume_init_read() };
+
+        f(Pre(Pin::new(at)));
+
+        old
+    }
+    pub fn in_uninit<F>(uninit: Pin<&mut MaybeUninit<T>>, f: F) -> Mut<T>
     where
-        F: FnOnce(Container<T>) -> Receipt<T>,
+        F: FnOnce(Pre<T>) -> Mut<T>,
     {
-        let Receipt(init) = f(Container(uninit));
-
-        init
+        f(Pre(uninit))
     }
 
-    pub fn put(self, val: T) -> Receipt<'a, T> {
+    pub fn put(self, val: T) -> Mut<'a, T> {
         // ⚠️ Safety:
         // ==========
         //
         // `MaybeUninit::write` is safe. The memory in the `Container` is guaranteed to
         // be uninitialized, therefore we don't violate `Pin` guarantees.
-        Receipt(unsafe { self.0.map_unchecked_mut(move |t| t.write(val)) })
+        unsafe { self.0.map_unchecked_mut(move |t| t.write(val)) }
     }
 }
 
@@ -99,8 +160,8 @@ where
 {
     type Product = Node;
 
-    fn build(self) -> Node {
-        self.0()
+    fn build(self, p: Pre<Node>) -> Mut<Node> {
+        p.put(self.0())
     }
 
     fn update(self, _: &mut Node) {}

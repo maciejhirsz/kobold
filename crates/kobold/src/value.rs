@@ -6,7 +6,7 @@ use web_sys::Node;
 
 use crate::diff::{Diff, Ref};
 use crate::dom::{Anchor, Property, TextContent};
-use crate::internal;
+use crate::internal::{self, Mut, Pre};
 use crate::View;
 
 /// Value that can be set as a property on DOM node
@@ -63,7 +63,10 @@ pub struct TextProduct<M> {
     node: Node,
 }
 
-impl<M> Anchor for TextProduct<M> {
+impl<M> Anchor for TextProduct<M>
+where
+    M: Unpin,
+{
     type Js = web_sys::Text;
     type Target = Node;
 
@@ -75,13 +78,13 @@ impl<M> Anchor for TextProduct<M> {
 impl View for String {
     type Product = TextProduct<String>;
 
-    fn build(self) -> Self::Product {
+    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
         let node = self.as_str().into_text();
 
-        TextProduct { memo: self, node }
+        p.put(TextProduct { memo: self, node })
     }
 
-    fn update(self, p: &mut Self::Product) {
+    fn update(self, mut p: &mut Self::Product) {
         if p.memo != self {
             p.memo = self;
             p.memo.set_prop(TextContent, &p.node);
@@ -142,14 +145,14 @@ macro_rules! impl_text_view {
             impl View for $ty {
                 type Product = TextProduct<<Self as Diff>::Memo>;
 
-                fn build(self) -> Self::Product {
-                    TextProduct {
+                fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+                    p.put(TextProduct {
                         memo: self.into_memo(),
                         node: self.into_text(),
-                    }
+                    })
                 }
 
-                fn update(self, p: &mut Self::Product) {
+                fn update(self, p: &mut  Self::Product) {
                     if self.diff(&mut p.memo) {
                         self.set_prop(TextContent, &p.node);
                     }
@@ -165,8 +168,8 @@ impl_text_view!(bool, u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, 
 impl<'a> View for &&'a str {
     type Product = <&'a str as View>::Product;
 
-    fn build(self) -> Self::Product {
-        (*self).build()
+    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+        (*self).build(p)
     }
 
     fn update(self, p: &mut Self::Product) {
@@ -180,8 +183,8 @@ macro_rules! impl_ref_view {
             impl View for &$ty {
                 type Product = <$ty as View>::Product;
 
-                fn build(self) -> Self::Product {
-                    (*self).build()
+                fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+                    (*self).build(p)
                 }
 
                 fn update(self, p: &mut Self::Product) {

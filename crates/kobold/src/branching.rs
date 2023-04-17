@@ -90,10 +90,13 @@
 //! }
 //! ```
 
+use std::pin::Pin;
+
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
 use crate::dom::{self, Anchor};
+use crate::internal::{Field, Mut, Pre};
 use crate::{Mountable, View};
 
 macro_rules! branch {
@@ -110,12 +113,20 @@ macro_rules! branch {
                 $var: View,
             )*
         {
-            type Product = $name<$($var::Product),*>;
+            type Product = $name<$(Field<$var::Product>),*>;
 
-            fn build(self) -> Self::Product {
+            fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
                 match self {
                     $(
-                        $name::$var(html) => $name::$var(html.build()),
+                        $name::$var(html) => {
+                            let p = p.put($name::$var(unsafe { Field::uninit() })).get_mut();
+
+                            if let $name::$var(field) = p {
+                                field.init(move |p| html.build(p));
+                            }
+
+                            Pin::new(p)
+                        },
                     )*
                 }
             }
@@ -126,18 +137,16 @@ macro_rules! branch {
                         ($name::$var(html), $name::$var(p)) => html.update(p),
                     )*
 
-                    (html, old) => {
-                        let new = html.build();
+                    (html, p) => {
+                        let old = Pre::replace(p, move |p| html.build(p));
 
-                        old.replace_with(new.js());
-
-                        *old = new;
+                        old.replace_with(p.js());
                     }
                 }
             }
         }
 
-        impl<$($var),*> Mountable for $name<$($var),*>
+        impl<$($var),*> Mountable for $name<$(Field<$var>),*>
         where
             $(
                 $var: Mountable,
@@ -198,20 +207,31 @@ impl Anchor for EmptyNode {
 impl View for Empty {
     type Product = EmptyNode;
 
-    fn build(self) -> Self::Product {
-        EmptyNode(dom::empty_node())
+    fn build(self, p: Pre<EmptyNode>) -> Mut<EmptyNode> {
+        p.put(EmptyNode(dom::empty_node()))
     }
 
-    fn update(self, _: &mut Self::Product) {}
+    fn update(self, _: &mut EmptyNode) {}
 }
 
 impl<T: View> View for Option<T> {
-    type Product = Branch2<T::Product, EmptyNode>;
+    type Product = Branch2<Field<T::Product>, Field<EmptyNode>>;
 
-    fn build(self) -> Self::Product {
+    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
         match self {
-            Some(html) => Branch2::A(html.build()),
-            None => Branch2::B(Empty.build()),
+            Some(html) => {
+                let p = p.put(Branch2::A(unsafe { Field::uninit() })).get_mut();
+
+                if let Branch2::A(uninit) = p {
+                    uninit.init(move |p| html.build(p));
+                }
+
+                Pin::new(p)
+            }
+            None => {
+                // let p = p.put(Branch2::B(Empty.build()),
+                p.put(Branch2::B(Field::new(EmptyNode(dom::empty_node()))))
+            }
         }
     }
 
@@ -220,12 +240,10 @@ impl<T: View> View for Option<T> {
             (Some(html), Branch2::A(p)) => html.update(p),
             (None, Branch2::B(_)) => (),
 
-            (html, old) => {
-                let new = html.build();
+            (html, p) => {
+                let old = Pre::replace(p, move |p| html.build(p));
 
-                old.replace_with(new.js());
-
-                *old = new;
+                old.replace_with(p.js());
             }
         }
     }
