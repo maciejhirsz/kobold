@@ -28,6 +28,12 @@ pub struct Pre<'a, T>(&'a mut MaybeUninit<T>);
 #[repr(transparent)]
 pub struct Mut<'a, T>(&'a mut T);
 
+impl<'a, T> Mut<'a, T> {
+    pub unsafe fn from_raw(init: &'a mut MaybeUninit<T>) -> Self {
+        Mut(init.assume_init_mut())
+    }
+}
+
 impl<T> Deref for Mut<'_, T>
 where
     T: Unpin,
@@ -130,11 +136,29 @@ where
         unsafe { std::mem::transmute(boxed) }
     }
 
+    pub unsafe fn in_raw<F>(raw: *mut T, f: F)
+    where
+        F: FnOnce(Pre<T>) -> Mut<T>
+    {
+        let Mut(_) = f(Pre(&mut *(raw as *mut MaybeUninit<T>)));
+    }
+
     pub fn pinned<F>(pin: Pin<&'a mut MaybeUninit<T>>, f: F) -> Mut<'a, T>
     where
         F: FnOnce(Pre<T>) -> Mut<T>,
     {
         f(Pre(pin.get_mut()))
+    }
+
+    /// # Safety
+    ///
+    /// This function is itself safe, but will require unsafe code
+    /// inside the closure `f` in order to create the `Mut<T>`
+    pub fn inplace<F>(self, f: F) -> Mut<'a, T>
+    where
+        F: FnOnce(&mut MaybeUninit<T>) -> Mut<T>
+    {
+        f(self.0)
     }
 
     pub fn replace<F>(at: &mut T, f: F) -> T
@@ -152,6 +176,13 @@ where
     pub fn put(self, val: T) -> Mut<'a, T> {
         Mut(self.0.write(val))
     }
+}
+
+#[macro_export]
+macro_rules! init_field {
+    ($p:ident.$field:ident: $then:expr) => {
+        $crate::internal::Pre::in_raw(std::ptr::addr_of_mut!((*($p.as_mut_ptr())).$field), move |$p| $then)
+    };
 }
 
 /// Wrapper that turns `extern` precompiled JavaScript functions into [`View`](View)s.
