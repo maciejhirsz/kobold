@@ -1,6 +1,6 @@
 [package]
 name = "kobold_macros"
-version = "0.7.1"
+version = "0.8.0"
 authors = ["Maciej Hirsz <hello@maciej.codes>"]
 edition = "2021"
 license = "MPL-2.0"

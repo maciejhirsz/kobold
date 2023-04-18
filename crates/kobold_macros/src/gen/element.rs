@@ -145,7 +145,7 @@ impl IntoGenerator for HtmlElement {
                             &name.label[2..]
                         );
 
-                        el.args.push(JsArgument::new(value))
+                        el.args.push(JsArgument::with_abi(value, InlineAbi::Event))
                     }
                     AttributeType::Provided(attr) => {
                         el.hoisted = true;
@@ -208,6 +208,7 @@ impl IntoGenerator for HtmlElement {
 pub enum InlineAbi {
     Bool,
     Str,
+    Event,
 }
 
 impl InlineAbi {
@@ -215,13 +216,15 @@ impl InlineAbi {
         match self {
             InlineAbi::Bool => "bool",
             InlineAbi::Str => "&str",
+            InlineAbi::Event => "wasm_bindgen::JsValue",
         }
     }
 
-    pub fn method(self) -> &'static str {
+    pub fn method(self) -> Option<&'static str> {
         match self {
-            InlineAbi::Bool => ".into()",
-            InlineAbi::Str => ".as_ref()",
+            InlineAbi::Bool => Some(".into()"),
+            InlineAbi::Str => Some(".as_ref()"),
+            InlineAbi::Event => None,
         }
     }
 
@@ -229,6 +232,7 @@ impl InlineAbi {
         match self {
             InlineAbi::Bool => "+ Into<bool> + Copy",
             InlineAbi::Str => "+ AsRef<str>",
+            InlineAbi::Event => "",
         }
     }
 }

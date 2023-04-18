@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::future::Future;
+use std::marker::PhantomData;
 use std::mem::ManuallyDrop;
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
@@ -102,7 +103,7 @@ impl<S> Hook<S> {
     {
         let inner = &self.inner as *const Inner<S>;
 
-        move |e| {
+        let bound = move |e| {
             // ⚠️ Safety:
             // ==========
             //
@@ -115,6 +116,11 @@ impl<S> Hook<S> {
             if callback(state, e).should_render() {
                 inner.update();
             }
+        };
+
+        Bound {
+            bound,
+            _unbound: PhantomData::<F>,
         }
     }
 
@@ -154,6 +160,33 @@ impl<S> Hook<S> {
         S: Copy,
     {
         **self
+    }
+}
+
+struct Bound<B, U> {
+    bound: B,
+    _unbound: PhantomData<U>,
+}
+
+impl<B, U, E> Listener<E> for Bound<B, U>
+where
+    B: Listener<E>,
+    E: EventCast,
+    Self: 'static,
+{
+    type Product = B::Product;
+
+    fn build(self) -> Self::Product {
+        self.bound.build()
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        // No need to update zero-sized closures.
+        //
+        // This is a const branch that should be optimized away.
+        if std::mem::size_of::<U>() != 0 {
+            self.bound.update(p);
+        }
     }
 }
 
