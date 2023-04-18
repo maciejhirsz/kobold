@@ -401,8 +401,8 @@ pub mod maybe;
 
 mod value;
 
-// #[cfg(feature = "stateful")]
-// pub mod stateful;
+#[cfg(feature = "stateful")]
+pub mod stateful;
 
 use internal::{Mut, Pre};
 
@@ -417,8 +417,8 @@ pub mod prelude {
     pub use crate::{bind, class};
     pub use crate::{component, view, View};
 
-    // #[cfg(feature = "stateful")]
-    // pub use crate::stateful::{stateful, Hook, IntoState, Signal, Then};
+    #[cfg(feature = "stateful")]
+    pub use crate::stateful::{stateful, Hook, IntoState, Signal, Then};
 }
 
 use dom::Mountable;

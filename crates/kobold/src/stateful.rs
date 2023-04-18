@@ -18,7 +18,9 @@ use std::rc::Rc;
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
-use crate::{dom::Anchor, Mountable, View};
+use crate::dom::Anchor;
+use crate::internal::{Mut, Pre};
+use crate::{init, Mountable, View};
 
 mod cell;
 mod hook;
@@ -112,10 +114,11 @@ where
     S: IntoState,
     F: Fn(*const Hook<S::State>) -> V + 'static,
     V: View,
+    S::State: Unpin,
 {
     type Product = StatefulProduct<S::State>;
 
-    fn build(self) -> Self::Product {
+    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
         let inner = Rc::new(Inner {
             state: WithCell::new(self.state.init()),
             prod: UnsafeCell::new(MaybeUninit::uninit()),
@@ -127,7 +130,7 @@ where
         // Initial render can only access the `state` from the hook, the `prod` is
         // not touched until an event is fired, which happens after this method
         // completes and initializes the `prod`.
-        let product = (self.render)(Hook::new(unsafe { inner.as_init() })).build();
+        let view = (self.render)(Hook::new(unsafe { inner.as_init() })); //.build();
 
         // ⚠️ Safety:
         // ==========
@@ -135,19 +138,22 @@ where
         // This looks scary, but it just initializes the `prod`. We need to use the
         // closure syntax with a raw pointer to get around lifetime restrictions.
         unsafe {
-            (*inner.prod.get()).write(ProductHandler::new(
-                move |hook, product: *mut V::Product| (self.render)(hook).update(&mut *product),
-                product,
-            ));
+            let _ = Pre::in_raw((*inner.prod.get()).as_mut_ptr(), |prod| {
+                ProductHandler::new(
+                    move |hook, product: *mut V::Product| (self.render)(hook).update(&mut *product),
+                    view,
+                    prod,
+                )
+            });
         }
 
         // ⚠️ Safety:
         // ==========
         //
         // At this point `Inner` is fully initialized.
-        StatefulProduct {
+        p.put(StatefulProduct {
             inner: unsafe { inner.into_init() },
-        }
+        })
     }
 
     fn update(self, p: &mut Self::Product) {
@@ -208,6 +214,8 @@ pub struct OnceProduct<S, P> {
 impl<S, P> Anchor for OnceProduct<S, P>
 where
     StatefulProduct<S>: Mountable,
+    S: Unpin,
+    P: Unpin,
 {
     type Js = <StatefulProduct<S> as Mountable>::Js;
     type Target = StatefulProduct<S>;
@@ -221,21 +229,25 @@ impl<S, R, F, P> View for Once<S, R, F>
 where
     S: IntoState,
     F: FnOnce(Signal<S::State>) -> P,
-    P: 'static,
+    P: Unpin + 'static,
+    S::State: Unpin,
     Stateful<S, R>: View<Product = StatefulProduct<S::State>>,
 {
     type Product = OnceProduct<S::State, P>;
 
-    fn build(self) -> Self::Product {
-        let product = self.with_state.build();
+    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+        let p = p.into_raw();
 
-        let signal = Signal {
-            weak: Rc::downgrade(&product.inner),
-        };
+        unsafe {
+            let product = init!(p.product @ self.with_state.build(p));
+            let signal = Signal {
+                weak: Rc::downgrade(&product.inner),
+            };
 
-        let _no_drop = (self.handler)(signal);
+            init!(p._no_drop = (self.handler)(signal));
 
-        OnceProduct { product, _no_drop }
+            Mut::from_raw(p)
+        }
     }
 
     fn update(self, p: &mut Self::Product) {

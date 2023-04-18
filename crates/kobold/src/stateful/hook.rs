@@ -11,6 +11,7 @@ use std::rc::{Rc, Weak};
 use wasm_bindgen_futures::spawn_local;
 
 use crate::event::{EventCast, Listener};
+use crate::internal::{Mut, Pre};
 use crate::stateful::{Inner, ShouldRender};
 use crate::View;
 
@@ -209,8 +210,8 @@ where
 {
     type Product = <&'a V as View>::Product;
 
-    fn build(self) -> Self::Product {
-        (**self).build()
+    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+        (**self).build(p)
     }
 
     fn update(self, p: &mut Self::Product) {
