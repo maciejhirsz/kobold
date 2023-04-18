@@ -9,7 +9,7 @@ use tokens::{Literal, TokenStream};
 use crate::dom::{Attribute, AttributeValue, CssValue, ElementTag, HtmlElement};
 use crate::gen::{append, DomNode, Generator, IntoGenerator, JsArgument, Short};
 use crate::itertools::IteratorExt as _;
-use crate::parse::{IdentExt, IteratorExt as _};
+use crate::parse::IteratorExt as _;
 use crate::tokenize::prelude::*;
 
 pub struct JsElement {
@@ -108,7 +108,7 @@ impl IntoGenerator for HtmlElement {
         }
 
         for Attribute { name, value } in self.attributes {
-            let attr_type = name.with_str(attribute_type);
+            let attr_type = attribute_type(&name.label);
 
             match value {
                 AttributeValue::Literal(value) => {
@@ -139,9 +139,11 @@ impl IntoGenerator for HtmlElement {
 
                         let value = gen.add_field(coerce).event(event, el.typ).name;
 
-                        name.with_str(|name| {
-                            writeln!(el, "{var}.addEventListener(\"{}\",{value});", &name[2..])
-                        });
+                        writeln!(
+                            el,
+                            "{var}.addEventListener(\"{}\",{value});",
+                            &name.label[2..]
+                        );
 
                         el.args.push(JsArgument::new(value))
                     }
@@ -161,7 +163,7 @@ impl IntoGenerator for HtmlElement {
                     AttributeType::Unknown => {
                         el.hoisted = true;
 
-                        let prop = (name.with_str(Literal::string), ".into()").tokenize();
+                        let prop = (Literal::string(&name.label), ".into()").tokenize();
                         let attr = Attr::new("&AttributeName");
 
                         gen.add_field(expr.stream).attr(var, attr, prop);
@@ -174,7 +176,7 @@ impl IntoGenerator for HtmlElement {
                     let target = el.typ;
 
                     gen.add_hint(
-                        name.clone(),
+                        name.ident,
                         format_args!(
                             "impl Fn(\
                                 ::kobold::event::{event}<\
@@ -185,10 +187,10 @@ impl IntoGenerator for HtmlElement {
                     );
                 }
                 AttributeType::Provided(attr) => {
-                    gen.add_attr_hint(name, "", attr.name);
+                    gen.add_attr_hint(name.ident, "", attr.name);
                 }
                 AttributeType::Unknown => {
-                    gen.add_attr_hint(name, "&'static", "AttributeName");
+                    gen.add_attr_hint(name.ident, "&'static", "AttributeName");
                 }
             }
         }

@@ -73,7 +73,7 @@ pub enum CssValue {
 
 #[derive(Debug)]
 pub struct Attribute {
-    pub name: Ident,
+    pub name: CssLabel,
     pub value: AttributeValue,
 }
 
@@ -149,7 +149,10 @@ impl Node {
                     if content.allow_consume('.').is_some() {
                         classes.push(content.parse()?);
                     } else if let Some(hash) = content.allow_consume('#') {
-                        let name = Ident::new("id", hash.span());
+                        let name = CssLabel {
+                            label: "id".into(),
+                            ident: Ident::new("id", hash.span()),
+                        };
                         let value: CssValue = content.parse()?;
 
                         attributes.push(Attribute {
@@ -164,7 +167,7 @@ impl Node {
                 while !content.end() {
                     let attr: Attribute = content.parse()?;
 
-                    if attr.name.eq_str("class") {
+                    if attr.name.label == "class" {
                         classes.push(CssValue::try_from(attr.value)?);
                     } else {
                         attributes.push(attr);
@@ -362,7 +365,7 @@ impl Parse for Attribute {
             }),
             _ => Err(ParseError::new(
                 "Element attributes must contain {expressions} or literals",
-                name.span(),
+                name.ident.span(),
             )),
         }
     }
