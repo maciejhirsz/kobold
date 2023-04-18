@@ -16,9 +16,9 @@ use crate::View;
 /// Safe abstraction for initialize-in-place strategy employed by the `View::build` method.
 ///
 /// ```
-/// use kobold::internal::Container;
+/// use kobold::internal::In;
 ///
-/// let boxed: Box<u32> = Container::boxed(|container| container.put(42));
+/// let boxed: Box<u32> = In::boxed(|container| container.put(42));
 /// ```
 #[must_use]
 #[repr(transparent)]
@@ -123,11 +123,14 @@ impl<'a, T> In<'a, T> {
         unsafe { std::mem::transmute(boxed) }
     }
 
-    pub fn into_raw(self) -> *mut T {
-        self.0.as_mut_ptr()
+    pub fn in_place<F>(self, f: F) -> Out<'a, T>
+    where
+        F: FnOnce(*mut T) -> Out<'a, T>,
+    {
+        f(self.0.as_mut_ptr())
     }
 
-    pub unsafe fn in_raw<F>(raw: *mut T, f: F) -> Out<'a, T>
+    pub unsafe fn raw<F>(raw: *mut T, f: F) -> Out<'a, T>
     where
         F: FnOnce(In<T>) -> Out<T>,
     {
@@ -160,7 +163,7 @@ impl<'a, T> In<'a, T> {
 #[macro_export]
 macro_rules! init {
     ($p:ident.$field:ident @ $then:expr) => {
-        $crate::internal::In::in_raw(std::ptr::addr_of_mut!((*$p).$field), move |$p| $then)
+        $crate::internal::In::raw(std::ptr::addr_of_mut!((*$p).$field), move |$p| $then)
     };
     ($p:ident.$field:ident = $val:expr) => {
         std::ptr::addr_of_mut!((*$p).$field).write($val)

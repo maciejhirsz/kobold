@@ -137,8 +137,8 @@ where
         // This looks scary, but it just initializes the `prod`. We need to use the
         // closure syntax with a raw pointer to get around lifetime restrictions.
         unsafe {
-            let _ = In::in_raw((*inner.prod.get()).as_mut_ptr(), |prod| {
-                ProductHandler::new(
+            In::raw((*inner.prod.get()).as_mut_ptr(), |prod| {
+                ProductHandler::build(
                     move |hook, product: *mut V::Product| (self.render)(hook).update(&mut *product),
                     view,
                     prod,
@@ -232,9 +232,7 @@ where
     type Product = OnceProduct<S::State, P>;
 
     fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
-        let p = p.into_raw();
-
-        unsafe {
+        p.in_place(|p| unsafe {
             let product = init!(p.product @ self.with_state.build(p));
             let signal = Signal {
                 weak: Rc::downgrade(&product.inner),
@@ -243,7 +241,7 @@ where
             init!(p._no_drop = (self.handler)(signal));
 
             Out::from_raw(p)
-        }
+        })
     }
 
     fn update(self, p: &mut Self::Product) {

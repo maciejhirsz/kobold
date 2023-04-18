@@ -27,18 +27,16 @@ pub struct ProductHandler<S, P, F> {
 }
 
 impl<S, P, F> ProductHandler<S, P, F> {
-    pub fn new<V>(updater: F, view: V, p: In<Self>) -> Out<Self>
+    pub fn build<V>(updater: F, view: V, p: In<Self>) -> Out<Self>
     where
         V: View<Product = P>,
     {
-        unsafe {
-            let p = p.into_raw();
-
+        p.in_place(|p| unsafe {
             init!(p.updater = updater);
             init!(p.product @ view.build(p));
 
             Out::from_raw(p)
-        }
+        })
     }
 }
 
