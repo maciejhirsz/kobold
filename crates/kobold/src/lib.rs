@@ -404,7 +404,7 @@ mod value;
 #[cfg(feature = "stateful")]
 pub mod stateful;
 
-use internal::{Mut, Pre};
+use internal::{In, Out};
 
 /// The prelude module with most commonly used types.
 ///
@@ -436,7 +436,7 @@ pub trait View {
     type Product: Mountable;
 
     /// Build a product that can be mounted in the DOM from this type.
-    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product>;
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product>;
 
     /// Update the product and apply changes to the DOM if necessary.
     fn update(self, p: &mut Self::Product);
@@ -479,7 +479,7 @@ where
 {
     type Product = V::Product;
 
-    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
         let prod = self.view.build(p);
 
         (self.handler)(prod.js().unchecked_ref());
@@ -504,7 +504,7 @@ where
 {
     type Product = V::Product;
 
-    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
         let prod = self.view.build(p);
 
         (self.handler)(prod.js().unchecked_ref());
@@ -527,7 +527,7 @@ pub fn start(view: impl View) {
     use std::pin::pin;
 
     let product = pin!(MaybeUninit::uninit());
-    let product = Pre::pinned(product, move |p| view.build(p));
+    let product = In::pinned(product, move |p| view.build(p));
 
     internal::append_body(product.js());
 }

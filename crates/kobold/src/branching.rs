@@ -94,7 +94,7 @@ use wasm_bindgen::JsValue;
 use web_sys::Node;
 
 use crate::dom::{self, Anchor};
-use crate::internal::{Field, Mut, Pre};
+use crate::internal::{Field, In, Out};
 use crate::{Mountable, View};
 
 macro_rules! branch {
@@ -113,7 +113,7 @@ macro_rules! branch {
         {
             type Product = $name<$(Field<$var::Product>),*>;
 
-            fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+            fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
                 match self {
                     $(
                         $name::$var(html) => {
@@ -137,7 +137,7 @@ macro_rules! branch {
                     )*
 
                     (html, p) => {
-                        let old = Pre::replace(p, move |p| html.build(p));
+                        let old = In::replace(p, move |p| html.build(p));
 
                         old.replace_with(p.js());
                     }
@@ -206,7 +206,7 @@ impl Anchor for EmptyNode {
 impl View for Empty {
     type Product = EmptyNode;
 
-    fn build(self, p: Pre<EmptyNode>) -> Mut<EmptyNode> {
+    fn build(self, p: In<EmptyNode>) -> Out<EmptyNode> {
         p.put(EmptyNode(dom::empty_node()))
     }
 
@@ -216,7 +216,7 @@ impl View for Empty {
 impl<T: View> View for Option<T> {
     type Product = Branch2<Field<T::Product>, Field<EmptyNode>>;
 
-    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
         match self {
             Some(html) => {
                 let mut p = p.put(Branch2::A(unsafe { Field::uninit() }));
@@ -240,7 +240,7 @@ impl<T: View> View for Option<T> {
             (None, Branch2::B(_)) => (),
 
             (html, p) => {
-                let old = Pre::replace(p, move |p| html.build(p));
+                let old = In::replace(p, move |p| html.build(p));
 
                 old.replace_with(p.js());
             }

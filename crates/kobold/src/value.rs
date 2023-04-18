@@ -6,7 +6,7 @@ use web_sys::Node;
 
 use crate::diff::{Diff, Ref};
 use crate::dom::{Anchor, Property, TextContent};
-use crate::internal::{self, Mut, Pre};
+use crate::internal::{self, In, Out};
 use crate::View;
 
 /// Value that can be set as a property on DOM node
@@ -75,7 +75,7 @@ impl<M> Anchor for TextProduct<M> {
 impl View for String {
     type Product = TextProduct<String>;
 
-    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
         let node = self.as_str().into_text();
 
         p.put(TextProduct { memo: self, node })
@@ -142,7 +142,7 @@ macro_rules! impl_text_view {
             impl View for $ty {
                 type Product = TextProduct<<Self as Diff>::Memo>;
 
-                fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+                fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
                     p.put(TextProduct {
                         memo: self.into_memo(),
                         node: self.into_text(),
@@ -165,7 +165,7 @@ impl_text_view!(bool, u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, 
 impl<'a> View for &&'a str {
     type Product = <&'a str as View>::Product;
 
-    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
         (*self).build(p)
     }
 
@@ -180,7 +180,7 @@ macro_rules! impl_ref_view {
             impl View for &$ty {
                 type Product = <$ty as View>::Product;
 
-                fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+                fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
                     (*self).build(p)
                 }
 

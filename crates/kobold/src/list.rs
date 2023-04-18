@@ -9,7 +9,7 @@ use std::pin::Pin;
 use web_sys::Node;
 
 use crate::dom::{Anchor, Fragment, FragmentBuilder};
-use crate::internal::{Mut, Pre};
+use crate::internal::{In, Out};
 use crate::{Mountable, View};
 
 /// Wrapper type that implements `View` for iterators, created by the
@@ -39,13 +39,13 @@ where
 {
     type Product = ListProduct<<T::Item as View>::Product>;
 
-    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
         let iter = self.0.into_iter();
         let fragment = FragmentBuilder::new();
 
         let list: Vec<_> = iter
             .map(|item| {
-                let built = Pre::boxed(|p| item.build(p));
+                let built = In::boxed(|p| item.build(p));
 
                 fragment.append(built.js());
 
@@ -85,7 +85,7 @@ where
             }
 
             for new in new {
-                let built = Pre::boxed(|p| new.build(p));
+                let built = In::boxed(|p| new.build(p));
 
                 p.fragment.append(built.js());
                 p.list.push(built);
@@ -98,7 +98,7 @@ where
 impl<V: View> View for Vec<V> {
     type Product = ListProduct<V::Product>;
 
-    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
         List(self).build(p)
     }
 
@@ -113,7 +113,7 @@ where
 {
     type Product = ListProduct<<&'a V as View>::Product>;
 
-    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
         List(self).build(p)
     }
 
@@ -125,7 +125,7 @@ where
 impl<V: View, const N: usize> View for [V; N] {
     type Product = ListProduct<V::Product>;
 
-    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
         List(self).build(p)
     }
 

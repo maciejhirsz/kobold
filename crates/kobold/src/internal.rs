@@ -22,18 +22,18 @@ use crate::View;
 /// ```
 #[must_use]
 #[repr(transparent)]
-pub struct Pre<'a, T>(&'a mut MaybeUninit<T>);
+pub struct In<'a, T>(&'a mut MaybeUninit<T>);
 
 #[repr(transparent)]
-pub struct Mut<'a, T>(&'a mut T);
+pub struct Out<'a, T>(&'a mut T);
 
-impl<'a, T> Mut<'a, T> {
+impl<'a, T> Out<'a, T> {
     pub unsafe fn from_raw(raw: *mut T) -> Self {
-        Mut(&mut *raw)
+        Out(&mut *raw)
     }
 }
 
-impl<T> Deref for Mut<'_, T> {
+impl<T> Deref for Out<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -41,7 +41,7 @@ impl<T> Deref for Mut<'_, T> {
     }
 }
 
-impl<T> DerefMut for Mut<'_, T> {
+impl<T> DerefMut for Out<'_, T> {
     fn deref_mut(&mut self) -> &mut T {
         self.0
     }
@@ -72,10 +72,10 @@ impl<T> Field<T> {
 
     pub fn init<F>(&mut self, f: F)
     where
-        F: FnOnce(Pre<T>) -> Mut<T>,
+        F: FnOnce(In<T>) -> Out<T>,
     {
         // This will leak memory if done more than once, but it is safe
-        let Mut(_) = f(Pre(&mut self.0));
+        let Out(_) = f(In(&mut self.0));
     }
 
     pub fn get_ref(&self) -> &T {
@@ -99,15 +99,15 @@ impl<T> Drop for Field<T> {
     }
 }
 
-impl<'a, T> Pre<'a, T> {
+impl<'a, T> In<'a, T> {
     pub fn boxed<F>(f: F) -> Pin<Box<T>>
     where
-        F: FnOnce(Pre<T>) -> Mut<T>,
+        F: FnOnce(In<T>) -> Out<T>,
     {
         // Use `Box::new_uninit` when it's stabilized
         // <https://github.com/rust-lang/rust/issues/63291>
         let mut boxed = Box::new(MaybeUninit::uninit());
-        let Mut(_) = f(Pre(boxed.as_mut()));
+        let Out(_) = f(In(boxed.as_mut()));
 
         // ⚠️ Safety:
         // ==========
@@ -127,40 +127,40 @@ impl<'a, T> Pre<'a, T> {
         self.0.as_mut_ptr()
     }
 
-    pub unsafe fn in_raw<F>(raw: *mut T, f: F) -> Mut<'a, T>
+    pub unsafe fn in_raw<F>(raw: *mut T, f: F) -> Out<'a, T>
     where
-        F: FnOnce(Pre<T>) -> Mut<T>,
+        F: FnOnce(In<T>) -> Out<T>,
     {
-        f(Pre(&mut *(raw as *mut MaybeUninit<T>)))
+        f(In(&mut *(raw as *mut MaybeUninit<T>)))
     }
 
-    pub fn pinned<F>(pin: Pin<&'a mut MaybeUninit<T>>, f: F) -> Mut<'a, T>
+    pub fn pinned<F>(pin: Pin<&'a mut MaybeUninit<T>>, f: F) -> Out<'a, T>
     where
-        F: FnOnce(Pre<T>) -> Mut<T>,
+        F: FnOnce(In<T>) -> Out<T>,
     {
-        f(Pre(unsafe { pin.get_unchecked_mut() }))
+        f(In(unsafe { pin.get_unchecked_mut() }))
     }
 
     pub fn replace<F>(at: &mut T, f: F) -> T
     where
-        F: FnOnce(Pre<T>) -> Mut<T>,
+        F: FnOnce(In<T>) -> Out<T>,
     {
         let at = unsafe { &mut *(at as *mut T as *mut MaybeUninit<T>) };
         let old = unsafe { at.assume_init_read() };
-        let Mut(_) = f(Pre(at));
+        let Out(_) = f(In(at));
 
         old
     }
 
-    pub fn put(self, val: T) -> Mut<'a, T> {
-        Mut(self.0.write(val))
+    pub fn put(self, val: T) -> Out<'a, T> {
+        Out(self.0.write(val))
     }
 }
 
 #[macro_export]
 macro_rules! init {
     ($p:ident.$field:ident @ $then:expr) => {
-        $crate::internal::Pre::in_raw(std::ptr::addr_of_mut!((*$p).$field), move |$p| $then)
+        $crate::internal::In::in_raw(std::ptr::addr_of_mut!((*$p).$field), move |$p| $then)
     };
     ($p:ident.$field:ident = $val:expr) => {
         std::ptr::addr_of_mut!((*$p).$field).write($val)
@@ -184,7 +184,7 @@ where
 {
     type Product = Node;
 
-    fn build(self, p: Pre<Node>) -> Mut<Node> {
+    fn build(self, p: In<Node>) -> Out<Node> {
         p.put(self.0())
     }
 

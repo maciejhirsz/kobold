@@ -19,7 +19,7 @@ use wasm_bindgen::JsValue;
 use web_sys::Node;
 
 use crate::dom::Anchor;
-use crate::internal::{Mut, Pre};
+use crate::internal::{In, Out};
 use crate::{init, Mountable, View};
 
 mod cell;
@@ -117,7 +117,7 @@ where
 {
     type Product = StatefulProduct<S::State>;
 
-    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
         let inner = Rc::new(Inner {
             state: WithCell::new(self.state.init()),
             prod: UnsafeCell::new(MaybeUninit::uninit()),
@@ -137,7 +137,7 @@ where
         // This looks scary, but it just initializes the `prod`. We need to use the
         // closure syntax with a raw pointer to get around lifetime restrictions.
         unsafe {
-            let _ = Pre::in_raw((*inner.prod.get()).as_mut_ptr(), |prod| {
+            let _ = In::in_raw((*inner.prod.get()).as_mut_ptr(), |prod| {
                 ProductHandler::new(
                     move |hook, product: *mut V::Product| (self.render)(hook).update(&mut *product),
                     view,
@@ -231,7 +231,7 @@ where
 {
     type Product = OnceProduct<S::State, P>;
 
-    fn build(self, p: Pre<Self::Product>) -> Mut<Self::Product> {
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
         let p = p.into_raw();
 
         unsafe {
@@ -242,7 +242,7 @@ where
 
             init!(p._no_drop = (self.handler)(signal));
 
-            Mut::from_raw(p)
+            Out::from_raw(p)
         }
     }
 
