@@ -63,10 +63,7 @@ pub struct TextProduct<M> {
     node: Node,
 }
 
-impl<M> Anchor for TextProduct<M>
-where
-    M: Unpin,
-{
+impl<M> Anchor for TextProduct<M> {
     type Js = web_sys::Text;
     type Target = Node;
 

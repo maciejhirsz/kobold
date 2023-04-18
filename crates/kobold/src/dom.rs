@@ -12,7 +12,7 @@ use web_sys::Node;
 use crate::internal;
 
 /// A type that can be mounted in the DOM
-pub trait Mountable: Unpin + 'static {
+pub trait Mountable: 'static {
     /// The concrete `web-sys` type representing the root of this
     /// product, most often [`HtmlElement`](web_sys::HtmlElement).
     type Js: JsCast;
@@ -29,7 +29,7 @@ pub trait Mountable: Unpin + 'static {
 
 /// A light-weight [`Deref`](Deref)-like trait that
 /// auto-implements `Mountable` by proxying it to another type.
-pub trait Anchor: Unpin {
+pub trait Anchor {
     type Js: JsCast;
     type Target: Mountable;
 

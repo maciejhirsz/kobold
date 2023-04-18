@@ -33,10 +33,7 @@ impl<'a, T> Mut<'a, T> {
     }
 }
 
-impl<T> Deref for Mut<'_, T>
-where
-    T: Unpin,
-{
+impl<T> Deref for Mut<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -44,10 +41,7 @@ where
     }
 }
 
-impl<T> DerefMut for Mut<'_, T>
-where
-    T: Unpin,
-{
+impl<T> DerefMut for Mut<'_, T> {
     fn deref_mut(&mut self) -> &mut T {
         self.0
     }
@@ -97,8 +91,6 @@ impl<T> Field<T> {
     }
 }
 
-impl<T> Unpin for Field<T> {}
-
 impl<T> Drop for Field<T> {
     fn drop(&mut self) {
         // Safety: it's not possible to create an `Stable`
@@ -107,10 +99,7 @@ impl<T> Drop for Field<T> {
     }
 }
 
-impl<'a, T> Pre<'a, T>
-where
-    T: Unpin,
-{
+impl<'a, T> Pre<'a, T> {
     pub fn boxed<F>(f: F) -> Pin<Box<T>>
     where
         F: FnOnce(Pre<T>) -> Mut<T>,
@@ -149,13 +138,12 @@ where
     where
         F: FnOnce(Pre<T>) -> Mut<T>,
     {
-        f(Pre(pin.get_mut()))
+        f(Pre(unsafe { pin.get_unchecked_mut() }))
     }
 
     pub fn replace<F>(at: &mut T, f: F) -> T
     where
         F: FnOnce(Pre<T>) -> Mut<T>,
-        T: Unpin,
     {
         let at = unsafe { &mut *(at as *mut T as *mut MaybeUninit<T>) };
         let old = unsafe { at.assume_init_read() };

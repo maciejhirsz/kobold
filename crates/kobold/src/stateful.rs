@@ -114,7 +114,6 @@ where
     S: IntoState,
     F: Fn(*const Hook<S::State>) -> V + 'static,
     V: View,
-    S::State: Unpin,
 {
     type Product = StatefulProduct<S::State>;
 
@@ -214,8 +213,6 @@ pub struct OnceProduct<S, P> {
 impl<S, P> Anchor for OnceProduct<S, P>
 where
     StatefulProduct<S>: Mountable,
-    S: Unpin,
-    P: Unpin,
 {
     type Js = <StatefulProduct<S> as Mountable>::Js;
     type Target = StatefulProduct<S>;
@@ -229,8 +226,7 @@ impl<S, R, F, P> View for Once<S, R, F>
 where
     S: IntoState,
     F: FnOnce(Signal<S::State>) -> P,
-    P: Unpin + 'static,
-    S::State: Unpin,
+    P: 'static,
     Stateful<S, R>: View<Product = StatefulProduct<S::State>>,
 {
     type Product = OnceProduct<S::State, P>;

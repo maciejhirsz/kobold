@@ -67,7 +67,7 @@ where
         let mut updated = 0;
 
         for (old, new) in p.list[..p.visible].iter_mut().zip(&mut new) {
-            new.update(old);
+            new.update(unsafe { old.as_mut().get_unchecked_mut() });
             updated += 1;
         }
 
@@ -78,7 +78,7 @@ where
             p.visible = updated;
         } else {
             for (old, new) in p.list[updated..].iter_mut().zip(&mut new) {
-                new.update(old);
+                new.update(unsafe { old.as_mut().get_unchecked_mut() });
 
                 p.fragment.append(old.js());
                 p.visible += 1;

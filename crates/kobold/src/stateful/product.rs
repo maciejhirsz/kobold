@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 
 use wasm_bindgen::JsValue;
 
-use crate::internal::{Field, Mut, Pre};
+use crate::internal::{Mut, Pre};
 use crate::stateful::Hook;
 use crate::{init, Mountable, View};
 
@@ -21,7 +21,7 @@ pub trait Product<S> {
 }
 
 pub struct ProductHandler<S, P, F> {
-    updater: Field<F>,
+    updater: F,
     product: P,
     _state: PhantomData<S>,
 }
@@ -30,13 +30,11 @@ impl<S, P, F> ProductHandler<S, P, F> {
     pub fn new<V>(updater: F, view: V, p: Pre<Self>) -> Mut<Self>
     where
         V: View<Product = P>,
-        P: Unpin,
-        Self: Unpin,
     {
         unsafe {
             let p = p.into_raw();
 
-            init!(p.updater = Field::new(updater));
+            init!(p.updater = updater);
             init!(p.product @ view.build(p));
 
             Mut::from_raw(p)
@@ -51,7 +49,7 @@ where
     F: FnMut(*const Hook<S>, *mut P),
 {
     fn update(&mut self, hook: &Hook<S>) {
-        (self.updater.get_mut())(hook, &mut self.product);
+        (self.updater)(hook, &mut self.product);
     }
 
     fn js(&self) -> &JsValue {

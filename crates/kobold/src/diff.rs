@@ -68,7 +68,6 @@ where
     D: Diff,
     F: FnOnce() -> V,
     V: View,
-    D::Memo: Unpin,
 {
     type Product = Fence<D::Memo, Field<V::Product>>;
 
@@ -91,7 +90,6 @@ where
 
 impl<D, P> Anchor for Fence<D, Field<P>>
 where
-    D: Unpin,
     P: Mountable,
 {
     type Js = P::Js;
