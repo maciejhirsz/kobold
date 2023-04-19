@@ -166,7 +166,7 @@ macro_rules! init {
         $crate::internal::In::raw(std::ptr::addr_of_mut!((*$p).$field), move |$p| $then)
     };
     ($p:ident.$field:ident = $val:expr) => {
-        std::ptr::addr_of_mut!((*$p).$field).write($val)
+        $crate::internal::In::raw(std::ptr::addr_of_mut!((*$p).$field), |$p| $p.put($val))
     };
 }
 
