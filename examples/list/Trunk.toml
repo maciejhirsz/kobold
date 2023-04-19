@@ -1,2 +1,5 @@
 [tools]
 wasm_bindgen = "0.2.84"
+
+[build]
+pattern_script = "<script type=\"module\">import init from '{base}{js}';init('{base}{wasm}').then(wasm=>window.wasm=wasm);</script>"
