@@ -19,7 +19,6 @@ pub struct List<T>(pub(crate) T);
 
 pub struct ListProduct<T> {
     list: Vec<Pin<Box<T>>>,
-    visible: usize,
     fragment: FragmentBuilder,
 }
 
@@ -53,11 +52,9 @@ where
             })
             .collect();
 
-        let visible = list.len();
 
         p.put(ListProduct {
             list,
-            visible,
             fragment,
         })
     }
@@ -66,22 +63,21 @@ where
         let mut new = self.0.into_iter();
         let mut updated = 0;
 
-        for (old, new) in p.list[..p.visible].iter_mut().zip(&mut new) {
+        for (old, new) in p.list.iter_mut().zip(&mut new) {
             new.update(unsafe { old.as_mut().get_unchecked_mut() });
             updated += 1;
         }
 
-        if p.visible > updated {
-            for old in p.list[updated..p.visible].iter() {
+        if p.list.len() > updated {
+            for old in p.list[updated..].iter() {
                 old.unmount();
             }
-            p.visible = updated;
+            p.list.truncate(updated);
         } else {
             for (old, new) in p.list[updated..].iter_mut().zip(&mut new) {
                 new.update(unsafe { old.as_mut().get_unchecked_mut() });
 
                 p.fragment.append(old.js());
-                p.visible += 1;
             }
 
             for new in new {
@@ -89,7 +85,6 @@ where
 
                 p.fragment.append(built.js());
                 p.list.push(built);
-                p.visible += 1;
             }
         }
     }
