@@ -208,7 +208,7 @@ extern "C" {
 
 #[wasm_bindgen]
 pub fn __kobold_event_handler(event: web_sys::Event, closure: *mut (), caller: usize) {
-    let caller = unsafe { std::mem::transmute::<usize, fn(web_sys::Event, *mut ())>(caller) };
+    let caller = unsafe { std::mem::transmute::<_, fn(web_sys::Event, *mut ())>(caller) };
     caller(event, closure);
 }
 

@@ -7,7 +7,6 @@
 use std::marker::PhantomData;
 use std::ops::Deref;
 
-use wasm_bindgen::closure::Closure;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{HtmlElement, HtmlInputElement};
