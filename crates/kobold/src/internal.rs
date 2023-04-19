@@ -206,10 +206,11 @@ extern "C" {
     pub(crate) fn text_node_bool(t: bool) -> Node;
 }
 
-#[wasm_bindgen]
-pub fn __kobold_event_handler(event: web_sys::Event, closure: *mut (), caller: usize) {
-    let caller = unsafe { std::mem::transmute::<_, fn(web_sys::Event, *mut ())>(caller) };
-    caller(event, closure);
+#[wasm_bindgen(js_name = "koboldCallback")]
+pub fn kobold_callback(event: web_sys::Event, closure: *mut (), vcall: usize) {
+    let vcall: fn(web_sys::Event, *mut ()) = unsafe { std::mem::transmute(vcall) };
+
+    vcall(event, closure);
 }
 
 #[wasm_bindgen(module = "/js/util.js")]
@@ -273,5 +274,5 @@ extern "C" {
     // ----------------
 
     #[wasm_bindgen(js_name = "__kobold_make_event_handler")]
-    pub(crate) fn make_event_handler(closure: *mut (), caller: usize) -> JsValue;
+    pub(crate) fn make_event_handler(closure: *mut (), vcall: usize) -> JsValue;
 }

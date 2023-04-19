@@ -11,7 +11,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{HtmlElement, HtmlInputElement};
 
-use crate::internal::{In, Out, self};
+use crate::internal::{self, In, Out};
 
 #[wasm_bindgen]
 extern "C" {
@@ -129,11 +129,9 @@ where
     E: EventCast,
 {
     fn js(&mut self) -> JsValue {
-        let caller: fn(E, *mut ()) = |e, ptr| unsafe {
-            (*(ptr as *mut F))(e)
-        };
+        let vcall: fn(E, *mut ()) = |e, ptr| unsafe { (*(ptr as *mut F))(e) };
 
-        internal::make_event_handler(self as *mut _ as *mut (), caller as usize)
+        internal::make_event_handler((&mut self.closure) as *mut _ as *mut (), vcall as usize)
     }
 }
 
