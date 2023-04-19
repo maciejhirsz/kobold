@@ -122,7 +122,7 @@ impl Tokenize for Transient {
         let mut build = String::new();
         let mut update = String::new();
         let mut declare = String::new();
-        let mut vars = String::new();
+        // let mut vars = String::new();
 
         let mut product_declare = String::new();
         let mut product_generics = String::new();
@@ -136,7 +136,7 @@ impl Tokenize for Transient {
             field.build(&mut build);
             field.update(&mut update);
             field.declare(&mut declare);
-            field.var(&mut vars);
+            // field.var(&mut vars);
 
             match field.kind {
                 FieldKind::StaticView => (),
@@ -153,9 +153,9 @@ impl Tokenize for Transient {
         for (jsfn, el) in self.js.functions.iter().zip(self.els) {
             let JsFunction { name, anchor, args } = jsfn;
 
-            let anchor_typ = anchor.as_type();
+            let anchor_type = anchor.as_type();
 
-            let _ = write!(declare_els, "{el}: {anchor_typ},");
+            let _ = write!(declare_els, "{el}: {anchor_type},");
 
             let args = args
                 .iter()
@@ -170,8 +170,8 @@ impl Tokenize for Transient {
                 })
                 .join(",");
 
-            let _ = write!(build, "let {el}: {anchor_typ} = {name}({args}).into();");
-            let _ = write!(vars, "{el},");
+            let _ = write!(build, "let {el} = ::kobold::init!(_p.{el} = {anchor_type}::from({name}({args})));");
+            // let _ = write!(vars, "{el},");
         }
         let anchor = &self.js.functions.last().unwrap().anchor;
 
@@ -217,12 +217,12 @@ impl Tokenize for Transient {
                 {{\
                     type Product = TransientProduct<{product_generics_binds}>;\
                     \
-                    fn build(self) -> Self::Product {{\
-                        {build}\
-                        \
-                        TransientProduct {{\
-                            {vars}\
-                        }}\
+                    fn build(self, _p: ::kobold::internal::In<Self::Product>) -> ::kobold::internal::Out<Self::Product> {{\
+                        _p.in_place(|_p| unsafe {{\
+                            {build}\
+                            \
+                            ::kobold::internal::Out::from_raw(_p)\
+                        }})\
                     }}\
                     \
                     fn update(self, p: &mut Self::Product) {{\
@@ -475,7 +475,7 @@ impl Field {
 
         match kind {
             FieldKind::View | FieldKind::StaticView | FieldKind::Event { .. } => {
-                let _ = write!(buf, "let {name} = self.{name}.build();");
+                let _ = write!(buf, "let {name} = ::kobold::init!(_p.{name} @ self.{name}.build(_p));");
             }
             _ => (),
         }
