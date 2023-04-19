@@ -177,8 +177,8 @@ where
 {
     type Product = B::Product;
 
-    fn build(self) -> Self::Product {
-        self.bound.build()
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        self.bound.build(p)
     }
 
     fn update(self, p: &mut Self::Product) {

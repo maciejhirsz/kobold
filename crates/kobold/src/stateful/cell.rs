@@ -31,13 +31,14 @@ impl<T> WithCell<T> {
     }
 
     pub unsafe fn ref_unchecked(&self) -> &T {
-        debug_assert_eq!(self.borrowed.get(), false);
+        debug_assert!(!self.borrowed.get());
 
         &*self.data.get()
     }
 
+    #[allow(clippy::mut_from_ref)]
     pub unsafe fn mut_unchecked(&self) -> &mut T {
-        debug_assert_eq!(self.borrowed.get(), false);
+        debug_assert!(!self.borrowed.get());
 
         &mut *self.data.get()
     }
