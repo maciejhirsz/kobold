@@ -133,10 +133,9 @@ impl Tokenize for Transient {
 
             let _ = write!(generics, "{typ},");
 
-            field.build(&mut build);
+            field.build(&mut build, &mut build2);
             field.update(&mut update);
             field.declare(&mut declare);
-            field.build2(&mut build2);
 
             match field.kind {
                 FieldKind::StaticView => (),
@@ -174,7 +173,6 @@ impl Tokenize for Transient {
                 build,
                 "let {el} = ::kobold::init!(_p.{el} = {anchor_type}::from({name}({args})));"
             );
-            // let _ = write!(vars, "{el},");
         }
         let anchor = &self.js.functions.last().unwrap().anchor;
 
@@ -474,7 +472,7 @@ impl Field {
         let _ = write!(buf, "{name}: {typ},");
     }
 
-    fn build(&self, buf: &mut String) {
+    fn build(&self, buf: &mut String, post: &mut String) {
         let Field { name, kind, .. } = self;
 
         match kind {
@@ -499,46 +497,17 @@ impl Field {
                     "let mut {name} = ::kobold::init!(_p.{name} @ self.{name}.build(_p));"
                 );
             }
-            _ => (),
-        }
-    }
-
-    fn build2(&self, buf: &mut String) {
-        let Field { name, kind, .. } = self;
-
-        match kind {
-            FieldKind::StaticView | FieldKind::View | FieldKind::Event { .. } => (),
             FieldKind::Attribute { attr, .. } if attr.abi.is_some() => {
-                let _ = write!(buf, "::kobold::init!(_p.{name} = self.{name}.build());");
+                let _ = write!(post, "::kobold::init!(_p.{name} = self.{name}.build());");
             }
             FieldKind::Attribute { el, prop, .. } => {
                 let _ = write!(
-                    buf,
+                    post,
                     "::kobold::init!(_p.{name} = self.{name}.build_in({prop}, &{el}));"
                 );
             }
         }
     }
-
-    // fn var(&self, buf: &mut String) {
-    //     let Field { name, kind, .. } = self;
-
-    //     match kind {
-    //         FieldKind::StaticView => (),
-    //         FieldKind::View => {
-    //             let _ = write!(buf, "{name},");
-    //         }
-    //         FieldKind::Event { .. } => {
-    //             let _ = write!(buf, "{name},");
-    //         }
-    //         FieldKind::Attribute { attr, .. } if attr.abi.is_some() => {
-    //             let _ = write!(buf, "{name}: self.{name}.build(),");
-    //         }
-    //         FieldKind::Attribute { el, prop, .. } => {
-    //             let _ = write!(buf, "{name}: self.{name}.build_in({prop}, &{el}),");
-    //         }
-    //     }
-    // }
 
     fn update(&self, buf: &mut String) {
         let Field { name, kind, .. } = self;
