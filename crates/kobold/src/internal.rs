@@ -16,9 +16,11 @@ use crate::View;
 /// Safe abstraction for initialize-in-place strategy employed by the `View::build` method.
 ///
 /// ```
+/// use std::pin::Pin;
+///
 /// use kobold::internal::In;
 ///
-/// let boxed: Box<u32> = In::boxed(|container| container.put(42));
+/// let boxed: Pin<Box<u32>> = In::boxed(|container| container.put(42));
 /// ```
 #[must_use]
 #[repr(transparent)]
