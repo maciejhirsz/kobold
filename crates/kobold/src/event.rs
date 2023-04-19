@@ -12,7 +12,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{HtmlElement, HtmlInputElement};
 
-use crate::internal::{In, Out};
+use crate::internal::{In, Out, self};
 
 #[wasm_bindgen]
 extern "C" {
@@ -130,17 +130,11 @@ where
     E: EventCast,
 {
     fn js(&mut self) -> JsValue {
-        Closure::wrap(unsafe {
-            // ⚠️ Safety:
-            // ==========
-            //
-            // `ListenerProduct` (and therefore `self.closure`) is guaranteed to have been created in
-            // a stable pointer.
-            //
-            // TODO: Use a custom way of invoking these instead of hacking around the `Closure`
-            Box::from_raw((&mut self.closure) as *mut dyn FnMut(E) as *mut dyn FnMut(web_sys::Event))
-        })
-        .into_js_value()
+        let caller: fn(E, *mut ()) = |e, ptr| unsafe {
+            (*(ptr as *mut F))(e)
+        };
+
+        internal::make_event_handler(self as *mut _ as *mut (), caller as usize)
     }
 }
 
