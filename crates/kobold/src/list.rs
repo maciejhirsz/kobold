@@ -74,11 +74,7 @@ where
             }
             p.list.truncate(updated);
         } else {
-            for (old, new) in p.list[updated..].iter_mut().zip(&mut new) {
-                new.update(unsafe { old.as_mut().get_unchecked_mut() });
-
-                p.fragment.append(old.js());
-            }
+            p.list.reserve(new.size_hint().0);
 
             for new in new {
                 let built = In::boxed(|p| new.build(p));
