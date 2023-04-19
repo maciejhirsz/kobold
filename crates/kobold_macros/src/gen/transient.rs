@@ -474,8 +474,11 @@ impl Field {
         let Field { name, kind, .. } = self;
 
         match kind {
-            FieldKind::View | FieldKind::StaticView | FieldKind::Event { .. } => {
+            FieldKind::View | FieldKind::StaticView => {
                 let _ = write!(buf, "let {name} = ::kobold::init!(_p.{name} @ self.{name}.build(_p));");
+            },
+            FieldKind::Event { .. } => {
+                let _ = write!(buf, "let mut {name} = ::kobold::init!(_p.{name} @ self.{name}.build(_p));");
             }
             _ => (),
         }
