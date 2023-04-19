@@ -8,10 +8,11 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 use std::ptr::NonNull;
 
-use wasm_bindgen::closure::Closure;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{HtmlElement, HtmlInputElement};
+
+use crate::internal;
 
 #[wasm_bindgen]
 extern "C" {
@@ -135,10 +136,11 @@ where
     E: EventCast,
 {
     fn js(&self) -> JsValue {
-        Closure::wrap(unsafe {
-            Box::from_raw(self.raw.as_ptr() as *mut dyn FnMut(E) as *mut dyn FnMut(web_sys::Event))
-        })
-        .into_js_value()
+        let caller: fn(E, *mut ()) = |e, ptr| unsafe {
+            (*(ptr as *mut F))(e)
+        };
+
+        internal::make_event_handler(self.raw.as_ptr() as usize, caller as usize)
     }
 }
 

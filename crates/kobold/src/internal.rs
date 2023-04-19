@@ -45,6 +45,12 @@ extern "C" {
     pub(crate) fn text_node_bool(t: bool) -> Node;
 }
 
+#[wasm_bindgen]
+pub fn __kobold_event_handler(event: web_sys::Event, closure: usize, caller: usize) {
+    let caller = unsafe { std::mem::transmute::<usize, fn(web_sys::Event, *mut ())>(caller) };
+    caller(event, closure as *mut ());
+}
+
 #[wasm_bindgen(module = "/js/util.js")]
 extern "C" {
     pub(crate) fn __kobold_append(parent: &Node, child: &JsValue);
@@ -102,4 +108,9 @@ extern "C" {
     pub(crate) fn replace_class(node: &Node, old: &str, value: &str);
     #[wasm_bindgen(js_name = "__kobold_toggle_class")]
     pub(crate) fn toggle_class(node: &Node, class: &str, value: bool);
+
+    // ----------------
+
+    #[wasm_bindgen(js_name = "__kobold_make_event_handler")]
+    pub(crate) fn make_event_handler(closure: usize, caller: usize) -> JsValue;
 }
