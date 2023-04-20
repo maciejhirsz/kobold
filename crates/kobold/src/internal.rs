@@ -208,7 +208,7 @@ extern "C" {
     pub(crate) fn text_node_bool(t: bool) -> Node;
 }
 
-#[wasm_bindgen(js_name = "koboldCallback")]
+#[wasm_bindgen(js_name = koboldCallback)]
 pub fn kobold_callback(event: web_sys::Event, closure: *mut (), vcall: usize) {
     let vcall: fn(web_sys::Event, *mut ()) = unsafe { std::mem::transmute(vcall) };
 
