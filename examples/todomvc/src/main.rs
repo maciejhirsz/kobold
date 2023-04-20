@@ -7,6 +7,9 @@ mod state;
 use filter::Filter;
 use state::*;
 
+#[global_allocator]
+static A: rlsf::SmallGlobalTlsf = rlsf::SmallGlobalTlsf::new();
+
 #[component]
 fn App() -> impl View {
     stateful(State::default, |state| {
