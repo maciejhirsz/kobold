@@ -4,6 +4,7 @@
 
 //! Utilities for rendering lists
 
+use std::mem::MaybeUninit;
 use std::pin::Pin;
 
 use web_sys::Node;
@@ -12,7 +13,7 @@ use crate::dom::{Anchor, Fragment, FragmentBuilder};
 use crate::internal::{In, Out};
 use crate::{Mountable, View};
 
-mod pagelist;
+// mod pagelist;
 
 /// Wrapper type that implements `View` for iterators, created by the
 /// [`for`](crate::keywords::for) keyword.
@@ -20,7 +21,8 @@ mod pagelist;
 pub struct List<T>(pub(crate) T);
 
 pub struct ListProduct<T> {
-    list: Vec<Pin<Box<T>>>,
+    list: Vec<Pin<Box<MaybeUninit<T>>>>,
+    visible: usize,
     fragment: FragmentBuilder,
 }
 
@@ -46,16 +48,17 @@ where
 
         let list: Vec<_> = iter
             .map(|item| {
-                let built = In::boxed(|p| item.build(p));
+                let mut b = Box::pin(MaybeUninit::uninit());
+                let built = In::pinned(b.as_mut(), |p| item.build(p));
 
                 fragment.append(built.js());
 
-                built
+                b
             })
             .collect();
 
-
         p.put(ListProduct {
+            visible: list.len(),
             list,
             fragment,
         })
@@ -65,24 +68,36 @@ where
         let mut new = self.0.into_iter();
         let mut updated = 0;
 
-        for (old, new) in p.list.iter_mut().zip(&mut new) {
-            new.update(unsafe { old.as_mut().get_unchecked_mut() });
+        for (old, new) in p.list[..p.visible].iter_mut().zip(&mut new) {
+            new.update(unsafe { old.as_mut().get_unchecked_mut().assume_init_mut() });
             updated += 1;
         }
 
-        if p.list.len() > updated {
-            for old in p.list[updated..].iter() {
-                old.unmount();
+        if p.visible > updated {
+            for old in p.list[updated..p.visible].iter_mut() {
+                unsafe {
+                    old.as_ref().assume_init_ref().unmount();
+                    old.as_mut().get_unchecked_mut().assume_init_drop();
+                }
             }
-            p.list.truncate(updated);
+            p.visible = updated;
         } else {
+            for (old, new) in p.list[updated..].iter_mut().zip(&mut new) {
+                let built = In::pinned(old.as_mut(), |p| new.build(p));
+
+                p.fragment.append(built.js());
+                p.visible += 1;
+            }
+
             p.list.reserve(new.size_hint().0);
 
             for new in new {
-                let built = In::boxed(|p| new.build(p));
+                let mut b = Box::pin(MaybeUninit::uninit());
+                let built = In::pinned(b.as_mut(), |p| new.build(p));
 
                 p.fragment.append(built.js());
-                p.list.push(built);
+                p.list.push(b);
+                p.visible += 1;
             }
         }
     }

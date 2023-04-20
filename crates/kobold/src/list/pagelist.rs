@@ -1,4 +1,5 @@
 use std::alloc::{alloc, dealloc, Layout};
+use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
@@ -118,7 +119,6 @@ struct PageList<T> {
 
 impl<T> PageList<T> {
     pub fn with_capacity(capacity: usize) -> Self {
-        let capacity = std::cmp::max(capacity, 1);
         let page = Page::new(capacity);
 
         PageList {
@@ -127,7 +127,10 @@ impl<T> PageList<T> {
         }
     }
 
-    pub fn push(&mut self, item: T) {
+    pub fn build_next<F>(&mut self, f: F)
+    where
+        F: FnOnce(In<T>) -> Out<T>,
+    {
         let slot = match Page::as_mut(self.last).next_slot() {
             Some(slot) => slot,
             None => {
@@ -141,13 +144,14 @@ impl<T> PageList<T> {
             }
         };
 
-        slot.write(item);
+        unsafe { In::pinned(Pin::new_unchecked(slot), f) };
     }
 
     pub fn cursor(&mut self) -> Cursor<T> {
         Cursor {
             fold: 0,
-            page: Page::as_mut(self.first),
+            page: self.first,
+            _pl: PhantomData,
         }
     }
 }
@@ -171,34 +175,30 @@ impl<T> Drop for PageList<T> {
 
 struct Cursor<'a, T> {
     fold: usize,
-    page: &'a mut Page<T>,
+    page: NonNull<Page<T>>,
+    _pl: PhantomData<&'a mut Page<T>>,
 }
 
 impl<'a, T> Cursor<'a, T> {
     /// Drop all items and pages after current cursor position
-    pub fn truncate_rest(&mut self) {
-        if let Some(to_drop) = self.page.data.get_mut(self.fold..self.page.len) {
+    pub fn truncate_rest(self) -> Tail<'a, T> {
+        let page = Page::as_mut(self.page);
+
+        if let Some(to_drop) = page.data.get_mut(self.fold..page.len) {
             for item in to_drop {
                 unsafe { item.assume_init_drop() };
-                self.page.len = self.fold;
+                page.len = self.fold;
             }
         }
 
-        if let Some(next) = self.page.next.take() {
+        if let Some(next) = page.next.take() {
             Page::dealloc(next);
         }
-    }
 
-    pub fn reserve(mut self, cap: usize) -> Builder<'a, T> {
-        while let Some(next) = self.page.next.map(Page::as_mut) {
-            self.page = next;
+        Tail {
+            page: self.page,
+            _pl: PhantomData,
         }
-
-        if let Some(grow) = self.page.capacity().checked_sub(self.page.len + cap) {
-            self.page.next = Some(Page::new(grow));
-        }
-
-        Builder { page: self.page }
     }
 }
 
@@ -206,39 +206,43 @@ impl<'a, T> Iterator for Cursor<'a, T> {
     type Item = &'a mut T;
 
     fn next(&mut self) -> Option<&'a mut T> {
-        loop {
-            if self.fold < self.page.len {
-                let item = unsafe { self.page.data.get_unchecked_mut(self.fold) };
+        let page = Page::as_mut(self.page);
 
-                self.fold += 1;
+        if self.fold < page.len {
+            let item = unsafe { page.data.get_unchecked_mut(self.fold).assume_init_mut() };
 
-                return Some(unsafe { &mut *(item.as_mut_ptr() as *mut T) });
-            }
+            self.fold += 1;
 
-            self.page = self.page.next.map(Page::as_mut)?;
-            self.fold = 0;
+            return Some(item);
         }
+
+        self.page = page.next?;
+        self.fold = 0;
+
+        self.next()
     }
 }
 
-struct Builder<'a, T> {
-    page: &'a mut Page<T>,
+struct Tail<'a, T> {
+    page: NonNull<Page<T>>,
+    _pl: PhantomData<&'a mut Page<T>>,
 }
 
-impl<T> Builder<'_, T> {
-    pub fn build<F>(&mut self, f: F)
+impl<T> Tail<'_, T> {
+    pub fn build_next<F>(&mut self, f: F)
     where
         F: FnOnce(In<T>) -> Out<T>,
     {
-        let slot = loop {
-            match self.page.data.get_mut(self.page.len) {
-                Some(slot) => break slot,
-                None => {
-                    match self.page.next {
-                        Some(next) => self.page = Page::as_mut(next),
-                        None => return,
-                    }
-                },
+        let slot = match Page::as_mut(self.page).next_slot() {
+            Some(slot) => slot,
+            None => {
+                let new = Page::new(Page::as_mut(self.last).capacity());
+                let slot = Page::as_mut(new).next_slot().unwrap();
+
+                Page::as_mut(self.last).next = Some(new);
+                self.last = new;
+
+                slot
             }
         };
 
@@ -298,9 +302,9 @@ mod tests {
     fn page_list() {
         let mut list = PageList::<u32>::with_capacity(2);
 
-        list.push(42);
-        list.push(100);
-        list.push(404);
+        list.build_next(|n| n.put(42));
+        list.build_next(|n| n.put(100));
+        list.build_next(|n| n.put(404));
 
         assert_eq!(&Page::as_mut(list.first)[..], [42, 100]);
         assert_eq!(&Page::as_mut(list.last)[..], [404]);
@@ -315,9 +319,9 @@ mod tests {
     fn cursor_truncate() {
         let mut list = PageList::<u32>::with_capacity(2);
 
-        list.push(42);
-        list.push(100);
-        list.push(404);
+        list.build_next(|n| n.put(42));
+        list.build_next(|n| n.put(100));
+        list.build_next(|n| n.put(404));
 
         let mut cursor = list.cursor();
 
@@ -327,7 +331,9 @@ mod tests {
 
         assert_eq!(cursor.next(), None);
 
-        assert_eq!(&Page::as_mut(list.first)[..], [42]);
+        list.build_next(|n| n.put(7));
+
+        assert_eq!(&Page::as_mut(list.first)[..], [42, 7]);
         assert_eq!(Page::as_mut(list.first).next, None);
     }
 }
