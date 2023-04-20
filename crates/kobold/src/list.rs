@@ -4,9 +4,6 @@
 
 //! Utilities for rendering lists
 
-use std::mem::MaybeUninit;
-use std::pin::Pin;
-
 use web_sys::Node;
 
 use crate::dom::{Anchor, Fragment, FragmentBuilder};
@@ -15,18 +12,34 @@ use crate::{Mountable, View};
 
 mod pagelist;
 
+use pagelist::PageList;
+
 /// Wrapper type that implements `View` for iterators, created by the
 /// [`for`](crate::keywords::for) keyword.
 #[repr(transparent)]
 pub struct List<T>(pub(crate) T);
 
-pub struct ListProduct<T> {
-    list: Vec<Pin<Box<MaybeUninit<T>>>>,
-    visible: usize,
+pub struct ListProduct<P: Mountable> {
+    list: PageList<Unmount<P>>,
     fragment: FragmentBuilder,
 }
 
-impl<T> Anchor for ListProduct<T> {
+#[repr(transparent)]
+struct Unmount<P: Mountable>(P);
+
+impl<P> Drop for Unmount<P>
+where
+    P: Mountable
+{
+    fn drop(&mut self) {
+        self.0.unmount();
+    }
+}
+
+impl<P> Anchor for ListProduct<P>
+where
+    P: Mountable,
+{
     type Js = Node;
     type Target = Fragment;
 
@@ -39,26 +52,22 @@ impl<T> View for List<T>
 where
     T: IntoIterator,
     <T as IntoIterator>::Item: View,
+    <<T as IntoIterator>::Item as View>::Product: Mountable,
 {
     type Product = ListProduct<<T::Item as View>::Product>;
 
     fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
-        let iter = self.0.into_iter();
         let fragment = FragmentBuilder::new();
 
-        let list: Vec<_> = iter
-            .map(|item| {
-                let mut b = Box::pin(MaybeUninit::uninit());
-                let built = In::pinned(b.as_mut(), |p| item.build(p));
+        let list = PageList::build(self.0, |p, item| {
+            let built = item.build(unsafe { p.cast() });
 
-                fragment.append(built.js());
+            fragment.append(built.js());
 
-                b
-            })
-            .collect();
+            unsafe { built.cast() }
+        });
 
         p.put(ListProduct {
-            visible: list.len(),
             list,
             fragment,
         })
@@ -66,40 +75,21 @@ where
 
     fn update(self, p: &mut Self::Product) {
         let mut new = self.0.into_iter();
-        let mut updated = 0;
+        let mut cursor = p.list.cursor();
 
-        for (old, new) in p.list[..p.visible].iter_mut().zip(&mut new) {
-            new.update(unsafe { old.as_mut().get_unchecked_mut().assume_init_mut() });
-            updated += 1;
+        for (old, new) in cursor.by_ref().zip(&mut new) {
+            new.update(&mut old.0);
         }
 
-        if p.visible > updated {
-            for old in p.list[updated..p.visible].iter_mut() {
-                unsafe {
-                    old.as_ref().assume_init_ref().unmount();
-                    old.as_mut().get_unchecked_mut().assume_init_drop();
-                }
-            }
-            p.visible = updated;
-        } else {
-            for (old, new) in p.list[updated..].iter_mut().zip(&mut new) {
-                let built = In::pinned(old.as_mut(), |p| new.build(p));
+        let mut tail = cursor.truncate_rest();
 
-                p.fragment.append(built.js());
-                p.visible += 1;
-            }
+        tail.extend(new, |t, item| {
+            let built = item.build(unsafe { t.cast() });
 
-            p.list.reserve(new.size_hint().0);
+            p.fragment.append(built.js());
 
-            for new in new {
-                let mut b = Box::pin(MaybeUninit::uninit());
-                let built = In::pinned(b.as_mut(), |p| new.build(p));
-
-                p.fragment.append(built.js());
-                p.list.push(b);
-                p.visible += 1;
-            }
-        }
+            unsafe { built.cast() }
+        });
     }
 }
 

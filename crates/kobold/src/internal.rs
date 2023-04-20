@@ -33,6 +33,10 @@ impl<'a, T> Out<'a, T> {
     pub unsafe fn from_raw(raw: *mut T) -> Self {
         Out(&mut *raw)
     }
+
+    pub unsafe fn cast<U>(self) -> Out<'a, U> {
+        Out(unsafe { &mut *(self.0 as *mut _ as *mut U) })
+    }
 }
 
 impl<T> Deref for Out<'_, T> {
@@ -159,6 +163,10 @@ impl<'a, T> In<'a, T> {
 
     pub fn put(self, val: T) -> Out<'a, T> {
         Out(self.0.write(val))
+    }
+
+    pub unsafe fn cast<U>(self) -> In<'a, U> {
+        In(unsafe { &mut *(self.0 as *mut _ as *mut MaybeUninit<U>) })
     }
 }
 

@@ -56,25 +56,29 @@ impl<T> Page<T> {
     }
 
     fn dealloc(ptr: NonNull<Self>) {
-        let cap = {
+        {
             let page = Self::as_mut(ptr);
 
             for item in page.data[..page.len].iter_mut() {
                 unsafe { item.assume_init_drop() };
             }
+        }
 
-            page.capacity()
-        };
-
-        unsafe { dealloc(ptr.as_ptr().cast(), Self::layout(cap)) }
+        unsafe { dealloc(ptr.as_ptr().cast(), Layout::for_value(ptr.as_ref())) }
     }
 
-    fn layout(cap: usize) -> Layout {
-        Layout::new::<Head<T>>()
-            .extend(Layout::array::<T>(cap).unwrap())
-            .unwrap()
-            .0
-            .pad_to_align()
+    const fn layout(cap: usize) -> Layout {
+        use std::mem::{size_of, align_of};
+
+        let mut align = align_of::<Head<T>>();
+        let mut pad = 0;
+
+        if align_of::<T>() > align {
+            pad = align_of::<T>() - align;
+            align= align_of::<T>();
+        }
+
+        unsafe { Layout::from_size_align_unchecked(size_of::<Head<T>>() + pad + cap * size_of::<T>(), align) }
     }
 
     fn as_mut<'a>(ptr: NonNull<Self>) -> &'a mut Self {
@@ -121,7 +125,7 @@ impl<T> Page<T> {
     }
 }
 
-struct PageList<T> {
+pub struct PageList<T> {
     page: NonNull<Page<T>>,
 }
 
@@ -134,7 +138,7 @@ impl<T> PageList<T> {
 
     pub fn build<V, I, F>(iter: I, f: F) -> Self
     where
-        F: Fn(In<T>, V) -> Out<T>,
+        F: FnMut(In<T>, V) -> Out<T>,
         I: IntoIterator<Item = V>,
     {
         let iter = iter.into_iter();
@@ -175,7 +179,7 @@ impl<T> Drop for PageList<T> {
     }
 }
 
-struct Cursor<'a, T> {
+pub struct Cursor<'a, T> {
     fold: usize,
     page: NonNull<Page<T>>,
     _pl: PhantomData<&'a mut Page<T>>,
@@ -184,16 +188,28 @@ struct Cursor<'a, T> {
 impl<'a, T> Cursor<'a, T> {
     /// Drop all items and pages after current cursor position
     pub fn truncate_rest(self) -> Tail<'a, T> {
-        let page = Page::as_mut(self.page);
+        let mut page = Page::as_mut(self.page);
 
         if let Some(to_drop) = page.data.get_mut(self.fold..page.len) {
             for item in to_drop {
-                unsafe { item.assume_init_drop() };
-                page.len = self.fold;
+                unsafe {
+                    item.assume_init_drop();
+                }
             }
+
+            if page.len < page.capacity() {
+                page.len = self.fold;
+
+                return Tail {
+                    page: self.page,
+                    _pl: PhantomData,
+                };
+            }
+
+            page.len = self.fold;
         }
 
-        if let Some(next) = page.next.take() {
+        if let Some(next) = page.next {
             Page::dealloc(next);
         }
 
@@ -225,15 +241,15 @@ impl<'a, T> Iterator for Cursor<'a, T> {
     }
 }
 
-struct Tail<'a, T> {
+pub struct Tail<'a, T> {
     page: NonNull<Page<T>>,
     _pl: PhantomData<&'a mut Page<T>>,
 }
 
 impl<T> Tail<'_, T> {
-    pub fn extend<V, I, F>(&mut self, iter: I, f: F)
+    pub fn extend<V, I, F>(&mut self, iter: I, mut f: F)
     where
-        F: Fn(In<T>, V) -> Out<T>,
+        F: FnMut(In<T>, V) -> Out<T>,
         I: IntoIterator<Item = V>,
     {
         let mut iter = iter.into_iter();
