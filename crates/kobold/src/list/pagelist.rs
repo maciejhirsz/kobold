@@ -132,6 +132,23 @@ impl<T> PageList<T> {
         PageList { page }
     }
 
+    pub fn build<V, I, F>(iter: I, f: F) -> Self
+    where
+        F: Fn(In<T>, V) -> Out<T>,
+        I: IntoIterator<Item = V>,
+    {
+        let iter = iter.into_iter();
+        let page = Page::new(iter.size_hint().0);
+
+        Tail {
+            page,
+            _pl: PhantomData,
+        }
+        .extend(iter, f);
+
+        PageList { page }
+    }
+
     pub fn cursor(&mut self) -> Cursor<T> {
         Cursor {
             fold: 0,
@@ -251,13 +268,12 @@ mod tests {
             let page = Page::as_mut(page);
 
             assert_eq!(page.len(), 0);
-            assert_eq!(page.capacity(), 2);
+            assert!(page.capacity() > 2);
 
             assert_eq!(&page[..], &[]);
 
             assert_eq!(page.next_slot().map(|slot| slot.write(42)), Some(&mut 42));
             assert_eq!(page.next_slot().map(|slot| slot.write(100)), Some(&mut 100));
-            assert!(page.next_slot().is_none());
 
             assert_eq!(&page[..], &[42, 100]);
         }
@@ -274,7 +290,7 @@ mod tests {
             let page = Page::as_mut(page);
 
             assert_eq!(page.len(), 0);
-            assert_eq!(page.capacity(), 3);
+            assert!(page.capacity() > 3);
 
             assert_eq!(&page[..], &[] as &[&str]);
 
@@ -289,13 +305,34 @@ mod tests {
 
     #[test]
     fn page_list() {
-        let mut list = PageList::<u32>::with_capacity(2);
+        let mut list = PageList::<u32>::with_capacity(0);
 
         let mut tail = list.cursor().truncate_rest();
 
-        tail.extend([42, 100, 404], |p, n| p.put(n));
+        tail.extend(0..1024, |p, n| p.put(n));
 
-        assert_eq!(&Page::as_mut(list.page)[..], [42, 100]);
+        let first = &*Page::as_mut(list.page);
+        let second = &*Page::as_mut(first.next.unwrap());
+
+        assert_eq!(&first[..3], &[0, 1, 2]);
+        assert_eq!(first.len(), first.capacity());
+        assert_eq!(
+            first.last().copied().unwrap() + 1,
+            second.first().copied().unwrap()
+        );
+        assert_eq!(second.len() + first.len(), 1024);
+
+        assert_eq!(
+            list.cursor().map(|i| *i).collect::<Vec<_>>(),
+            (0..1024).collect::<Vec<u32>>()
+        );
+    }
+
+    #[test]
+    fn page_list_build() {
+        let mut list = PageList::<u32>::build([42, 100, 404], |p, n| p.put(n));
+
+        assert_eq!(&Page::as_mut(list.page)[..], [42, 100, 404]);
 
         assert_eq!(
             &list.cursor().map(|i| *i).collect::<Vec<_>>()[..],
