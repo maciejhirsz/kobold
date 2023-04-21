@@ -1,6 +1,6 @@
 use std::mem::MaybeUninit;
 use std::pin::Pin;
-use std::ptr::NonNull;
+use std::ptr::{drop_in_place, NonNull};
 
 use crate::internal::{In, Out};
 
@@ -10,23 +10,14 @@ struct Node<T> {
     /// Array to store all the elements of the `Node` in
     data: [MaybeUninit<T>; PAGE_SIZE],
 
-    /// Length of the elements written, or a pointer to the next `Node`
-    meta: Meta<T>,
-}
-
-union Meta<T> {
-    /// Number of elements written in `Node`
-    len: usize,
-
-    /// Pointer to next `Node`, assumes current `Node` is at `PAGE_SIZE`
+    /// Pointer to the next `Node`. If this is a tail node,
+    /// the address of this pointer will be uninitialized junk.
     next: NonNull<Node<T>>,
 }
 
 pub struct LinkedList<T> {
-    /// Total number of links in this list. This is equivalent to number
-    /// of `Node`s minus one, or total number of `Nodes` that have a full
-    /// set of `PAGE_SIZE` elements.
-    links: usize,
+    /// Total number of elements in the list
+    len: usize,
 
     /// First `Node` in the list
     first: NonNull<Node<T>>,
@@ -35,15 +26,8 @@ pub struct LinkedList<T> {
 impl<T> Node<T> {
     fn new() -> NonNull<Self> {
         use std::alloc::{alloc, Layout};
-        use std::ptr::addr_of_mut;
 
-        unsafe {
-            let ptr = alloc(Layout::new::<Self>()) as *mut Self;
-
-            addr_of_mut!((*ptr).meta).write(Meta { len: 0 });
-
-            NonNull::new_unchecked(ptr)
-        }
+        unsafe { NonNull::new_unchecked(alloc(Layout::new::<Self>()) as *mut Self) }
     }
 
     unsafe fn dealloc(ptr: NonNull<Self>) {
@@ -52,13 +36,13 @@ impl<T> Node<T> {
         dealloc(ptr.as_ptr().cast(), Layout::new::<Self>());
     }
 
-    // unsafe fn assume_page(&mut self) -> &mut [T; PAGE_SIZE] {
-    //     &mut *(&mut self.data as *mut _ as *mut [T; PAGE_SIZE])
-    // }
+    unsafe fn assume_page(&mut self) -> &mut [T; PAGE_SIZE] {
+        &mut *(&mut self.data as *mut _ as *mut [T; PAGE_SIZE])
+    }
 
-    // unsafe fn assume_tail(&mut self) -> &mut [T; PAGE_SIZE] {
-    //     &mut *(&mut self.data[..self.meta.len] as *mut _ as *mut [T])
-    // }
+    unsafe fn assume_slice(&mut self, len: usize) -> &mut [T] {
+        &mut *(&mut self.data[..len] as *mut _ as *mut [T])
+    }
 
     fn as_mut<'a>(ptr: NonNull<Self>) -> &'a mut Self {
         unsafe { &mut *ptr.as_ptr() }
@@ -75,28 +59,25 @@ impl<T> LinkedList<T> {
 
         let mut iter = iter.into_iter();
         let mut node = Node::as_mut(first);
-        let mut links = 0;
+        let mut len = 0;
 
         unsafe {
             loop {
-                for item in iter.by_ref().take(PAGE_SIZE) {
-                    In::pinned(Pin::new_unchecked(&mut node.data[node.meta.len]), |p| {
-                        constructor(item, p)
-                    });
-                    node.meta.len += 1;
+                for (item, slot) in iter.by_ref().take(PAGE_SIZE).zip(&mut node.data) {
+                    In::pinned(Pin::new_unchecked(slot), |p| constructor(item, p));
+                    len += 1;
                 }
 
-                if node.meta.len < PAGE_SIZE {
+                if (len % PAGE_SIZE) > 0 {
                     break;
                 }
 
-                links += 1;
-                node.meta.next = Node::new();
-                node = Node::as_mut(node.meta.next);
+                node.next = Node::new();
+                node = Node::as_mut(node.next);
             }
         }
 
-        LinkedList { links, first }
+        LinkedList { len, first }
     }
 }
 
@@ -105,32 +86,23 @@ impl<T> Drop for LinkedList<T> {
         let mut node;
 
         unsafe {
-            while self.links > 0 {
+            for _ in 0..self.len / PAGE_SIZE {
                 node = Node::as_mut(self.first);
 
-                assume_drop_page(&mut node.data);
+                drop_in_place(node.assume_page());
 
-                self.first = node.meta.next;
-                self.links -= 1;
+                self.first = node.next;
 
                 Node::dealloc(node.into());
             }
 
             node = Node::as_mut(self.first);
 
-            assume_drop_slice(&mut node.data[..node.meta.len]);
+            drop_in_place(node.assume_slice(self.len % PAGE_SIZE));
 
             Node::dealloc(node.into());
         }
     }
-}
-
-unsafe fn assume_drop_page<T>(slice: *mut [MaybeUninit<T>; PAGE_SIZE]) {
-    std::ptr::drop_in_place(slice as *mut [T; PAGE_SIZE])
-}
-
-unsafe fn assume_drop_slice<T>(slice: *mut [MaybeUninit<T>]) {
-    std::ptr::drop_in_place(slice as *mut [T])
 }
 
 #[cfg(test)]
@@ -141,12 +113,14 @@ mod tests {
     fn one_node() {
         let list = LinkedList::build([42, 100, 404], |n, p| p.put(n));
 
-        assert_eq!(list.links, 0);
+        assert_eq!(list.len, 3);
 
         let first = Node::as_mut(list.first);
 
         unsafe {
-            assert_eq!(first.meta.len, 3);
+            assert_eq!(first.data[0].assume_init_read(), 42);
+            assert_eq!(first.data[1].assume_init_read(), 100);
+            assert_eq!(first.data[2].assume_init_read(), 404);
         }
     }
 
@@ -156,12 +130,13 @@ mod tests {
 
         unsafe {
             let first = Node::as_mut(list.first);
-            let second = Node::as_mut(first.meta.next);
+            let second = Node::as_mut(first.next);
+
+            assert_eq!(list.len, 20);
 
             assert_eq!(first.data[0].assume_init_mut(), "0");
             assert_eq!(first.data[15].assume_init_mut(), "15");
 
-            assert_eq!(second.meta.len, 4);
             assert_eq!(second.data[0].assume_init_mut(), "16");
             assert_eq!(second.data[3].assume_init_mut(), "19");
         }
