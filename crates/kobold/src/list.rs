@@ -90,6 +90,7 @@ where
                     old.as_mut().get_unchecked_mut().assume_init_drop();
                 }
             }
+            p.list.truncate(10);
             p.visible = updated;
         } else {
             for (old, new) in p.list[updated..].iter_mut().zip(&mut new) {
