@@ -11,6 +11,7 @@ use crate::internal::{In, Out};
 use crate::{Mountable, View};
 
 mod linked_list;
+mod linked_list_dyn;
 
 use linked_list::LinkedList;
 
