@@ -56,25 +56,33 @@ impl<T> LinkedList<T> {
         I: IntoIterator<Item = U>,
         F: FnMut(U, In<T>) -> Out<T>,
     {
-        let first = Node::new();
+        let mut first = NonNull::dangling();
 
         let mut iter = iter.into_iter();
-        let mut node = Node::as_mut(first);
+        let mut next = &mut first;
         let mut len = 0;
 
         unsafe {
-            loop {
-                for (item, slot) in iter.by_ref().take(PAGE_SIZE).zip(&mut node.data) {
-                    In::pinned(Pin::new_unchecked(slot), |p| constructor(item, p));
+            while let Some(item) = iter.next() {
+                *next = Node::new();
+
+                let node = Node::as_mut(*next);
+
+                In::pinned(Pin::new_unchecked(&mut node.data[0]), |p| {
+                    constructor(item, p)
+                });
+
+                len += 1;
+
+                for item in iter.by_ref().take(PAGE_SIZE - 1) {
+                    In::pinned(Pin::new_unchecked(&mut node.data[len % PAGE_SIZE]), |p| {
+                        constructor(item, p)
+                    });
+
                     len += 1;
                 }
 
-                if (len % PAGE_SIZE) > 0 {
-                    break;
-                }
-
-                node.next = Node::new();
-                node = Node::as_mut(node.next);
+                next = &mut node.next;
             }
         }
 
@@ -95,21 +103,24 @@ impl<T> Drop for LinkedList<T> {
         let mut node;
 
         unsafe {
-            for _ in 0..self.len / PAGE_SIZE {
+            while self.len > PAGE_SIZE {
                 node = Node::as_mut(self.first);
 
                 drop_in_place(node.assume_page());
 
                 self.first = node.next;
+                self.len -= PAGE_SIZE;
 
                 Node::dealloc(node.into());
             }
 
-            node = Node::as_mut(self.first);
+            if self.len > 0 {
+                node = Node::as_mut(self.first);
 
-            drop_in_place(node.assume_slice(self.len % PAGE_SIZE));
+                drop_in_place(node.assume_slice(self.len));
 
-            Node::dealloc(node.into());
+                Node::dealloc(node.into());
+            }
         }
     }
 }
@@ -201,6 +212,27 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn empty_list() {
+        let list = LinkedList::build([], |n: u32, p| p.put(n));
+
+        assert_eq!(list.len, 0);
+    }
+
+    #[test]
+    fn one_page() {
+        let list = LinkedList::build(0..PAGE_SIZE, |n, p| p.put(n));
+
+        assert_eq!(list.len, PAGE_SIZE);
+
+        let first = Node::as_mut(list.first);
+
+        unsafe {
+            assert_eq!(first.data[0].assume_init_read(), 0);
+            assert_eq!(first.data[15].assume_init_read(), 15);
+        }
+    }
 
     #[test]
     fn one_node() {
