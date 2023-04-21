@@ -218,6 +218,28 @@ impl<'a, T> Cursor<'a, T> {
             _pl: PhantomData,
         }
     }
+
+    fn has_next(&self) -> bool {
+        let page = Page::as_mut(self.page);
+
+        self.fold < page.len || page.next.is_some()
+    }
+
+    pub fn pair<I, F, U>(&mut self, iter: I, mut each: F)
+    where
+        I: IntoIterator<Item = U>,
+        F: FnMut(&mut T, U),
+    {
+        let mut iter = iter.into_iter();
+
+        while self.has_next() {
+            if let Some(item) = iter.next() {
+                each(self.next().unwrap(), item);
+            } else {
+                break
+            }
+        }
+    }
 }
 
 impl<'a, T> Iterator for Cursor<'a, T> {

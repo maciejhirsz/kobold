@@ -77,13 +77,12 @@ where
         let mut new = self.0.into_iter();
         let mut cursor = p.list.cursor();
 
-        for (old, new) in cursor.by_ref().zip(&mut new) {
-            new.update(&mut old.0);
-        }
+        // for (old, new) in cursor.by_ref().zip(&mut new) {
+        //     new.update(&mut old.0);
+        // }
+        cursor.pair(&mut new, |old, new| new.update(&mut old.0));
 
-        let mut tail = cursor.truncate_rest();
-
-        tail.extend(new, |t, item| {
+        cursor.truncate_rest().extend(new, |t, item| {
             let built = item.build(unsafe { t.cast() });
 
             p.fragment.append(built.js());
