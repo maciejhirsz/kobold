@@ -91,7 +91,7 @@ impl<T> LinkedList<T> {
 
     pub fn cursor(&mut self) -> Cursor<T> {
         Cursor {
-            cur: self.first,
+            cur: (self.len > 0).then_some(self.first),
             idx: 0,
             ll: self,
         }
@@ -126,65 +126,52 @@ impl<T> Drop for LinkedList<T> {
 }
 
 pub struct Cursor<'cur, T> {
-    cur: NonNull<Node<T>>,
+    cur: Option<NonNull<Node<T>>>,
     idx: usize,
     ll: &'cur mut LinkedList<T>,
 }
 
-// impl<'cur, T> Cursor<'cur, T>
-// where
-//     T: 'cur,
-// {
-//     pub fn truncate_rest(self) {
-//         if self.idx == self.ll.len {
-//             return;
-//         }
-//         let len = self.ll.len;
-//         self.ll.len = self.idx;
+impl<'cur, T> Cursor<'cur, T>
+where
+    T: 'cur,
+{
+    pub fn truncate_rest(self) {
+        let cur = match self.cur {
+            Some(cur) => cur,
+            None => return,
+        };
 
-//         let node = Node::as_mut(self.cur);
-//         let local = self.idx % PAGE_SIZE;
-//         let mut remain = len - self.idx;
+        let len = self.ll.len;
+        self.ll.len = self.idx;
 
-//         let tail_list = if local == 0 {
-//             Some(self.cur)
-//         } else if let Some(slice) = remain.checked_sub(local) {
-//             Some(node.next)
-//         } else {
-//             None
-//         };
+        let local = self.idx % PAGE_SIZE;
+        let remain = len - self.idx;
 
-//         let len = self.ll.len;
-//         self.ll.len = self.idx;
+        if local == 0 {
+            drop(LinkedList {
+                len: remain,
+                first: cur,
+            });
 
-//         // let node = Node::as_mut(self.cur);
-//         let mut remain = len - self.idx;
+            return;
+        }
 
-//         match remain + local {
-//             0 => {
-//                 // do nothing
-//             }
-//             1..15 => {
-//                 // drop current
-//             }
-//         }
+        let mut drop_local = PAGE_SIZE - local;
 
-//         unsafe {
-//             if self.idx != 0 && local == 0 {
-//                 //
-//             } else {
+        if drop_local <= remain {
+            drop(LinkedList {
+                len: remain - drop_local,
+                first: Node::as_mut(cur).next,
+            });
+        } else {
+            drop_local = remain;
+        }
 
-//             }
-
-//             if local > 0 {
-//                 let to_drop = local..cmp::min(local + remain, PAGE_SIZE);
-//                 drop_in_place(&mut node.assume_page()[to_drop]);
-
-//                 remain -= local;
-//             }
-//         }
-//     }
-// }
+        unsafe {
+            drop_in_place(&mut Node::as_mut(cur).assume_page()[local..local + drop_local]);
+        }
+    }
+}
 
 impl<'cur, T> Iterator for Cursor<'cur, T>
 where
@@ -193,19 +180,18 @@ where
     type Item = &'cur mut T;
 
     fn next(&mut self) -> Option<&'cur mut T> {
-        if self.idx == self.ll.len {
-            return None;
-        }
+        let cur = self.cur.map(Node::as_mut)?;
 
         let local = self.idx % PAGE_SIZE;
+        let item = unsafe { cur.data[local].assume_init_mut() };
 
-        if self.idx != 0 && local == 0 {
-            self.cur = Node::as_mut(self.cur).next;
+        if local == PAGE_SIZE - 1 {
+            self.cur = (self.ll.len != self.idx).then_some(cur.next);
         }
 
         self.idx += 1;
 
-        Some(unsafe { Node::as_mut(self.cur).data[local].assume_init_mut() })
+        Some(item)
     }
 }
 
@@ -215,7 +201,7 @@ mod tests {
 
     #[test]
     fn empty_list() {
-        let list = LinkedList::build([], |n: u32, p| p.put(n));
+        let list = LinkedList::build([], |n: usize, p| p.put(n));
 
         assert_eq!(list.len, 0);
     }
@@ -236,22 +222,22 @@ mod tests {
 
     #[test]
     fn one_node() {
-        let list = LinkedList::build([42, 100, 404], |n, p| p.put(n));
+        let list = LinkedList::build(0..3, |n, p| p.put(n));
 
         assert_eq!(list.len, 3);
 
         let first = Node::as_mut(list.first);
 
         unsafe {
-            assert_eq!(first.data[0].assume_init_read(), 42);
-            assert_eq!(first.data[1].assume_init_read(), 100);
-            assert_eq!(first.data[2].assume_init_read(), 404);
+            assert_eq!(first.data[0].assume_init_read(), 0);
+            assert_eq!(first.data[1].assume_init_read(), 1);
+            assert_eq!(first.data[2].assume_init_read(), 2);
         }
     }
 
     #[test]
     fn two_nodes_with_alloc() {
-        let list = LinkedList::build(0..20, |n, p| p.put(format!("{n}")));
+        let list = LinkedList::build(0..20, |n, p| p.put(Box::new(n)));
 
         unsafe {
             let first = Node::as_mut(list.first);
@@ -259,11 +245,11 @@ mod tests {
 
             assert_eq!(list.len, 20);
 
-            assert_eq!(first.data[0].assume_init_mut(), "0");
-            assert_eq!(first.data[15].assume_init_mut(), "15");
+            assert_eq!(**first.data[0].assume_init_ref(), 0);
+            assert_eq!(**first.data[15].assume_init_ref(), 15);
 
-            assert_eq!(second.data[0].assume_init_mut(), "16");
-            assert_eq!(second.data[3].assume_init_mut(), "19");
+            assert_eq!(**second.data[0].assume_init_ref(), 16);
+            assert_eq!(**second.data[3].assume_init_ref(), 19);
         }
     }
 
@@ -278,17 +264,72 @@ mod tests {
         }
     }
 
-    // #[test]
-    // fn cursor_truncate() {
-    //     let mut list = LinkedList::build(0..100, |n, p| p.put(n));
+    #[test]
+    fn cursor_truncate_empty() {
+        let mut list = LinkedList::build([], |n: usize, p| p.put(Box::new(n)));
 
-    //     assert_eq!(list.len, 100);
+        assert_eq!(list.len, 0);
 
-    //     let mut cur = list.cursor();
+        list.cursor().truncate_rest();
+    }
 
-    //     cur.by_ref().take(50).count();
-    //     cur.truncate_rest();
+    #[test]
+    fn cursor_truncate_one_page() {
+        let mut list = LinkedList::build(0..PAGE_SIZE, |n, p| p.put(Box::new(n)));
 
-    //     assert_eq!(list.len, 50);
-    // }
+        assert_eq!(list.len, PAGE_SIZE);
+
+        list.cursor().truncate_rest();
+    }
+
+    #[test]
+    fn cursor_truncate_many_pages() {
+        let mut list = LinkedList::build(0..PAGE_SIZE * 3, |n, p| p.put(Box::new(n)));
+
+        assert_eq!(list.len, PAGE_SIZE * 3);
+
+        list.cursor().truncate_rest();
+
+        assert_eq!(list.len, 0);
+    }
+
+    #[test]
+    fn cursor_truncate_many_pages_partial() {
+        let mut list = LinkedList::build(0..PAGE_SIZE * 3, |n, p| p.put(Box::new(n)));
+
+        assert_eq!(list.len, PAGE_SIZE * 3);
+
+        let mut cur = list.cursor();
+        cur.by_ref().take(24).count();
+        cur.truncate_rest();
+
+        assert_eq!(list.len, 24);
+    }
+
+    #[test]
+    fn cursor_truncate_many_pages_partial_at_boundary() {
+        let mut list = LinkedList::build(0..PAGE_SIZE * 5, |n, p| p.put(Box::new(n)));
+
+        assert_eq!(list.len, PAGE_SIZE * 5);
+
+        let mut cur = list.cursor();
+        cur.by_ref().take(PAGE_SIZE * 2).count();
+        cur.truncate_rest();
+
+        assert_eq!(list.len, PAGE_SIZE * 2);
+    }
+
+    #[test]
+    fn cursor_truncate_unaligned() {
+        let mut list = LinkedList::build(0..100, |n, p| p.put(Box::new(n)));
+
+        assert_eq!(list.len, 100);
+
+        let mut cur = list.cursor();
+
+        cur.by_ref().take(50).count();
+        cur.truncate_rest();
+
+        assert_eq!(list.len, 50);
+    }
 }
