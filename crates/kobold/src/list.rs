@@ -75,13 +75,13 @@ where
 
         old.pair(&mut new, |old, new| new.update(&mut old.0));
 
-        old.truncate_rest().extend(new, |view, b| {
-            let built = view.build(unsafe { b.cast() });
+        // old.truncate_rest().extend(new, |view, b| {
+        //     let built = view.build(unsafe { b.cast() });
 
-            p.fragment.append(built.js());
+        //     p.fragment.append(built.js());
 
-            unsafe { built.cast() }
-        });
+        //     unsafe { built.cast() }
+        // });
     }
 }
 
