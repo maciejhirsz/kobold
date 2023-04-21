@@ -77,9 +77,6 @@ where
         let mut new = self.0.into_iter();
         let mut cursor = p.list.cursor();
 
-        // for (old, new) in cursor.by_ref().zip(&mut new) {
-        //     new.update(&mut old.0);
-        // }
         cursor.pair(&mut new, |old, new| new.update(&mut old.0));
 
         cursor.truncate_rest().extend(new, |t, item| {
