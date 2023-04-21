@@ -141,29 +141,27 @@ where
             None => return,
         };
 
-        let len = self.ll.len;
-        self.ll.len = self.idx;
-
+        let mut remain = self.ll.len - self.idx;
         let local = self.idx % PAGE_SIZE;
-        let mut remain = len - self.idx;
 
         if local != 0 {
             let node = cur;
-
             let mut drop_local = PAGE_SIZE - local;
 
             if drop_local <= remain {
                 cur = Node::as_mut(cur).next;
+                remain -= drop_local;
             } else {
                 drop_local = remain;
-            }
-
-            remain -= drop_local;
+                remain = 0;
+            };
 
             unsafe {
                 drop_in_place(&mut Node::as_mut(node).assume_page()[local..local + drop_local]);
             }
         };
+
+        self.ll.len = self.idx;
 
         drop(LinkedList {
             len: remain,
