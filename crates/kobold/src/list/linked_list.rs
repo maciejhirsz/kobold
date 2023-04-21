@@ -179,6 +179,24 @@ where
             len: self.len,
         }
     }
+
+    pub fn has_next(&self) -> bool {
+        self.idx == *self.len
+    }
+
+    pub fn pair<I, F, U>(&mut self, iter: I, mut each: F)
+    where
+        I: IntoIterator<Item = U>,
+        F: FnMut(&mut T, U),
+    {
+        let mut iter = iter.into_iter();
+
+        while self.has_next() {
+            if let Some(item) = iter.next() {
+                each(self.next().unwrap(), item);
+            }
+        }
+    }
 }
 
 impl<'cur, T> Tail<'cur, T> {
@@ -400,7 +418,8 @@ mod tests {
         let mut cur = list.cursor();
 
         cur.by_ref().take(50).count();
-        cur.truncate_rest().extend(200..250, |n, p| p.put(Box::new(n)));
+        cur.truncate_rest()
+            .extend(200..250, |n, p| p.put(Box::new(n)));
 
         assert_eq!(list.len, 100);
     }
