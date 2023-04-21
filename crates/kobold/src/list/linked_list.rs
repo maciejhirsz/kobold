@@ -136,7 +136,7 @@ where
     T: 'cur,
 {
     pub fn truncate_rest(self) {
-        let cur = match self.cur {
+        let mut cur = match self.cur {
             Some(cur) => cur,
             None => return,
         };
@@ -145,31 +145,30 @@ where
         self.ll.len = self.idx;
 
         let local = self.idx % PAGE_SIZE;
-        let remain = len - self.idx;
+        let mut remain = len - self.idx;
 
-        if local == 0 {
-            drop(LinkedList {
-                len: remain,
-                first: cur,
-            });
+        if local != 0 {
+            let node = cur;
 
-            return;
-        }
+            let mut drop_local = PAGE_SIZE - local;
 
-        let mut drop_local = PAGE_SIZE - local;
+            if drop_local <= remain {
+                cur = Node::as_mut(cur).next;
+            } else {
+                drop_local = remain;
+            }
 
-        if drop_local <= remain {
-            drop(LinkedList {
-                len: remain - drop_local,
-                first: Node::as_mut(cur).next,
-            });
-        } else {
-            drop_local = remain;
-        }
+            remain -= drop_local;
 
-        unsafe {
-            drop_in_place(&mut Node::as_mut(cur).assume_page()[local..local + drop_local]);
-        }
+            unsafe {
+                drop_in_place(&mut Node::as_mut(node).assume_page()[local..local + drop_local]);
+            }
+        };
+
+        drop(LinkedList {
+            len: remain,
+            first: cur,
+        });
     }
 }
 
