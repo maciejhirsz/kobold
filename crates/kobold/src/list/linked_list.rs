@@ -1,4 +1,3 @@
-use std::cmp;
 use std::mem::MaybeUninit;
 use std::pin::Pin;
 use std::ptr::{drop_in_place, NonNull};
@@ -74,10 +73,8 @@ impl<T> LinkedList<T> {
 
                 len += 1;
 
-                for item in iter.by_ref().take(PAGE_SIZE - 1) {
-                    In::pinned(Pin::new_unchecked(&mut node.data[len % PAGE_SIZE]), |p| {
-                        constructor(item, p)
-                    });
+                for (slot, item) in node.data[1..].iter_mut().zip(iter.by_ref()) {
+                    In::pinned(Pin::new_unchecked(slot), |p| constructor(item, p));
 
                     len += 1;
                 }
@@ -91,9 +88,9 @@ impl<T> LinkedList<T> {
 
     pub fn cursor(&mut self) -> Cursor<T> {
         Cursor {
-            cur: (self.len > 0).then_some(self.first),
             idx: 0,
-            ll: self,
+            cur: &mut self.first,
+            len: &mut self.len,
         }
     }
 }
@@ -126,22 +123,31 @@ impl<T> Drop for LinkedList<T> {
 }
 
 pub struct Cursor<'cur, T> {
-    cur: Option<NonNull<Node<T>>>,
     idx: usize,
-    ll: &'cur mut LinkedList<T>,
+    cur: &'cur mut NonNull<Node<T>>,
+    len: &'cur mut usize,
+}
+
+pub struct Tail<'cur, T> {
+    cur: &'cur mut NonNull<Node<T>>,
+    len: &'cur mut usize,
 }
 
 impl<'cur, T> Cursor<'cur, T>
 where
     T: 'cur,
 {
-    pub fn truncate_rest(self) {
-        let mut cur = match self.cur {
-            Some(cur) => cur,
-            None => return,
+    pub fn truncate_rest(self) -> Tail<'cur, T> {
+        let mut cur = if self.idx == *self.len {
+            return Tail {
+                cur: self.cur,
+                len: self.len,
+            };
+        } else {
+            *self.cur
         };
 
-        let mut remain = self.ll.len - self.idx;
+        let mut remain = *self.len - self.idx;
         let local = self.idx % PAGE_SIZE;
 
         if local != 0 {
@@ -161,12 +167,63 @@ where
             }
         };
 
-        self.ll.len = self.idx;
+        *self.len = self.idx;
 
         drop(LinkedList {
             len: remain,
             first: cur,
         });
+
+        Tail {
+            cur: self.cur,
+            len: self.len,
+        }
+    }
+}
+
+impl<'cur, T> Tail<'cur, T> {
+    pub fn extend<I, U, F>(self, iter: I, mut constructor: F)
+    where
+        I: IntoIterator<Item = U>,
+        F: FnMut(U, In<T>) -> Out<T>,
+    {
+        let mut iter = iter.into_iter();
+        let mut next = self.cur;
+        let local = *self.len % PAGE_SIZE;
+
+        unsafe {
+            if local != 0 {
+                let node = Node::as_mut(*next);
+
+                for (slot, item) in node.data[local..].iter_mut().zip(iter.by_ref()) {
+                    In::pinned(Pin::new_unchecked(slot), |p| constructor(item, p));
+
+                    *self.len += 1;
+                }
+
+                next = &mut node.next;
+            }
+
+            while let Some(item) = iter.next() {
+                *next = Node::new();
+
+                let node = Node::as_mut(*next);
+
+                In::pinned(Pin::new_unchecked(&mut node.data[0]), |p| {
+                    constructor(item, p)
+                });
+
+                *self.len += 1;
+
+                for (slot, item) in node.data[1..].iter_mut().zip(iter.by_ref()) {
+                    In::pinned(Pin::new_unchecked(slot), |p| constructor(item, p));
+
+                    *self.len += 1;
+                }
+
+                next = &mut node.next;
+            }
+        }
     }
 }
 
@@ -177,13 +234,17 @@ where
     type Item = &'cur mut T;
 
     fn next(&mut self) -> Option<&'cur mut T> {
-        let cur = self.cur.map(Node::as_mut)?;
+        let cur = if self.idx == *self.len {
+            return None;
+        } else {
+            Node::as_mut(*self.cur)
+        };
 
         let local = self.idx % PAGE_SIZE;
         let item = unsafe { cur.data[local].assume_init_mut() };
 
         if local == PAGE_SIZE - 1 {
-            self.cur = (self.ll.len != self.idx).then_some(cur.next);
+            self.cur = &mut cur.next;
         }
 
         self.idx += 1;
@@ -328,5 +389,19 @@ mod tests {
         cur.truncate_rest();
 
         assert_eq!(list.len, 50);
+    }
+
+    #[test]
+    fn cursor_truncate_extend_unaligned() {
+        let mut list = LinkedList::build(0..100, |n, p| p.put(Box::new(n)));
+
+        assert_eq!(list.len, 100);
+
+        let mut cur = list.cursor();
+
+        cur.by_ref().take(50).count();
+        cur.truncate_rest().extend(200..250, |n, p| p.put(Box::new(n)));
+
+        assert_eq!(list.len, 100);
     }
 }
