@@ -180,7 +180,7 @@ where
     }
 
     pub fn has_next(&self) -> bool {
-        self.idx == *self.len
+        self.idx != *self.len
     }
 
     pub fn pair<I, F, U>(&mut self, iter: I, mut each: F)
