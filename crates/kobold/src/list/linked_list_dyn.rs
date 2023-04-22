@@ -63,14 +63,6 @@ impl<T> Node<T> {
         }
     }
 
-    // fn dangling() -> NonNull<Self> {
-    //     unsafe {
-    //         let head = NonNull::dangling();
-
-    //         FatPtr { raw: (head, 0) }.fat
-    //     }
-    // }
-
     fn dealloc(ptr: NonNull<Self>) {
         unsafe { dealloc(ptr.as_ptr().cast(), Layout::for_value(ptr.as_ref())) }
     }
