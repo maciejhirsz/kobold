@@ -194,7 +194,10 @@ where
         while self.has_next() {
             if let Some(item) = iter.next() {
                 each(self.next().unwrap(), item);
+                continue;
             }
+
+            break;
         }
     }
 }
