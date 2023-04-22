@@ -56,29 +56,19 @@ impl<T> Node<T> {
 }
 
 impl<T> LinkedList<T> {
-    pub fn build<I, U, F>(iter: I, mut constructor: F) -> Self
+    pub fn build<I, U, F>(iter: I, constructor: F) -> Self
     where
         I: IntoIterator<Item = U>,
         F: FnMut(U, In<T>) -> Out<T>,
     {
         let mut first = None;
-        let mut next = &mut first;
         let mut len = 0;
 
-        for item in iter {
-            let node = Node::as_mut(*next.get_or_insert_with(Node::new));
-
-            In::pinned(
-                unsafe { Pin::new_unchecked(&mut node.data[len % PAGE_SIZE]) },
-                |p| constructor(item, p),
-            );
-
-            len += 1;
-
-            if len % PAGE_SIZE == 0 {
-                next = &mut node.next;
-            }
+        Tail {
+            cur: &mut first,
+            len: &mut len,
         }
+        .extend(iter, constructor);
 
         LinkedList { len, first }
     }

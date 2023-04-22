@@ -345,4 +345,23 @@ mod tests {
             assert_eq!(*left, right);
         }
     }
+
+    // #[test]
+    // fn cursor_truncate_extend_unaligned() {
+    //     let mut list = LinkedList::build(0..100, |n, p| p.put(Box::new(n)));
+
+    //     assert_eq!(list.len, 100);
+
+    //     let mut cur = list.cursor();
+
+    //     cur.by_ref().take(50).count();
+    //     cur.truncate_rest()
+    //         .extend(200..250, |n, p| p.put(Box::new(n)));
+
+    //     assert_eq!(list.len, 100);
+
+    //     for (left, right) in list.cursor().zip((0..50).chain(200..250)) {
+    //         assert_eq!(**left, right);
+    //     }
+    // }
 }
