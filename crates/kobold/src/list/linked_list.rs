@@ -138,15 +138,14 @@ where
     T: 'cur,
 {
     pub fn truncate_rest(self) -> Tail<'cur, T> {
-        let mut cur = if self.idx == *self.len {
+        if self.idx == *self.len {
             return Tail {
                 cur: self.cur,
                 len: self.len,
             };
-        } else {
-            *self.cur
-        };
+        }
 
+        let mut cur = *self.cur;
         let mut remain = *self.len - self.idx;
         let local = self.idx % PAGE_SIZE;
 
@@ -255,11 +254,11 @@ where
     type Item = &'cur mut T;
 
     fn next(&mut self) -> Option<&'cur mut T> {
-        let cur = if self.idx == *self.len {
+        if self.idx == *self.len {
             return None;
-        } else {
-            Node::as_mut(*self.cur)
-        };
+        }
+
+        let cur = Node::as_mut(*self.cur);
 
         let local = self.idx % PAGE_SIZE;
         let item = unsafe { cur.data[local].assume_init_mut() };
