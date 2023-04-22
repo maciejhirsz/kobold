@@ -7,6 +7,10 @@ mod state;
 use filter::Filter;
 use state::*;
 
+// SAFETY: This application is single threaded, so using AssumeSingleThreaded is allowed.
+#[global_allocator]
+static A: rlsf::SmallGlobalTlsf = rlsf::SmallGlobalTlsf::new();
+
 #[component]
 fn App() -> impl View {
     stateful(State::default, |state| {
