@@ -217,7 +217,7 @@ where
             return None;
         }
 
-        let cur = Node::as_mut(self.cur.unwrap());
+        let cur = Node::as_mut(unsafe { self.cur.unwrap_unchecked() });
 
         let local = self.idx % PAGE_SIZE;
         let item = unsafe { cur.data[local].assume_init_mut() };
