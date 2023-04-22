@@ -10,9 +10,9 @@ use crate::dom::{Anchor, Fragment, FragmentBuilder};
 use crate::internal::{In, Out};
 use crate::{Mountable, View};
 
-mod pagelist;
+mod linked_list;
 
-use pagelist::PageList;
+use linked_list::PageList;
 
 /// Wrapper type that implements `View` for iterators, created by the
 /// [`for`](crate::keywords::for) keyword.
