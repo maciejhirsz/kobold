@@ -389,9 +389,9 @@ pub use kobold_macros::view;
 
 use wasm_bindgen::JsCast;
 
-#[cfg(all(target_arch = "wasm32", feature = "rlsf", not(target_feature = "atomics")))]
-#[global_allocator]
-static A: rlsf::SmallGlobalTlsf = rlsf::SmallGlobalTlsf::new();
+// #[cfg(all(target_arch = "wasm32", feature = "rlsf", not(target_feature = "atomics")))]
+// #[global_allocator]
+// static A: rlsf::SmallGlobalTlsf = rlsf::SmallGlobalTlsf::new();
 
 pub mod attribute;
 pub mod branching;

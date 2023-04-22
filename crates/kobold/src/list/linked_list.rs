@@ -425,5 +425,9 @@ mod tests {
             .extend(200..250, |n, p| p.put(Box::new(n)));
 
         assert_eq!(list.len, 100);
+
+        for (left, right) in list.cursor().zip((0..50).chain(200..250)) {
+            assert_eq!(**left, right);
+        }
     }
 }
