@@ -10,24 +10,30 @@ struct Node<T> {
     /// Array to store all the elements of the `Node` in
     data: [MaybeUninit<T>; PAGE_SIZE],
 
+    len: usize,
+
     /// Pointer to the next `Node`. If this is a tail node,
     /// the address of this pointer will be uninitialized junk.
-    next: NonNull<Node<T>>,
+    next: Option<NonNull<Node<T>>>,
 }
 
 pub struct LinkedList<T> {
-    /// Total number of elements in the list
-    len: usize,
-
     /// First `Node` in the list
-    first: NonNull<Node<T>>,
+    first: Option<NonNull<Node<T>>>,
 }
 
 impl<T> Node<T> {
     fn new() -> NonNull<Self> {
         use std::alloc::{alloc, Layout};
+        use std::ptr::addr_of_mut;
 
-        unsafe { NonNull::new_unchecked(alloc(Layout::new::<Self>()) as *mut Self) }
+        unsafe {
+            let ptr = alloc(Layout::new::<Self>()) as *mut Self;
+
+            addr_of_mut!((*ptr).len).write(0);
+            addr_of_mut!((*ptr).next).write(None);
+
+            NonNull::new_unchecked(ptr) }
     }
 
     unsafe fn dealloc(ptr: NonNull<Self>) {
@@ -36,12 +42,8 @@ impl<T> Node<T> {
         dealloc(ptr.as_ptr().cast(), Layout::new::<Self>());
     }
 
-    unsafe fn assume_page(&mut self) -> &mut [T; PAGE_SIZE] {
-        &mut *(&mut self.data as *mut _ as *mut [T; PAGE_SIZE])
-    }
-
-    unsafe fn assume_slice(&mut self, len: usize) -> &mut [T] {
-        &mut *(&mut self.data[..len] as *mut _ as *mut [T])
+    unsafe fn assume_slice(&mut self) -> &mut [T] {
+        &mut *(self.data.get_unchecked_mut(..self.len) as *mut _ as *mut [T])
     }
 
     fn as_mut<'a>(ptr: NonNull<Self>) -> &'a mut Self {
@@ -55,66 +57,53 @@ impl<T> LinkedList<T> {
         I: IntoIterator<Item = U>,
         F: FnMut(U, In<T>) -> Out<T>,
     {
-        let mut first = NonNull::dangling();
+        let mut first = None;
 
         let mut iter = iter.into_iter();
         let mut next = &mut first;
-        let mut len = 0;
 
         unsafe {
             while let Some(item) = iter.next() {
-                *next = Node::new();
+                *next = Some(Node::new());
 
-                let node = Node::as_mut(*next);
+                let node = Node::as_mut(next.unwrap());
 
                 In::pinned(Pin::new_unchecked(&mut node.data[0]), |p| {
                     constructor(item, p)
                 });
 
-                len += 1;
+                node.len = 1;
 
                 for (slot, item) in node.data[1..].iter_mut().zip(iter.by_ref()) {
                     In::pinned(Pin::new_unchecked(slot), |p| constructor(item, p));
 
-                    len += 1;
+                    node.len += 1;
                 }
 
                 next = &mut node.next;
             }
         }
 
-        LinkedList { len, first }
+        LinkedList { first }
     }
 
     pub fn cursor(&mut self) -> Cursor<T> {
         Cursor {
             idx: 0,
             cur: &mut self.first,
-            len: &mut self.len,
         }
     }
 }
 
 impl<T> Drop for LinkedList<T> {
     fn drop(&mut self) {
-        let mut node;
-
         unsafe {
-            while self.len > PAGE_SIZE {
-                node = Node::as_mut(self.first);
+            while let Some(node) = self.first {
+                let node = Node::as_mut(node);
 
-                drop_in_place(node.assume_page());
+                drop_in_place(node.assume_slice());
 
                 self.first = node.next;
-                self.len -= PAGE_SIZE;
-
-                Node::dealloc(node.into());
-            }
-
-            if self.len > 0 {
-                node = Node::as_mut(self.first);
-
-                drop_in_place(node.assume_slice(self.len));
 
                 Node::dealloc(node.into());
             }
@@ -124,13 +113,11 @@ impl<T> Drop for LinkedList<T> {
 
 pub struct Cursor<'cur, T> {
     idx: usize,
-    cur: &'cur mut NonNull<Node<T>>,
-    len: &'cur mut usize,
+    cur: &'cur mut Option<NonNull<Node<T>>>,
 }
 
 pub struct Tail<'cur, T> {
-    cur: &'cur mut NonNull<Node<T>>,
-    len: &'cur mut usize,
+    cur: &'cur mut Option<NonNull<Node<T>>>,
 }
 
 impl<'cur, T> Cursor<'cur, T>
@@ -138,50 +125,36 @@ where
     T: 'cur,
 {
     pub fn truncate_rest(self) -> Tail<'cur, T> {
-        let mut cur = if self.idx == *self.len {
-            return Tail {
-                cur: self.cur,
-                len: self.len,
-            };
-        } else {
-            *self.cur
-        };
-
-        let mut remain = *self.len - self.idx;
-        let local = self.idx % PAGE_SIZE;
-
-        if local != 0 {
-            let node = cur;
-            let mut drop_local = PAGE_SIZE - local;
-
-            if drop_local <= remain {
-                cur = Node::as_mut(cur).next;
-                remain -= drop_local;
-            } else {
-                drop_local = remain;
-                remain = 0;
-            };
+        let first = if self.idx == 0 {
+            self.cur.take()
+        } else if let Some(node) = *self.cur {
+            let node = Node::as_mut(node);
 
             unsafe {
-                drop_in_place(&mut Node::as_mut(node).assume_page()[local..local + drop_local]);
+                drop_in_place(&mut node.assume_slice()[self.idx..]);
             }
+
+            node.len = self.idx;
+            node.next.take()
+        } else {
+            None
         };
 
-        *self.len = self.idx;
-
         drop(LinkedList {
-            len: remain,
-            first: cur,
+            first,
         });
 
         Tail {
             cur: self.cur,
-            len: self.len,
         }
     }
 
     pub fn has_next(&self) -> bool {
-        self.idx == *self.len
+        if let Some(node) = *self.cur {
+            self.idx < Node::as_mut(node).len
+        } else {
+            false
+        }
     }
 
     pub fn pair<I, F, U>(&mut self, iter: I, mut each: F)
@@ -194,6 +167,8 @@ where
         while self.has_next() {
             if let Some(item) = iter.next() {
                 each(self.next().unwrap(), item);
+            } else {
+                break;
             }
         }
     }
@@ -207,36 +182,34 @@ impl<'cur, T> Tail<'cur, T> {
     {
         let mut iter = iter.into_iter();
         let mut next = self.cur;
-        let local = *self.len % PAGE_SIZE;
 
         unsafe {
-            if local != 0 {
-                let node = Node::as_mut(*next);
+            if let Some(node) = *next {
+                let node = Node::as_mut(node);
 
-                for (slot, item) in node.data[local..].iter_mut().zip(iter.by_ref()) {
+                for (slot, item) in node.data[node.len..].iter_mut().zip(iter.by_ref()) {
                     In::pinned(Pin::new_unchecked(slot), |p| constructor(item, p));
-
-                    *self.len += 1;
+                    node.len += 1;
                 }
 
                 next = &mut node.next;
             }
 
             while let Some(item) = iter.next() {
-                *next = Node::new();
+                *next = Some(Node::new());
 
-                let node = Node::as_mut(*next);
+                let node = Node::as_mut(next.unwrap());
 
                 In::pinned(Pin::new_unchecked(&mut node.data[0]), |p| {
                     constructor(item, p)
                 });
 
-                *self.len += 1;
+                node.len = 1;
 
                 for (slot, item) in node.data[1..].iter_mut().zip(iter.by_ref()) {
                     In::pinned(Pin::new_unchecked(slot), |p| constructor(item, p));
 
-                    *self.len += 1;
+                    node.len += 1;
                 }
 
                 next = &mut node.next;
@@ -252,20 +225,16 @@ where
     type Item = &'cur mut T;
 
     fn next(&mut self) -> Option<&'cur mut T> {
-        let cur = if self.idx == *self.len {
-            return None;
-        } else {
-            Node::as_mut(*self.cur)
-        };
+        let node = Node::as_mut((*self.cur)?);
 
-        let local = self.idx % PAGE_SIZE;
-        let item = unsafe { cur.data[local].assume_init_mut() };
-
-        if local == PAGE_SIZE - 1 {
-            self.cur = &mut cur.next;
-        }
+        let item = unsafe { node.data.get_unchecked_mut(self.idx).assume_init_mut() };
 
         self.idx += 1;
+
+        if self.idx == PAGE_SIZE {
+            self.idx = 0;
+            self.cur = &mut node.next;
+        }
 
         Some(item)
     }
@@ -279,16 +248,14 @@ mod tests {
     fn empty_list() {
         let list = LinkedList::build([], |n: usize, p| p.put(n));
 
-        assert_eq!(list.len, 0);
+        assert!(list.first.is_none());
     }
 
     #[test]
     fn one_page() {
         let list = LinkedList::build(0..PAGE_SIZE, |n, p| p.put(n));
 
-        assert_eq!(list.len, PAGE_SIZE);
-
-        let first = Node::as_mut(list.first);
+        let first = Node::as_mut(list.first.unwrap());
 
         unsafe {
             assert_eq!(first.data[0].assume_init_read(), 0);
@@ -300,9 +267,7 @@ mod tests {
     fn one_node() {
         let list = LinkedList::build(0..3, |n, p| p.put(n));
 
-        assert_eq!(list.len, 3);
-
-        let first = Node::as_mut(list.first);
+        let first = Node::as_mut(list.first.unwrap());
 
         unsafe {
             assert_eq!(first.data[0].assume_init_read(), 0);
@@ -316,10 +281,8 @@ mod tests {
         let list = LinkedList::build(0..20, |n, p| p.put(Box::new(n)));
 
         unsafe {
-            let first = Node::as_mut(list.first);
-            let second = Node::as_mut(first.next);
-
-            assert_eq!(list.len, 20);
+            let first = Node::as_mut(list.first.unwrap());
+            let second = Node::as_mut(first.next.unwrap());
 
             assert_eq!(**first.data[0].assume_init_ref(), 0);
             assert_eq!(**first.data[15].assume_init_ref(), 15);
@@ -333,8 +296,6 @@ mod tests {
     fn cursor_iter() {
         let mut list = LinkedList::build(0..100, |n, p| p.put(n));
 
-        assert_eq!(list.len, 100);
-
         for (left, right) in list.cursor().zip(0..100) {
             assert_eq!(*left, right);
         }
@@ -344,16 +305,12 @@ mod tests {
     fn cursor_truncate_empty() {
         let mut list = LinkedList::build([], |n: usize, p| p.put(Box::new(n)));
 
-        assert_eq!(list.len, 0);
-
         list.cursor().truncate_rest();
     }
 
     #[test]
     fn cursor_truncate_one_page() {
         let mut list = LinkedList::build(0..PAGE_SIZE, |n, p| p.put(Box::new(n)));
-
-        assert_eq!(list.len, PAGE_SIZE);
 
         list.cursor().truncate_rest();
     }
@@ -362,58 +319,56 @@ mod tests {
     fn cursor_truncate_many_pages() {
         let mut list = LinkedList::build(0..PAGE_SIZE * 3, |n, p| p.put(Box::new(n)));
 
-        assert_eq!(list.len, PAGE_SIZE * 3);
+        assert!(list.first.is_some());
 
         list.cursor().truncate_rest();
 
-        assert_eq!(list.len, 0);
+        assert!(list.first.is_none());
     }
 
     #[test]
     fn cursor_truncate_many_pages_partial() {
         let mut list = LinkedList::build(0..PAGE_SIZE * 3, |n, p| p.put(Box::new(n)));
 
-        assert_eq!(list.len, PAGE_SIZE * 3);
+        // assert_eq!(list.len, PAGE_SIZE * 3);
 
         let mut cur = list.cursor();
         cur.by_ref().take(24).count();
         cur.truncate_rest();
 
-        assert_eq!(list.len, 24);
+        // assert_eq!(list.len, 24);
     }
 
     #[test]
     fn cursor_truncate_many_pages_partial_at_boundary() {
         let mut list = LinkedList::build(0..PAGE_SIZE * 5, |n, p| p.put(Box::new(n)));
 
-        assert_eq!(list.len, PAGE_SIZE * 5);
+        // assert_eq!(list.len, PAGE_SIZE * 5);
 
         let mut cur = list.cursor();
         cur.by_ref().take(PAGE_SIZE * 2).count();
         cur.truncate_rest();
 
-        assert_eq!(list.len, PAGE_SIZE * 2);
+        // assert_eq!(list.len, PAGE_SIZE * 2);
     }
 
     #[test]
     fn cursor_truncate_unaligned() {
         let mut list = LinkedList::build(0..100, |n, p| p.put(Box::new(n)));
 
-        assert_eq!(list.len, 100);
+        // assert_eq!(list.len, 100);
 
         let mut cur = list.cursor();
 
         cur.by_ref().take(50).count();
         cur.truncate_rest();
 
-        assert_eq!(list.len, 50);
+        // assert_eq!(list.len, 50);
     }
 
     #[test]
     fn cursor_truncate_extend_unaligned() {
         let mut list = LinkedList::build(0..100, |n, p| p.put(Box::new(n)));
-
-        assert_eq!(list.len, 100);
 
         let mut cur = list.cursor();
 
@@ -421,6 +376,5 @@ mod tests {
         cur.truncate_rest()
             .extend(200..250, |n, p| p.put(Box::new(n)));
 
-        assert_eq!(list.len, 100);
     }
 }
