@@ -10,8 +10,7 @@ struct Node<T> {
     /// Array to store all the elements of the `Node` in
     data: [MaybeUninit<T>; PAGE_SIZE],
 
-    /// Pointer to the next `Node`. If this is a tail node,
-    /// the address of this pointer will be uninitialized junk.
+    /// Pointer to the next `Node`.
     next: Option<NonNull<Node<T>>>,
 }
 
