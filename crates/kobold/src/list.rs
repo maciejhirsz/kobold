@@ -12,8 +12,9 @@ use crate::{Mountable, View};
 
 mod linked_list_opt;
 mod linked_list_dyn;
+mod linked_list_meta;
 
-use linked_list_opt::LinkedList;
+use linked_list_dyn::LinkedList;
 
 /// Wrapper type that implements `View` for iterators, created by the
 /// [`for`](crate::keywords::for) keyword.

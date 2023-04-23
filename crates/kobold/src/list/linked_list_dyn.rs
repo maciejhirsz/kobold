@@ -120,7 +120,7 @@ impl<T> LinkedList<T> {
             let node = Node::as_mut(*next.get_or_insert_with(|| Node::new(iter.size_hint().0 + 1)));
 
             In::pinned(
-                unsafe { Pin::new_unchecked(&mut node.data[node_len]) },
+                unsafe { Pin::new_unchecked(node.data.get_unchecked_mut(node_len)) },
                 |p| constructor(item, p),
             );
 
@@ -192,7 +192,7 @@ impl<'cur, T> Tail<'cur, T> {
             let node = Node::as_mut(*next.get_or_insert_with(|| Node::new(iter.size_hint().0 + 1)));
 
             In::pinned(
-                unsafe { Pin::new_unchecked(&mut node.data[node_len]) },
+                unsafe { Pin::new_unchecked(node.data.get_unchecked_mut(node_len)) },
                 |p| constructor(item, p),
             );
 
@@ -285,7 +285,7 @@ where
         let cap = cur.capacity();
 
         let local = self.idx - self.cut;
-        let item = unsafe { cur.data[local].assume_init_mut() };
+        let item = unsafe { cur.data.get_unchecked_mut(local).assume_init_mut() };
 
         if local == cap - 1 {
             self.cut += cap;
