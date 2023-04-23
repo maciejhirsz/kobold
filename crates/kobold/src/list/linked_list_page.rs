@@ -17,7 +17,7 @@ struct Node<T> {
     data: [MaybeUninit<T>],
 }
 
-/// This struct needs to be the same as `Node<T>`, sans the unsized `data`
+/// This struct needs to be the same shape as `Node<T>`, sans the unsized `data`
 #[repr(C)]
 struct Head<T> {
     /// Pointer to the next `Node`.
@@ -82,8 +82,8 @@ impl<T> Node<T> {
         &mut *(&mut self.data as *mut _ as *mut [T])
     }
 
-    unsafe fn assume_slice(&mut self, len: usize) -> &mut [T] {
-        &mut *(self.data.get_unchecked_mut(..len) as *mut _ as *mut [T])
+    unsafe fn assume_slice(&mut self) -> &mut [T] {
+        &mut *(self.data.get_unchecked_mut(..self.len) as *mut _ as *mut [T])
     }
 
     fn as_mut<'a>(ptr: NonNull<Self>) -> &'a mut Self {
@@ -111,30 +111,14 @@ impl<T> Node<T> {
 }
 
 impl<T> LinkedList<T> {
-    pub fn build<I, U, F>(iter: I, mut constructor: F) -> Self
+    pub fn build<I, U, F>(iter: I, constructor: F) -> Self
     where
         I: IntoIterator<Item = U>,
         F: FnMut(U, In<T>) -> Out<T>,
     {
         let mut first = None;
 
-        let mut iter = iter.into_iter();
-        let mut next = &mut first;
-
-        while let Some(item) = iter.next() {
-            let node = Node::as_mut(*next.get_or_insert_with(|| Node::new(iter.size_hint().0 + 1)));
-
-            In::pinned(
-                unsafe { Pin::new_unchecked(node.data.get_unchecked_mut(node.len)) },
-                |p| constructor(item, p),
-            );
-
-            node.len += 1;
-
-            if node.len == node.capacity() {
-                next = &mut node.next;
-            }
-        }
+        Tail { cur: &mut first }.extend(iter, constructor);
 
         LinkedList { first }
     }
@@ -153,7 +137,7 @@ impl<T> Drop for LinkedList<T> {
             while let Some(node) = self.first {
                 let node = Node::as_mut(node);
 
-                drop_in_place(node.assume_slice(node.len));
+                drop_in_place(node.assume_slice());
 
                 self.first = node.next;
 
@@ -257,6 +241,7 @@ where
     }
 }
 
+#[cfg(test)]
 impl<'cur, T> Iterator for Cursor<'cur, T>
 where
     T: 'cur,
@@ -340,18 +325,18 @@ mod tests {
 
         assert!(first.data.len() < 256);
 
-        for (left, right) in list.cursor().zip(0..256) {
+        list.cursor().pair(0..256, |left, right| {
             assert_eq!(*left, right);
-        }
+        });
     }
 
     #[test]
     fn cursor_iter() {
         let mut list = LinkedList::build(0..100, |n, p| p.put(n));
 
-        for (left, right) in list.cursor().zip(0..100) {
+        list.cursor().pair(0..100, |left, right| {
             assert_eq!(*left, right);
-        }
+        });
     }
 
     #[test]
@@ -363,9 +348,9 @@ mod tests {
         cur.by_ref().take(100).count();
         cur.truncate_rest();
 
-        for (left, right) in list.cursor().zip(0..200) {
+        list.cursor().pair(0..200, |left, right| {
             assert_eq!(**left, right);
-        }
+        });
     }
 
     #[test]
@@ -378,9 +363,9 @@ mod tests {
         cur.truncate_rest()
             .extend(200..300, |n, p| p.put(Box::new(n)));
 
-        for (left, right) in list.cursor().zip((0..100).chain(200..300)) {
+        list.cursor().pair((0..100).chain(200..300), |left, right| {
             assert_eq!(**left, right);
-        }
+        });
     }
 
     #[test]
@@ -392,9 +377,9 @@ mod tests {
         cur.by_ref().take(100).count();
         cur.truncate_rest().extend([], |n, p| p.put(Box::new(n)));
 
-        for (left, right) in list.cursor().zip(0..100) {
+        list.cursor().pair(0..100, |left, right| {
             assert_eq!(**left, right);
-        }
+        });
     }
 
     #[test]
@@ -407,8 +392,8 @@ mod tests {
         cur.truncate_rest()
             .extend(512..640, |n, p| p.put(Box::new(n)));
 
-        for (left, right) in list.cursor().zip((0..256).chain(512..640)) {
+        list.cursor().pair((0..256).chain(512..640), |left, right| {
             assert_eq!(**left, right);
-        }
+        });
     }
 }
