@@ -17,10 +17,13 @@ struct Node<T> {
     data: [MaybeUninit<T>],
 }
 
+/// This struct needs to be the same as `Node<T>`, sans the unsized `data`
 #[repr(C)]
 struct Head<T> {
+    /// Pointer to the next `Node`.
     next: Option<NonNull<Node<T>>>,
 
+    /// Number of initialized elements in `data`.
     len: usize,
 }
 
@@ -331,13 +334,13 @@ mod tests {
 
     #[test]
     fn many_nodes() {
-        let mut list = LinkedList::build(NoHint(0..128), |n, p| p.put(n));
+        let mut list = LinkedList::build(NoHint(0..256), |n, p| p.put(n));
 
         let first = Node::as_mut(list.first.unwrap());
 
-        assert!(first.data.len() < 128);
+        assert!(first.data.len() < 256);
 
-        for (left, right) in list.cursor().zip(0..128) {
+        for (left, right) in list.cursor().zip(0..256) {
             assert_eq!(*left, right);
         }
     }
@@ -353,21 +356,21 @@ mod tests {
 
     #[test]
     fn cursor_truncate_unaligned() {
-        let mut list = LinkedList::build(NoHint(0..200), |n, p| p.put(Box::new(n)));
+        let mut list = LinkedList::build(NoHint(0..300), |n, p| p.put(Box::new(n)));
 
         let mut cur = list.cursor();
 
         cur.by_ref().take(100).count();
         cur.truncate_rest();
 
-        for (left, right) in list.cursor().zip(0..100) {
+        for (left, right) in list.cursor().zip(0..200) {
             assert_eq!(**left, right);
         }
     }
 
     #[test]
     fn cursor_truncate_extend_unaligned() {
-        let mut list = LinkedList::build(NoHint(0..200), |n, p| p.put(Box::new(n)));
+        let mut list = LinkedList::build(NoHint(0..300), |n, p| p.put(Box::new(n)));
 
         let mut cur = list.cursor();
 
@@ -382,7 +385,7 @@ mod tests {
 
     #[test]
     fn cursor_truncate_extend_empty() {
-        let mut list = LinkedList::build(NoHint(0..200), |n, p| p.put(Box::new(n)));
+        let mut list = LinkedList::build(NoHint(0..300), |n, p| p.put(Box::new(n)));
 
         let mut cur = list.cursor();
 
@@ -396,15 +399,15 @@ mod tests {
 
     #[test]
     fn cursor_truncate_extend_aligned() {
-        let mut list = LinkedList::build(NoHint(0..256), |n, p| p.put(Box::new(n)));
+        let mut list = LinkedList::build(NoHint(0..512), |n, p| p.put(Box::new(n)));
 
         let mut cur = list.cursor();
 
-        cur.by_ref().take(128).count();
+        cur.by_ref().take(256).count();
         cur.truncate_rest()
             .extend(512..640, |n, p| p.put(Box::new(n)));
 
-        for (left, right) in list.cursor().zip((0..128).chain(512..640)) {
+        for (left, right) in list.cursor().zip((0..256).chain(512..640)) {
             assert_eq!(**left, right);
         }
     }
