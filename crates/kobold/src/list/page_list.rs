@@ -32,19 +32,23 @@ union FatPtr<T> {
     fat: NonNull<Node<T>>,
 }
 
-pub struct LinkedList<T> {
+pub struct PageList<T> {
     /// First `Node` in the list
     first: Option<NonNull<Node<T>>>,
 }
 
 impl<T> Node<T> {
     const MIN_PAGE_SIZE: usize = {
-        let n = 512 / std::mem::size_of::<T>();
-
-        if n == 0 {
-            1
+        if std::mem::size_of::<T>() == 0 {
+            usize::MAX
         } else {
-            n
+            let n = 512 / std::mem::size_of::<T>();
+
+            if n == 0 {
+                1
+            } else {
+                n
+            }
         }
     };
 
@@ -110,7 +114,7 @@ impl<T> Node<T> {
     }
 }
 
-impl<T> LinkedList<T> {
+impl<T> PageList<T> {
     pub fn build<I, U, F>(iter: I, constructor: F) -> Self
     where
         I: IntoIterator<Item = U>,
@@ -120,7 +124,7 @@ impl<T> LinkedList<T> {
 
         Tail { cur: &mut first }.extend(iter, constructor);
 
-        LinkedList { first }
+        PageList { first }
     }
 
     pub fn cursor(&mut self) -> Cursor<T> {
@@ -131,7 +135,7 @@ impl<T> LinkedList<T> {
     }
 }
 
-impl<T> Drop for LinkedList<T> {
+impl<T> Drop for PageList<T> {
     fn drop(&mut self) {
         unsafe {
             while let Some(node) = self.first {
@@ -195,7 +199,7 @@ where
 
         let node = Node::as_mut(self.cur.unwrap());
 
-        drop(LinkedList {
+        drop(PageList {
             first: node.next.take(),
         });
 
@@ -212,7 +216,7 @@ where
         }
     }
 
-    pub fn pair<I, F, U>(&mut self, iter: I, mut each: F)
+    pub fn zip_each<I, F, U>(&mut self, iter: I, mut each: F)
     where
         I: IntoIterator<Item = U>,
         F: FnMut(&mut T, U),
@@ -288,14 +292,14 @@ mod tests {
 
     #[test]
     fn empty_list() {
-        let list = LinkedList::build([], |n: usize, p| p.put(n));
+        let list = PageList::build([], |n: usize, p| p.put(n));
 
         assert!(list.first.is_none());
     }
 
     #[test]
     fn one_node() {
-        let list = LinkedList::build(0..128, |n, p| p.put(n));
+        let list = PageList::build(0..128, |n, p| p.put(n));
 
         let first = Node::as_mut(list.first.unwrap());
 
@@ -307,7 +311,7 @@ mod tests {
 
     #[test]
     fn one_node_alloc() {
-        let list = LinkedList::build(0..20, |n, p| p.put(Box::new(n)));
+        let list = PageList::build(0..20, |n, p| p.put(Box::new(n)));
 
         unsafe {
             let first = Node::as_mut(list.first.unwrap());
@@ -319,43 +323,43 @@ mod tests {
 
     #[test]
     fn many_nodes() {
-        let mut list = LinkedList::build(NoHint(0..256), |n, p| p.put(n));
+        let mut list = PageList::build(NoHint(0..256), |n, p| p.put(n));
 
         let first = Node::as_mut(list.first.unwrap());
 
         assert!(first.data.len() < 256);
 
-        list.cursor().pair(0..256, |left, right| {
+        list.cursor().zip_each(0..256, |left, right| {
             assert_eq!(*left, right);
         });
     }
 
     #[test]
     fn cursor_iter() {
-        let mut list = LinkedList::build(0..100, |n, p| p.put(n));
+        let mut list = PageList::build(0..100, |n, p| p.put(n));
 
-        list.cursor().pair(0..100, |left, right| {
+        list.cursor().zip_each(0..100, |left, right| {
             assert_eq!(*left, right);
         });
     }
 
     #[test]
     fn cursor_truncate_unaligned() {
-        let mut list = LinkedList::build(NoHint(0..300), |n, p| p.put(Box::new(n)));
+        let mut list = PageList::build(NoHint(0..300), |n, p| p.put(Box::new(n)));
 
         let mut cur = list.cursor();
 
         cur.by_ref().take(100).count();
         cur.truncate_rest();
 
-        list.cursor().pair(0..200, |left, right| {
+        list.cursor().zip_each(0..200, |left, right| {
             assert_eq!(**left, right);
         });
     }
 
     #[test]
     fn cursor_truncate_extend_unaligned() {
-        let mut list = LinkedList::build(NoHint(0..300), |n, p| p.put(Box::new(n)));
+        let mut list = PageList::build(NoHint(0..300), |n, p| p.put(Box::new(n)));
 
         let mut cur = list.cursor();
 
@@ -363,28 +367,28 @@ mod tests {
         cur.truncate_rest()
             .extend(200..300, |n, p| p.put(Box::new(n)));
 
-        list.cursor().pair((0..100).chain(200..300), |left, right| {
+        list.cursor().zip_each((0..100).chain(200..300), |left, right| {
             assert_eq!(**left, right);
         });
     }
 
     #[test]
     fn cursor_truncate_extend_empty() {
-        let mut list = LinkedList::build(NoHint(0..300), |n, p| p.put(Box::new(n)));
+        let mut list = PageList::build(NoHint(0..300), |n, p| p.put(Box::new(n)));
 
         let mut cur = list.cursor();
 
         cur.by_ref().take(100).count();
         cur.truncate_rest().extend([], |n, p| p.put(Box::new(n)));
 
-        list.cursor().pair(0..100, |left, right| {
+        list.cursor().zip_each(0..100, |left, right| {
             assert_eq!(**left, right);
         });
     }
 
     #[test]
     fn cursor_truncate_extend_aligned() {
-        let mut list = LinkedList::build(NoHint(0..512), |n, p| p.put(Box::new(n)));
+        let mut list = PageList::build(NoHint(0..512), |n, p| p.put(Box::new(n)));
 
         let mut cur = list.cursor();
 
@@ -392,7 +396,7 @@ mod tests {
         cur.truncate_rest()
             .extend(512..640, |n, p| p.put(Box::new(n)));
 
-        list.cursor().pair((0..256).chain(512..640), |left, right| {
+        list.cursor().zip_each((0..256).chain(512..640), |left, right| {
             assert_eq!(**left, right);
         });
     }

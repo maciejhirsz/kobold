@@ -10,12 +10,9 @@ use crate::dom::{Anchor, Fragment, FragmentBuilder};
 use crate::internal::{In, Out};
 use crate::{Mountable, View};
 
-mod linked_list_opt;
-mod linked_list_page;
-// mod linked_list_meta;
-// mod linked_list_book;
+mod page_list;
 
-use linked_list_page::LinkedList;
+use page_list::PageList;
 
 /// Wrapper type that implements `View` for iterators, created by the
 /// [`for`](crate::keywords::for) keyword.
@@ -23,7 +20,7 @@ use linked_list_page::LinkedList;
 pub struct List<T>(pub(crate) T);
 
 pub struct ListProduct<P: Mountable> {
-    list: LinkedList<AutoUnmount<P>>,
+    list: PageList<AutoUnmount<P>>,
     fragment: FragmentBuilder,
 }
 
@@ -60,7 +57,7 @@ where
     fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
         let fragment = FragmentBuilder::new();
 
-        let list = LinkedList::build(self.0, |view, b| {
+        let list = PageList::build(self.0, |view, b| {
             let built = view.build(unsafe { b.cast() });
 
             fragment.append(built.js());
@@ -75,7 +72,7 @@ where
         let mut new = self.0.into_iter();
         let mut old = p.list.cursor();
 
-        old.pair(&mut new, |old, new| new.update(&mut old.0));
+        old.zip_each(&mut new, |old, new| new.update(&mut old.0));
 
         old.truncate_rest().extend(new, |view, b| {
             let built = view.build(unsafe { b.cast() });
