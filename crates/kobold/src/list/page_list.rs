@@ -1,5 +1,6 @@
 use std::alloc::{alloc, dealloc, Layout};
 use std::mem::MaybeUninit;
+use std::ops::Range;
 use std::pin::Pin;
 use std::ptr::{drop_in_place, NonNull};
 
@@ -82,12 +83,12 @@ impl<T> Node<T> {
         self.data.len()
     }
 
-    unsafe fn assume_page(&mut self) -> &mut [T] {
-        &mut *(&mut self.data as *mut _ as *mut [T])
+    unsafe fn assume_slice(&mut self, range: Range<usize>) -> &mut [T] {
+        &mut *(self.data.get_unchecked_mut(range) as *mut _ as *mut [T])
     }
 
-    unsafe fn assume_slice(&mut self) -> &mut [T] {
-        &mut *(self.data.get_unchecked_mut(..self.len) as *mut _ as *mut [T])
+    fn slice(&mut self) -> &mut [T] {
+        unsafe { &mut *(self.data.get_unchecked_mut(..self.len) as *mut _ as *mut [T]) }
     }
 
     fn as_mut<'a>(ptr: NonNull<Self>) -> &'a mut Self {
@@ -141,7 +142,7 @@ impl<T> Drop for PageList<T> {
             while let Some(node) = self.first {
                 let node = Node::as_mut(node);
 
-                drop_in_place(node.assume_slice());
+                drop_in_place(node.slice());
 
                 self.first = node.next;
 
@@ -191,13 +192,10 @@ where
     T: 'cur,
 {
     pub fn truncate_rest(self) -> Tail<'cur, T> {
-        if self.cur.is_none() {
-            return Tail {
-                cur: self.cur,
-            };
-        }
-
-        let node = Node::as_mut(self.cur.unwrap());
+        let node = match self.cur {
+            Some(node) => Node::as_mut(*node),
+            None => return Tail { cur: self.cur },
+        };
 
         drop(PageList {
             first: node.next.take(),
@@ -206,14 +204,12 @@ where
         let len = node.len;
 
         unsafe {
-            drop_in_place(node.assume_page().get_unchecked_mut(self.idx..len));
+            drop_in_place(node.assume_slice(self.idx..len));
         }
 
         node.len = self.idx;
 
-        Tail {
-            cur: self.cur,
-        }
+        Tail { cur: self.cur }
     }
 
     pub fn zip_each<I, F, U>(&mut self, iter: I, mut each: F)
@@ -224,10 +220,8 @@ where
         let mut iter = iter.into_iter();
 
         while let Some(cur) = self.cur.map(Node::as_mut) {
-            if self.idx < cur.len {
+            if let Some(slot) = cur.slice().get_mut(self.idx) {
                 if let Some(item) = iter.next() {
-                    let slot = unsafe { cur.data.get_unchecked_mut(self.idx).assume_init_mut() };
-
                     each(slot, item);
 
                     self.idx += 1;
@@ -327,7 +321,7 @@ mod tests {
 
         let first = Node::as_mut(list.first.unwrap());
 
-        assert!(first.data.len() < 256);
+        assert!(first.capacity() < 256);
 
         list.cursor().zip_each(0..256, |left, right| {
             assert_eq!(*left, right);
@@ -367,9 +361,10 @@ mod tests {
         cur.truncate_rest()
             .extend(200..300, |n, p| p.put(Box::new(n)));
 
-        list.cursor().zip_each((0..100).chain(200..300), |left, right| {
-            assert_eq!(**left, right);
-        });
+        list.cursor()
+            .zip_each((0..100).chain(200..300), |left, right| {
+                assert_eq!(**left, right);
+            });
     }
 
     #[test]
@@ -396,8 +391,9 @@ mod tests {
         cur.truncate_rest()
             .extend(512..640, |n, p| p.put(Box::new(n)));
 
-        list.cursor().zip_each((0..256).chain(512..640), |left, right| {
-            assert_eq!(**left, right);
-        });
+        list.cursor()
+            .zip_each((0..256).chain(512..640), |left, right| {
+                assert_eq!(**left, right);
+            });
     }
 }
