@@ -2,11 +2,11 @@
 
 # Kobold
 
+[![Join Discord](https://img.shields.io/badge/chat%20on-discord-5865f2)](https://discord.gg/ZYffhkW2)
+[![Docs](https://docs.rs/kobold/badge.svg)](https://docs.rs/kobold)
 ![Test](https://github.com/maciejhirsz/kobold/workflows/CI/badge.svg?branch=master)
 [![Crates.io version shield](https://img.shields.io/crates/v/kobold.svg)](https://crates.io/crates/kobold)
-[![Docs](https://docs.rs/kobold/badge.svg)](https://docs.rs/kobold)
 [![Crates.io license shield](https://img.shields.io/crates/l/kobold.svg)](https://crates.io/crates/kobold)
-[![Join Discord](https://img.shields.io/badge/chat%20on-discord-5865f2)](https://discord.gg/ZYffhkW2)
 
 _Easy declarative web interfaces._
 
