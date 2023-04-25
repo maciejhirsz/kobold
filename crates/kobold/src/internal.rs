@@ -53,58 +53,6 @@ impl<T> DerefMut for Out<'_, T> {
     }
 }
 
-#[repr(transparent)]
-pub struct Field<T>(MaybeUninit<T>);
-
-impl<T> Field<T> {
-    // `MaybeUninit::uninit` is safe, however `Field` must
-    // meet additional guarantees:
-    //
-    // 1. It's created inside a stable (pinned) memory.
-    // 2. It's not derefed before it's initialized.
-    pub const unsafe fn uninit() -> Self {
-        Field(MaybeUninit::uninit())
-    }
-
-    /// Creates a new field with value `T`.
-    ///
-    /// # Safety
-    ///
-    /// You must guarantee that this is a structural field inside a struct
-    /// that's being placed in stable memory.
-    pub const unsafe fn new(val: T) -> Self {
-        Field(MaybeUninit::new(val))
-    }
-
-    pub fn init<F>(&mut self, f: F)
-    where
-        F: FnOnce(In<T>) -> Out<T>,
-    {
-        // This will leak memory if done more than once, but it is safe
-        let Out(_) = f(In(&mut self.0));
-    }
-
-    pub fn get_ref(&self) -> &T {
-        // Safety: it's not possible to create an `Stable`
-        // uninitialized `Stable` without unsafe code
-        unsafe { self.0.assume_init_ref() }
-    }
-
-    pub fn get_mut(&mut self) -> &mut T {
-        // Safety: it's not possible to create an `Stable`
-        // uninitialized `Stable` without unsafe code
-        unsafe { self.0.assume_init_mut() }
-    }
-}
-
-impl<T> Drop for Field<T> {
-    fn drop(&mut self) {
-        // Safety: it's not possible to create an `Stable`
-        // uninitialized `Stable` without unsafe code
-        unsafe { self.0.assume_init_drop() }
-    }
-}
-
 impl<'a, T> In<'a, T> {
     pub fn boxed<F>(f: F) -> Pin<Box<T>>
     where

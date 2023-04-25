@@ -90,15 +90,19 @@
 //! }
 //! ```
 
+use std::mem::MaybeUninit;
+use std::pin::Pin;
+
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
 use crate::dom::{self, Anchor};
-use crate::internal::{Field, In, Out};
+use crate::internal::{In, Out};
 use crate::{Mountable, View};
 
 macro_rules! branch {
     ($name:ident < $($var:ident),* >) => {
+        #[repr(C)]
         pub enum $name<$($var),*> {
             $(
                 $var($var),
@@ -111,29 +115,35 @@ macro_rules! branch {
                 $var: View,
             )*
         {
-            type Product = $name<$(Field<$var::Product>),*>;
+            type Product = $name<$($var::Product),*>;
 
             fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
-                match self {
+                let p: In<$name<$(MaybeUninit<$var::Product>),*>> = unsafe { p.cast() };
+
+                let out = match self {
                     $(
                         $name::$var(html) => {
-                            let mut p = p.put($name::$var(unsafe { Field::uninit() }));
+                            let mut p = p.put($name::$var(MaybeUninit::uninit()));
 
                             match &mut *p {
-                                $name::$var(field) => field.init(move |p| html.build(p)),
+                                $name::$var(field) => {
+                                    In::pinned(unsafe { Pin::new_unchecked(field) }, move |p| html.build(p));
+                                }
                                 _ => unsafe { std::hint::unreachable_unchecked() }
                             }
 
                             p
                         },
                     )*
-                }
+                };
+
+                unsafe { out.cast() }
             }
 
             fn update(self, p: &mut Self::Product) {
                 match (self, p) {
                     $(
-                        ($name::$var(html), $name::$var(p)) => html.update(p.get_mut()),
+                        ($name::$var(html), $name::$var(p)) => html.update(p),
                     )*
 
                     (html, p) => {
@@ -145,7 +155,7 @@ macro_rules! branch {
             }
         }
 
-        impl<$($var),*> Mountable for $name<$(Field<$var>),*>
+        impl<$($var),*> Mountable for $name<$($var),*>
         where
             $(
                 $var: Mountable,
@@ -156,7 +166,7 @@ macro_rules! branch {
             fn js(&self) -> &JsValue {
                 match self {
                     $(
-                        $name::$var(p) => p.get_ref().js(),
+                        $name::$var(p) => p.js(),
                     )*
                 }
             }
@@ -164,7 +174,7 @@ macro_rules! branch {
             fn replace_with(&self, new: &JsValue) {
                 match self {
                     $(
-                        $name::$var(p) => p.get_ref().replace_with(new),
+                        $name::$var(p) => p.replace_with(new),
                     )*
                 }
             }
@@ -172,12 +182,11 @@ macro_rules! branch {
             fn unmount(&self) {
                 match self {
                     $(
-                        $name::$var(p) => p.get_ref().unmount(),
+                        $name::$var(p) => p.unmount(),
                     )*
                 }
             }
         }
-
     };
 }
 
@@ -214,29 +223,33 @@ impl View for Empty {
 }
 
 impl<T: View> View for Option<T> {
-    type Product = Branch2<Field<T::Product>, Field<EmptyNode>>;
+    type Product = Branch2<T::Product, EmptyNode>;
 
     fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
-        match self {
+        let p: In<Branch2<MaybeUninit<T::Product>, MaybeUninit<EmptyNode>>> = unsafe { p.cast() };
+
+        let out = match self {
             Some(html) => {
-                let mut p = p.put(Branch2::A(unsafe { Field::uninit() }));
+                let mut p = p.put(Branch2::A(MaybeUninit::uninit()));
 
                 match &mut *p {
-                    Branch2::A(field) => field.init(move |p| html.build(p)),
+                    Branch2::A(field) => {
+                        In::pinned(unsafe { Pin::new_unchecked(field) }, move |p| html.build(p));
+                    }
                     Branch2::B(_) => unsafe { std::hint::unreachable_unchecked() },
                 }
 
                 p
             }
-            None => p.put(Branch2::B(unsafe {
-                Field::new(EmptyNode(dom::empty_node()))
-            })),
-        }
+            None => p.put(Branch2::B(MaybeUninit::new(EmptyNode(dom::empty_node())))),
+        };
+
+        unsafe { out.cast() }
     }
 
     fn update(self, p: &mut Self::Product) {
         match (self, p) {
-            (Some(html), Branch2::A(p)) => html.update(p.get_mut()),
+            (Some(html), Branch2::A(p)) => html.update(p),
             (None, Branch2::B(_)) => (),
 
             (html, p) => {
