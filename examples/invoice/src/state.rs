@@ -84,22 +84,6 @@ fn convert_vec_to_arr<T, const N: usize>(v: Vec<T>) -> [T; N] {
         .unwrap_or_else(|v: Vec<T>| panic!("Expected a Vec of length {} but it was {}", N, v.len()))
 }
 
-// fn get_data_for_col(col: &Text) -> (usize, Box<str>) {
-//     let mut capacity = 0;
-//     let mut value = String::new();
-//     match col {
-//         Text::Insitu(range) => {
-//             debug!("{:#?}", range.len());
-//             capacity += range.len() + 3;
-//         },
-//         Text::Owned(o) => {
-//             debug!("{:#?}", o);
-//             value = format!("{:#?}\n", o);
-//         },
-//     }
-//     (capacity, value.into())
-// }
-
 impl State {
     pub fn mock() -> Self {
         State {
