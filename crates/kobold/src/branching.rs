@@ -90,14 +90,19 @@
 //! }
 //! ```
 
+use std::mem::MaybeUninit;
+use std::pin::Pin;
+
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
 use crate::dom::{self, Anchor};
+use crate::internal::{In, Out};
 use crate::{Mountable, View};
 
 macro_rules! branch {
     ($name:ident < $($var:ident),* >) => {
+        #[repr(C)]
         pub enum $name<$($var),*> {
             $(
                 $var($var),
@@ -112,12 +117,27 @@ macro_rules! branch {
         {
             type Product = $name<$($var::Product),*>;
 
-            fn build(self) -> Self::Product {
-                match self {
+            fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+                let p: In<$name<$(MaybeUninit<$var::Product>),*>> = unsafe { p.cast() };
+
+                let out = match self {
                     $(
-                        $name::$var(html) => $name::$var(html.build()),
+                        $name::$var(html) => {
+                            let mut p = p.put($name::$var(MaybeUninit::uninit()));
+
+                            match &mut *p {
+                                $name::$var(field) => {
+                                    In::pinned(unsafe { Pin::new_unchecked(field) }, move |p| html.build(p));
+                                }
+                                _ => unsafe { std::hint::unreachable_unchecked() }
+                            }
+
+                            p
+                        },
                     )*
-                }
+                };
+
+                unsafe { out.cast() }
             }
 
             fn update(self, p: &mut Self::Product) {
@@ -126,12 +146,10 @@ macro_rules! branch {
                         ($name::$var(html), $name::$var(p)) => html.update(p),
                     )*
 
-                    (html, old) => {
-                        let new = html.build();
+                    (html, p) => {
+                        let old = In::replace(p, move |p| html.build(p));
 
-                        old.replace_with(new.js());
-
-                        *old = new;
+                        old.replace_with(p.js());
                     }
                 }
             }
@@ -169,7 +187,6 @@ macro_rules! branch {
                 }
             }
         }
-
     };
 }
 
@@ -198,21 +215,36 @@ impl Anchor for EmptyNode {
 impl View for Empty {
     type Product = EmptyNode;
 
-    fn build(self) -> Self::Product {
-        EmptyNode(dom::empty_node())
+    fn build(self, p: In<EmptyNode>) -> Out<EmptyNode> {
+        p.put(EmptyNode(dom::empty_node()))
     }
 
-    fn update(self, _: &mut Self::Product) {}
+    fn update(self, _: &mut EmptyNode) {}
 }
 
 impl<T: View> View for Option<T> {
     type Product = Branch2<T::Product, EmptyNode>;
 
-    fn build(self) -> Self::Product {
-        match self {
-            Some(html) => Branch2::A(html.build()),
-            None => Branch2::B(Empty.build()),
-        }
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        let p: In<Branch2<MaybeUninit<T::Product>, MaybeUninit<EmptyNode>>> = unsafe { p.cast() };
+
+        let out = match self {
+            Some(html) => {
+                let mut p = p.put(Branch2::A(MaybeUninit::uninit()));
+
+                match &mut *p {
+                    Branch2::A(field) => {
+                        In::pinned(unsafe { Pin::new_unchecked(field) }, move |p| html.build(p));
+                    }
+                    Branch2::B(_) => unsafe { std::hint::unreachable_unchecked() },
+                }
+
+                p
+            }
+            None => p.put(Branch2::B(MaybeUninit::new(EmptyNode(dom::empty_node())))),
+        };
+
+        unsafe { out.cast() }
     }
 
     fn update(self, p: &mut Self::Product) {
@@ -220,12 +252,10 @@ impl<T: View> View for Option<T> {
             (Some(html), Branch2::A(p)) => html.update(p),
             (None, Branch2::B(_)) => (),
 
-            (html, old) => {
-                let new = html.build();
+            (html, p) => {
+                let old = In::replace(p, move |p| html.build(p));
 
-                old.replace_with(new.js());
-
-                *old = new;
+                old.replace_with(p.js());
             }
         }
     }

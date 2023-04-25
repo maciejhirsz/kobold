@@ -111,7 +111,7 @@ impl IntoSpan for TagName {
 impl Display for TagName {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let name = match self {
-            TagName::HtmlElement { name, .. } => &*name,
+            TagName::HtmlElement { name, .. } => name,
             TagName::Component { name, .. } => name.as_str(),
         };
 

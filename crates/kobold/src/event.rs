@@ -6,12 +6,12 @@
 
 use std::marker::PhantomData;
 use std::ops::Deref;
-use std::ptr::NonNull;
 
-use wasm_bindgen::closure::Closure;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{HtmlElement, HtmlInputElement};
+
+use crate::internal::{self, In, Out};
 
 #[wasm_bindgen]
 extern "C" {
@@ -90,7 +90,7 @@ where
 {
     type Product: ListenerHandle;
 
-    fn build(self) -> Self::Product;
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product>;
 
     fn update(self, p: &mut Self::Product);
 }
@@ -102,31 +102,25 @@ where
 {
     type Product = ListenerProduct<Self, E>;
 
-    fn build(self) -> ListenerProduct<Self, E> {
-        ListenerProduct {
-            raw: Box::leak(Box::new(self)).into(),
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        p.put(ListenerProduct {
+            closure: self,
             _event: PhantomData,
-        }
+        })
     }
 
     fn update(self, p: &mut ListenerProduct<Self, E>) {
-        unsafe { *p.raw.as_ptr() = self };
+        p.closure = self;
     }
 }
 
 pub struct ListenerProduct<F, E> {
-    raw: NonNull<F>,
+    closure: F,
     _event: PhantomData<E>,
 }
 
-impl<F, E> Drop for ListenerProduct<F, E> {
-    fn drop(&mut self) {
-        unsafe { drop(Box::from_raw(self.raw.as_ptr())) }
-    }
-}
-
 pub trait ListenerHandle {
-    fn js(&self) -> JsValue;
+    fn js(&mut self) -> JsValue;
 }
 
 impl<F, E> ListenerHandle for ListenerProduct<F, E>
@@ -134,11 +128,10 @@ where
     F: FnMut(E) + 'static,
     E: EventCast,
 {
-    fn js(&self) -> JsValue {
-        Closure::wrap(unsafe {
-            Box::from_raw(self.raw.as_ptr() as *mut dyn FnMut(E) as *mut dyn FnMut(web_sys::Event))
-        })
-        .into_js_value()
+    fn js(&mut self) -> JsValue {
+        let vcall: fn(E, *mut ()) = |e, ptr| unsafe { (*(ptr as *mut F))(e) };
+
+        internal::make_event_handler((&mut self.closure) as *mut _ as *mut (), vcall as usize)
     }
 }
 

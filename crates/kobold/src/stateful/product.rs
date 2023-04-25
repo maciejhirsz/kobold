@@ -6,8 +6,9 @@ use std::marker::PhantomData;
 
 use wasm_bindgen::JsValue;
 
+use crate::internal::{In, Out};
 use crate::stateful::Hook;
-use crate::Mountable;
+use crate::{init, Mountable, View};
 
 pub trait Product<S> {
     fn update(&mut self, hook: &Hook<S>);
@@ -26,12 +27,16 @@ pub struct ProductHandler<S, P, F> {
 }
 
 impl<S, P, F> ProductHandler<S, P, F> {
-    pub const fn new(updater: F, product: P) -> Self {
-        ProductHandler {
-            updater,
-            product,
-            _state: PhantomData,
-        }
+    pub fn build<V>(updater: F, view: V, p: In<Self>) -> Out<Self>
+    where
+        V: View<Product = P>,
+    {
+        p.in_place(|p| unsafe {
+            init!(p.updater = updater);
+            init!(p.product @ view.build(p));
+
+            Out::from_raw(p)
+        })
     }
 }
 

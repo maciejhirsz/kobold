@@ -389,6 +389,14 @@ pub use kobold_macros::view;
 
 use wasm_bindgen::JsCast;
 
+#[cfg(all(
+    target_arch = "wasm32",
+    feature = "rlsf",
+    not(target_feature = "atomics")
+))]
+#[global_allocator]
+static A: rlsf::SmallGlobalTlsf = rlsf::SmallGlobalTlsf::new();
+
 pub mod attribute;
 pub mod branching;
 pub mod diff;
@@ -403,6 +411,8 @@ mod value;
 
 #[cfg(feature = "stateful")]
 pub mod stateful;
+
+use internal::{In, Out};
 
 /// The prelude module with most commonly used types.
 ///
@@ -434,7 +444,7 @@ pub trait View {
     type Product: Mountable;
 
     /// Build a product that can be mounted in the DOM from this type.
-    fn build(self) -> Self::Product;
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product>;
 
     /// Update the product and apply changes to the DOM if necessary.
     fn update(self, p: &mut Self::Product);
@@ -477,8 +487,8 @@ where
 {
     type Product = V::Product;
 
-    fn build(self) -> Self::Product {
-        let prod = self.view.build();
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        let prod = self.view.build(p);
 
         (self.handler)(prod.js().unchecked_ref());
 
@@ -502,8 +512,8 @@ where
 {
     type Product = V::Product;
 
-    fn build(self) -> Self::Product {
-        let prod = self.view.build();
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        let prod = self.view.build(p);
 
         (self.handler)(prod.js().unchecked_ref());
 
@@ -521,9 +531,11 @@ where
 pub fn start(view: impl View) {
     init_panic_hook();
 
-    use std::mem::ManuallyDrop;
+    use std::mem::MaybeUninit;
+    use std::pin::pin;
 
-    let product = ManuallyDrop::new(view.build());
+    let product = pin!(MaybeUninit::uninit());
+    let product = In::pinned(product, move |p| view.build(p));
 
     internal::append_body(product.js());
 }

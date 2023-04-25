@@ -74,7 +74,6 @@ impl Default for State {
 }
 
 impl State {
-    #[inline(never)]
     pub fn store(&self) {
         let capacity = self
             .entries
