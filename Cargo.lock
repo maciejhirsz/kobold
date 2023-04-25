@@ -379,7 +379,6 @@ dependencies = [
  "log",
  "logos",
  "serde",
- "serde_json",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-logger",

@@ -41,7 +41,7 @@ use state::{Editing, State, Table, Text};
 //     let mut data: Vec<(String, String)> = Vec::new();
 //     for (i, value) in details.iter_fields().enumerate() {
 //         if let Some(value) = value.downcast_ref::<String>() {
-//             let field_name = details.name_at(i).unwrap();
+//             let field_name = details.name_at(i).unwrap_throw();
 //             data.push((field_name.to_string(), (*value).to_string()));
 //         }
 //     }
@@ -91,15 +91,15 @@ fn Editor() -> impl View {
                 spawn_local(async move {
                     if let Ok(table) = csv::read_file(file).await {
                         // // NOTE - this section isn't required but left for reference:
-                        // let serialized = serde_json::to_string(&table).unwrap();
-                        // let value = JsValue::from_serde(&serialized).unwrap();
+                        // let serialized = serde_json::to_string(&table).unwrap_throw();
+                        // let value = JsValue::from_serde(&serialized).unwrap_throw();
                         // debug!("table {:#?}", value);
-                        // let payload: Table = serde_json::from_str(&serialized).unwrap();
+                        // let payload: Table = serde_json::from_str(&serialized).unwrap_throw();
                         // debug!("payload {:#?}", &payload.source.source);
 
                         // let data: &str = &payload.source.source.to_string();
                         // // find qr column index
-                        // let index = &data.find("qr").unwrap();
+                        // let index = &data.find("qr").unwrap_throw();
                         // debug!("index {:#?}", *&index);
                         // let slice = &data[..*index as usize];
                         // debug!("slice {:#?}", slice);
@@ -108,8 +108,8 @@ fn Editor() -> impl View {
 
                         // // get first row of data below header
                         // // https://play.rust-lang.org/?version=stable&mode=debug&edition=2015&gist=6195d6ef278d9552eba9f8d8a7d457d6
-                        // let start_bytes: usize = data.find("\n").unwrap();
-                        // let end_bytes: usize = data[(start_bytes+1)..].find("\n").unwrap();
+                        // let start_bytes: usize = data.find("\n").unwrap_throw();
+                        // let end_bytes: usize = data[(start_bytes+1)..].find("\n").unwrap_throw();
                         // debug!("start_bytes {:#?}", start_bytes);
                         // debug!("end_bytes {:#?}", end_bytes);
                         // let index_end_next_row = start_bytes + 1 + end_bytes; // where +1 is to skip the `\n`
@@ -603,7 +603,10 @@ fn CellDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 
 // Credit: maciejhirsz
 fn sword(input: &str) -> (&str, &str) {
-    let (left, right) = input.split_once('|').unwrap();
+    let (left, right) = match input.split_once('|') {
+        Some(res) => res,
+        None => panic!("unable to sword"),
+    };
 
     (left.trim(), right.trim())
 }

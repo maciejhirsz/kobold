@@ -8,7 +8,7 @@ use gloo_utils::format::JsValueSerdeExt;
 use wasm_bindgen::{JsValue, UnwrapThrowExt};
 // use wasm_bindgen::prelude::wasm_bindgen;
 use serde::{Serialize, Deserialize};
-use serde_json::{from_str, to_string};
+// use serde_json::{from_str, to_string};
 use log::{info, debug, error, warn};
 use std::convert::TryInto;
 
@@ -38,6 +38,22 @@ pub struct State {
     pub details: Content,
 }
 
+/// - all `Table` cells should be populated with `Insitu` by default, the only exception is when you
+/// have escapes in the loaded CSV. e.g. if your CSV contains quotes in quotes, the parser needs
+/// to change escapes quotes into unescaped ones, so it will allocate a String to do it in. for 
+/// a value in quotes it slices with +1/-1 to skip quotes, and then for escapes it also skips
+/// quotes and then replaces escaped quotes inside. if you put something like: `"hello ""world"""`
+/// in your CSV file, that will be `Text::Owned`
+/// - the `Table` `source` property values should be read only
+/// - if you edit a `Table` cell, just swap it from `Insitu` to `Owned` text
+/// - you get an owned string from `.value()` so there is no point in trying to avoid it
+/// - loading a file prefers `Insitu` since it can just borrow all unescaped values
+/// from the `source` without allocations
+/// - it uses `fn parse_row` in csv.rs to magically know whether to store in `Insitu`
+/// instead of `Owned`, otherwise we explicitly tell it to use `Insitu` when setting
+/// the default value `Text::Insitu(0..0)` in this file and when we edit a field
+/// in the UI so it becomes `Owned("text")` (where text is what we enter)
+/// - credit: Maciej
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Table {
     pub source: TextSource,
@@ -45,6 +61,11 @@ pub struct Table {
     pub rows: Vec<Vec<Text>>,
 }
 
+/// Text is used instead of just String to avoid unnecessary allocations that are expensive, since
+/// subslicing the `source` with an `Insitu` `range` is a const operation, so it's just fiddling with
+/// a pointer and the length - so it's not exactly free, but it's as close to free as you can get.
+/// even better would be for `Insitu` to contain `&str`, but internal borrowing is a bit of a pain
+/// - credit: Maciej
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Text {
     Insitu(Range<usize>),
@@ -99,21 +120,20 @@ impl State {
     #[inline(never)]
     // store the updated state in web browser local storage
     pub fn store(&self) {
-        let main_str = to_string(&self.main.table).unwrap();
-        let details_str = to_string(&self.details.table).unwrap();
-        debug!("updating store: {:?}\n\n{:?}", main_str.as_str(), details_str.as_str());
-        LocalStorage::raw().set_item(KEY_MAIN, main_str.as_str()).ok();
-        LocalStorage::raw().set_item(KEY_DETAILS, details_str.as_str()).ok();
+        debug!("updating store: {:?}\n\n{:?}", &self.main.table, &self.details.table);
+        LocalStorage::set(KEY_MAIN, &self.main.table).unwrap_throw();
+        LocalStorage::set(KEY_DETAILS, &self.details.table).unwrap_throw();
     }
 
     // store in state edits by user to the 'main' table of the UI
     pub fn update_main(&mut self, row: usize, col: usize, value: String) {
         let old_storage = self.main.table.source.get_text(&self.main.table.rows[row][col]);
         if value != old_storage {
+            debug!("updating details since different");
+            self.main.table.rows[row][col] = Text::Owned(value.into());
+            self.editing_details = Editing::None;
             self.store();
         }
-
-        // TODO - update this similar to how i've updated `update_details` method
     }
 
     // store in state edits by user to the 'details' table of the UI
@@ -124,62 +144,53 @@ impl State {
         if value != old_storage {
             debug!("updating details since different");
             self.details.table.rows[row][col] = Text::Owned(value.into());
-            // TODO - convert old_storage to an object variable
 
-            let serialized = serde_json::to_string(&self.details.table).unwrap();
-            let value = JsValue::from_serde(&serialized).unwrap();
-            debug!("details table {:#?}", value);
-            let details_table: Table = serde_json::from_str(&serialized).unwrap();
-            debug!("details table source {:#?}", &details_table.source.source);
-            let data: &str = &details_table.source.source.to_string();
+            // TODO - the following code isn't necessary, since `rows` is already populated
+            // with the data that changed.
 
+            // let serialized = serde_json::to_string(&self.details.table).unwrap_throw();
+            // let value = JsValue::from_serde(&serialized).unwrap_throw();
+            // debug!("details table {:#?}", value);
+            // let details_table: Table = serde_json::from_str(&serialized).unwrap_throw();
+            // debug!("details table source {:#?}", &details_table.source.source);
+            // let data: &str = &details_table.source.source.to_string();
 
-            let count_newlines = data.matches("\n").count();
-            let (row1_idx_end, _) = data.match_indices("\n").nth(0).unwrap();
-            let row0_idx_start = row1_idx_end + 1; // where +1 is to skip the `\n`
-            let (row0_idx_end, _) = data.match_indices("\n").nth(1).unwrap();
-            let row2_idx_start = row0_idx_end + 1;
-            let row2_idx_end = data.len() - count_newlines;
-            debug!("row1_idx_end {:#?}", row1_idx_end); // variables
-            debug!("row0_idx_end {:#?}", row0_idx_end); // labels
-            debug!("row2_idx_end {:#?}", row2_idx_end); // data
+            // let count_newlines = data.matches("\n").count();
+            // let (row1_idx_end, _) = data.match_indices("\n").nth(0).unwrap_throw();
+            // let row0_idx_start = row1_idx_end + 1; // where +1 is to skip the `\n`
+            // let (row0_idx_end, _) = data.match_indices("\n").nth(1).unwrap_throw();
+            // let row2_idx_start = row0_idx_end + 1;
+            // let row2_idx_end = data.len() - count_newlines;
+            // debug!("row1_idx_end {:#?}", row1_idx_end); // variables
+            // debug!("row0_idx_end {:#?}", row0_idx_end); // labels
+            // debug!("row2_idx_end {:#?}", row2_idx_end); // data
 
-            let mut row0_vec: Vec<String> = Vec::new();
-            let row0 = &data[row0_idx_start..row0_idx_end];
-            row0_vec = row0.split(",").map(|x| x.to_string()).collect();
-            debug!("row0_vec {:#?}", row0_vec);
+            // let mut row0_vec: Vec<String> = Vec::new();
+            // let row0 = &data[row0_idx_start..row0_idx_end];
+            // row0_vec = row0.split(",").map(|x| x.to_string()).collect();
+            // debug!("row0_vec {:#?}", row0_vec);
 
-            let mut row2_vec: Vec<String> = Vec::new();
-            let row2 = &data[row2_idx_start..row2_idx_end];
-            row2_vec = row2.split(",").map(|x| x.to_string()).collect();
-            debug!("row2_vec {:#?}", row2_vec);
+            // let mut row2_vec: Vec<String> = Vec::new();
+            // let row2 = &data[row2_idx_start..row2_idx_end];
+            // row2_vec = row2.split(",").map(|x| x.to_string()).collect();
+            // debug!("row2_vec {:#?}", row2_vec);
 
-            // let blank_str = "".to_string();
-            if row == 0 {
-                debug!("updating row0_vec[col] {:#?}", row0_vec[col]);
-                // https://docs.rs/wasm-bindgen/0.2.84/wasm_bindgen/struct.JsValue.html#method.as_string
-                row0_vec[col] = match value.as_string() {
-                    Some(v) => v.to_string(),
-                    None => "".to_string(),
-                };
-            } else if row == 1 { // need row variable to be 1 to update row data 2
-                debug!("updating row2_vec[col] {:#?}", row2_vec[col]);
-                row2_vec[col] = match value.as_string() {
-                    Some(v) => v.to_string(),
-                    None => "".to_string(),
-                };
-            } else {
-                panic!("cannot update this row from the ui"); // `row` value of `2` won't be provided to this fn
-            }
-
-            // check that the table source at `rows[row][col]` has been updated with the new value
-            let updated_old_storage = self.details.table.source.get_text(&self.details.table.rows[row][col]);
-            debug!("update_details updated_old_storage: {:?}", updated_old_storage);
-
-            // TODO - whilst it is being updated in the above logs, when we later call `self.store()`
-            // the value of the data that we retrieve from `self` in that method is different when we run
-            // `to_string(&self.details.table).unwrap()`, so changes to `self` in this method aren't being
-            // reflected in the `self.store()` method
+            // if row == 0 {
+            //     debug!("updating row0_vec[col] {:#?}", row0_vec[col]);
+            //     // https://docs.rs/wasm-bindgen/0.2.84/wasm_bindgen/struct.JsValue.html#method.as_string
+            //     row0_vec[col] = match value.as_string() {
+            //         Some(v) => v.to_string(),
+            //         None => "".to_string(),
+            //     };
+            // } else if row == 1 { // need row variable to be 1 to update row data 2
+            //     debug!("updating row2_vec[col] {:#?}", row2_vec[col]);
+            //     row2_vec[col] = match value.as_string() {
+            //         Some(v) => v.to_string(),
+            //         None => "".to_string(),
+            //     };
+            // } else {
+            //     panic!("cannot update this row from the ui"); // `row` value of `2` won't be provided to this fn
+            // }
 
             // TODO - we're already doing this in main.rs onkeydown so maybe we don't need it here too
             self.editing_details = Editing::None;
@@ -225,11 +236,11 @@ impl TextSource {
 
 impl Table {
     fn mock() -> Self {
-        "description,total,qr\ntask1,10,0x000|h160\ntask2,20,0x100|h160".parse().unwrap()
+        "description,total,qr\ntask1,10,0x000|h160\ntask2,20,0x100|h160".parse().unwrap_throw()
     }
 
     fn mock_file_details() -> Self {
-        "inv_date,inv_no,from_attn_name,from_org_name,from_org_addr,from_email,to_attn_name,to_title,to_org_name,to_email\n01.04.2023,0001,luke,clawbird,1 metaverse ave,test@test.com,recipient_name,director,nftverse,test2@test.com\ninvoice date,invoice number,name person from,organisation name from,organisation address from,email from,name person attention to,title to,organisation name to,email to".parse().unwrap()
+        "inv_date,inv_no,from_attn_name,from_org_name,from_org_addr,from_email,to_attn_name,to_title,to_org_name,to_email\n01.04.2023,0001,luke,clawbird,1 metaverse ave,test@test.com,recipient_name,director,nftverse,test2@test.com\ninvoice date,invoice number,name person from,organisation name from,organisation address from,email from,name person attention to,title to,organisation name to,email to".parse().unwrap_throw()
     }
 
     pub fn rows(&self) -> Range<usize> {
