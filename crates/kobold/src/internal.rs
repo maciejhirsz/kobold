@@ -14,14 +14,6 @@ use web_sys::Node;
 use crate::View;
 
 /// Safe abstraction for initialize-in-place strategy employed by the `View::build` method.
-///
-/// ```
-/// use std::pin::Pin;
-///
-/// use kobold::internal::In;
-///
-/// let boxed: Pin<Box<u32>> = In::boxed(|container| container.put(42));
-/// ```
 #[must_use]
 #[repr(transparent)]
 pub struct In<'a, T>(&'a mut MaybeUninit<T>);
@@ -30,10 +22,26 @@ pub struct In<'a, T>(&'a mut MaybeUninit<T>);
 pub struct Out<'a, T>(&'a mut T);
 
 impl<'a, T> Out<'a, T> {
+    /// Create a new `Out<T>` pointer from a raw pointer to `T`.
+    ///
+    /// # Safety
+    ///
+    /// Caller needs to guarantee that:
+    ///
+    /// 1. `raw` is initialized.
+    /// 2. `raw` is a stable pointer.
     pub unsafe fn from_raw(raw: *mut T) -> Self {
         Out(&mut *raw)
     }
 
+    /// Cast this pointer from `Out<T>` to `Out<U>`.
+    ///
+    /// # Safety
+    ///
+    /// Caller needs to guarantee safety as per usual rules of pointer casting, namely:
+    ///
+    /// 1. `T` and `U` must have the same size.
+    /// 2. `T` and `U` must have the same memory layout.
     pub unsafe fn cast<U>(self) -> Out<'a, U> {
         Out(&mut *(self.0 as *mut T as *mut U))
     }
@@ -54,27 +62,16 @@ impl<T> DerefMut for Out<'_, T> {
 }
 
 impl<'a, T> In<'a, T> {
-    pub fn boxed<F>(f: F) -> Pin<Box<T>>
-    where
-        F: FnOnce(In<T>) -> Out<T>,
-    {
-        // Use `Box::new_uninit` when it's stabilized
-        // <https://github.com/rust-lang/rust/issues/63291>
-        let mut boxed = Box::new(MaybeUninit::uninit());
-        let Out(_) = f(In(boxed.as_mut()));
-
-        // ⚠️ Safety:
-        // ==========
-        //
-        // Since `F` needs to produce a receipt, and the only way to do it
-        // is by putting a `T` in the container, the `Box` is now guaranteed
-        // to be initialized.
-        //
-        // `MaybeUninit` is `#[repr(transparent)]` so transmute is safe.
-        //
-        // Use `Box::assume_init` when it's stabilized
-        // <https://github.com/rust-lang/rust/issues/63291>
-        unsafe { std::mem::transmute(boxed) }
+    /// Cast this pointer from `In<T>` to `In<U>`.
+    ///
+    /// # Safety
+    ///
+    /// Caller needs to guarantee safety as per usual rules of pointer casting, namely:
+    ///
+    /// 1. `T` and `U` must have the same size.
+    /// 2. `T` and `U` must have the same memory layout.
+    pub unsafe fn cast<U>(self) -> In<'a, U> {
+        In(&mut *(self.0 as *mut MaybeUninit<T> as *mut MaybeUninit<U>))
     }
 
     pub fn in_place<F>(self, f: F) -> Out<'a, T>
@@ -84,10 +81,14 @@ impl<'a, T> In<'a, T> {
         f(self.0.as_mut_ptr())
     }
 
-    pub unsafe fn cast<U>(self) -> In<'a, U> {
-        In(&mut *(self.0 as *mut MaybeUninit<T> as *mut MaybeUninit<U>))
-    }
-
+    /// Initialize raw pointer `raw` using a builder closure `f`.
+    ///
+    /// # Safety
+    ///
+    /// Caller must guarantee that:
+    ///
+    /// 1. `raw` is uninitialized (it will be written to).
+    /// 2. `raw` is a stable pointer.
     pub unsafe fn raw<F>(raw: *mut T, f: F) -> Out<'a, T>
     where
         F: FnOnce(In<T>) -> Out<T>,
@@ -95,6 +96,11 @@ impl<'a, T> In<'a, T> {
         f(In(&mut *(raw as *mut MaybeUninit<T>)))
     }
 
+    /// Initialize a pinned uninitialized data using a builder closure `f`.
+    ///
+    /// # Safety
+    ///
+    /// This method is safe, it can however leak memory if `pin` has already been initialized.
     pub fn pinned<F>(pin: Pin<&'a mut MaybeUninit<T>>, f: F) -> Out<'a, T>
     where
         F: FnOnce(In<T>) -> Out<T>,
@@ -102,6 +108,8 @@ impl<'a, T> In<'a, T> {
         f(In(unsafe { pin.get_unchecked_mut() }))
     }
 
+    /// Replace previous value of `T` with a new value produced by a builder
+    /// closure `f`. Returns the old value.
     pub fn replace<F>(at: &mut T, f: F) -> T
     where
         F: FnOnce(In<T>) -> Out<T>,
@@ -113,11 +121,13 @@ impl<'a, T> In<'a, T> {
         old
     }
 
+    /// Initialize this pointer with some value of `T`.
     pub fn put(self, val: T) -> Out<'a, T> {
         Out(self.0.write(val))
     }
 }
 
+/// Initialize a field of a struct with some expression, see [`In::in_place`](In::in_place).
 #[macro_export]
 macro_rules! init {
     ($p:ident.$field:ident @ $then:expr) => {
