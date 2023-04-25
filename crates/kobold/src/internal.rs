@@ -13,11 +13,16 @@ use web_sys::Node;
 
 use crate::View;
 
-/// Safe abstraction for initialize-in-place strategy employed by the `View::build` method.
+/// Uninitialized stable pointer to `T`.
+///
+/// Used for the initialize-in-place strategy employed by the [`View::build`](View::build) method.
 #[must_use]
 #[repr(transparent)]
 pub struct In<'a, T>(&'a mut MaybeUninit<T>);
 
+/// Initialized stable pointer to `T`.
+///
+/// Used for the initialize-in-place strategy employed by the [`View::build`](View::build) method.
 #[repr(transparent)]
 pub struct Out<'a, T>(&'a mut T);
 
@@ -29,7 +34,7 @@ impl<'a, T> Out<'a, T> {
     /// Caller needs to guarantee that:
     ///
     /// 1. `raw` is initialized.
-    /// 2. `raw` is a stable pointer.
+    /// 2. `raw` is a stable pointer for the entire life of `T`.
     pub unsafe fn from_raw(raw: *mut T) -> Self {
         Out(&mut *raw)
     }
@@ -74,6 +79,38 @@ impl<'a, T> In<'a, T> {
         In(&mut *(self.0 as *mut MaybeUninit<T> as *mut MaybeUninit<U>))
     }
 
+    /// Build this `T` in-place using a raw pointer
+    ///
+    /// # Safety
+    ///
+    /// This method itself is safe since just obtaining a raw pointer by itself is also safe,
+    /// it does however require unsafe code to construct `Out<T>` inside the closure `f`.
+    ///
+    /// ```rust
+    /// use kobold::internal::{In, Out};
+    /// use kobold::init;
+    ///
+    /// struct Foo {
+    ///     int: u32,
+    ///     float: f64,
+    /// }
+    ///
+    /// fn build_in(p: In<Foo>) -> Out<Foo> {
+    ///     let out = p.in_place(|p| unsafe {
+    ///         // Initialize fields of `Foo`
+    ///         init!(p.int = 42);
+    ///         init!(p.float = 3.14);
+    ///
+    ///         // Both fields have been initialized
+    ///         Out::from_raw(p)
+    ///     });
+    ///
+    ///     assert_eq!(out.int, 42);
+    ///     assert_eq!(out.float, 3.14);
+    ///
+    ///     out
+    /// }
+    /// ```
     pub fn in_place<F>(self, f: F) -> Out<'a, T>
     where
         F: FnOnce(*mut T) -> Out<'a, T>,
@@ -85,10 +122,9 @@ impl<'a, T> In<'a, T> {
     ///
     /// # Safety
     ///
-    /// Caller must guarantee that:
+    /// Caller must guarantee that `raw` is a stable pointer for the entire life of `T`.
     ///
-    /// 1. `raw` is uninitialized (it will be written to).
-    /// 2. `raw` is a stable pointer.
+    /// If `raw` has already been initialized this can cause a memory leak, which is safe but undesirable.
     pub unsafe fn raw<F>(raw: *mut T, f: F) -> Out<'a, T>
     where
         F: FnOnce(In<T>) -> Out<T>,
@@ -174,11 +210,15 @@ extern "C" {
     pub(crate) fn text_node_bool(t: bool) -> Node;
 }
 
-#[wasm_bindgen(js_name = "koboldCallback")]
-pub fn kobold_callback(event: web_sys::Event, closure: *mut (), vcall: usize) {
-    let vcall: fn(web_sys::Event, *mut ()) = unsafe { std::mem::transmute(vcall) };
+mod hidden {
+    use super::wasm_bindgen;
 
-    vcall(event, closure);
+    #[wasm_bindgen(js_name = "koboldCallback")]
+    pub fn kobold_callback(event: web_sys::Event, closure: *mut (), vcall: usize) {
+        let vcall: fn(web_sys::Event, *mut ()) = unsafe { std::mem::transmute(vcall) };
+
+        vcall(event, closure);
+    }
 }
 
 #[wasm_bindgen(module = "/js/util.js")]
@@ -243,4 +283,47 @@ extern "C" {
 
     #[wasm_bindgen(js_name = "__kobold_make_event_handler")]
     pub(crate) fn make_event_handler(closure: *mut (), vcall: usize) -> JsValue;
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use std::pin::pin;
+
+    #[test]
+    fn pinned() {
+        let data = pin!(MaybeUninit::uninit());
+        let data = In::pinned(data, |p| p.put(42));
+
+        assert_eq!(*data, 42);
+    }
+
+    // Can't really test view! macros in miri since it needs wasm context.
+    //
+    // This is a small mock of what the macro does however.
+    #[test]
+    fn build_in_place() {
+        fn meaning_builder(p: In<u32>) -> Out<u32> {
+            p.put(42)
+        }
+
+        struct Foo {
+            int: u32,
+            float: f64,
+        }
+
+        let foo = pin!(MaybeUninit::<Foo>::uninit());
+        let foo = In::pinned(foo, |p| {
+            p.in_place(|p| unsafe {
+                init!(p.int @ meaning_builder(p));
+                init!(p.float = 3.14);
+
+                Out::from_raw(p)
+            })
+        });
+
+        assert_eq!(foo.int, 42);
+        assert_eq!(foo.float, 3.14);
+    }
 }

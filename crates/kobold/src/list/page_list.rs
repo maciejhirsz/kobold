@@ -266,7 +266,7 @@ where
 }
 
 #[cfg(test)]
-mod tests {
+mod test {
     use super::*;
 
     // Just a helper that disables size hints for an
