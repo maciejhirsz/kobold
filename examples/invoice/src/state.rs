@@ -7,6 +7,7 @@ use gloo_storage::{LocalStorage, Storage};
 use wasm_bindgen::UnwrapThrowExt;
 // use wasm_bindgen::prelude::wasm_bindgen;
 use serde::{Serialize, Deserialize};
+use serde_json::to_string;
 use log::{info, debug, error, warn};
 use std::convert::TryInto;
 
@@ -15,18 +16,20 @@ use std::ops::{Deref, DerefMut, Range};
 const KEY_MAIN: &str = "kobold.invoice.main";
 const KEY_DETAILS: &str = "kobold.invoice.details";
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Editing {
     None,
     Column { col: usize },
     Cell { col: usize, row: usize },
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Content {
     pub name: String,
     pub table: Table,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct State {
     pub editing: Editing,
     pub editing_details: Editing,
@@ -81,21 +84,21 @@ fn convert_vec_to_arr<T, const N: usize>(v: Vec<T>) -> [T; N] {
         .unwrap_or_else(|v: Vec<T>| panic!("Expected a Vec of length {} but it was {}", N, v.len()))
 }
 
-fn get_data_for_col(col: &Text) -> (usize, Box<str>) {
-    let mut capacity = 0;
-    let mut value = String::new();
-    match col {
-        Text::Insitu(range) => {
-            debug!("{:#?}", range.len());
-            capacity += range.len() + 3;
-        },
-        Text::Owned(o) => {
-            debug!("{:#?}", o);
-            value = format!("{:#?}\n", o);
-        },
-    }
-    (capacity, value.into())
-}
+// fn get_data_for_col(col: &Text) -> (usize, Box<str>) {
+//     let mut capacity = 0;
+//     let mut value = String::new();
+//     match col {
+//         Text::Insitu(range) => {
+//             debug!("{:#?}", range.len());
+//             capacity += range.len() + 3;
+//         },
+//         Text::Owned(o) => {
+//             debug!("{:#?}", o);
+//             value = format!("{:#?}\n", o);
+//         },
+//     }
+//     (capacity, value.into())
+// }
 
 impl State {
     pub fn mock() -> Self {
@@ -115,48 +118,13 @@ impl State {
 
     #[inline(never)]
     pub fn store(&self) {
-        // determine the capacity required
-        let mut capacity_main = 0;
-        let mut capacity_details = 0;
-        let mut new_entries_main: Vec<Box<str>> = Vec::new();
-        let mut new_entries_details: Vec<Box<str>> = Vec::new();
-        for col in &self.main.table.columns {
-            let (capacity, value) = get_data_for_col(&col);
-            capacity_main += capacity;
-            new_entries_main.push(value);
-        }
-        for row in &self.main.table.rows {
-            for col in row.iter() {
-                let (capacity, value) = get_data_for_col(&col);
-                capacity_main += capacity;
-                new_entries_main.push(value);
-            }
-        }
-        for col in &self.details.table.columns {
-            let (capacity, value) = get_data_for_col(&col);
-            capacity_details += capacity;
-            new_entries_details.push(value);
-        }
-        for row in &self.details.table.rows {
-            for col in row.iter() {
-                let (capacity, value) = get_data_for_col(&col);
-                capacity_details += capacity;
-                new_entries_details.push(value);
-            }
-        }
-        debug!("capacity_main {:#?}", capacity_main);
-        let mut storage_main = String::with_capacity(capacity_main);
+        let main_str = to_string(&self.main.table).unwrap();
+        let details_str = to_string(&self.details.table).unwrap();
 
-        debug!("capacity_details {:#?}", capacity_details);
-        let mut storage_details = String::with_capacity(capacity_details);
+        debug!("updating store: {:?}\n\n{:?}", main_str.as_str(), details_str.as_str());
 
-        let joined_storage_main = new_entries_main.join(storage_main.as_str());
-        let joined_storage_details = new_entries_details.join(storage_details.as_str());
-        debug!("joined_storage_main {:#?}", joined_storage_main);
-        debug!("joined_storage_details {:#?}", joined_storage_details);
-
-        LocalStorage::raw().set_item(KEY_MAIN, &joined_storage_main).ok();
-        LocalStorage::raw().set_item(KEY_DETAILS, &joined_storage_details).ok();
+        LocalStorage::raw().set_item(KEY_MAIN, main_str.as_str()).ok();
+        LocalStorage::raw().set_item(KEY_DETAILS, details_str.as_str()).ok();
     }
 
     pub fn update_main(&mut self, row: usize, col: usize, value: String) {
