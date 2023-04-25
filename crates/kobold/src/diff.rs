@@ -10,9 +10,9 @@ use web_sys::Node;
 
 use crate::attribute::Attribute;
 use crate::dom::{Anchor, TextContent};
-use crate::internal::{Field, In, Out};
+use crate::internal::{In, Out};
 use crate::value::{IntoText, Value};
-use crate::{Mountable, View};
+use crate::{init, Mountable, View};
 
 /// This is a wrapper around a `view` that will prevent updates to it, unless
 /// the value of `guard` has changed.
@@ -69,26 +69,25 @@ where
     F: FnOnce() -> V,
     V: View,
 {
-    type Product = Fence<D::Memo, Field<V::Product>>;
+    type Product = Fence<D::Memo, V::Product>;
 
     fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
-        let mut p = p.put(Fence {
-            guard: self.guard.into_memo(),
-            inner: unsafe { Field::uninit() },
-        });
+        p.in_place(|p| unsafe {
+            init!(p.guard = self.guard.into_memo());
+            init!(p.inner @ (self.inner)().build(p));
 
-        p.inner.init(move |p| (self.inner)().build(p));
-        p
+            Out::from_raw(p)
+        })
     }
 
     fn update(self, p: &mut Self::Product) {
         if self.guard.diff(&mut p.guard) {
-            (self.inner)().update(p.inner.get_mut());
+            (self.inner)().update(&mut p.inner);
         }
     }
 }
 
-impl<D, P> Anchor for Fence<D, Field<P>>
+impl<D, P> Anchor for Fence<D, P>
 where
     P: Mountable,
 {
@@ -96,7 +95,7 @@ where
     type Target = P;
 
     fn anchor(&self) -> &P {
-        self.inner.get_ref()
+        &self.inner
     }
 }
 
