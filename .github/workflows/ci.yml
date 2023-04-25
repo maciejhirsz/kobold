@@ -17,6 +17,16 @@ jobs:
       - run: cargo check
       - run: cargo fmt --check
 
+  miri:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+      - name: Run miri
+        run: ci/miri.sh
+
   tests:
     strategy:
       matrix:
