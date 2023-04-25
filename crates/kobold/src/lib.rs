@@ -391,7 +391,7 @@ use wasm_bindgen::JsCast;
 
 #[cfg(all(
     target_arch = "wasm32",
-    feature = "tiny_alloc",
+    feature = "rlsf",
     not(target_feature = "atomics")
 ))]
 #[global_allocator]
