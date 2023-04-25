@@ -129,7 +129,7 @@ where
         // Initial render can only access the `state` from the hook, the `prod` is
         // not touched until an event is fired, which happens after this method
         // completes and initializes the `prod`.
-        let view = (self.render)(Hook::new(unsafe { inner.as_init() })); //.build();
+        let view = (self.render)(Hook::new(unsafe { inner.as_init() }));
 
         // ⚠️ Safety:
         // ==========

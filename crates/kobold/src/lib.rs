@@ -6,8 +6,14 @@
 //!
 //! # Kobold
 //!
-//! **Kobold** uses macros to deliver familiar HTML-esque syntax for building declarative web interfaces,
-//! while leveraging Rust's powerful type system for safety and performance.
+//! _Easy declarative web interfaces._
+//!
+//! Key features:
+//!
+//! * Declarative [`view!`](view) macro that uses HTML-esque syntax with optional closing tags.
+//! * Functional [components](component) with optional parameters.
+//! * State management and event handling.
+//! * High performance and consistently the lowest Wasm footprint in the Rust ecosystem.
 //!
 //! ### Zero-Cost Static HTML
 //!
@@ -63,7 +69,7 @@
 //! You can even use [rust-analyzer](https://rust-analyzer.github.io/) to refactor component or field names,
 //! and it will change the invocations inside the macros for you.
 //!
-//! ### Stateful
+//! ### State management
 //!
 //! The [`stateful`](stateful::stateful) function can be used to create views that own and manipulate
 //! their state:

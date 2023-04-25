@@ -149,7 +149,7 @@ macro_rules! impl_text_view {
                     })
                 }
 
-                fn update(self, p: &mut  Self::Product) {
+                fn update(self, p: &mut Self::Product) {
                     if self.diff(&mut p.memo) {
                         self.set_prop(TextContent, &p.node);
                     }
