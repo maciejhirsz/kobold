@@ -94,38 +94,6 @@ fn Editor() -> impl View {
 
                 spawn_local(async move {
                     if let Ok(table) = csv::read_file(file).await {
-                        // // NOTE - this section isn't required but left for reference:
-                        // let serialized = serde_json::to_string(&table).unwrap_throw();
-                        // let value = JsValue::from_serde(&serialized).unwrap_throw();
-                        // debug!("table {:#?}", value);
-                        // let payload: Table = serde_json::from_str(&serialized).unwrap_throw();
-                        // debug!("payload {:#?}", &payload.source.source);
-
-                        // let data: &str = &payload.source.source.to_string();
-                        // // find qr column index
-                        // let index = &data.find("qr").unwrap_throw();
-                        // debug!("index {:#?}", *&index);
-                        // let slice = &data[..*index as usize];
-                        // debug!("slice {:#?}", slice);
-                        // let qr_column_count = slice.to_string().matches(",").count();
-                        // debug!("column of qr {:#?}", qr_column_count+1);
-
-                        // // get first row of data below header
-                        // // https://play.rust-lang.org/?version=stable&mode=debug&edition=2015&gist=6195d6ef278d9552eba9f8d8a7d457d6
-                        // let start_bytes: usize = data.find("\n").unwrap_throw();
-                        // let end_bytes: usize = data[(start_bytes+1)..].find("\n").unwrap_throw();
-                        // debug!("start_bytes {:#?}", start_bytes);
-                        // debug!("end_bytes {:#?}", end_bytes);
-                        // let index_end_next_row = start_bytes + 1 + end_bytes; // where +1 is to skip the `\n`
-                        // debug!("index_end_next_row {:#?}", index_end_next_row);
-                        // let row = &data[(start_bytes+1)..][..end_bytes];
-                        // debug!("row {:#?}", row);
-                        // let (qr_row_idx, qr_row_str) = row.match_indices(",").nth(qr_column_count-1).unwrap();
-                        // debug!("qr_row_idx {:#?}", qr_row_idx);
-                        // let slice_qr = &row[(qr_row_idx+1)..];
-                        // debug!("slice_qr {:#?}", slice_qr);
-                        // let qr_code = slice_qr.to_string();
-
                         // debug!("main.table{:#?}", table);
 
                         // NOTE - this section is required

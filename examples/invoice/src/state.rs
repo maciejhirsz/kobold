@@ -149,53 +149,6 @@ impl State {
             debug!("updating details since different");
             self.details.table.rows[row][col] = Text::Owned(value.into());
 
-            // TODO - the following code isn't necessary, since `rows` is already populated
-            // with the data that changed.
-
-            // let serialized = serde_json::to_string(&self.details.table).unwrap_throw();
-            // let value = JsValue::from_serde(&serialized).unwrap_throw();
-            // debug!("details table {:#?}", value);
-            // let details_table: Table = serde_json::from_str(&serialized).unwrap_throw();
-            // debug!("details table source {:#?}", &details_table.source.source);
-            // let data: &str = &details_table.source.source.to_string();
-
-            // let count_newlines = data.matches("\n").count();
-            // let (row1_idx_end, _) = data.match_indices("\n").nth(0).unwrap_throw();
-            // let row0_idx_start = row1_idx_end + 1; // where +1 is to skip the `\n`
-            // let (row0_idx_end, _) = data.match_indices("\n").nth(1).unwrap_throw();
-            // let row2_idx_start = row0_idx_end + 1;
-            // let row2_idx_end = data.len() - count_newlines;
-            // debug!("row1_idx_end {:#?}", row1_idx_end); // variables
-            // debug!("row0_idx_end {:#?}", row0_idx_end); // labels
-            // debug!("row2_idx_end {:#?}", row2_idx_end); // data
-
-            // let mut row0_vec: Vec<String> = Vec::new();
-            // let row0 = &data[row0_idx_start..row0_idx_end];
-            // row0_vec = row0.split(",").map(|x| x.to_string()).collect();
-            // debug!("row0_vec {:#?}", row0_vec);
-
-            // let mut row2_vec: Vec<String> = Vec::new();
-            // let row2 = &data[row2_idx_start..row2_idx_end];
-            // row2_vec = row2.split(",").map(|x| x.to_string()).collect();
-            // debug!("row2_vec {:#?}", row2_vec);
-
-            // if row == 0 {
-            //     debug!("updating row0_vec[col] {:#?}", row0_vec[col]);
-            //     // https://docs.rs/wasm-bindgen/0.2.84/wasm_bindgen/struct.JsValue.html#method.as_string
-            //     row0_vec[col] = match value.as_string() {
-            //         Some(v) => v.to_string(),
-            //         None => "".to_string(),
-            //     };
-            // } else if row == 1 { // need row variable to be 1 to update row data 2
-            //     debug!("updating row2_vec[col] {:#?}", row2_vec[col]);
-            //     row2_vec[col] = match value.as_string() {
-            //         Some(v) => v.to_string(),
-            //         None => "".to_string(),
-            //     };
-            // } else {
-            //     panic!("cannot update this row from the ui"); // `row` value of `2` won't be provided to this fn
-            // }
-
             // TODO - we're already doing this in main.rs onkeydown so maybe we don't need it here too
             self.editing_details = Editing::None;
 
