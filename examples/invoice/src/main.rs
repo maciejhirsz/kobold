@@ -10,7 +10,6 @@ use kobold_qr::KoboldQR;
 use gloo_console::{console_dbg};
 use gloo_utils::format::JsValueSerdeExt;
 use gloo_file::{Blob, File as GlooFile};
-use chrono::prelude::*;
 use log::{info, debug, error, warn};
 use serde::{Serialize, Deserialize};
 use serde_json::{to_string};
@@ -154,9 +153,7 @@ fn Editor() -> impl View {
                             <input type="file" accept="text/csv" onchange={onload_details} />
                         </div>
                         <div>
-                            <button #button-file-save type="button" onclick={onsave_details}>"Save to file"</button>
-                        </div>
-                        <div>
+                            <button #button-file-save type="button" onclick={onsave_details}>"Save to file"</button><br />
                             <a #link-file-download href={ref state.details.obj_url} download={ref state.details.filename}>"Download"</a>
                         </div>
                         // <EntryView {state} />

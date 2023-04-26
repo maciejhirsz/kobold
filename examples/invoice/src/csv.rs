@@ -8,11 +8,7 @@ use logos::{Lexer, Logos};
 use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen::UnwrapThrowExt;
 use web_sys::{File, Url};
-// use std::fs::{File as FsFile};
-// use std::io::prelude::*;
-// use std::io::Write;
-use gloo_file::{Blob, File as GlooFile};
-use chrono::prelude::*;
+use gloo_file::{Blob};
 use serde_json::{to_string};
 use log::{debug};
 
@@ -141,56 +137,20 @@ pub async fn read_file(file: File) -> Result<Table, Error> {
 }
 
 pub async fn write_file(content: &Content) -> Result<String, Error> {
-    let content_serialized: String = serde_json::to_string(&content.table).unwrap_throw();
-    // let content_serialized_vec: &Vec<u8> = &content_serialized.into_bytes();
-    let content_serialized_byte_slice: &[u8] = &content_serialized.as_bytes(); // cast String into a byte slice
+    let content_serialized: String = to_string(&content.table).unwrap_throw();
+    // cast String into a byte slice
+    let content_serialized_byte_slice: &[u8] = &content_serialized.as_bytes();
 
     let file_blob: Blob = Blob::new_with_options(
-        // &*content.filename,
         content_serialized_byte_slice,
         Some("text/plain"),
-        // Some(Utc::now().into())
     );
     debug!("file_blob: {:?}", file_blob);
-    // let file_blob = Blob::from(&file);
-    // convert struct `gloo_file::Blob` into struct `web_sys::Blob` 
+    // convert struct `gloo_file::Blob` into struct `web_sys::Blob`
     let obj_url = match Url::create_object_url_with_blob(&file_blob.into()) {
         Ok(url) => url,
         Err(err) => return Err(Error::FailedToCreateObjectBlobWithUrl),
     };
 
     return Ok(obj_url);
-
-    // NOTE - can't do the following since we can't use `std::fs` in the browser - it panicks
-
-    // // write to mutable buffer
-    // let mut buffer: FsFile = match FsFile::create(&content.filename) {
-    //     Ok(b) => b,
-    //     Err(err) => {
-    //         return Err(Error::FailedToBufferFile);
-    //     },
-    // };
-    // let metadata = match buffer.metadata() {
-    //     Ok(m) => m,
-    //     Err(err) => {
-    //         return Err(Error::FailedToLoadMetadata);
-    //     },
-    // };
-    // let serialized: String = serde_json::to_string(&content.table).unwrap_throw();
-    // // let serialized_vec: &Vec<u8> = &serialized.into_bytes();
-    // let bytes: &[u8] = &serialized.as_bytes();
-
-    // // debug!("string len: {:?}", serialized.len());
-    // // debug!("mutable buffer len: {:?}", bytes.len());
-    // // debug!("buffer: {:?}", buffer);
-
-    // match buffer.write_all(bytes) {
-    //     Ok(_) => {
-    //         return Ok(());
-    //     },
-    //     Err(err) => {
-    //         return Err(Error::FailedToWriteFile);
-    //     },
-    // };
-    // Ok(())
 }
