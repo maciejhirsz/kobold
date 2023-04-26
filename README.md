@@ -3,8 +3,8 @@
 # Kobold
 
 [![Join Discord](https://img.shields.io/discord/1092732324610850816?label=&logo=discord&labelColor=6A7EC2&logoColor=ffffff&color=7389D8)](https://discord.gg/ZYffhkW2)
-[![Test](https://img.shields.io/github/actions/workflow/status/maciejhirsz/kobold/ci.yml?label=ci&logo=github)](https://github.com/maciejhirsz/kobold/actions/workflows/ci.yml)
-[![Docs](https://docs.rs/kobold/badge.svg)](https://docs.rs/kobold)
+[![Test](https://img.shields.io/github/actions/workflow/status/maciejhirsz/kobold/ci.yml?label=tests)](https://github.com/maciejhirsz/kobold/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/docsrs/kobold/latest)](https://docs.rs/kobold)
 [![Crates.io](https://img.shields.io/crates/v/kobold.svg)](https://crates.io/crates/kobold)
 [![MPL-2.0](https://img.shields.io/crates/l/kobold.svg?label=)](https://www.mozilla.org/en-US/MPL/)
 
