@@ -69,7 +69,11 @@ fn Editor() -> impl View {
                 spawn_local(async move {
                     if let Ok(table) = csv::read_file(file).await {
                         debug!("details.table{:#?}", table);
-                        signal.update(move |state| state.details.table = table);
+                        // https://docs.rs/kobold/latest/kobold/stateful/struct.Signal.html#method.update
+                        signal.update(move |state| {
+                            state.details.table = table;
+                            state.store(); // update local storage
+                        });
                     }
                 })
             }
@@ -125,7 +129,10 @@ fn Editor() -> impl View {
                         // debug!("main.table{:#?}", table);
 
                         // NOTE - this section is required
-                        signal.update(move |state| state.main.table = table);
+                        signal.update(move |state| {
+                            state.main.table = table;
+                            state.store(); // update local storage
+                        });
                     }
                 })
             }
