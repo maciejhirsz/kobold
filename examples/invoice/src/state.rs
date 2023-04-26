@@ -80,22 +80,26 @@ impl Default for Text {
 
 impl Default for State {
     fn default() -> Self {
-        let mut default_data = "_,_,_,_";
-        let mut storage = format!("{:#?}", default_data);
-
-        LocalStorage::raw().set_item(KEY_MAIN, &storage).ok();
-        LocalStorage::raw().set_item(KEY_DETAILS, &storage).ok();
+        let main_local_storage: Table = match LocalStorage::get(KEY_MAIN) {
+            Ok(local_storage) => local_storage,
+            Err(err) => Table::mock(),
+        };
+        let details_local_storage: Table = match LocalStorage::get(KEY_DETAILS) {
+            Ok(local_storage) => local_storage,
+            Err(err) => Table::mock_file_details(),
+        };
+        debug!("loading local storage: {:?}\n\n{:?}", main_local_storage, details_local_storage);
 
         State {
             editing: Editing::None,
             editing_details: Editing::None,
             main: Content {
                 name: "main".to_owned(),
-                table: Table::mock(),
+                table: main_local_storage,
             },
             details: Content {
                 name: "details".to_owned(),
-                table: Table::mock_file_details(),   
+                table: details_local_storage,
             },
         }
     }

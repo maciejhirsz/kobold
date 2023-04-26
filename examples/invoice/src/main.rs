@@ -50,7 +50,7 @@ use state::{Editing, State, Table, Text};
 
 #[component]
 fn Editor() -> impl View {
-    stateful(State::mock, |state| {
+    stateful(State::default, |state| {
         debug!("Editor()");
 
         let onload_details = {
