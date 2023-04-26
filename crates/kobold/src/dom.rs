@@ -60,6 +60,10 @@ pub(crate) fn empty_node() -> Node {
     internal::__kobold_empty_node()
 }
 
+pub(crate) fn play(value: &str) -> Node {
+    internal::__kobold_play(value)
+}
+
 /// Thin-wrapper around a [`DocumentFragment`](https://developer.mozilla.org/en-US/docs/Web/API/DocumentFragment) node.
 ///
 /// **Kobold** needs to "decorate" fragments for [`unmount`](Mountable::unmount)

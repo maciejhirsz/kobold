@@ -48,8 +48,8 @@ extern "C" {
     pub(crate) fn __kobold_before(node: &Node, insert: &JsValue);
     pub(crate) fn __kobold_unmount(node: &JsValue);
     pub(crate) fn __kobold_replace(old: &JsValue, new: &JsValue);
-
     pub(crate) fn __kobold_empty_node() -> Node;
+    pub(crate) fn __kobold_play(value: &str) -> Node;
     pub(crate) fn __kobold_fragment() -> Node;
     pub(crate) fn __kobold_fragment_decorate(f: &Node) -> Node;
     pub(crate) fn __kobold_fragment_append(f: &Node, c: &JsValue);
@@ -99,4 +99,7 @@ extern "C" {
     pub(crate) fn replace_class(node: &Node, old: &str, value: &str);
     #[wasm_bindgen(js_name = "__kobold_toggle_class")]
     pub(crate) fn toggle_class(node: &Node, class: &str, value: bool);
+
+    // #[wasm_bindgen(js_name = "__kobold_play")]
+    // pub(crate) fn play(value: &str) -> Node;
 }

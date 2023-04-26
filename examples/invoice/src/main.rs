@@ -3,14 +3,17 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use kobold::prelude::*;
-use kobold::branching::{Branch2, Branch3};
+use kobold::branching::{Branch2, Branch3, Empty, Play};
 use kobold::reexport::web_sys::HtmlTextAreaElement;
 use kobold_qr::KoboldQR;
 // use bevy_reflect::{FromReflect, Reflect, DynamicStruct, Struct};
 use gloo_console::{console_dbg};
 use gloo_utils::format::JsValueSerdeExt;
+use gloo_file::{Blob, File as GlooFile};
+use chrono::prelude::*;
 use log::{info, debug, error, warn};
 use serde::{Serialize, Deserialize};
+use serde_json::{to_string};
 use web_sys::{HtmlInputElement as InputElement, HtmlElement};
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::spawn_local;
@@ -80,22 +83,25 @@ fn Editor() -> impl View {
         };
 
         let onsave_details = {
-            let signal = state.signal();
-
             move |e: MouseEvent<HtmlElement>| {
+                let signal = state.signal();
                 // update local storage and state so that &state.details isn't
                 // `Content { filename: "\0\0\0\0\0\0\0", table: Table { source: TextSource { source: "\0" }, columns: [Insitu(0..0)], rows: [] } }`
                 signal.update(|state| state.store());
                 spawn_local(async move {
                     debug!("onsave_details: {:?}", &state.details);
                     match csv::write_file(&state.details).await {
-                        Ok(_) => {
-                            debug!("successfully wrote to file {:?}", state.details.filename);
+                        Ok(obj_url) => {
+                            // TODO - format the obj_url so it's in CSV format, so it may be uploaded again
+                            // in the right format too
+                            debug!("obj_url {:?}", obj_url);
+                            signal.update(|state| state.details.obj_url = obj_url);
                         },
                         Err(err) => {
                             panic!("failed to write to file {:?}", state.details.filename);
                         },
-                    }
+                    };
+                    debug!("successfully wrote to file {:?}", state.details.filename);
                 })
             }
         };
@@ -134,12 +140,24 @@ fn Editor() -> impl View {
                         <h1>"Invoice"</h1>
                     </header>
                     <section .main>
+                        <div>
+                        {
+                            if false == true {
+                                Branch2::A(Play)
+                            } else {
+                                Branch2::B(Play)
+                            }
+                        }
+                        </div>
                         <div #input-file-select>
                             <h1>{ ref state.details.filename }</h1>
                             <input type="file" accept="text/csv" onchange={onload_details} />
                         </div>
                         <div>
                             <button #button-file-save type="button" onclick={onsave_details}>"Save to file"</button>
+                        </div>
+                        <div>
+                            <a #link-file-download href={ref state.details.obj_url} download={ref state.details.filename}>"Download"</a>
                         </div>
                         // <EntryView {state} />
                         <table
