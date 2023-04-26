@@ -11,7 +11,7 @@ use gloo_console::{console_dbg};
 use gloo_utils::format::JsValueSerdeExt;
 use log::{info, debug, error, warn};
 use serde::{Serialize, Deserialize};
-use web_sys::HtmlInputElement as InputElement;
+use web_sys::{HtmlInputElement as InputElement, HtmlElement};
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::spawn_local;
 use wasm_bindgen::throw_str;
@@ -62,7 +62,7 @@ fn Editor() -> impl View {
                     None => return,
                 };
 
-                signal.update(|state| state.details.name = file.name());
+                signal.update(|state| state.details.filename = file.name());
 
                 let signal = signal.clone();
 
@@ -79,6 +79,27 @@ fn Editor() -> impl View {
             }
         };
 
+        let onsave_details = {
+            let signal = state.signal();
+
+            move |e: MouseEvent<HtmlElement>| {
+                // update local storage and state so that &state.details isn't
+                // `Content { filename: "\0\0\0\0\0\0\0", table: Table { source: TextSource { source: "\0" }, columns: [Insitu(0..0)], rows: [] } }`
+                signal.update(|state| state.store());
+                spawn_local(async move {
+                    debug!("onsave_details: {:?}", &state.details);
+                    match csv::write_file(&state.details).await {
+                        Ok(_) => {
+                            debug!("successfully wrote to file {:?}", state.details.filename);
+                        },
+                        Err(err) => {
+                            panic!("failed to write to file {:?}", state.details.filename);
+                        },
+                    }
+                })
+            }
+        };
+
         let onload_main = {
             let signal = state.signal();
 
@@ -88,7 +109,7 @@ fn Editor() -> impl View {
                     None => return,
                 };
 
-                signal.update(|state| state.main.name = file.name());
+                signal.update(|state| state.main.filename = file.name());
 
                 let signal = signal.clone();
 
@@ -114,8 +135,11 @@ fn Editor() -> impl View {
                     </header>
                     <section .main>
                         <div #input-file-select>
-                            <h1>{ ref state.details.name }</h1>
+                            <h1>{ ref state.details.filename }</h1>
                             <input type="file" accept="text/csv" onchange={onload_details} />
+                        </div>
+                        <div>
+                            <button #button-file-save type="button" onclick={onsave_details}>"Save to file"</button>
                         </div>
                         // <EntryView {state} />
                         <table
@@ -151,7 +175,7 @@ fn Editor() -> impl View {
                             </tbody>
                         </table>
                         <div #input-file-select>
-                            <h1>{ ref state.main.name }</h1>
+                            <h1>{ ref state.main.filename }</h1>
                             <input type="file" accept="text/csv" onchange={onload_main} />
                         </div>
                         <table

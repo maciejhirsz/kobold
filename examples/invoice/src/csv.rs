@@ -6,9 +6,15 @@ use std::str::FromStr;
 
 use logos::{Lexer, Logos};
 use wasm_bindgen_futures::JsFuture;
+use wasm_bindgen::UnwrapThrowExt;
 use web_sys::File;
+use std::fs::{File as FsFile};
+use std::io::prelude::*;
+// use std::io::Write;
+use serde_json::{to_string};
+use log::{debug};
 
-use crate::state::{Table, Text, TextSource};
+use crate::state::{Content, Table, Text, TextSource};
 
 #[derive(Logos)]
 enum Token {
@@ -29,7 +35,10 @@ enum Token {
 #[derive(Debug)]
 pub enum Error {
     NoData,
+    FailedToBufferFile,
     FailedToReadFile,
+    FailedToWriteFile,
+    FailedToLoadMetadata,
     InvalidRowLength,
 }
 
@@ -126,4 +135,39 @@ pub async fn read_file(file: File) -> Result<Table, Error> {
         .ok_or(Error::FailedToReadFile)?;
 
     text.parse()
+}
+
+pub async fn write_file(content: &Content) -> Result<(), Error> {
+    // TODO - this panicks
+
+    // write to mutable buffer
+    let mut buffer: FsFile = match FsFile::create(&content.filename) {
+        Ok(b) => b,
+        Err(err) => {
+            return Err(Error::FailedToBufferFile);
+        },
+    };
+    let metadata = match buffer.metadata() {
+        Ok(m) => m,
+        Err(err) => {
+            return Err(Error::FailedToLoadMetadata);
+        },
+    };
+    let serialized: String = serde_json::to_string(&content.table).unwrap_throw();
+    // let serialized_vec: &Vec<u8> = &serialized.into_bytes();
+    let bytes: &[u8] = &serialized.as_bytes();
+
+    // debug!("string len: {:?}", serialized.len());
+    // debug!("mutable buffer len: {:?}", bytes.len());
+    // debug!("buffer: {:?}", buffer);
+
+    match buffer.write_all(bytes) {
+        Ok(_) => {
+            return Ok(());
+        },
+        Err(err) => {
+            return Err(Error::FailedToWriteFile);
+        },
+    };
+    Ok(())
 }

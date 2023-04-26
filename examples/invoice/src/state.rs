@@ -26,7 +26,7 @@ pub enum Editing {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Content {
-    pub name: String,
+    pub filename: String,
     pub table: Table,
 }
 
@@ -94,11 +94,11 @@ impl Default for State {
             editing: Editing::None,
             editing_details: Editing::None,
             main: Content {
-                name: "main".to_owned(),
+                filename: "main.csv".to_owned(),
                 table: main_local_storage,
             },
             details: Content {
-                name: "details".to_owned(),
+                filename: "details.csv".to_owned(),
                 table: details_local_storage,
             },
         }
@@ -111,11 +111,11 @@ impl State {
             editing: Editing::None,
             editing_details: Editing::None,
             main: Content {
-                name: "main".to_owned(),
+                filename: "main.csv".to_owned(),
                 table: Table::mock(),
             },
             details: Content {
-                name: "details".to_owned(),
+                filename: "details.csv".to_owned(),
                 table: Table::mock_file_details(),   
             },
         }
