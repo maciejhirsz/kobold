@@ -133,9 +133,8 @@ impl State {
     pub fn update_main(&mut self, row: usize, col: usize, value: String) {
         let old_storage = self.main.table.source.get_text(&self.main.table.rows[row][col]);
         if value != old_storage {
-            debug!("updating details since different");
             self.main.table.rows[row][col] = Text::Owned(value.into());
-            self.editing_details = Editing::None;
+            self.editing_details = Editing::None; // also done in onkeydown
             self.store();
         }
     }
@@ -146,11 +145,8 @@ impl State {
         let old_storage = self.details.table.source.get_text(&self.details.table.rows[row][col]);
         debug!("update_details old storage: {:?}", old_storage);
         if value != old_storage {
-            debug!("updating details since different");
             self.details.table.rows[row][col] = Text::Owned(value.into());
-
-            // TODO - we're already doing this in main.rs onkeydown so maybe we don't need it here too
-            self.editing_details = Editing::None;
+            self.editing_details = Editing::None; // also done in onkeydown
 
             self.store();
         }
