@@ -31,7 +31,7 @@ fn App() -> impl View {
             };
 
             let inc_age = move |_| state.age += 1;
-            let adult = move |_| state.age = 0;
+            let adult = move |_| state.age = 18;
         }
 
         view! {

@@ -96,8 +96,8 @@ use std::pin::Pin;
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
-use crate::dom::{self, Anchor};
-use crate::internal::{In, Out};
+use crate::dom::Anchor;
+use crate::internal::{empty_node, In, Out};
 use crate::{Mountable, View};
 
 macro_rules! branch {
@@ -216,7 +216,7 @@ impl View for Empty {
     type Product = EmptyNode;
 
     fn build(self, p: In<EmptyNode>) -> Out<EmptyNode> {
-        p.put(EmptyNode(dom::empty_node()))
+        p.put(EmptyNode(empty_node()))
     }
 
     fn update(self, _: &mut EmptyNode) {}
@@ -241,7 +241,7 @@ impl<T: View> View for Option<T> {
 
                 p
             }
-            None => p.put(Branch2::B(MaybeUninit::new(EmptyNode(dom::empty_node())))),
+            None => p.put(Branch2::B(MaybeUninit::new(EmptyNode(empty_node())))),
         };
 
         unsafe { out.cast() }
