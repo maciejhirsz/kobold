@@ -131,7 +131,7 @@ where
     fn js(&mut self) -> JsValue {
         let vcall: fn(E, *mut ()) = |e, ptr| unsafe { (*(ptr as *mut F))(e) };
 
-        internal::make_event_handler((&mut self.closure) as *mut _ as *mut (), vcall as usize)
+        internal::make_event_handler((&mut self.closure) as *mut F as *mut (), vcall as usize)
     }
 }
 

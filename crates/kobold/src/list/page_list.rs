@@ -14,7 +14,7 @@ struct Node<T> {
     /// Number of initialized elements in `data`.
     len: usize,
 
-    /// All the elements of the `Node`
+    /// All the elements of the `Node`.
     data: [MaybeUninit<T>],
 }
 
