@@ -89,12 +89,14 @@ fn Editor() -> impl View {
                 signal.update(|state| state.store());
                 spawn_local(async move {
                     debug!("onsave_details: {:?}", &state.details);
-                    match csv::write_file(&state.details).await {
+
+                    match csv::generate_csv_data_obj_url_for_download(&state.details).await {
                         Ok(obj_url) => {
-                            // TODO - format the obj_url so it's in CSV format, so it may be uploaded again
-                            // in the right format too
                             debug!("obj_url {:?}", obj_url);
-                            signal.update(|state| state.details.obj_url = obj_url);
+
+                            signal.update(|state| {
+                                state.details.obj_url = obj_url;
+                            });
                         },
                         Err(err) => {
                             panic!("failed to write to file {:?}", state.details.filename);
@@ -139,22 +141,25 @@ fn Editor() -> impl View {
                         <h1>"Invoice"</h1>
                     </header>
                     <section .main>
-                        <div>
-                        {
-                            if false == true {
-                                Branch2::A(Play)
-                            } else {
-                                Branch2::B(Play)
-                            }
-                        }
-                        </div>
                         <div #input-file-select>
                             <h1>{ ref state.details.filename }</h1>
                             <input type="file" accept="text/csv" onchange={onload_details} />
                         </div>
                         <div>
-                            <button #button-file-save type="button" onclick={onsave_details}>"Save to file"</button><br />
-                            <a #link-file-download href={ref state.details.obj_url} download={ref state.details.filename}>"Download"</a>
+                            <button #button-file-save type="button" onclick={onsave_details}>"Generating CSV file download url"</button><br />
+                        </div>
+                        <div>
+                        {
+                            if state.details.obj_url.len() > 0 && state.details.obj_url != "placeholder_url" {
+                                Branch2::A(
+                                    view! {
+                                        <a #link-file-download href={ref state.details.obj_url} download={ref state.details.filename}>"Download CSV file to save changes"</a>
+                                    }
+                                )
+                            } else {
+                                Branch2::B(Empty)
+                            }
+                        }
                         </div>
                         // <EntryView {state} />
                         <table

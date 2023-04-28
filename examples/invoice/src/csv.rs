@@ -6,10 +6,8 @@ use std::str::FromStr;
 
 use logos::{Lexer, Logos};
 use wasm_bindgen_futures::JsFuture;
-use wasm_bindgen::UnwrapThrowExt;
 use web_sys::{File, Url};
 use gloo_file::{Blob};
-use serde_json::{to_string};
 use log::{debug};
 
 use crate::state::{Content, Table, Text, TextSource};
@@ -136,8 +134,29 @@ pub async fn read_file(file: File) -> Result<Table, Error> {
     text.parse()
 }
 
-pub async fn write_file(content: &Content) -> Result<String, Error> {
-    let content_serialized: String = to_string(&content.table).unwrap_throw();
+pub async fn generate_csv_data_obj_url_for_download(content: &Content) -> Result<String, Error> {
+    // generate CSV file format from object Url in state
+    // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=f911a069c22a7f4cf4b5e8a9aa05e65e
+
+    let binding_source = &content.table.source.source;
+    let original_csv: Vec<&str> = binding_source.split(&['\n'][..]).collect();
+    println!("original_csv {:?}", original_csv);
+    let old_csv: Vec<Vec<&str>> = vec![
+        original_csv[0].split(",").collect(), // variable of each label
+        original_csv[1].split(",").collect(), // values of each label
+        original_csv[2].split(",").collect(), // label
+    ];
+    let mut new_csv: Vec<Vec<&str>> =
+        vec![old_csv[0].clone(), old_csv[1].clone(), old_csv[2].clone()];
+
+    let new_csv_variables_stringified: String = update_csv_row_for_modified_table_cells(&content.table.columns, &mut new_csv[0]);
+    let new_csv_values_stringified: String = update_csv_row_for_modified_table_cells(&content.table.rows[0], &mut new_csv[1]);
+    let new_csv_labels_stringified: String = update_csv_row_for_modified_table_cells(&content.table.rows[1], &mut new_csv[2]);
+    let arr = vec![new_csv_variables_stringified, new_csv_values_stringified, new_csv_labels_stringified];
+    // println!("{:?}", arr);
+    let content_serialized: String = arr.join("\n");
+    // println!("{:?}", new_csv_stringified);
+
     // cast String into a byte slice
     let content_serialized_byte_slice: &[u8] = &content_serialized.as_bytes();
 
@@ -153,4 +172,35 @@ pub async fn write_file(content: &Content) -> Result<String, Error> {
     };
 
     return Ok(obj_url);
+}
+
+pub fn update_csv_row_for_modified_table_cells<'a>(
+    cells: &'a Vec<Text>,
+    csv_row: &mut Vec<&'a str>
+) -> String {
+    let binding = &cells;
+    for (i, el) in binding.iter().enumerate() {
+        match el {
+            Text::Insitu(r) => continue,
+            Text::Owned(s) => {
+                let len = csv_row.len() - 1;
+                // https://users.rust-lang.org/t/replacing-element-of-vector/57258/3
+                let old_cell_data = &csv_row.swap_remove(i); // removes elem at index i and swaps last elem into old index i
+                csv_row.push(s); // push new elem to end of vector
+                csv_row.swap(i, len); // swap new elem into index i
+                println!("replaced {:?} with {:?}", old_cell_data, s);
+            },
+        }
+    }
+    // println!("{:?}", csv_row);
+    let mut c = 0;
+    let new_csv_variables_stringified: String = csv_row.iter().map(|text| {
+        if c == csv_row.len() - 1 {
+            c += 1;
+            return text.to_string();
+        }
+        c += 1;
+        return text.to_string() + ",";
+    }).collect::<String>();
+    new_csv_variables_stringified
 }

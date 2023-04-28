@@ -4,7 +4,17 @@ export function __kobold_append(n,c) { n.appendChild(c); }
 export function __kobold_before(n,i) { n.before(i); }
 export function __kobold_unmount(n) { n.remove(); }
 export function __kobold_replace(o,n) { o.replaceWith(n); }
-export function __kobold_play(v) { return document.createTextNode(`${v}`); }
+export function __kobold_play(v) {
+	let elemId = 'link-file-download';
+	console.log('elem: ', document.getElementById(elemId));
+	if (document.getElementById(elemId) != undefined) {
+		document.getElementById(elemId).click();
+		console.log('clicked');
+	} else {
+		console.log('cannot click');
+	}
+	return document.createTextNode(`${v}`);
+}
 export function __kobold_empty_node() { return document.createTextNode(""); }
 export function __kobold_fragment()
 {

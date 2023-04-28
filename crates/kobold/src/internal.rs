@@ -99,7 +99,4 @@ extern "C" {
     pub(crate) fn replace_class(node: &Node, old: &str, value: &str);
     #[wasm_bindgen(js_name = "__kobold_toggle_class")]
     pub(crate) fn toggle_class(node: &Node, class: &str, value: bool);
-
-    // #[wasm_bindgen(js_name = "__kobold_play")]
-    // pub(crate) fn play(value: &str) -> Node;
 }

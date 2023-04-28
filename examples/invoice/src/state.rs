@@ -17,6 +17,11 @@ use std::ops::{Deref, DerefMut, Range};
 const KEY_MAIN: &str = "kobold.invoice.main";
 const KEY_DETAILS: &str = "kobold.invoice.details";
 
+#[derive(Deserialize, Debug)]
+pub enum Error {
+    StorageError,
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Editing {
     None,
@@ -87,6 +92,7 @@ impl Default for State {
         };
         let details_local_storage: Table = match LocalStorage::get(KEY_DETAILS) {
             Ok(local_storage) => local_storage,
+            // TODO - check that this actually converts to Table type
             Err(err) => Table::mock_file_details(),
         };
         debug!("loading local storage: {:?}\n\n{:?}", main_local_storage, details_local_storage);
@@ -133,6 +139,23 @@ impl State {
         LocalStorage::set(KEY_MAIN, &self.main.table).unwrap_throw();
         LocalStorage::set(KEY_DETAILS, &self.details.table).unwrap_throw();
     }
+
+    // // get specific storage of 'details' key
+    // pub fn get_store_details(&self) -> Result<Table, Error> {
+    //     debug!("get_store_details");
+
+    //     let details_local_storage: Table = match LocalStorage::get(KEY_DETAILS) {
+    //         Ok(local_storage) => {
+    //             debug!("local_storage {:?}", local_storage);
+    //             local_storage
+    //         },
+    //         Err(err) => {
+    //             debug!("err {:?}", err);
+    //             return Err(Error::StorageError);
+    //         },
+    //     };
+    //     Ok(details_local_storage)
+    // }
 
     // store in state edits by user to the 'main' table of the UI
     pub fn update_main(&mut self, row: usize, col: usize, value: String) {
