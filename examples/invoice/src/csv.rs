@@ -179,39 +179,41 @@ pub fn update_csv_row_for_modified_table_cells<'a>(
     cells: &'a Vec<Text>,
     csv_row: &mut Vec<&'a str>
 ) -> String {
-    let binding = &cells;
-    for (i, el) in binding.iter().enumerate() {
-        match el {
-            Text::Insitu(r) => continue,
-            Text::Owned(s) => {
-                let len = csv_row.len() - 1;
-                // https://users.rust-lang.org/t/replacing-element-of-vector/57258/3
-                // use `take` so we have a closure that must return a valid T otherwise the closure panics and program aborts
-                // incase it panics before we've finished the process of swapping for the new value
-                take(csv_row, |mut cr| {
-                    // Note: Do not need this lengthy approach. Possibly don't need `take_mut` either
-                    // let old_cell_data = &cr.swap_remove(i); // removes elem at index i and swaps last elem into old index i
-                    // cr.push(s); // push new elem to end of vector
-                    // cr.swap(i, len); // swap new elem into index i
-                    // debug!("replaced {:?} with {:?}", old_cell_data, s);
-
-                    // Note: This is a simpler approach to replacing the value
-                    core::mem::replace(&mut cr[i], s);
-                    cr // must return valid T or it panics
-                });
-                
-            },
-        }
-    }
+    let _ = &cells
+        .into_iter()
+        .enumerate()
+        .for_each(|(i, el)| {
+            match el {
+                Text::Insitu(r) => {},
+                Text::Owned(s) => {
+                    let len = csv_row.len() - 1;
+                    // https://users.rust-lang.org/t/replacing-element-of-vector/57258/3
+                    // use `take` so we have a closure that must return a valid T otherwise the closure panics and program aborts
+                    // incase it panics before we've finished the process of swapping for the new value
+                    take(csv_row, |mut cr| {
+                        // Note: Do not need this lengthy approach. Possibly don't need `take_mut` either
+                        // let old_cell_data = &cr.swap_remove(i); // removes elem at index i and swaps last elem into old index i
+                        // cr.push(s); // push new elem to end of vector
+                        // cr.swap(i, len); // swap new elem into index i
+                        // debug!("replaced {:?} with {:?}", old_cell_data, s);
+    
+                        // Note: This is a simpler approach to replacing the value
+                        core::mem::replace(&mut cr[i], s);
+                        cr // must return valid T or it panics
+                    });  
+                },
+            }
+        });
     // println!("{:?}", csv_row);
     let mut c = 0;
-    let new_csv_variables_stringified: String = csv_row.iter().map(|text| {
-        if c == csv_row.len() - 1 {
+    let new_csv_variables_stringified: String =
+        csv_row.iter().map(|text| {
+            if c == csv_row.len() - 1 {
+                c += 1;
+                return text.to_string();
+            }
             c += 1;
-            return text.to_string();
-        }
-        c += 1;
-        return text.to_string() + ",";
-    }).collect::<String>();
+            return text.to_string() + ",";
+        }).collect::<String>();
     new_csv_variables_stringified
 }
