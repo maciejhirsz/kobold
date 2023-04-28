@@ -8,6 +8,7 @@ use logos::{Lexer, Logos};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{File, Url};
 use gloo_file::{Blob};
+use take_mut::take;
 use log::{debug};
 
 use crate::state::{Content, Table, Text, TextSource};
@@ -140,7 +141,7 @@ pub async fn generate_csv_data_obj_url_for_download(content: &Content) -> Result
 
     let binding_source = &content.table.source.source;
     let original_csv: Vec<&str> = binding_source.split(&['\n'][..]).collect();
-    println!("original_csv {:?}", original_csv);
+    debug!("original_csv {:?}", original_csv);
     let old_csv: Vec<Vec<&str>> = vec![
         original_csv[0].split(",").collect(), // variable of each label
         original_csv[1].split(",").collect(), // values of each label
@@ -155,7 +156,7 @@ pub async fn generate_csv_data_obj_url_for_download(content: &Content) -> Result
     let arr = vec![new_csv_variables_stringified, new_csv_values_stringified, new_csv_labels_stringified];
     // println!("{:?}", arr);
     let content_serialized: String = arr.join("\n");
-    // println!("{:?}", new_csv_stringified);
+    debug!("content_serialized {:?}", content_serialized);
 
     // cast String into a byte slice
     let content_serialized_byte_slice: &[u8] = &content_serialized.as_bytes();
@@ -185,10 +186,20 @@ pub fn update_csv_row_for_modified_table_cells<'a>(
             Text::Owned(s) => {
                 let len = csv_row.len() - 1;
                 // https://users.rust-lang.org/t/replacing-element-of-vector/57258/3
-                let old_cell_data = &csv_row.swap_remove(i); // removes elem at index i and swaps last elem into old index i
-                csv_row.push(s); // push new elem to end of vector
-                csv_row.swap(i, len); // swap new elem into index i
-                println!("replaced {:?} with {:?}", old_cell_data, s);
+                // use `take` so we have a closure that must return a valid T otherwise the closure panics and program aborts
+                // incase it panics before we've finished the process of swapping for the new value
+                take(csv_row, |mut cr| {
+                    // Note: Do not need this lengthy approach. Possibly don't need `take_mut` either
+                    // let old_cell_data = &cr.swap_remove(i); // removes elem at index i and swaps last elem into old index i
+                    // cr.push(s); // push new elem to end of vector
+                    // cr.swap(i, len); // swap new elem into index i
+                    // debug!("replaced {:?} with {:?}", old_cell_data, s);
+
+                    // Note: This is a simpler approach to replacing the value
+                    core::mem::replace(&mut cr[i], s);
+                    cr // must return valid T or it panics
+                });
+                
             },
         }
     }
