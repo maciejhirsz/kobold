@@ -537,6 +537,9 @@ where
 pub fn start(view: impl View) {
     init_panic_hook();
 
+    #[cfg(debug_assertions)]
+    internal::check_event_handler();
+
     use std::mem::MaybeUninit;
     use std::pin::pin;
 

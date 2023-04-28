@@ -291,6 +291,9 @@ extern "C" {
 
     #[wasm_bindgen(js_name = "makeEventHandler")]
     pub(crate) fn make_event_handler(closure: *mut (), vcall: usize) -> JsValue;
+
+    #[wasm_bindgen(js_name = "checkEventHandler")]
+    pub(crate) fn check_event_handler();
 }
 
 #[cfg(test)]
