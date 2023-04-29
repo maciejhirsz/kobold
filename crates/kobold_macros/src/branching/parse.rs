@@ -6,7 +6,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use arrayvec::ArrayVec;
-use proc_macro::{Group, TokenStream, TokenTree};
+use tokens::{Group, TokenStream, TokenTree};
 
 use crate::parse::prelude::*;
 use crate::tokenize::TokenStreamExt;

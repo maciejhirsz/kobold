@@ -6,8 +6,14 @@
 //!
 //! # Kobold
 //!
-//! **Kobold** uses macros to deliver familiar JSX-esque syntax for building declarative web interfaces,
-//! while leveraging Rust's powerful type system for safety and performance.
+//! _Easy declarative web interfaces._
+//!
+//! Key features:
+//!
+//! * Declarative [`view!`](view) macro that uses HTML-esque syntax with optional closing tags.
+//! * Functional [components](component) with optional parameters.
+//! * State management and event handling.
+//! * High performance and consistently the lowest Wasm footprint in the Rust ecosystem.
 //!
 //! ### Zero-Cost Static HTML
 //!
@@ -63,7 +69,7 @@
 //! You can even use [rust-analyzer](https://rust-analyzer.github.io/) to refactor component or field names,
 //! and it will change the invocations inside the macros for you.
 //!
-//! ### Stateful
+//! ### State management
 //!
 //! The [`stateful`](stateful::stateful) function can be used to create views that own and manipulate
 //! their state:
@@ -109,6 +115,32 @@
 //!
 //! For more details visit the [`stateful` module documentation](stateful).
 //!
+//! ### Optional parameters
+//!
+//! Use `#[component(<param>?)]` syntax to set a component parameter as default:
+//!
+//! ```
+//! # use kobold::prelude::*;
+//! // `code` will default to `200` if omitted
+//! #[component(code?: 200)]
+//! fn Status(code: u32) -> impl View {
+//!     view! {
+//!         <p> "Status code was "{ code }
+//!     }
+//! }
+//!
+//! # let _ =
+//! view! {
+//!     // Status code was 200
+//!     <Status />
+//!     // Status code was 404
+//!     <Status code={404} />
+//! }
+//! # ;
+//! ```
+//!
+//! For more details visit the [`#[component]` macro documentation](component#optional-parameters-componentparam).
+//!
 //! ### Conditional Rendering
 //!
 //! Because the [`view!`](view) macro produces unique transient types, `if` and `match` expressions that invoke
@@ -123,9 +155,9 @@
 //! #[component(auto_branch)]
 //! fn Conditional(illuminatus: bool) -> impl View {
 //!     if illuminatus {
-//!         view! { <p>"It was the year when they finally immanentized the Eschaton."</p> }
+//!         view! { <p> "It was the year when they finally immanentized the Eschaton." }
 //!     } else {
-//!         view! { <blockquote>"It was love at first sight."</blockquote> }
+//!         view! { <blockquote> "It was love at first sight." }
 //!     }
 //! }
 //! ```
@@ -144,9 +176,8 @@
 //!     view! {
 //!         <ul>
 //!         {
-//!             for (1..=count).map(|n| view! { <li>"Item #"{n}</li> })
+//!             for (1..=count).map(|n| view! { <li> "Item #"{n} })
 //!         }
-//!         </ul>
 //!     }
 //! }
 //! ```
@@ -170,9 +201,8 @@
 //!     view! {
 //!         <ul>
 //!         {
-//!             for names.iter().map(|name| view! { <li>{ name }</li> })
+//!             for names.iter().map(|name| view! { <li> { name } })
 //!         }
-//!         </ul>
 //!     }
 //! }
 //! ```
@@ -262,14 +292,97 @@
 /// The `#[component]` attribute accepts a few optional flags using syntax: `#[component(<flag>)]`.
 /// Multiple comma-separated flags can be used at once.
 ///
-/// ### `#[component(auto_branch)]`
+/// ### Optional parameters: `#[component(<param>?)]`
+///
+/// Allows for parameters to have default values. Available syntax:
+///
+/// * `#[component(foo?)]`: mark the parameter `foo` as optional, use [`Default`](Default) trait implementation if absent.
+/// * `#[component(foo?: <expression>)]`: mark the parameter `foo` as optional, default to `<expression>`.
+///
+/// #### Examples
+/// ```
+/// # use kobold::prelude::*;
+/// #[component(
+///     // Make `name` an optional parameter, defaults to `"Kobold"`
+///     name?: "Kobold",
+///     // Make `age` an optional parameter, use the `Default` value
+///     age?,
+/// )]
+/// fn Greeter<'a>(name: &'a str, age: Option<u32>) -> impl View + 'a {
+///     let age = age.map(|age| view!(", you are "{ age }" years old"));
+///
+///     view! {
+///         <p> "Hello "{ name }{ age }
+///     }
+/// }
+///
+/// # let _ =
+/// view! {
+///     // Hello Kobold
+///     <Greeter />
+///     // Hello Alice
+///     <Greeter name="Alice" />
+///     // Hello Bob, you are 42 years old
+///     <Greeter name="Bob" age={42} />
+/// }
+/// # ;
+/// ```
+///
+/// Optional parameters of any type `T` can be set using any type that implements
+/// [`Maybe<T>`](crate::maybe::Maybe).
+///
+/// This allows you to set optional parameters using an [`Option`](Option):
+/// ```
+/// # use kobold::prelude::*;
+/// #[component(code?: 200)]
+/// fn StatusCode(code: u32) -> impl View {
+///     view! {
+///         <p> "Status code was "{ code }
+///     }
+/// }
+///
+/// # let _ =
+/// view! {
+///     // Status code was 200
+///     <StatusCode />
+///     // Status code was 404
+///     <StatusCode code={404} />
+///
+///     // Status code was 200
+///     <StatusCode code={None} />
+///     // Status code was 500
+///     <StatusCode code={Some(500)} />
+/// }
+/// # ;
+/// ```
+///
+/// All values are lazy-evaluated:
+///
+/// ```
+/// # use kobold::prelude::*;
+/// // The owned `String` will only be created if the `name` is not set.
+/// #[component(name?: "Kobold".to_string())]
+/// fn Greeter(name: String) -> impl View {
+///     view! {
+///         <p> "Hello "{ name }
+///     }
+/// }
+/// ```
+///
+/// #### 💡 Note:
+///
+/// You can only mark types that implement the [`Default`](Default) trait as optional, even if you provide
+/// a concrete value using `param?: value`. This requirement might be relaxed in the future when trait
+/// specialization is stabilized.
+///
+/// ### Enable auto-branching: `#[component(auto_branch)]`
 ///
 /// Automatically resolve all invocations of the [`view!`](view) macro inside `if` and `match` expressions
 /// to the same type.
 ///
 /// For more details visit the [`branching` module documentation](branching).
 ///
-/// ### `#[component(children)]`
+/// ### Accept children: `#[component(children)]`
 ///
 /// Turns the component into a component that accepts children. Available syntax:
 ///
@@ -282,6 +395,14 @@ pub use kobold_macros::view;
 
 use wasm_bindgen::JsCast;
 
+#[cfg(all(
+    target_arch = "wasm32",
+    feature = "rlsf",
+    not(target_feature = "atomics")
+))]
+#[global_allocator]
+static A: rlsf::SmallGlobalTlsf = rlsf::SmallGlobalTlsf::new();
+
 pub mod attribute;
 pub mod branching;
 pub mod diff;
@@ -290,11 +411,14 @@ pub mod event;
 pub mod internal;
 pub mod keywords;
 pub mod list;
+pub mod maybe;
 
 mod value;
 
 #[cfg(feature = "stateful")]
 pub mod stateful;
+
+use internal::{In, Out};
 
 /// The prelude module with most commonly used types.
 ///
@@ -326,7 +450,7 @@ pub trait View {
     type Product: Mountable;
 
     /// Build a product that can be mounted in the DOM from this type.
-    fn build(self) -> Self::Product;
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product>;
 
     /// Update the product and apply changes to the DOM if necessary.
     fn update(self, p: &mut Self::Product);
@@ -338,7 +462,7 @@ pub trait View {
         Self: Sized,
     {
         OnMount {
-            html: self,
+            view: self,
             handler,
         }
     }
@@ -351,26 +475,26 @@ pub trait View {
         Self: Sized,
     {
         OnRender {
-            html: self,
+            view: self,
             handler,
         }
     }
 }
 
-pub struct OnMount<H, F> {
-    html: H,
+pub struct OnMount<V, F> {
+    view: V,
     handler: F,
 }
 
-impl<H, F> View for OnMount<H, F>
+impl<V, F> View for OnMount<V, F>
 where
-    H: View,
-    F: FnOnce(&<H::Product as Mountable>::Js),
+    V: View,
+    F: FnOnce(&<V::Product as Mountable>::Js),
 {
-    type Product = H::Product;
+    type Product = V::Product;
 
-    fn build(self) -> Self::Product {
-        let prod = self.html.build();
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        let prod = self.view.build(p);
 
         (self.handler)(prod.js().unchecked_ref());
 
@@ -378,24 +502,24 @@ where
     }
 
     fn update(self, p: &mut Self::Product) {
-        self.html.update(p);
+        self.view.update(p);
     }
 }
 
-pub struct OnRender<H, F> {
-    html: H,
+pub struct OnRender<V, F> {
+    view: V,
     handler: F,
 }
 
-impl<H, F> View for OnRender<H, F>
+impl<V, F> View for OnRender<V, F>
 where
-    H: View,
-    F: FnOnce(&<H::Product as Mountable>::Js),
+    V: View,
+    F: FnOnce(&<V::Product as Mountable>::Js),
 {
-    type Product = H::Product;
+    type Product = V::Product;
 
-    fn build(self) -> Self::Product {
-        let prod = self.html.build();
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        let prod = self.view.build(p);
 
         (self.handler)(prod.js().unchecked_ref());
 
@@ -403,19 +527,24 @@ where
     }
 
     fn update(self, p: &mut Self::Product) {
-        self.html.update(p);
+        self.view.update(p);
 
         (self.handler)(p.js().unchecked_ref());
     }
 }
 
 /// Start the Kobold app by mounting given [`View`](View) in the document `body`.
-pub fn start(html: impl View) {
+pub fn start(view: impl View) {
     init_panic_hook();
 
-    use std::mem::ManuallyDrop;
+    #[cfg(debug_assertions)]
+    internal::check_event_handler();
 
-    let product = ManuallyDrop::new(html.build());
+    use std::mem::MaybeUninit;
+    use std::pin::pin;
+
+    let product = pin!(MaybeUninit::uninit());
+    let product = In::pinned(product, move |p| view.build(p));
 
     internal::append_body(product.js());
 }
@@ -456,7 +585,7 @@ macro_rules! class {
 ///     let increment = move |_| *count += 1;
 ///     let decrement = move |_| *count -= 1;
 /// }
-/// # fn throwaway(_: impl Fn(kobold::reexport::web_sys::Event)) {}
+/// # fn throwaway(_: impl kobold::event::Listener<kobold::reexport::web_sys::Event>) {}
 /// # throwaway(increment);
 /// # throwaway(decrement);
 /// # }
@@ -468,7 +597,7 @@ macro_rules! class {
 /// # fn test(count: &Hook<i32>) {
 /// let increment = count.bind(move |count, _| *count += 1);
 /// let decrement = count.bind(move |count, _| *count -= 1);
-/// # fn throwaway(_: impl Fn(kobold::reexport::web_sys::Event)) {}
+/// # fn throwaway(_: impl kobold::event::Listener<kobold::reexport::web_sys::Event>) {}
 /// # throwaway(increment);
 /// # throwaway(decrement);
 /// # }

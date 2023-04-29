@@ -56,10 +56,6 @@ where
     }
 }
 
-pub(crate) fn empty_node() -> Node {
-    internal::__kobold_empty_node()
-}
-
 /// Thin-wrapper around a [`DocumentFragment`](https://developer.mozilla.org/en-US/docs/Web/API/DocumentFragment) node.
 ///
 /// **Kobold** needs to "decorate" fragments for [`unmount`](Mountable::unmount)
@@ -71,7 +67,7 @@ pub struct Fragment(Node);
 
 impl From<Node> for Fragment {
     fn from(node: Node) -> Self {
-        internal::__kobold_fragment_decorate(&node);
+        internal::fragment_decorate(&node);
 
         Fragment(node)
     }
@@ -116,13 +112,13 @@ pub(crate) struct FragmentBuilder {
 
 impl FragmentBuilder {
     pub fn new() -> Self {
-        let fragment = Fragment(internal::__kobold_fragment());
-        let tail = internal::__kobold_fragment_decorate(&fragment.0);
+        let fragment = Fragment(internal::fragment());
+        let tail = internal::fragment_decorate(&fragment.0);
         FragmentBuilder { fragment, tail }
     }
 
     pub fn append(&self, child: &JsValue) {
-        internal::__kobold_before(&self.tail, child);
+        internal::append_before(&self.tail, child);
     }
 }
 
@@ -142,11 +138,11 @@ impl Mountable for Node {
     }
 
     fn unmount(&self) {
-        internal::__kobold_unmount(self)
+        internal::unmount(self)
     }
 
     fn replace_with(&self, new: &JsValue) {
-        internal::__kobold_replace(self, new)
+        internal::replace(self, new)
     }
 }
 
@@ -158,10 +154,10 @@ impl Mountable for Fragment {
     }
 
     fn unmount(&self) {
-        internal::__kobold_fragment_unmount(&self.0)
+        internal::fragment_unmount(&self.0)
     }
 
     fn replace_with(&self, new: &JsValue) {
-        internal::__kobold_fragment_replace(&self.0, new)
+        internal::fragment_replace(&self.0, new)
     }
 }

@@ -2,7 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use proc_macro::{Ident, TokenStream, TokenTree};
+use std::fmt::Write;
+
+use tokens::{Ident, TokenStream, TokenTree};
 
 use crate::parse::prelude::*;
 use crate::tokenize::prelude::*;
@@ -10,17 +12,27 @@ use crate::tokenize::prelude::*;
 use crate::branching::Scope;
 use crate::syntax::Generics;
 
+mod generic_finder;
+
+use generic_finder::GenericFinder;
+
 #[derive(Default)]
 pub struct ComponentArgs {
     branching: Option<Ident>,
     children: Option<Ident>,
+    defaults: Vec<(Ident, Value)>,
 }
 
-pub fn component(args: ComponentArgs, stream: TokenStream) -> Result<TokenStream, ParseError> {
+enum Value {
+    Default,
+    Expr(TokenStream),
+}
+
+pub fn component(mut args: ComponentArgs, stream: TokenStream) -> Result<TokenStream, ParseError> {
     let mut stream = stream.parse_stream();
 
     let sig: Function = stream.parse()?;
-    let mut component = FnComponent::new(&args, sig)?;
+    let mut component = FnComponent::new(&mut args, sig)?;
 
     if args.branching.is_some() {
         let scope: Scope = parse(component.render)?;
@@ -44,19 +56,24 @@ pub fn args(stream: TokenStream) -> Result<ComponentArgs, ParseError> {
     enum Token {
         Children,
         AutoBranch,
+        Default,
     }
 
     loop {
         let ident: Ident = stream.parse()?;
 
-        let token = ident.with_str(|s| match s {
-            "children" => Ok(Token::Children),
-            "auto_branch" => Ok(Token::AutoBranch),
-            _ => Err(ParseError::new(
-                "Unknown attribute, allowed: auto_branch, children",
-                ident.span(),
-            )),
-        })?;
+        let token = if stream.allow_consume('?').is_some() {
+            Token::Default
+        } else {
+            ident.with_str(|s| match s {
+                "children" => Ok(Token::Children),
+                "auto_branch" => Ok(Token::AutoBranch),
+                _ => Err(ParseError::new(
+                    "Unknown attribute, allowed: `auto_branch`, `children`, or `<parameter>?`",
+                    ident.span(),
+                )),
+            })?
+        };
 
         match token {
             Token::AutoBranch => args.branching = Some(ident),
@@ -66,6 +83,25 @@ pub fn args(stream: TokenStream) -> Result<ComponentArgs, ParseError> {
                 if stream.allow_consume(':').is_some() {
                     args.children = Some(stream.parse()?);
                 }
+            }
+            Token::Default => {
+                let value = if stream.allow_consume(':').is_some() {
+                    let mut value = TokenStream::new();
+
+                    while let Some(tt) = stream.peek() {
+                        if tt.is(',') {
+                            break;
+                        }
+
+                        value.extend(stream.next());
+                    }
+
+                    Value::Expr(value)
+                } else {
+                    Value::Default
+                };
+
+                args.defaults.push((ident, value));
             }
         }
 
@@ -105,7 +141,7 @@ struct FnComponent {
 }
 
 impl FnComponent {
-    fn new(args: &ComponentArgs, mut fun: Function) -> Result<FnComponent, ParseError> {
+    fn new(args: &mut ComponentArgs, mut fun: Function) -> Result<FnComponent, ParseError> {
         let children = match &args.children {
             Some(children) => {
                 let ident = children.to_string();
@@ -126,6 +162,26 @@ impl FnComponent {
             }
             None => None,
         };
+
+        let mut temp_var = String::with_capacity(40);
+
+        'outer: for (var, value) in args.defaults.drain(..) {
+            temp_var.clear();
+
+            let _ = write!(temp_var, "{var}");
+
+            for arg in fun.arguments.iter_mut() {
+                if arg.name.eq_str(&temp_var) {
+                    arg.default = Some(value);
+                    continue 'outer;
+                }
+            }
+
+            return Err(ParseError::new(
+                format!("Parameter `{var}` missing in the component `{}`", fun.name),
+                var.span(),
+            ));
+        }
 
         let render = match fun.body {
             TokenTree::Group(group) => group.stream(),
@@ -150,6 +206,7 @@ impl FnComponent {
 struct Argument {
     name: Ident,
     ty: TokenStream,
+    default: Option<Value>,
 }
 
 impl Parse for Function {
@@ -216,13 +273,22 @@ impl Parse for Argument {
 
         let ty = stream.take_while(|token| !token.is(',')).collect();
 
-        Ok(Argument { name, ty })
+        Ok(Argument {
+            name,
+            ty,
+            default: None,
+        })
     }
 }
 
 impl Tokenize for FnComponent {
     fn tokenize_in(self, out: &mut TokenStream) {
         let name = &self.name;
+
+        let mut finder: Option<GenericFinder> = match &self.generics {
+            None => None,
+            Some(generics) => generics.tokens.clone().parse_stream().parse().ok(),
+        };
 
         let mut args = if self.arguments.is_empty() {
             ("_:", name).tokenize()
@@ -241,9 +307,9 @@ impl Tokenize for FnComponent {
         let fn_render = match self.children {
             Some(children) => {
                 args.write((',', children));
-                "pub fn render_with"
+                "#[doc(hidden)] pub fn __render_with"
             }
-            None => "pub fn render",
+            None => "#[doc(hidden)] pub fn __render",
         };
 
         out.write((
@@ -264,21 +330,54 @@ impl Tokenize for FnComponent {
             ));
         };
 
-        out.write(("impl", name));
-
-        out.write(block((
+        let fn_render = (
             fn_render,
             self.generics,
             group('(', args),
             self.ret,
-            block(self.render),
-        )));
+            block((
+                each(self.arguments.iter().map(Argument::maybe)),
+                self.render,
+            )),
+        );
+
+        let fn_props = (
+            "#[doc(hidden)] pub const fn __undefined() -> Self",
+            block((
+                "Self",
+                block(each(self.arguments.iter().map(Argument::default)).tokenize()),
+            )),
+        );
+
+        out.write(("impl", name, block((fn_props, fn_render))));
+
+        let field_generics = ('<', each(self.arguments.iter().map(Argument::name)), '>').tokenize();
+
+        out.write((
+            "#[allow(non_camel_case_types)] impl",
+            field_generics.clone(),
+            name,
+            field_generics,
+            block(each(self.arguments.iter().enumerate().map(|(i, a)| {
+                a.setter(name, finder.as_mut(), i, &self.arguments)
+            }))),
+        ));
     }
 }
 
 impl Argument {
     fn ty(&self) -> impl Tokenize + '_ {
-        (&self.ty, ',')
+        tok_fn(|stream| {
+            if self.default.is_some() {
+                stream.write("impl ::kobold::maybe::Maybe<");
+                stream.write(&self.ty);
+                stream.write('>');
+            } else {
+                stream.write(&self.ty);
+            }
+
+            stream.write(',');
+        })
     }
 
     fn name(&self) -> impl Tokenize + '_ {
@@ -286,11 +385,86 @@ impl Argument {
     }
 
     fn generic(&self) -> impl Tokenize + '_ {
-        (&self.name, "=(),")
+        (&self.name, "= ::kobold::maybe::Undefined,")
+    }
+
+    fn setter<'a>(
+        &'a self,
+        comp: &'a Ident,
+        finder: Option<&mut GenericFinder>,
+        pos: usize,
+        args: &'a [Argument],
+    ) -> impl Tokenize + 'a {
+        let mut ret_generics = TokenStream::new();
+        let mut body = TokenStream::new();
+
+        let maybe_generic = self.default.is_some().then_some("Maybe");
+
+        let where_clause = tok_fn(|stream| {
+            if self.default.is_some() {
+                stream.write("where Maybe: ::kobold::maybe::Maybe<");
+                stream.write(&self.ty);
+                stream.write('>');
+            }
+        });
+
+        let maybe_ty = tok_fn(|stream| match self.default {
+            Some(_) => stream.write("Maybe"),
+            None => stream.write(&self.ty),
+        });
+
+        for (i, arg) in args.iter().enumerate() {
+            if i == pos {
+                body.write((&self.name, ":value,"));
+                if self.default.is_some() {
+                    ret_generics.write("Maybe,");
+                } else {
+                    ret_generics.write((&self.ty, ','));
+                }
+            } else {
+                body.write((&arg.name, ":self.", &arg.name, ','));
+                ret_generics.write((&arg.name, ','));
+            }
+        }
+
+        let ret_type = ("->", comp, '<', ret_generics, '>', where_clause);
+
+        (
+            "#[inline(always)] pub fn ",
+            call(
+                (
+                    &self.name,
+                    '<',
+                    finder.map(|finder| each(finder.in_type(&self.ty))),
+                    maybe_generic,
+                    '>',
+                ),
+                ("self, value:", maybe_ty),
+            ),
+            ret_type,
+            block((comp, block(body))),
+        )
+    }
+
+    fn maybe(&self) -> impl Tokenize + '_ {
+        tok_fn(|stream| {
+            if let Some(value) = &self.default {
+                stream.write(("let", &self.name, "=", &self.name));
+
+                match value {
+                    Value::Default => stream.write(".maybe_or(Default::default);"),
+                    Value::Expr(expr) => stream.write((call(".maybe_or", ("||", expr)), ';')),
+                }
+            }
+        })
+    }
+
+    fn default(&self) -> impl Tokenize + '_ {
+        (&self.name, ": ::kobold::maybe::Undefined,")
     }
 
     fn field(&self) -> impl Tokenize + '_ {
-        ("pub", &self.name, ':', &self.name, ',')
+        (&self.name, ':', &self.name, ',')
     }
 }
 

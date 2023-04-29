@@ -2,17 +2,19 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use proc_macro::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
+use tokens::{Delimiter, Ident, Literal, Span, TokenStream, TokenTree};
 
 use crate::parse::prelude::*;
 use crate::syntax::CssLabel;
 use crate::tokenize::prelude::*;
 
+mod els;
 mod expression;
 mod shallow;
 
+pub use els::ElementTag;
 pub use expression::Expression;
-pub use shallow::{ShallowNode, ShallowNodeIter, ShallowStream, TagName, TagNesting};
+pub use shallow::{IsClosing, ShallowNode, ShallowNodeIter, ShallowStream, TagName, TagNesting};
 
 pub fn parse(tokens: TokenStream) -> Result<Vec<Node>, ParseError> {
     let mut stream = tokens.parse_stream().into_shallow_stream();
@@ -45,13 +47,12 @@ pub struct Component {
     pub path: TokenStream,
     pub generics: Option<TokenStream>,
     pub props: Vec<Property>,
-    pub spread: Option<Expression>,
     pub children: Option<Vec<Node>>,
 }
 
 #[derive(Debug)]
 pub struct HtmlElement {
-    pub name: String,
+    pub name: ElementTag,
     pub span: Span,
     pub classes: Vec<CssValue>,
     pub attributes: Vec<Attribute>,
@@ -72,7 +73,7 @@ pub enum CssValue {
 
 #[derive(Debug)]
 pub struct Attribute {
-    pub name: Ident,
+    pub name: CssLabel,
     pub value: AttributeValue,
 }
 
@@ -124,28 +125,9 @@ impl Node {
                 generics,
             } => {
                 let mut content = tag.content.parse_stream();
-                let mut spread = None;
                 let mut props = Vec::new();
 
                 while !content.end() {
-                    if content.allow_consume(('.', Spacing::Joint)).is_some() {
-                        content.expect('.')?;
-
-                        if let Some(TokenTree::Group(expr)) = content.allow_consume('{') {
-                            spread = Some(Expression::from(expr));
-                        } else {
-                            let expr = Expression::from("Default::default()");
-
-                            spread = Some(expr);
-                        }
-
-                        if let Some(tt) = content.next() {
-                            return Err(ParseError::new("Not allowed after the .. spread", tt));
-                        }
-
-                        break;
-                    }
-
                     props.push(content.parse()?);
                 }
 
@@ -155,7 +137,6 @@ impl Node {
                     path,
                     generics,
                     props,
-                    spread,
                     children,
                 })))
             }
@@ -168,7 +149,10 @@ impl Node {
                     if content.allow_consume('.').is_some() {
                         classes.push(content.parse()?);
                     } else if let Some(hash) = content.allow_consume('#') {
-                        let name = Ident::new("id", hash.span());
+                        let name = CssLabel {
+                            label: "id".into(),
+                            ident: Ident::new("id", hash.span()),
+                        };
                         let value: CssValue = content.parse()?;
 
                         attributes.push(Attribute {
@@ -183,7 +167,7 @@ impl Node {
                 while !content.end() {
                     let attr: Attribute = content.parse()?;
 
-                    if attr.name.eq_str("class") {
+                    if attr.name.label == "class" {
                         classes.push(CssValue::try_from(attr.value)?);
                     } else {
                         attributes.push(attr);
@@ -209,20 +193,21 @@ impl Node {
 
         loop {
             if let Some(Ok(ShallowNode::Tag(tag))) = stream.peek() {
-                if tag.is_closing(name) {
-                    stream.next();
-                    break;
+                match tag.is_closing(name) {
+                    IsClosing::Explicit => {
+                        stream.next();
+                        break;
+                    }
+                    IsClosing::Implicit => {
+                        break;
+                    }
+                    IsClosing::No => (),
                 }
             }
 
             match Node::parse(stream)? {
                 Some(node) => children.push(node),
-                None => {
-                    return Err(ParseError::new(
-                        format!("Missing closing tag for {name}"),
-                        name.span(),
-                    ))
-                }
+                None => break,
             }
         }
 
@@ -380,7 +365,7 @@ impl Parse for Attribute {
             }),
             _ => Err(ParseError::new(
                 "Element attributes must contain {expressions} or literals",
-                name.span(),
+                name.ident.span(),
             )),
         }
     }

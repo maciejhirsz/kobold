@@ -4,9 +4,9 @@
 
 //! `Parse` logic for different syntax elements
 
-use std::fmt::Write;
+use std::fmt::{self, Display, Write};
 
-use proc_macro::{Ident, Literal, Span, TokenStream};
+use tokens::{Ident, Literal, TokenStream};
 
 use crate::parse::prelude::*;
 use crate::tokenize::prelude::*;
@@ -58,9 +58,18 @@ impl Tokenize for Generics {
 }
 
 /// CSS-style label, matches sequences of identifiers with dashes allowed.
+#[derive(Debug)]
 pub struct CssLabel {
+    /// Complete label with dashes
     pub label: String,
-    pub span: Span,
+    /// Last ident in label
+    pub ident: Ident,
+}
+
+impl Display for CssLabel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.label)
+    }
 }
 
 impl Parse for CssLabel {
@@ -68,7 +77,7 @@ impl Parse for CssLabel {
         let mut ident: Ident = stream.parse()?;
         let mut label = String::new();
 
-        let span = ident.span();
+        // let span = ident.span();
 
         write!(&mut label, "{ident}").unwrap();
 
@@ -78,7 +87,7 @@ impl Parse for CssLabel {
             write!(&mut label, "-{ident}").unwrap();
         }
 
-        Ok(CssLabel { label, span })
+        Ok(CssLabel { label, ident })
     }
 }
 
@@ -87,7 +96,7 @@ impl CssLabel {
         let mut lit = string(&self.label);
 
         // Keep resolution to literal, but change location
-        lit.set_span(lit.span().located_at(self.span));
+        lit.set_span(lit.span().located_at(self.ident.span()));
         lit
     }
 }

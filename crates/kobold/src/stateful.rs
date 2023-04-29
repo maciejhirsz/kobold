@@ -11,96 +11,34 @@
 //! could ever do is render itself once. To get around this the [`stateful`](stateful) function can
 //! be used to create views that have ownership over some arbitrary mutable state.
 //!
-use std::cell::{Cell, UnsafeCell};
-use std::marker::PhantomData;
-use std::mem::ManuallyDrop;
-use std::rc::{Rc, Weak};
+use std::cell::UnsafeCell;
+use std::mem::MaybeUninit;
+use std::rc::Rc;
 
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
-use crate::diff::Diff;
-use crate::{Mountable, View};
+use crate::dom::Anchor;
+use crate::internal::{In, Out};
+use crate::{init, Mountable, View};
 
+mod cell;
 mod hook;
+mod into_state;
+mod product;
 mod should_render;
 
+use cell::WithCell;
+use product::{Product, ProductHandler};
+
 pub use hook::{Hook, Signal};
+pub use into_state::IntoState;
 pub use should_render::{ShouldRender, Then};
 
-pub struct Inner<S> {
-    hook: Hook<S>,
-    prod: Box<dyn Product<S>>,
-}
-
-trait Product<S> {
-    fn update(&mut self, hook: &Hook<S>);
-
-    fn js(&self) -> &JsValue;
-
-    fn unmount(&self);
-
-    fn replace_with(&self, new: &JsValue);
-}
-
-struct ProductHandler<S, P, F> {
-    updater: F,
-    product: P,
-    _state: PhantomData<S>,
-}
-
-impl<S, P, F> Product<S> for ProductHandler<S, P, F>
-where
-    S: 'static,
-    P: Mountable,
-    F: FnMut(*const Hook<S>, *mut P),
-{
-    fn update(&mut self, hook: &Hook<S>) {
-        (self.updater)(hook, &mut self.product);
-    }
-
-    fn js(&self) -> &JsValue {
-        self.product.js()
-    }
-
-    fn unmount(&self) {
-        self.product.unmount()
-    }
-
-    fn replace_with(&self, new: &JsValue) {
-        self.product.replace_with(new)
-    }
-}
-
-impl<S> Inner<S> {
-    fn update(&mut self) {
-        self.prod.update(&self.hook)
-    }
-}
-
-/// Trait used to create stateful components, see [`stateful`](crate::stateful::stateful) for details.
-pub trait IntoState: Sized {
-    type State: 'static;
-
-    fn init(self) -> Self::State;
-
-    fn update(self, state: &mut Self::State) -> Then;
-}
-
-impl<F, S> IntoState for F
-where
-    S: 'static,
-    F: FnOnce() -> S,
-{
-    type State = S;
-
-    fn init(self) -> Self::State {
-        (self)()
-    }
-
-    fn update(self, _: &mut Self::State) -> Then {
-        Then::Stop
-    }
+#[repr(C)]
+struct Inner<S, P: ?Sized = dyn Product<S>> {
+    state: WithCell<S>,
+    prod: UnsafeCell<P>,
 }
 
 pub struct Stateful<S, F> {
@@ -109,7 +47,7 @@ pub struct Stateful<S, F> {
 }
 
 pub struct StatefulProduct<S> {
-    inner: Rc<WithCell<Inner<S>>>,
+    inner: Rc<Inner<S>>,
 }
 
 /// Create a stateful [`View`](crate::View) over some mutable state. The state
@@ -126,14 +64,14 @@ pub struct StatefulProduct<S> {
 /// // ...or a function with no parameters
 /// let vec_view = stateful(Vec::new, |counts: &Hook<Vec<i32>>| { "TODO" });
 /// ```
-pub fn stateful<'a, S, F, H>(
+pub fn stateful<'a, S, F, V>(
     state: S,
     render: F,
-) -> Stateful<S, impl Fn(*const Hook<S::State>) -> H + 'static>
+) -> Stateful<S, impl Fn(*const Hook<S::State>) -> V + 'static>
 where
     S: IntoState,
-    F: Fn(&'a Hook<S::State>) -> H + 'static,
-    H: View + 'a,
+    F: Fn(&'a Hook<S::State>) -> V + 'static,
+    V: View + 'a,
 {
     // There is no safe way to represent a generic closure with generic return type
     // that borrows from that closure's arguments, without also slapping a lifetime.
@@ -144,20 +82,30 @@ where
     Stateful { state, render }
 }
 
-#[repr(transparent)]
-struct WeakRef<T>(*const T);
+impl<S, P> Inner<S, MaybeUninit<P>> {
+    unsafe fn as_init(&self) -> &Inner<S, P> {
+        &*(self as *const _ as *const Inner<S, P>)
+    }
 
-impl<T> Clone for WeakRef<T> {
-    fn clone(&self) -> WeakRef<T> {
-        WeakRef(self.0)
+    unsafe fn into_init(self: Rc<Self>) -> Rc<Inner<S, P>> {
+        std::mem::transmute(self)
     }
 }
 
-impl<T> Copy for WeakRef<T> {}
-
-impl<T> WeakRef<T> {
-    pub fn weak(self) -> ManuallyDrop<Weak<T>> {
-        ManuallyDrop::new(unsafe { Weak::from_raw(self.0) })
+impl<S> Inner<S> {
+    fn update(&self) {
+        // ⚠️ Safety:
+        // ==========
+        //
+        // `prod` is an implementation detail and it's never mut borrowed
+        // unless `state` is borrowed first, which is guarded by `WithCell`
+        // or otherwise guaranteed to be safe.
+        //
+        // Ideally whole `Inner` would be wrapped in `WithCell`, but we
+        // can't do that until `CoerceUnsized` is stabilized.
+        //
+        // <https://github.com/rust-lang/rust/issues/18598>
+        unsafe { (*self.prod.get()).update(Hook::new(self)) }
     }
 }
 
@@ -169,36 +117,50 @@ where
 {
     type Product = StatefulProduct<S::State>;
 
-    fn build(self) -> Self::Product {
-        let inner = Rc::new_cyclic(move |weak| {
-            let hook = Hook {
-                state: self.state.init(),
-                inner: WeakRef(weak.as_ptr()),
-            };
-
-            let product = (self.render)(&hook).build();
-
-            WithCell::new(Inner {
-                hook,
-                prod: Box::new(ProductHandler {
-                    updater: move |hook, product: *mut V::Product| {
-                        (self.render)(hook).update(unsafe { &mut *product })
-                    },
-                    product,
-                    _state: PhantomData,
-                }),
-            })
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        let inner = Rc::new(Inner {
+            state: WithCell::new(self.state.init()),
+            prod: UnsafeCell::new(MaybeUninit::uninit()),
         });
 
-        StatefulProduct { inner }
+        // ⚠️ Safety:
+        // ==========
+        //
+        // Initial render can only access the `state` from the hook, the `prod` is
+        // not touched until an event is fired, which happens after this method
+        // completes and initializes the `prod`.
+        let view = (self.render)(Hook::new(unsafe { inner.as_init() }));
+
+        // ⚠️ Safety:
+        // ==========
+        //
+        // This looks scary, but it just initializes the `prod`. We need to use the
+        // closure syntax with a raw pointer to get around lifetime restrictions.
+        unsafe {
+            In::raw((*inner.prod.get()).as_mut_ptr(), |prod| {
+                ProductHandler::build(
+                    move |hook, product: *mut V::Product| (self.render)(hook).update(&mut *product),
+                    view,
+                    prod,
+                )
+            });
+        }
+
+        // ⚠️ Safety:
+        // ==========
+        //
+        // At this point `Inner` is fully initialized.
+        p.put(StatefulProduct {
+            inner: unsafe { inner.into_init() },
+        })
     }
 
     fn update(self, p: &mut Self::Product) {
-        p.inner.with(|inner| {
-            if self.state.update(&mut inner.hook.state).should_render() {
-                inner.update();
+        p.inner.state.with(|state| {
+            if self.state.update(state).should_render() {
+                p.inner.update();
             }
-        });
+        })
     }
 }
 
@@ -209,15 +171,15 @@ where
     type Js = Node;
 
     fn js(&self) -> &JsValue {
-        unsafe { self.inner.borrow_unchecked().prod.js() }
+        unsafe { (*self.inner.prod.get()).js() }
     }
 
     fn unmount(&self) {
-        unsafe { self.inner.borrow_unchecked().prod.unmount() }
+        unsafe { (*self.inner.prod.get()).unmount() }
     }
 
     fn replace_with(&self, new: &JsValue) {
-        unsafe { self.inner.borrow_unchecked().prod.replace_with(new) }
+        unsafe { (*self.inner.prod.get()).replace_with(new) }
     }
 }
 
@@ -225,9 +187,9 @@ impl<S, R> Stateful<S, R>
 where
     S: IntoState,
 {
-    pub fn once<F>(self, handler: F) -> Once<S, R, F>
+    pub fn once<F, P>(self, handler: F) -> Once<S, R, F>
     where
-        F: FnOnce(Signal<S::State>),
+        F: FnOnce(Signal<S::State>) -> P,
     {
         Once {
             with_state: self,
@@ -241,83 +203,48 @@ pub struct Once<S, R, F> {
     handler: F,
 }
 
-impl<S, R, F> View for Once<S, R, F>
+pub struct OnceProduct<S, P> {
+    product: StatefulProduct<S>,
+    // hold onto the return value of the `handler`, so it can
+    // be safely dropped along with the `StatefulProduct`
+    _no_drop: P,
+}
+
+impl<S, P> Anchor for OnceProduct<S, P>
+where
+    StatefulProduct<S>: Mountable,
+{
+    type Js = <StatefulProduct<S> as Mountable>::Js;
+    type Target = StatefulProduct<S>;
+
+    fn anchor(&self) -> &Self::Target {
+        &self.product
+    }
+}
+
+impl<S, R, F, P> View for Once<S, R, F>
 where
     S: IntoState,
-    F: FnOnce(Signal<S::State>),
+    F: FnOnce(Signal<S::State>) -> P,
+    P: 'static,
     Stateful<S, R>: View<Product = StatefulProduct<S::State>>,
 {
-    type Product = StatefulProduct<S::State>;
+    type Product = OnceProduct<S::State, P>;
 
-    fn build(self) -> Self::Product {
-        let product = self.with_state.build();
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        p.in_place(|p| unsafe {
+            let product = init!(p.product @ self.with_state.build(p));
+            let signal = Signal {
+                weak: Rc::downgrade(&product.inner),
+            };
 
-        product.inner.with(move |inner| {
-            let signal = inner.hook.signal();
+            init!(p._no_drop = (self.handler)(signal));
 
-            (self.handler)(signal);
-        });
-
-        product
+            Out::from_raw(p)
+        })
     }
 
     fn update(self, p: &mut Self::Product) {
-        self.with_state.update(p);
+        self.with_state.update(&mut p.product);
     }
 }
-
-struct WithCell<T> {
-    borrowed: Cell<bool>,
-    data: UnsafeCell<T>,
-}
-
-impl<T> WithCell<T> {
-    pub const fn new(data: T) -> Self {
-        WithCell {
-            borrowed: Cell::new(false),
-            data: UnsafeCell::new(data),
-        }
-    }
-
-    pub fn with<F>(&self, mutator: F)
-    where
-        F: FnOnce(&mut T),
-    {
-        if self.borrowed.get() {
-            return;
-        }
-
-        self.borrowed.set(true);
-        mutator(unsafe { &mut *self.data.get() });
-        self.borrowed.set(false);
-    }
-
-    pub unsafe fn borrow_unchecked(&self) -> &T {
-        &*self.data.get()
-    }
-}
-
-macro_rules! impl_into_state {
-    ($($ty:ty),*) => {
-        $(
-            impl IntoState for $ty {
-                type State = <Self as Diff>::Memo;
-
-                fn init(self) -> Self::State {
-                    self.into_memo()
-                }
-
-                fn update(self, state: &mut Self::State) -> Then {
-                    match self.diff(state) {
-                        false => Then::Stop,
-                        true => Then::Render,
-                    }
-                }
-            }
-        )*
-    };
-}
-
-impl_into_state!(
-    &str, &String, bool, u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64
-);

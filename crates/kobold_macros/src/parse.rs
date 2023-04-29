@@ -6,7 +6,7 @@
 //! token streams without `syn` or `quote`.
 
 use beef::Cow;
-use proc_macro::{Delimiter, Group, Ident, Spacing, Span, TokenStream, TokenTree};
+use tokens::{Delimiter, Group, Ident, Spacing, Span, TokenStream, TokenTree};
 
 use crate::dom::{ShallowNodeIter, ShallowStream};
 use crate::tokenize::prelude::*;
@@ -21,7 +21,7 @@ pub fn parse<T: Parse>(stream: TokenStream) -> Result<T, ParseError> {
     Ok(out)
 }
 
-pub type ParseStream = std::iter::Peekable<proc_macro::token_stream::IntoIter>;
+pub type ParseStream = std::iter::Peekable<tokens::token_stream::IntoIter>;
 
 pub mod prelude {
     pub use super::{parse, IdentExt, IteratorExt, TokenTreeExt};
@@ -340,7 +340,7 @@ mod util {
         }
     }
 
-    impl IdentExt for proc_macro::Ident {}
+    impl IdentExt for tokens::Ident {}
 }
 
 pub use util::IdentExt;

@@ -2,24 +2,32 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use std::future::Future;
+use std::marker::PhantomData;
+use std::mem::ManuallyDrop;
 use std::ops::Deref;
-use std::rc::Weak;
+use std::rc::{Rc, Weak};
 
-use crate::stateful::{Inner, ShouldRender, WeakRef, WithCell};
+use wasm_bindgen_futures::spawn_local;
+
+use crate::event::{EventCast, Listener};
+use crate::internal::{In, Out};
+use crate::stateful::{Inner, ShouldRender};
 use crate::View;
 
 /// A hook into some state `S`. A reference to `Hook` is obtained by using the [`stateful`](crate::stateful::stateful)
 /// function.
 ///
-/// Hook can be read from through its `Deref` implementation, and it allows for mutations either by [`bind`ing](Hook::bind)
-/// closures to it, or the creation of [`signal`s](Hook::signal).
+/// Hook can be read from through its `Deref` implementation, and it allows for mutations by [`bind`ing](Hook::bind)
+/// closures to it.
+#[repr(transparent)]
 pub struct Hook<S> {
-    pub(super) state: S,
-    pub(super) inner: WeakRef<WithCell<Inner<S>>>,
+    inner: Inner<S>,
 }
 
+#[repr(transparent)]
 pub struct Signal<S> {
-    pub(super) weak: Weak<WithCell<Inner<S>>>,
+    pub(super) weak: Weak<Inner<S>>,
 }
 
 impl<S> Signal<S> {
@@ -48,8 +56,8 @@ impl<S> Signal<S> {
         O: ShouldRender,
     {
         if let Some(inner) = self.weak.upgrade() {
-            inner.with(move |inner| {
-                if mutator(&mut inner.hook.state).should_render() {
+            inner.state.with(|state| {
+                if mutator(state).should_render() {
                     inner.update()
                 }
             });
@@ -62,7 +70,7 @@ impl<S> Signal<S> {
         F: FnOnce(&mut S),
     {
         if let Some(inner) = self.weak.upgrade() {
-            inner.with(move |inner| mutator(&mut inner.hook.state));
+            inner.state.with(move |state| mutator(state));
         }
     }
 
@@ -81,34 +89,68 @@ impl<S> Clone for Signal<S> {
 }
 
 impl<S> Hook<S> {
-    /// Create an owned `Signal` to the state. This is effectively a weak reference
-    /// that allows for remote updates, particularly useful in async code.
-    pub fn signal(&self) -> Signal<S> {
-        let weak = self.inner.weak();
-
-        Signal {
-            weak: (*weak).clone(),
-        }
+    pub(super) fn new(inner: &Inner<S>) -> &Self {
+        unsafe { &*(inner as *const _ as *const Hook<S>) }
     }
 
     /// Binds a closure to a mutable reference of the state. While this method is public
     /// it's recommended to use the [`bind!`](crate::bind) macro instead.
-    pub fn bind<E, F, O>(&self, callback: F) -> impl Fn(E) + 'static
+    pub fn bind<E, F, O>(&self, callback: F) -> impl Listener<E>
     where
         S: 'static,
+        E: EventCast,
         F: Fn(&mut S, E) -> O + 'static,
         O: ShouldRender,
     {
-        let inner = self.inner;
+        let inner = &self.inner as *const Inner<S>;
+
+        let bound = move |e| {
+            // ⚠️ Safety:
+            // ==========
+            //
+            // This is fired only as event listener from the DOM, which guarantees that
+            // state is not currently borrowed, as events cannot interrupt normal
+            // control flow, and `Signal`s cannot borrow state across .await points.
+            let inner = unsafe { &*inner };
+            let state = unsafe { inner.state.mut_unchecked() };
+
+            if callback(state, e).should_render() {
+                inner.update();
+            }
+        };
+
+        Bound {
+            bound,
+            _unbound: PhantomData::<F>,
+        }
+    }
+
+    pub fn bind_async<E, F, T>(&self, callback: F) -> impl Listener<E>
+    where
+        S: 'static,
+        E: EventCast,
+        F: Fn(Signal<S>, E) -> T + 'static,
+        T: Future<Output = ()> + 'static,
+    {
+        let inner = &self.inner as *const Inner<S>;
 
         move |e| {
-            if let Some(inner) = inner.weak().upgrade() {
-                inner.with(|inner| {
-                    if callback(&mut inner.hook.state, e).should_render() {
-                        inner.update()
-                    }
-                });
-            }
+            // ⚠️ Safety:
+            // ==========
+            //
+            // This is fired only as event listener from the DOM, which guarantees that
+            // state is not currently borrowed, as events cannot interrupt normal
+            // control flow, and `Signal`s cannot borrow state across .await points.
+            //
+            // This temporary `Rc` will not mess with the `strong_count` value, we only
+            // need it to construct a `Weak` reference to `Inner`.
+            let rc = ManuallyDrop::new(unsafe { Rc::from_raw(inner) });
+
+            let signal = Signal {
+                weak: Rc::downgrade(&*rc),
+            };
+
+            spawn_local(callback(signal, e));
         }
     }
 
@@ -118,26 +160,58 @@ impl<S> Hook<S> {
     where
         S: Copy,
     {
-        self.state
+        **self
+    }
+}
+
+struct Bound<B, U> {
+    bound: B,
+    _unbound: PhantomData<U>,
+}
+
+impl<B, U, E> Listener<E> for Bound<B, U>
+where
+    B: Listener<E>,
+    E: EventCast,
+    Self: 'static,
+{
+    type Product = B::Product;
+
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        self.bound.build(p)
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        // No need to update zero-sized closures.
+        //
+        // This is a const branch that should be optimized away.
+        if std::mem::size_of::<U>() != 0 {
+            self.bound.update(p);
+        }
     }
 }
 
 impl<S> Deref for Hook<S> {
     type Target = S;
 
-    fn deref(&self) -> &S {
-        &self.state
+    fn deref(&self) -> &Self::Target {
+        // ⚠️ Safety:
+        // ==========
+        //
+        // Hook only lives inside the inner closure of `stateful`, and no mutable
+        // references to `Inner` are present while it's around.
+        unsafe { self.inner.state.ref_unchecked() }
     }
 }
 
-impl<'a, H> View for &'a Hook<H>
+impl<'a, V> View for &'a Hook<V>
 where
-    &'a H: View + 'a,
+    &'a V: View + 'a,
 {
-    type Product = <&'a H as View>::Product;
+    type Product = <&'a V as View>::Product;
 
-    fn build(self) -> Self::Product {
-        (**self).build()
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        (**self).build(p)
     }
 
     fn update(self, p: &mut Self::Product) {

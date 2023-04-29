@@ -4,17 +4,17 @@
 
 use std::fmt::{Arguments, Write};
 
-use proc_macro::{Literal, TokenStream};
+use tokens::{Literal, TokenStream};
 
-use crate::dom::{Attribute, AttributeValue, CssValue, HtmlElement};
+use crate::dom::{Attribute, AttributeValue, CssValue, ElementTag, HtmlElement};
 use crate::gen::{append, DomNode, Generator, IntoGenerator, JsArgument, Short};
-use crate::itertools::IteratorExt;
-use crate::parse::IdentExt;
+use crate::itertools::IteratorExt as _;
+use crate::parse::IteratorExt as _;
 use crate::tokenize::prelude::*;
 
 pub struct JsElement {
     /// Tag name of the element such as `div`
-    pub tag: String,
+    pub tag: ElementTag,
 
     /// The `web-sys` type of this element, such as `HtmlElement`, spanned to tag invocation.
     pub typ: &'static str,
@@ -108,7 +108,7 @@ impl IntoGenerator for HtmlElement {
         }
 
         for Attribute { name, value } in self.attributes {
-            let attr_type = name.with_str(attribute_type);
+            let attr_type = attribute_type(&name.label);
 
             match value {
                 AttributeValue::Literal(value) => {
@@ -117,28 +117,35 @@ impl IntoGenerator for HtmlElement {
                 AttributeValue::Boolean(value) => {
                     writeln!(el, "{var}.{name}={value};");
                 }
-                AttributeValue::Expression(expr) => match &attr_type {
+                AttributeValue::Expression(mut expr) => match &attr_type {
                     AttributeType::Event(event) => {
                         let target = el.typ;
-                        let coerce = call(
-                            format_args!(
-                                "::kobold::internal::fn_type_hint::<\
+
+                        let coerce = if is_inline_closure(&mut expr.stream) {
+                            call(
+                                format_args!(
+                                    "::kobold::internal::fn_type_hint::<\
                                     ::kobold::event::{event}<\
                                         ::kobold::reexport::web_sys::{target}\
                                     >,\
                                     _,\
                                 >"
-                            ),
-                            expr.stream,
-                        );
+                                ),
+                                expr.stream,
+                            )
+                        } else {
+                            expr.stream
+                        };
 
                         let value = gen.add_field(coerce).event(event, el.typ).name;
 
-                        name.with_str(|name| {
-                            writeln!(el, "{var}.addEventListener(\"{}\",{value});", &name[2..])
-                        });
+                        writeln!(
+                            el,
+                            "{var}.addEventListener(\"{}\",{value});",
+                            &name.label[2..]
+                        );
 
-                        el.args.push(JsArgument::new(value))
+                        el.args.push(JsArgument::with_abi(value, InlineAbi::Event))
                     }
                     AttributeType::Provided(attr) => {
                         el.hoisted = true;
@@ -156,7 +163,7 @@ impl IntoGenerator for HtmlElement {
                     AttributeType::Unknown => {
                         el.hoisted = true;
 
-                        let prop = (name.with_str(Literal::string), ".into()").tokenize();
+                        let prop = (Literal::string(&name.label), ".into()").tokenize();
                         let attr = Attr::new("&AttributeName");
 
                         gen.add_field(expr.stream).attr(var, attr, prop);
@@ -169,7 +176,7 @@ impl IntoGenerator for HtmlElement {
                     let target = el.typ;
 
                     gen.add_hint(
-                        name.clone(),
+                        name.ident,
                         format_args!(
                             "impl Fn(\
                                 ::kobold::event::{event}<\
@@ -180,10 +187,10 @@ impl IntoGenerator for HtmlElement {
                     );
                 }
                 AttributeType::Provided(attr) => {
-                    gen.add_attr_hint(name, "", attr.name);
+                    gen.add_attr_hint(name.ident, "", attr.name);
                 }
                 AttributeType::Unknown => {
-                    gen.add_attr_hint(name, "&'static", "AttributeName");
+                    gen.add_attr_hint(name.ident, "&'static", "AttributeName");
                 }
             }
         }
@@ -201,6 +208,7 @@ impl IntoGenerator for HtmlElement {
 pub enum InlineAbi {
     Bool,
     Str,
+    Event,
 }
 
 impl InlineAbi {
@@ -208,13 +216,15 @@ impl InlineAbi {
         match self {
             InlineAbi::Bool => "bool",
             InlineAbi::Str => "&str",
+            InlineAbi::Event => "wasm_bindgen::JsValue",
         }
     }
 
-    pub fn method(self) -> &'static str {
+    pub fn method(self) -> Option<&'static str> {
         match self {
-            InlineAbi::Bool => ".into()",
-            InlineAbi::Str => ".as_ref()",
+            InlineAbi::Bool => Some(".into()"),
+            InlineAbi::Str => Some(".as_ref()"),
+            InlineAbi::Event => None,
         }
     }
 
@@ -222,6 +232,7 @@ impl InlineAbi {
         match self {
             InlineAbi::Bool => "+ Into<bool> + Copy",
             InlineAbi::Str => "+ AsRef<str>",
+            InlineAbi::Event => "",
         }
     }
 }
@@ -255,6 +266,24 @@ impl Attr {
     fn prop(&self) -> TokenStream {
         format_args!("::kobold::attribute::{}", self.name).tokenize()
     }
+}
+
+fn is_inline_closure(out: &mut TokenStream) -> bool {
+    let mut is_closure = false;
+    let mut stream = std::mem::replace(out, TokenStream::new()).parse_stream();
+
+    if let Some(tt) = stream.allow_consume("move") {
+        out.write(tt);
+    }
+
+    if let Some(tt) = stream.allow_consume('|') {
+        is_closure = true;
+        out.write(tt);
+    }
+
+    out.extend(stream);
+
+    is_closure
 }
 
 fn attribute_type(attr: &str) -> AttributeType {

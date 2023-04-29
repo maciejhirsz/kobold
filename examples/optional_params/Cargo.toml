@@ -1,0 +1,7 @@
+[package]
+name = "kobold_optional_params_example"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+kobold = { path = "../../crates/kobold" }

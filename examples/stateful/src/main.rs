@@ -31,7 +31,7 @@ fn App() -> impl View {
             };
 
             let inc_age = move |_| state.age += 1;
-            let adult = move |_| state.age = 0;
+            let adult = move |_| state.age = 18;
         }
 
         view! {
@@ -43,7 +43,6 @@ fn App() -> impl View {
                 " "
                 <button onclick={adult}>"18"</button>
                 <button onclick={inc_age}>"+"</button>
-            </div>
         }
     })
 }
