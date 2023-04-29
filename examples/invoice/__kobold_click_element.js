@@ -3,9 +3,11 @@ export function __kobold_click_element() {
 	console.log('elem: ', document.getElementById(elemId));
 	if (document.getElementById(elemId) == undefined) {
 		console.log('cannot click');
-        return false;
+
+		return false;
 	}
-    document.getElementById(elemId).click();
-    console.log('clicked');
+	document.getElementById(elemId).click();
+	console.log('clicked');
+
 	return true;
 }
