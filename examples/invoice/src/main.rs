@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use kobold::prelude::*;
-use kobold::branching::{Branch2, Branch3, Empty, Play};
+use kobold::branching::{Branch2, Branch3, Empty};
 use kobold::reexport::web_sys::HtmlTextAreaElement;
 use kobold_qr::KoboldQR;
 // use bevy_reflect::{FromReflect, Reflect, DynamicStruct, Struct};
@@ -19,6 +19,7 @@ use wasm_bindgen_futures::spawn_local;
 use wasm_bindgen::throw_str;
 
 mod csv;
+mod js;
 mod state;
 mod tests;
 
@@ -97,6 +98,11 @@ fn Editor() -> impl View {
                             signal.update(|state| {
                                 state.details.obj_url = obj_url;
                             });
+                            // Automatically click the download button of the hyperlink with CSS id
+                            // '#link-file-download' since the state should have been updated with the
+                            // obj_url by now and that hyperlink has a `href` attribute that should
+                            // now contain the obj_url that would be downloaded when that hyperlink is clicked
+                            js::browser_js::run_click_element();
                         },
                         Err(err) => {
                             panic!("failed to write to file {:?}", state.details.filename);
@@ -146,14 +152,19 @@ fn Editor() -> impl View {
                             <input type="file" accept="text/csv" onchange={onload_details} />
                         </div>
                         <div>
-                            <button #button-file-save type="button" onclick={onsave_details}>"Generating CSV file download url"</button><br />
+                            // generates CSV file download object url and triggers the script __kobold_click_element.js that
+                            // automatically clicks the #link-file-download hyperlink when the object url has been stored in state
+                            <button #button-file-save type="button" onclick={onsave_details}>"Save to CSV file"</button><br />
                         </div>
                         <div>
                         {
                             if state.details.obj_url.len() > 0 && state.details.obj_url != "placeholder_url" {
                                 Branch2::A(
                                     view! {
-                                        <a #link-file-download href={ref state.details.obj_url} download={ref state.details.filename}>"Download CSV file to save changes"</a>
+                                        // this link is hidden in the UI using CSS since it gets automatically clicked when
+                                        // the download object url is saved in the state 
+                                        <a #link-file-download href={ref state.details.obj_url}
+                                            download={ref state.details.filename}>"Download CSV file to save changes"</a>
                                     }
                                 )
                             } else {
@@ -648,6 +659,8 @@ fn QRForTask(value: &str) -> impl View + '_ {
 }
 
 fn main() {
+    // Demonstrate use of Rust `wasm-bindgen` https://rustwasm.github.io/docs/wasm-bindgen
+    js::browser_js::run();
     wasm_logger::init(wasm_logger::Config::default());
     debug!("main()");
     kobold::start(view! {

@@ -93,6 +93,11 @@ input[type="file"] {
     color: #ffffff;
     text-align: center;
     text-decoration: none;
+    /* hide the element. it only exists so we can automatically click
+    the object url that is generated in the state using the script
+    __kobold_click_element.js when it is ready without
+    having to manually click to download it in the browser */
+    display: none; 
 }
   
 textarea {

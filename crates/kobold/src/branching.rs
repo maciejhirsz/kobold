@@ -230,17 +230,3 @@ impl<T: View> View for Option<T> {
         }
     }
 }
-
-pub struct Play;
-
-impl View for Play {
-    type Product = EmptyNode;
-
-    fn build(self) -> Self::Product {
-        let text_lit: String = "play".to_string();
-        let t: &str = &text_lit;
-        EmptyNode(dom::play(t))
-    }
-
-    fn update(self, _: &mut Self::Product) {}
-}
