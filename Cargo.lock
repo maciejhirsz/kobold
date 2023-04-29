@@ -442,7 +442,7 @@ dependencies = [
  "base64",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.109",
  "unicode-width",
 ]
 

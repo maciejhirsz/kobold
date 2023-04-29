@@ -29,89 +29,78 @@ fn Editor() -> impl View {
     stateful(State::default, |state| {
         debug!("Editor()");
 
-        let onload_details = {
-            let signal = state.signal();
+        let onload_details = state.bind_async(|state, event: Event<InputElement>| async move {
+            let file = match event.target().files().and_then(|list| list.get(0)) {
+                Some(file) => file,
+                None => return,
+            };
 
-            move |e: Event<InputElement>| {
-                let file = match e.target().files().and_then(|list| list.get(0)) {
-                    Some(file) => file,
-                    None => return,
-                };
+            state.update(|state| state.details.filename = file.name());
 
-                signal.update(|state| state.details.filename = file.name());
+            // let state = state.clone();
 
-                let signal = signal.clone();
+            // spawn_local(async move {
+                if let Ok(table) = csv::read_file(file).await {
+                    debug!("details.table{:#?}", table);
+                    // https://docs.rs/kobold/latest/kobold/stateful/struct.Signal.html#method.update
+                    state.update(move |state| {
+                        state.details.table = table;
+                        state.store(); // update local storage
+                    });
+                }
+            // })
+        });
 
-                spawn_local(async move {
-                    if let Ok(table) = csv::read_file(file).await {
-                        debug!("details.table{:#?}", table);
-                        // https://docs.rs/kobold/latest/kobold/stateful/struct.Signal.html#method.update
-                        signal.update(move |state| {
-                            state.details.table = table;
-                            state.store(); // update local storage
+        let onsave_details = state.bind_async(|state, event: MouseEvent<HtmlElement>| async move {
+            // update local storage and state so that &state.details isn't
+            // `Content { filename: "\0\0\0\0\0\0\0", table: Table { source: TextSource { source: "\0" }, columns: [Insitu(0..0)], rows: [] } }`
+            state.update(|state| state.store());
+            // spawn_local(async move {
+                debug!("onsave_details: {:?}", &state.details);
+
+                match csv::generate_csv_data_obj_url_for_download(&state.details).await {
+                    Ok(obj_url) => {
+                        debug!("obj_url {:?}", obj_url);
+
+                        state.update(|state| {
+                            state.details.obj_url = obj_url;
                         });
-                    }
-                })
-            }
-        };
-
-        let onsave_details = {
-            move |e: MouseEvent<HtmlElement>| {
-                let signal = state.signal();
-                // update local storage and state so that &state.details isn't
-                // `Content { filename: "\0\0\0\0\0\0\0", table: Table { source: TextSource { source: "\0" }, columns: [Insitu(0..0)], rows: [] } }`
-                signal.update(|state| state.store());
-                spawn_local(async move {
-                    debug!("onsave_details: {:?}", &state.details);
-
-                    match csv::generate_csv_data_obj_url_for_download(&state.details).await {
-                        Ok(obj_url) => {
-                            debug!("obj_url {:?}", obj_url);
-
-                            signal.update(|state| {
-                                state.details.obj_url = obj_url;
-                            });
-                            // Automatically click the download button of the hyperlink with CSS id
-                            // '#link-file-download' since the state should have been updated with the
-                            // obj_url by now and that hyperlink has a `href` attribute that should
-                            // now contain the obj_url that would be downloaded when that hyperlink is clicked
-                            js::browser_js::run_click_element();
-                        },
-                        Err(err) => {
-                            panic!("failed to write to file {:?}", state.details.filename);
-                        },
-                    };
-                    debug!("successfully wrote to file {:?}", state.details.filename);
-                })
-            }
-        };
-
-        let onload_main = {
-            let signal = state.signal();
-
-            move |e: Event<InputElement>| {
-                let file = match e.target().files().and_then(|list| list.get(0)) {
-                    Some(file) => file,
-                    None => return,
+                        // Automatically click the download button of the hyperlink with CSS id
+                        // '#link-file-download' since the state should have been updated with the
+                        // obj_url by now and that hyperlink has a `href` attribute that should
+                        // now contain the obj_url that would be downloaded when that hyperlink is clicked
+                        js::browser_js::run_click_element();
+                    },
+                    Err(err) => {
+                        panic!("failed to write to file {:?}", state.details.filename);
+                    },
                 };
+                debug!("successfully wrote to file {:?}", state.details.filename);
+            // })
+        });
 
-                signal.update(|state| state.main.filename = file.name());
+        let onload_main = state.bind_async(|state, event: Event<InputElement>| async move {
+            let file = match event.target().files().and_then(|list| list.get(0)) {
+                Some(file) => file,
+                None => return,
+            };
 
-                let signal = signal.clone();
+            state.update(|state| state.main.filename = file.name());
 
-                spawn_local(async move {
-                    if let Ok(table) = csv::read_file(file).await {
-                        // debug!("main.table{:#?}", table);
+            // let state = state.clone();
 
-                        // NOTE - this section is required
-                        signal.update(move |state| {
-                            state.main.table = table;
-                            state.store(); // update local storage
-                        });
-                    }
-                })
-            }
-        };
+            // spawn_local(async move {
+                if let Ok(table) = csv::read_file(file).await {
+                    // debug!("main.table{:#?}", table);
+
+                    // NOTE - this section is required
+                    state.update(move |state| {
+                        state.main.table = table;
+                        state.store(); // update local storage
+                    });
+                }
+            // })
+        });
 
         view! {
             <div .invoice-wrapper>
@@ -241,17 +230,18 @@ fn Head(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
             <th.edit>
                 { ref value }
                 <input.edit.edit-head
-                    onkeypress={
-                        state.bind(move |state, e: KeyboardEvent<InputElement>| {
-                            if e.key() == "Enter" && e.target().value() != "" {
-                                state.update_main(row, col, e.target().value());
+                    // TODO - is this required?
+                    // onkeypress={
+                    //     state.bind(move |state, e: KeyboardEvent<InputElement>| {
+                    //         if e.key() == "Enter" && e.target().value() != "" {
+                    //             state.update_main(row, col, e.target().value());
 
-                                Then::Render
-                            } else {
-                                Then::Stop
-                            }
-                        })
-                    }
+                    //             Then::Render
+                    //         } else {
+                    //             Then::Stop
+                    //         }
+                    //     })
+                    // }
 
                     {onchange} value={ ref value }
                 />
@@ -274,22 +264,35 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
             state.editing = Editing::None;
         });
 
+        let mut selected = false;
+
+        let onmouseenter = move |e: MouseEvent<InputElement>| {
+            if !selected {
+                let input = e.target();
+                input.focus();
+                input.select();
+                selected = true;
+            }
+        };
+
         Branch3::A(view! {
             <td.edit>
                 { ref value }
                 <input.edit
-                    onkeypress={
-                        state.bind(move |state, e: KeyboardEvent<InputElement>| {
-                            if e.key() == "Enter" && e.target().value() != "" {
-                                state.update_main(row, col, e.target().value());
+                    // TODO - is this required?
+                    // onkeypress={
+                    //     state.bind(move |state, e: KeyboardEvent<InputElement>| {
+                    //         if e.key() == "Enter" && e.target().value() != "" {
+                    //             state.update_main(row, col, e.target().value());
 
-                                Then::Render
-                            } else {
-                                Then::Stop
-                            }
-                        })
-                    }
+                    //             Then::Render
+                    //         } else {
+                    //             Then::Stop
+                    //         }
+                    //     })
+                    // }
                     {onchange}
+                    {onmouseenter}
                     value={ ref value }
                 />
             </td>
@@ -328,17 +331,18 @@ fn HeadDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
                 { ref value }
                 <input.edit.edit-head
                     // duplicate in CellDetails
-                    onkeypress={
-                        state.bind(move |state, e: KeyboardEvent<InputElement>| {
-                            if e.key() == "Enter" && e.target().value() != "" {
-                                state.update_details(row, col, e.target().value());
+                    // TODO - is this required?
+                    // onkeypress={
+                    //     state.bind(move |state, e: KeyboardEvent<InputElement>| {
+                    //         if e.key() == "Enter" && e.target().value() != "" {
+                    //             state.update_details(row, col, e.target().value());
 
-                                Then::Render
-                            } else {
-                                Then::Stop
-                            }
-                        })
-                    }
+                    //             Then::Render
+                    //         } else {
+                    //             Then::Stop
+                    //         }
+                    //     })
+                    // }
                     {onchange} value={ ref value }
                 />
             </th>
@@ -360,22 +364,34 @@ fn CellDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
             state.editing_details = Editing::None;
         });
 
+        let mut selected = false;
+
+        let onmouseenter = move |e: MouseEvent<InputElement>| {
+            if !selected {
+                let input = e.target();
+                input.focus();
+                input.select();
+                selected = true;
+            }
+        };
+
         Branch3::A(view! {
             <td.edit>
                 { ref value }
                 <input.edit
-                    onkeypress={
-                        state.bind(move |state, e: KeyboardEvent<InputElement>| {
-                            if e.key() == "Enter" && e.target().value() != "" {
-                                state.update_details(row, col, e.target().value());
+                    // TODO - is this required?
+                    // onkeypress={
+                    //     state.bind(move |state, e: KeyboardEvent<InputElement>| {
+                    //         if e.key() == "Enter" && e.target().value() != "" {
+                    //             state.update_details(row, col, e.target().value());
 
-                                Then::Render
-                            } else {
-                                Then::Stop
-                            }
-                        })
-                    }
-                    {onchange} value={ ref value }
+                    //             Then::Render
+                    //         } else {
+                    //             Then::Stop
+                    //         }
+                    //     })
+                    // }
+                    {onchange} {onmouseenter} value={ ref value }
                 />
             </td>
         })
