@@ -1,8 +1,4 @@
 use kobold::prelude::*;
-<<<<<<< HEAD
-use wasm_bindgen_futures::spawn_local;
-=======
->>>>>>> master
 use web_sys::HtmlInputElement as InputElement;
 
 mod csv;
