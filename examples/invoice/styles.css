@@ -69,30 +69,52 @@ input.edit-head {
 input[type="file"] {
     padding: 15px;
 }
-  
+
 #input-file-select {
+   display: inline-flex;
+}
+
+/* https://stackoverflow.com/questions/74115573/styling-an-input-type-file-text-next-to-the-button-not-the-button-itself-us */
+.container {
+    padding: 1em;
+    border: 1px solid lightgrey;
+    margin: 1em;
+    border-radius: 4px;
     display: inline-flex;
+}
+  
+input[type=button] {
+    background-color: lightgray;
+    border: 0;
+    border-radius: 4px;
+    padding: .5em 2em;
+}
+
+#file-input {
+    display: none;
+}
+
+.label {
+    display: block;
+    margin-top: .5em;
+    margin-left: 10px;
 }
   
 #button-file-save {
     display: inline-block;
-    background-color: #aaaacc;
-    border: 2px solid #5566cc;
-    padding: 5px;
-    width: 250px;
-    color: #ffffff;
-    text-align: center;
-}
-  
-#link-file-download {
-    display: inline-block;
     background-color: #11cc11;
     border: 2px solid #11aa11;
-    padding: 5px;
-    width: 250px;
+    border-radius: 4px;
+    padding: .5em 2em;
+    width: 200px;
     color: #ffffff;
     text-align: center;
-    text-decoration: none;
+    margin-left: 20px;
+    font-size: 1.0em;
+    font-weight: 600;
+}
+
+#link-file-download {
     /* hide the element. it only exists so we can automatically click
     the object url that is generated in the state using the script
     __kobold_click_element.js when it is ready without

@@ -147,11 +147,10 @@ fn Editor() -> impl View {
                         <h1>"Invoice"</h1>
                     </header>
                     <section .main>
-                        <div #input-file-select>
-                            <h1>{ ref state.details.filename }</h1>
-                            <input type="file" accept="text/csv" onchange={onload_details} />
-                        </div>
-                        <div>
+                        <div class="container">
+                            <input type="file" id="file-input" accept="text/csv" onchange={onload_details} />
+                            <input type="button" onclick="document.getElementById('file-input').click()" value="Upload CSV file" />
+                            <label for="file-input" class="label">{ ref state.details.filename }</label>
                             // generates CSV file download object url and triggers the script __kobold_click_element.js that
                             // automatically clicks the #link-file-download hyperlink when the object url has been stored in state
                             <button #button-file-save type="button" onclick={onsave_details}>"Save to CSV file"</button><br />

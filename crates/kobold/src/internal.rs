@@ -49,7 +49,6 @@ extern "C" {
     pub(crate) fn __kobold_unmount(node: &JsValue);
     pub(crate) fn __kobold_replace(old: &JsValue, new: &JsValue);
     pub(crate) fn __kobold_empty_node() -> Node;
-    pub(crate) fn __kobold_play(value: &str) -> Node;
     pub(crate) fn __kobold_fragment() -> Node;
     pub(crate) fn __kobold_fragment_decorate(f: &Node) -> Node;
     pub(crate) fn __kobold_fragment_append(f: &Node, c: &JsValue);
