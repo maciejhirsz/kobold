@@ -135,7 +135,7 @@ pub async fn read_file(file: File) -> Result<Table, Error> {
     text.parse()
 }
 
-pub async fn generate_csv_data_obj_url_for_download(content: &Content) -> Result<String, Error> {
+pub fn generate_csv_data_obj_url_for_download(content: &Content) -> Result<String, Error> {
     // generate CSV file format from object Url in state
     // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=f911a069c22a7f4cf4b5e8a9aa05e65e
 

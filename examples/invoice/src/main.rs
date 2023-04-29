@@ -35,36 +35,39 @@ fn Editor() -> impl View {
                 None => return,
             };
 
-            state.update(|state| state.details.filename = file.name());
+            state.update_silent(|state| state.details.filename = file.name());
 
-            // let state = state.clone();
-
-            // spawn_local(async move {
-                if let Ok(table) = csv::read_file(file).await {
-                    debug!("details.table{:#?}", table);
-                    // https://docs.rs/kobold/latest/kobold/stateful/struct.Signal.html#method.update
-                    state.update(move |state| {
-                        state.details.table = table;
-                        state.store(); // update local storage
-                    });
-                }
-            // })
+            if let Ok(table) = csv::read_file(file).await {
+                debug!("details.table{:#?}", table);
+                // https://docs.rs/kobold/latest/kobold/stateful/struct.Signal.html#method.update
+                state.update_silent(move |state| {
+                    state.details.table = table;
+                    state.store(); // update local storage
+                });
+            }
         });
 
         let onsave_details = state.bind_async(|state, event: MouseEvent<HtmlElement>| async move {
             // update local storage and state so that &state.details isn't
             // `Content { filename: "\0\0\0\0\0\0\0", table: Table { source: TextSource { source: "\0" }, columns: [Insitu(0..0)], rows: [] } }`
-            state.update(|state| state.store());
-            // spawn_local(async move {
-                debug!("onsave_details: {:?}", &state.details);
+            //
+            // closure has access to Signal of state.
+            // `update` doesn't implement Deref so you can't access fields on it like you can with a Hook
+            // `update_silent` gives access to the actual state without triggering a render
+            state.update_silent(|state| state.store());
 
-                match csv::generate_csv_data_obj_url_for_download(&state.details).await {
+            // closure required just to debug with access to state fields, since otherwise it'd trigger a render
+            state.update_silent(|state| {
+                debug!("onsave_details: {:?}", &state.details);
+            });
+
+            state.update_silent(|state| {
+                match csv::generate_csv_data_obj_url_for_download(&state.details) {
                     Ok(obj_url) => {
                         debug!("obj_url {:?}", obj_url);
 
-                        state.update(|state| {
-                            state.details.obj_url = obj_url;
-                        });
+                        state.details.obj_url = obj_url;
+
                         // Automatically click the download button of the hyperlink with CSS id
                         // '#link-file-download' since the state should have been updated with the
                         // obj_url by now and that hyperlink has a `href` attribute that should
@@ -72,11 +75,13 @@ fn Editor() -> impl View {
                         js::browser_js::run_click_element();
                     },
                     Err(err) => {
-                        panic!("failed to write to file {:?}", state.details.filename);
+                        panic!("failed to generate csv data object url for download {:?}", state.details.filename);
                     },
                 };
-                debug!("successfully wrote to file {:?}", state.details.filename);
-            // })
+                debug!("successfully generate csv data object url for download {:?}", state.details.filename);
+            });
+
+
         });
 
         let onload_main = state.bind_async(|state, event: Event<InputElement>| async move {
@@ -85,21 +90,14 @@ fn Editor() -> impl View {
                 None => return,
             };
 
-            state.update(|state| state.main.filename = file.name());
+            state.update_silent(|state| state.main.filename = file.name());
 
-            // let state = state.clone();
-
-            // spawn_local(async move {
-                if let Ok(table) = csv::read_file(file).await {
-                    // debug!("main.table{:#?}", table);
-
-                    // NOTE - this section is required
-                    state.update(move |state| {
-                        state.main.table = table;
-                        state.store(); // update local storage
-                    });
-                }
-            // })
+            if let Ok(table) = csv::read_file(file).await {
+                state.update_silent(move |state| {
+                    state.main.table = table;
+                    state.store(); // update local storage
+                });
+            }
         });
 
         view! {
