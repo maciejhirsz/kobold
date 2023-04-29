@@ -38,7 +38,7 @@ pub struct Content {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct State {
-    pub editing: Editing,
+    pub editing_main: Editing,
     pub editing_details: Editing,
     pub main: Content,
     pub details: Content,
@@ -98,7 +98,7 @@ impl Default for State {
         debug!("loading local storage: {:?}\n\n{:?}", main_local_storage, details_local_storage);
 
         State {
-            editing: Editing::None,
+            editing_main: Editing::None,
             editing_details: Editing::None,
             main: Content {
                 filename: "main.csv".to_owned(),
@@ -117,7 +117,7 @@ impl Default for State {
 impl State {
     pub fn mock() -> Self {
         State {
-            editing: Editing::None,
+            editing_main: Editing::None,
             editing_details: Editing::None,
             main: Content {
                 filename: "main.csv".to_owned(),
@@ -162,7 +162,7 @@ impl State {
         let old_storage = self.main.table.source.get_text(&self.main.table.rows[row][col]);
         if value != old_storage {
             self.main.table.rows[row][col] = Text::Owned(value.into());
-            self.editing_details = Editing::None; // also done in onkeydown
+            self.editing_main = Editing::None; // also done in onkeydown
             self.store();
         }
     }

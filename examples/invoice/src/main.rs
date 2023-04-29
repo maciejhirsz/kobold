@@ -172,7 +172,7 @@ fn Editor() -> impl View {
                             onkeydown={
                                 state.bind(move |state, event: KeyboardEvent<_>| {
                                     if matches!(event.key().as_str(), "Esc" | "Escape") {
-                                        state.editing = Editing::None;
+                                        state.editing_main = Editing::None;
                     
                                         Then::Render
                                     } else {
@@ -207,7 +207,14 @@ fn Editor() -> impl View {
                     </section>
                 </section>
                 <footer .info>
-                    <p>"Hint: Double-click to edit an invoice field"</p>
+                {
+                    (
+                        state.editing_main == Editing::None &&
+                        state.editing_details == Editing::None
+                    ).then(|| view! {
+                        <p>"Hint: Double-click to edit an invoice field"</p>
+                    })
+                }
                 </footer>
             </div>
         }
@@ -218,10 +225,10 @@ fn Editor() -> impl View {
 fn Head(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     let value = state.main.table.source.get_text(&state.main.table.columns[col]);
 
-    if state.editing == (Editing::Column { col }) {
+    if state.editing_main == (Editing::Column { col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
             state.main.table.columns[col] = Text::Owned(e.target().value().into());
-            state.editing = Editing::None;
+            state.editing_main = Editing::None;
         });
 
         view! {
@@ -246,7 +253,7 @@ fn Head(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
             </th>
         }
     } else {
-        let ondblclick = state.bind(move |s, _| s.editing = Editing::Column { col });
+        let ondblclick = state.bind(move |s, _| s.editing_main = Editing::Column { col });
 
         view! { <th {ondblclick}>{ ref value }</th> }
     }
@@ -256,10 +263,10 @@ fn Head(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     let value = state.main.table.source.get_text(&state.main.table.rows[row][col]);
 
-    if state.editing == (Editing::Cell { row, col }) {
+    if state.editing_main == (Editing::Cell { row, col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
             state.main.table.rows[row][col] = Text::Owned(e.target().value().into());
-            state.editing = Editing::None;
+            state.editing_main = Editing::None;
         });
 
         let mut selected = false;
@@ -297,7 +304,7 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
         })
     // https://github.com/maciejhirsz/kobold/issues/51
     } else {
-        let ondblclick = state.bind(move |s, _| s.editing = Editing::Cell { row, col });
+        let ondblclick = state.bind(move |s, _| s.editing_main = Editing::Cell { row, col });
 
         if value.contains("0x") {
             Branch3::B(view! {
