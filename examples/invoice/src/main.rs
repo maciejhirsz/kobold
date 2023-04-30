@@ -200,20 +200,8 @@ fn Head(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
             <th.edit>
                 { ref value }
                 <input.edit.edit-head
-                    // TODO - is this required?
-                    // onkeypress={
-                    //     state.bind(move |state, e: KeyboardEvent<InputElement>| {
-                    //         if e.key() == "Enter" && e.target().value() != "" {
-                    //             state.update_main(row, col, e.target().value());
-
-                    //             Then::Render
-                    //         } else {
-                    //             Then::Stop
-                    //         }
-                    //     })
-                    // }
-
-                    {onchange} value={ ref value }
+                    {onchange}
+                    value={ ref value }
                 />
             </th>
         }
@@ -250,18 +238,6 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
             <td.edit>
                 { ref value }
                 <input.edit
-                    // TODO - is this required?
-                    // onkeypress={
-                    //     state.bind(move |state, e: KeyboardEvent<InputElement>| {
-                    //         if e.key() == "Enter" && e.target().value() != "" {
-                    //             state.update_main(row, col, e.target().value());
-
-                    //             Then::Render
-                    //         } else {
-                    //             Then::Stop
-                    //         }
-                    //     })
-                    // }
                     {onchange}
                     {onmouseenter}
                     value={ ref value }
@@ -302,20 +278,8 @@ fn HeadDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
             <th.edit>
                 { ref value }
                 <input.edit.edit-head
-                    // duplicate in CellDetails
-                    // TODO - is this required?
-                    // onkeypress={
-                    //     state.bind(move |state, e: KeyboardEvent<InputElement>| {
-                    //         if e.key() == "Enter" && e.target().value() != "" {
-                    //             state.update_details(row, col, e.target().value());
-
-                    //             Then::Render
-                    //         } else {
-                    //             Then::Stop
-                    //         }
-                    //     })
-                    // }
-                    {onchange} value={ ref value }
+                    {onchange}
+                    value={ ref value }
                 />
             </th>
         }
@@ -352,19 +316,9 @@ fn CellDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
             <td.edit>
                 { ref value }
                 <input.edit
-                    // TODO - is this required?
-                    // onkeypress={
-                    //     state.bind(move |state, e: KeyboardEvent<InputElement>| {
-                    //         if e.key() == "Enter" && e.target().value() != "" {
-                    //             state.update_details(row, col, e.target().value());
-
-                    //             Then::Render
-                    //         } else {
-                    //             Then::Stop
-                    //         }
-                    //     })
-                    // }
-                    {onchange} {onmouseenter} value={ ref value }
+                    {onchange}
+                    {onmouseenter}
+                    value={ ref value }
                 />
             </td>
         })

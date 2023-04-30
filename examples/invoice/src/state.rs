@@ -109,28 +109,6 @@ impl State {
         LocalStorage::set(KEY_MAIN, &self.main.table).unwrap_throw();
         LocalStorage::set(KEY_DETAILS, &self.details.table).unwrap_throw();
     }
-
-    // store in state edits by user to the 'main' table of the UI
-    pub fn update_main(&mut self, row: usize, col: usize, value: String) {
-        let old_storage = self.main.table.source.get_text(&self.main.table.rows[row][col]);
-        if value != old_storage {
-            self.main.table.rows[row][col] = Text::Owned(value.into());
-            self.editing_main = Editing::None;
-            self.store();
-        }
-    }
-
-    // store in state edits by user to the 'details' table of the UI
-    pub fn update_details(&mut self, row: usize, col: usize, value: String) {
-        debug!("update_details: {:?}\n{:?}\n{:?}", row, col, value);
-        let old_storage = self.details.table.source.get_text(&self.details.table.rows[row][col]);
-        debug!("update_details old storage: {:?}", old_storage);
-        if value != old_storage {
-            self.details.table.rows[row][col] = Text::Owned(value.into());
-            self.editing_details = Editing::None;
-            self.store();
-        }
-    }
 }
 
 impl Deref for Content {

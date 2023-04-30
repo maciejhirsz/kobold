@@ -127,3 +127,8 @@ textarea {
 div.qr > div {
     text-align: center;
 }
+
+/* override todo-app-css */
+.new-todo, .edit {
+    font-size: 11.5px !important;
+}
