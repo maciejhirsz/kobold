@@ -68,7 +68,7 @@ impl<S> Signal<S> {
         F: FnOnce(&mut S),
     {
         if let Some(inner) = self.weak.upgrade() {
-            inner.state.with(move |state| mutator(state));
+            inner.state.with(mutator);
         }
     }
 
