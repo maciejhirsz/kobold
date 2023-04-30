@@ -114,6 +114,11 @@ input[type=button] {
     font-weight: 600;
 }
 
+.button-disabled {
+    background-color: #dddddd !important;
+    border: 2px solid #999999 !important;
+}
+
 #link-file-download {
     /* hide the element. it only exists so we can automatically click
     the object url that is generated in the state using the script

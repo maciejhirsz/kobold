@@ -125,7 +125,17 @@ fn Editor() -> impl View {
                                 // then if the user edits cells it will update the object url,
                                 // so then when they click to "Save to CSV" it allows them to
                                 (true == true).then(|| view! {
-                                    <button #button-file-save type="button" onclick={onsave_details}>"Save to CSV file"</button>
+                                    {
+                                        if state.details.obj_url.len() > 0 && state.details.obj_url != "placeholder_url" {
+                                            Branch2::A(view! {
+                                                <button #button-file-save type="button" onclick={onsave_details}>"Save to CSV file"</button>
+                                            })
+                                        } else {
+                                            Branch2::B(view! {
+                                                <button #button-file-save .button-disabled type="button" onclick={onsave_details}>"Save to CSV file"</button>
+                                            })
+                                        }
+                                    }
                                 }).on_mount(|el| {
                                     // https://yew.rs/docs/0.18.0/concepts/wasm-bindgen/web-sys
                                     let event_target: &EventTarget = el.deref(); // uses Deref
