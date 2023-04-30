@@ -36,6 +36,7 @@ fn Editor() -> impl View {
         debug!("Editor()");
 
         let onload_details = state.bind_async(|state, event: Event<InputElement>| async move {
+            debug!("onload_details");
             let file = match event.target().files().and_then(|list| list.get(0)) {
                 Some(file) => file,
                 None => return,
@@ -44,11 +45,19 @@ fn Editor() -> impl View {
             state.update_silent(|state| state.details.filename = file.name());
 
             if let Ok(table) = csv::read_file(file).await {
-                debug!("details.table{:#?}", table);
+                debug!("details.table {:#?}", table);
                 // https://docs.rs/kobold/latest/kobold/stateful/struct.Signal.html#method.update
                 state.update_silent(move |state| {
                     state.details.table = table;
                     state.store(); // update local storage
+
+                    // TODO - somehow re-render so updated state.details are shown in the UI
+                    // Then::Render;
+                });
+
+                // show latest state
+                state.update_silent(move |state| {
+                    debug!("latest state {:#?}", &state.details.table);
                 });
             }
         });
