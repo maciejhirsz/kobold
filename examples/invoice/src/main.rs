@@ -12,7 +12,13 @@ use gloo_file::{Blob, File as GlooFile};
 use log::{info, debug, error, warn};
 use serde::{Serialize, Deserialize};
 use serde_json::{to_string};
-use web_sys::{HtmlInputElement as InputElement, HtmlElement};
+
+// https://yew.rs/docs/0.18.0/concepts/wasm-bindgen/web-sys
+use std::ops::Deref;
+use web_sys::{EventTarget, HtmlInputElement as InputElement, HtmlElement, Node};
+use js_sys;
+use wasm_bindgen::JsCast;
+
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::spawn_local;
 use wasm_bindgen::throw_str;
@@ -80,8 +86,6 @@ fn Editor() -> impl View {
                 };
                 debug!("successfully generate csv data object url for download {:?}", state.details.filename);
             });
-
-
         });
 
         let onload_main = state.bind_async(|state, event: Event<InputElement>| async move {
@@ -113,22 +117,39 @@ fn Editor() -> impl View {
                             <label for="file-input" class="label">{ ref state.details.filename }</label>
                             // generates CSV file download object url and triggers the script __kobold_click_element.js that
                             // automatically clicks the #link-file-download hyperlink when the object url has been stored in state
-                            <button #button-file-save type="button" onclick={onsave_details}>"Save to CSV file"</button><br />
+                            {
+                                // when the page is initially loaded, there may not be any data in
+                                // local storage, and if we edit a cell it doesn't generate the object url
+                                // blob, so it won't save if they click "Save to CSV".
+                                // but if we click the #button-file-save when the page is loaded,
+                                // then if the user edits cells it will update the object url,
+                                // so then when they click to "Save to CSV" it allows them to
+                                (true == true).then(|| view! {
+                                    <button #button-file-save type="button" onclick={onsave_details}>"Save to CSV file"</button>
+                                }).on_mount(|el| {
+                                    // https://yew.rs/docs/0.18.0/concepts/wasm-bindgen/web-sys
+                                    let event_target: &EventTarget = el.deref(); // uses Deref
+                                    let object: &js_sys::Object = event_target.deref();
+                                    let js_value: &wasm_bindgen::JsValue = object.deref();
+                                    // Note: Using `js_value.into_serde::<HtmlElement>().unwrap()`
+                                    // did not work https://rustwasm.github.io/wasm-bindgen/api/wasm_bindgen/struct.JsValue.html#method.into_serde
+                                    let html_element: &HtmlElement = &js_value.deref().clone()
+                                        .dyn_into::<HtmlElement>().unwrap(); // uses JsCast
+                                    debug!("mounted html button-file-save {:?}", &html_element);
+                                    html_element.click();
+                                })
+                            }
+                            <br />
                         </div>
+                        <span>{ ref state.details.obj_url }</span>
                         <div>
                         {
-                            if state.details.obj_url.len() > 0 && state.details.obj_url != "placeholder_url" {
-                                Branch2::A(
-                                    view! {
-                                        // this link is hidden in the UI using CSS since it gets automatically clicked when
-                                        // the download object url is saved in the state 
-                                        <a #link-file-download href={ref state.details.obj_url}
-                                            download={ref state.details.filename}>"Download CSV file to save changes"</a>
-                                    }
-                                )
-                            } else {
-                                Branch2::B(Empty)
-                            }
+                            (state.details.obj_url.len() > 0 && state.details.obj_url != "placeholder_url").then(|| view! {
+                                // this link is hidden in the UI using CSS since it gets automatically clicked when
+                                // the download object url is saved in the state 
+                                <a #link-file-download href={ref state.details.obj_url}
+                                    download={ref state.details.filename}>"Download CSV file to save changes"</a>
+                            })
                         }
                         </div>
                         // <EntryView {state} />
@@ -228,6 +249,7 @@ fn Head(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     if state.editing_main == (Editing::Column { col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
             state.main.table.columns[col] = Text::Owned(e.target().value().into());
+            state.store();
             state.editing_main = Editing::None;
         });
 
@@ -266,6 +288,7 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     if state.editing_main == (Editing::Cell { row, col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
             state.main.table.rows[row][col] = Text::Owned(e.target().value().into());
+            state.store();
             state.editing_main = Editing::None;
         });
 
@@ -328,6 +351,7 @@ fn HeadDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     if state.editing_details == (Editing::Cell { row, col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
             state.details.table.rows[row][col] = Text::Owned(e.target().value().into());
+            state.store();
             state.editing_details = Editing::None;
         });
 
@@ -366,6 +390,7 @@ fn CellDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     if state.editing_details == (Editing::Cell { row, col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
             state.details.table.rows[row][col] = Text::Owned(e.target().value().into());
+            state.store();
             state.editing_details = Editing::None;
         });
 

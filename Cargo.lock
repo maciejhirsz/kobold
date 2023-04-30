@@ -229,6 +229,7 @@ dependencies = [
  "gloo-file",
  "gloo-storage",
  "gloo-utils",
+ "js-sys",
  "kobold",
  "kobold_macros",
  "kobold_qr",
