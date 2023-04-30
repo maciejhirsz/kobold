@@ -56,11 +56,9 @@ impl<S> Signal<S> {
         O: ShouldRender,
     {
         if let Some(inner) = self.weak.upgrade() {
-            inner.state.with(|state| {
-                if mutator(state).should_render() {
-                    inner.update()
-                }
-            });
+            if inner.state.with(|state| mutator(state)).should_render() {
+                inner.update()
+            }
         }
     }
 

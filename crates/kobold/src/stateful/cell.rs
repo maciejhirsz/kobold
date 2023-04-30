@@ -17,17 +17,19 @@ impl<T> WithCell<T> {
         }
     }
 
-    pub fn with<F>(&self, mutator: F)
+    pub fn with<F, R>(&self, mutator: F) -> R
     where
-        F: FnOnce(&mut T),
+        F: FnOnce(&mut T) -> R,
+        R: 'static,
     {
         if self.borrowed.get() {
             wasm_bindgen::throw_str("Cyclic state borrowing");
         }
 
         self.borrowed.set(true);
-        mutator(unsafe { &mut *self.data.get() });
+        let result = mutator(unsafe { &mut *self.data.get() });
         self.borrowed.set(false);
+        result
     }
 
     pub unsafe fn ref_unchecked(&self) -> &T {
