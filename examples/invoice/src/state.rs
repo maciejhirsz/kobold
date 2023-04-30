@@ -2,13 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::str::FromStr;
 use gloo_storage::{LocalStorage, Storage};
-use gloo_utils::format::JsValueSerdeExt;
-use wasm_bindgen::{JsValue, UnwrapThrowExt};
-// use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::{UnwrapThrowExt};
 use serde::{Serialize, Deserialize};
-// use serde_json::{from_str, to_string};
 use log::{info, debug, error, warn};
 use std::convert::TryInto;
 
@@ -32,7 +28,6 @@ pub enum Editing {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Content {
     pub filename: String,
-    pub obj_url: String,
     pub table: Table,
 }
 
@@ -44,22 +39,6 @@ pub struct State {
     pub details: Content,
 }
 
-/// - all `Table` cells should be populated with `Insitu` by default, the only exception is when you
-/// have escapes in the loaded CSV. e.g. if your CSV contains quotes in quotes, the parser needs
-/// to change escapes quotes into unescaped ones, so it will allocate a String to do it in. for 
-/// a value in quotes it slices with +1/-1 to skip quotes, and then for escapes it also skips
-/// quotes and then replaces escaped quotes inside. if you put something like: `"hello ""world"""`
-/// in your CSV file, that will be `Text::Owned`
-/// - the `Table` `source` property values should be read only
-/// - if you edit a `Table` cell, just swap it from `Insitu` to `Owned` text
-/// - you get an owned string from `.value()` so there is no point in trying to avoid it
-/// - loading a file prefers `Insitu` since it can just borrow all unescaped values
-/// from the `source` without allocations
-/// - it uses `fn parse_row` in csv.rs to magically know whether to store in `Insitu`
-/// instead of `Owned`, otherwise we explicitly tell it to use `Insitu` when setting
-/// the default value `Text::Insitu(0..0)` in this file and when we edit a field
-/// in the UI so it becomes `Owned("text")` (where text is what we enter)
-/// - credit: Maciej
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Table {
     pub source: TextSource,
@@ -67,11 +46,6 @@ pub struct Table {
     pub rows: Vec<Vec<Text>>,
 }
 
-/// Text is used instead of just String to avoid unnecessary allocations that are expensive, since
-/// subslicing the `source` with an `Insitu` `range` is a const operation, so it's just fiddling with
-/// a pointer and the length - so it's not exactly free, but it's as close to free as you can get.
-/// even better would be for `Insitu` to contain `&str`, but internal borrowing is a bit of a pain
-/// - credit: Maciej
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Text {
     Insitu(Range<usize>),
@@ -102,12 +76,10 @@ impl Default for State {
             editing_details: Editing::None,
             main: Content {
                 filename: "main.csv".to_owned(),
-                obj_url: "placeholder_url".to_owned(),
                 table: main_local_storage,
             },
             details: Content {
                 filename: "details.csv".to_owned(),
-                obj_url: "placeholder_url".to_owned(),
                 table: details_local_storage,
             },
         }
@@ -121,12 +93,10 @@ impl State {
             editing_details: Editing::None,
             main: Content {
                 filename: "main.csv".to_owned(),
-                obj_url: "placeholder_url".to_owned(),
                 table: Table::mock(),
             },
             details: Content {
                 filename: "details.csv".to_owned(),
-                obj_url: "placeholder_url".to_owned(),
                 table: Table::mock_file_details(),   
             },
         }
@@ -140,29 +110,12 @@ impl State {
         LocalStorage::set(KEY_DETAILS, &self.details.table).unwrap_throw();
     }
 
-    // // get specific storage of 'details' key
-    // pub fn get_store_details(&self) -> Result<Table, Error> {
-    //     debug!("get_store_details");
-
-    //     let details_local_storage: Table = match LocalStorage::get(KEY_DETAILS) {
-    //         Ok(local_storage) => {
-    //             debug!("local_storage {:?}", local_storage);
-    //             local_storage
-    //         },
-    //         Err(err) => {
-    //             debug!("err {:?}", err);
-    //             return Err(Error::StorageError);
-    //         },
-    //     };
-    //     Ok(details_local_storage)
-    // }
-
     // store in state edits by user to the 'main' table of the UI
     pub fn update_main(&mut self, row: usize, col: usize, value: String) {
         let old_storage = self.main.table.source.get_text(&self.main.table.rows[row][col]);
         if value != old_storage {
             self.main.table.rows[row][col] = Text::Owned(value.into());
-            self.editing_main = Editing::None; // also done in onkeydown
+            self.editing_main = Editing::None;
             self.store();
         }
     }
@@ -174,8 +127,7 @@ impl State {
         debug!("update_details old storage: {:?}", old_storage);
         if value != old_storage {
             self.details.table.rows[row][col] = Text::Owned(value.into());
-            self.editing_details = Editing::None; // also done in onkeydown
-
+            self.editing_details = Editing::None;
             self.store();
         }
     }

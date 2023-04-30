@@ -3,7 +3,7 @@ use wasm_bindgen::prelude::*;
 // interfaces
 use crate::js::interfaces::browser_js_spec_alert;
 use crate::js::interfaces::non_browser_js_spec_class_example as class_example;
-use crate::js::interfaces::non_browser_js_spec_click_element as click_element;
+use crate::js::interfaces::non_browser_js_spec_save_file as save_file;
 #[macro_use]
 use crate::js::interfaces::browser_js_spec_macros;
 
@@ -43,7 +43,7 @@ pub fn run_non_browser_js() {
 }
 
 #[wasm_bindgen]
-pub fn run_click_element() {
-    let has_clicked = click_element::__kobold_click_element();
-    crate::console_log!("click_element::__kobold_click_element() {:?}", has_clicked);
+pub fn run_save_file(filename: &str, data: &[u8]) {
+    let has_saved_file = save_file::kobold_save_file(filename, data);
+    crate::console_log!("save_file::kobold_save_file(filename, data) {:?}", has_saved_file);
 }

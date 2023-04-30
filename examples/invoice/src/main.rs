@@ -3,25 +3,11 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use kobold::prelude::*;
-use kobold::branching::{Branch2, Branch3, Empty};
-use kobold::reexport::web_sys::HtmlTextAreaElement;
+use kobold::branching::{Branch3};
 use kobold_qr::KoboldQR;
-use gloo_console::{console_dbg};
-use gloo_utils::format::JsValueSerdeExt;
-use gloo_file::{Blob, File as GlooFile};
-use log::{info, debug, error, warn};
-use serde::{Serialize, Deserialize};
-use serde_json::{to_string};
+use log::{debug};
 
-// https://yew.rs/docs/0.18.0/concepts/wasm-bindgen/web-sys
-use std::ops::Deref;
-use web_sys::{EventTarget, HtmlInputElement as InputElement, HtmlElement, Node};
-use js_sys;
-use wasm_bindgen::JsCast;
-
-use wasm_bindgen::JsValue;
-use wasm_bindgen_futures::spawn_local;
-use wasm_bindgen::throw_str;
+use web_sys::{EventTarget, HtmlInputElement as InputElement, HtmlElement};
 
 mod csv;
 mod js;
@@ -45,55 +31,38 @@ fn Editor() -> impl View {
             state.update(|state| state.details.filename = file.name());
 
             if let Ok(table) = csv::read_file(file).await {
-                debug!("details.table {:#?}", table);
+                debug!("state.details.table {:#?}", table);
                 // https://docs.rs/kobold/latest/kobold/stateful/struct.Signal.html#method.update
                 state.update(move |state| {
                     state.details.table = table;
                     state.store(); // update local storage
-
-                    // TODO - somehow re-render so updated state.details are shown in the UI
-                    // Then::Render;
-                });
-
-                // show latest state
-                state.update(move |state| {
-                    debug!("latest state {:#?}", &state.details.table);
                 });
             }
         });
 
         let onsave_details = state.bind_async(|state, event: MouseEvent<HtmlElement>| async move {
-            // update local storage and state so that &state.details isn't
-            // `Content { filename: "\0\0\0\0\0\0\0", table: Table { source: TextSource { source: "\0" }, columns: [Insitu(0..0)], rows: [] } }`
-            //
-            // closure has access to Signal of state.
-            // `update` doesn't implement Deref so you can't access fields on it like you can with a Hook
-            // `update_silent` gives access to the actual state without triggering a render
-            state.update(|state| state.store());
-
             // closure required just to debug with access to state fields, since otherwise it'd trigger a render
-            state.update(|state| {
+            state.update_silent(|state| {
                 debug!("onsave_details: {:?}", &state.details);
             });
 
             state.update(|state| {
-                match csv::generate_csv_data_obj_url_for_download(&state.details) {
-                    Ok(obj_url) => {
-                        debug!("obj_url {:?}", obj_url);
-
-                        state.details.obj_url = obj_url;
-
-                        // Automatically click the download button of the hyperlink with CSS id
-                        // '#link-file-download' since the state should have been updated with the
-                        // obj_url by now and that hyperlink has a `href` attribute that should
-                        // now contain the obj_url that would be downloaded when that hyperlink is clicked
-                        js::browser_js::run_click_element();
+                // update local storage and state so that &state.details isn't
+                // `Content { filename: "\0\0\0\0\0\0\0", table: Table { source: TextSource
+                //   { source: "\0" }, columns: [Insitu(0..0)], rows: [] } }`
+                state.store();
+                match csv::generate_csv_data_for_download(&state.details) {
+                    Ok(csv_data) => {
+                        debug!("csv_data {:?}", csv_data);
+                        // cast String into a byte slice
+                        let csv_data_byte_slice: &[u8] = csv_data.as_bytes();
+                        js::browser_js::run_save_file(&state.details.filename, csv_data_byte_slice);
                     },
                     Err(err) => {
-                        panic!("failed to generate csv data object url for download {:?}", state.details.filename);
+                        panic!("failed to generate csv data for download {:?}", state.details.filename);
                     },
                 };
-                debug!("successfully generate csv data object url for download {:?}", state.details.filename);
+                debug!("successfully generate csv data for download {:?}", state.details.filename);
             });
         });
 
@@ -124,54 +93,9 @@ fn Editor() -> impl View {
                             <input type="file" id="file-input" accept="text/csv" onchange={onload_details} />
                             <input type="button" onclick="document.getElementById('file-input').click()" value="Upload CSV file" />
                             <label for="file-input" class="label">{ ref state.details.filename }</label>
-                            // generates CSV file download object url and triggers the script __kobold_click_element.js that
-                            // automatically clicks the #link-file-download hyperlink when the object url has been stored in state
-                            {
-                                // when the page is initially loaded, there may not be any data in
-                                // local storage, and if we edit a cell it doesn't generate the object url
-                                // blob, so it won't save if they click "Save to CSV".
-                                // but if we click the #button-file-save when the page is loaded,
-                                // then if the user edits cells it will update the object url,
-                                // so then when they click to "Save to CSV" it allows them to
-                                (|| view! {
-                                    {
-                                        if state.details.obj_url.len() > 0 && state.details.obj_url != "placeholder_url" {
-                                            Branch2::A(view! {
-                                                <button #button-file-save type="button" onclick={onsave_details}>"Save to CSV file"</button>
-                                            })
-                                        } else {
-                                            Branch2::B(view! {
-                                                <button #button-file-save .button-disabled type="button" onclick={onsave_details}>"Save to CSV file"</button>
-                                            })
-                                        }
-                                    }
-                                })().on_mount(|el| {
-                                    // https://yew.rs/docs/0.18.0/concepts/wasm-bindgen/web-sys
-                                    let event_target: &EventTarget = el.deref(); // uses Deref
-                                    let object: &js_sys::Object = event_target.deref();
-                                    let js_value: &wasm_bindgen::JsValue = object.deref();
-                                    // Note: Using `js_value.into_serde::<HtmlElement>().unwrap()`
-                                    // did not work https://rustwasm.github.io/wasm-bindgen/api/wasm_bindgen/struct.JsValue.html#method.into_serde
-                                    let html_element: &HtmlElement = &js_value.deref().clone()
-                                        .dyn_into::<HtmlElement>().unwrap(); // uses JsCast
-                                    debug!("mounted html button-file-save {:?}", &html_element);
-                                    html_element.click();
-                                })
-                            }
+                            <button #button-file-save type="button" onclick={onsave_details}>"Save to CSV file"</button>
                             <br />
                         </div>
-                        <span>{ ref state.details.obj_url }</span>
-                        <div>
-                        {
-                            (state.details.obj_url.len() > 0 && state.details.obj_url != "placeholder_url").then(|| view! {
-                                // this link is hidden in the UI using CSS since it gets automatically clicked when
-                                // the download object url is saved in the state 
-                                <a #link-file-download href={ref state.details.obj_url}
-                                    download={ref state.details.filename}>"Download CSV file to save changes"</a>
-                            })
-                        }
-                        </div>
-                        // <EntryView {state} />
                         <table
                             onkeydown={
                                 state.bind(move |state, event: KeyboardEvent<_>| {
@@ -364,7 +288,7 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 
 #[component(auto_branch)]
 fn HeadDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
-    debug!("row/col: {:?}/{:?}", row, col);
+    // debug!("row/col: {:?}/{:?}", row, col);
     let value = state.details.table.source.get_text(&state.details.table.rows[row][col]);
 
     if state.editing_details == (Editing::Cell { row, col }) {

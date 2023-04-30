@@ -113,19 +113,6 @@ input[type=button] {
     font-size: 1.0em;
     font-weight: 600;
 }
-
-.button-disabled {
-    background-color: #dddddd !important;
-    border: 2px solid #999999 !important;
-}
-
-#link-file-download {
-    /* hide the element. it only exists so we can automatically click
-    the object url that is generated in the state using the script
-    __kobold_click_element.js when it is ready without
-    having to manually click to download it in the browser */
-    display: none; 
-}
   
 textarea {
     display: block;

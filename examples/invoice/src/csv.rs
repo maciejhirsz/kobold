@@ -7,7 +7,6 @@ use std::str::FromStr;
 use logos::{Lexer, Logos};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{File, Url};
-use gloo_file::{Blob};
 use take_mut::take;
 use log::{debug};
 
@@ -33,7 +32,6 @@ enum Token {
 pub enum Error {
     NoData,
     FailedToBufferFile,
-    FailedToCreateObjectBlobWithUrl,
     FailedToReadFile,
     FailedToWriteFile,
     FailedToLoadMetadata,
@@ -135,7 +133,7 @@ pub async fn read_file(file: File) -> Result<Table, Error> {
     text.parse()
 }
 
-pub fn generate_csv_data_obj_url_for_download(content: &Content) -> Result<String, Error> {
+pub fn generate_csv_data_for_download(content: &Content) -> Result<String, Error> {
     // generate CSV file format from object Url in state
     // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=f911a069c22a7f4cf4b5e8a9aa05e65e
 
@@ -150,29 +148,22 @@ pub fn generate_csv_data_obj_url_for_download(content: &Content) -> Result<Strin
     let mut new_csv: Vec<Vec<&str>> =
         vec![old_csv[0].clone(), old_csv[1].clone(), old_csv[2].clone()];
 
-    let new_csv_variables_stringified: String = update_csv_row_for_modified_table_cells(&content.table.columns, &mut new_csv[0]);
-    let new_csv_values_stringified: String = update_csv_row_for_modified_table_cells(&content.table.rows[0], &mut new_csv[1]);
-    let new_csv_labels_stringified: String = update_csv_row_for_modified_table_cells(&content.table.rows[1], &mut new_csv[2]);
-    let arr = vec![new_csv_variables_stringified, new_csv_values_stringified, new_csv_labels_stringified];
-    // println!("{:?}", arr);
+    let new_csv_variables_stringified: String =
+        update_csv_row_for_modified_table_cells(&content.table.columns, &mut new_csv[0]);
+    let new_csv_values_stringified: String =
+        update_csv_row_for_modified_table_cells(&content.table.rows[0], &mut new_csv[1]);
+    let new_csv_labels_stringified: String =
+        update_csv_row_for_modified_table_cells(&content.table.rows[1], &mut new_csv[2]);
+    let arr = vec![
+        new_csv_variables_stringified,
+        new_csv_values_stringified,
+        new_csv_labels_stringified
+    ];
+    // debug!("{:?}", arr);
     let content_serialized: String = arr.join("\n");
     debug!("content_serialized {:?}", content_serialized);
 
-    // cast String into a byte slice
-    let content_serialized_byte_slice: &[u8] = &content_serialized.as_bytes();
-
-    let file_blob: Blob = Blob::new_with_options(
-        content_serialized_byte_slice,
-        Some("text/plain"),
-    );
-    debug!("file_blob: {:?}", file_blob);
-    // convert struct `gloo_file::Blob` into struct `web_sys::Blob`
-    let obj_url = match Url::create_object_url_with_blob(&file_blob.into()) {
-        Ok(url) => url,
-        Err(err) => return Err(Error::FailedToCreateObjectBlobWithUrl),
-    };
-
-    return Ok(obj_url);
+    return Ok(content_serialized)
 }
 
 pub fn update_csv_row_for_modified_table_cells<'a>(
@@ -188,11 +179,14 @@ pub fn update_csv_row_for_modified_table_cells<'a>(
                 Text::Owned(s) => {
                     let len = csv_row.len() - 1;
                     // https://users.rust-lang.org/t/replacing-element-of-vector/57258/3
-                    // use `take` so we have a closure that must return a valid T otherwise the closure panics and program aborts
-                    // incase it panics before we've finished the process of swapping for the new value
+                    // use `take` so we have a closure that must return a valid T otherwise
+                    // the closure panics and program aborts incase it panics before we've
+                    // finished the process of swapping for the new value
                     take(csv_row, |mut cr| {
-                        // Note: Do not need this lengthy approach. Possibly don't need `take_mut` either
-                        // let old_cell_data = &cr.swap_remove(i); // removes elem at index i and swaps last elem into old index i
+                        // Note: Do not need this lengthy approach. Possibly don't need
+                        // `take_mut` either.
+                        // // removes elem at index i and swaps last elem into old index i
+                        // let old_cell_data = &cr.swap_remove(i);
                         // cr.push(s); // push new elem to end of vector
                         // cr.swap(i, len); // swap new elem into index i
                         // debug!("replaced {:?} with {:?}", old_cell_data, s);
@@ -204,7 +198,7 @@ pub fn update_csv_row_for_modified_table_cells<'a>(
                 },
             }
         });
-    // println!("{:?}", csv_row);
+    // debug!("{:?}", csv_row);
     let mut c = 0;
     let new_csv_variables_stringified: String =
         csv_row.iter().map(|text| {
