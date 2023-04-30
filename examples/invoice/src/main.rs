@@ -2,12 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use kobold::branching::Branch3;
 use kobold::prelude::*;
-use kobold::branching::{Branch3};
 use kobold_qr::KoboldQR;
-use log::{debug};
+use log::debug;
 
-use web_sys::{EventTarget, HtmlInputElement as InputElement, HtmlElement};
+use web_sys::{EventTarget, HtmlElement, HtmlInputElement as InputElement};
 
 mod csv;
 mod js;
@@ -57,12 +57,18 @@ fn Editor() -> impl View {
                         // cast String into a byte slice
                         let csv_data_byte_slice: &[u8] = csv_data.as_bytes();
                         js::browser_js::run_save_file(&state.details.filename, csv_data_byte_slice);
-                    },
+                    }
                     Err(err) => {
-                        panic!("failed to generate csv data for download {:?}", state.details.filename);
-                    },
+                        panic!(
+                            "failed to generate csv data for download {:?}",
+                            state.details.filename
+                        );
+                    }
                 };
-                debug!("successfully generate csv data for download {:?}", state.details.filename);
+                debug!(
+                    "successfully generate csv data for download {:?}",
+                    state.details.filename
+                );
             });
         });
 
@@ -137,7 +143,7 @@ fn Editor() -> impl View {
                                 state.bind(move |state, event: KeyboardEvent<_>| {
                                     if matches!(event.key().as_str(), "Esc" | "Escape") {
                                         state.editing_main = Editing::None;
-                    
+
                                         Then::Render
                                     } else {
                                         Then::Stop
@@ -187,7 +193,11 @@ fn Editor() -> impl View {
 
 #[component(auto_branch)]
 fn Head(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
-    let value = state.main.table.source.get_text(&state.main.table.columns[col]);
+    let value = state
+        .main
+        .table
+        .source
+        .get_text(&state.main.table.columns[col]);
 
     if state.editing_main == (Editing::Column { col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
@@ -214,7 +224,11 @@ fn Head(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 
 #[component]
 fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
-    let value = state.main.table.source.get_text(&state.main.table.rows[row][col]);
+    let value = state
+        .main
+        .table
+        .source
+        .get_text(&state.main.table.rows[row][col]);
 
     if state.editing_main == (Editing::Cell { row, col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
@@ -265,7 +279,11 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 #[component(auto_branch)]
 fn HeadDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     // debug!("row/col: {:?}/{:?}", row, col);
-    let value = state.details.table.source.get_text(&state.details.table.rows[row][col]);
+    let value = state
+        .details
+        .table
+        .source
+        .get_text(&state.details.table.rows[row][col]);
 
     if state.editing_details == (Editing::Cell { row, col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
@@ -292,7 +310,11 @@ fn HeadDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 
 #[component]
 fn CellDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
-    let value = state.details.table.source.get_text(&state.details.table.rows[row][col]);
+    let value = state
+        .details
+        .table
+        .source
+        .get_text(&state.details.table.rows[row][col]);
 
     if state.editing_details == (Editing::Cell { row, col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
@@ -357,7 +379,7 @@ fn QRForTask(value: &str) -> impl View + '_ {
     debug!("{:#?} {:#?}", &left, &right);
     let data: &str = left;
     let format: &str = right;
-    // 
+
     view! {
         <div.qr>
             <KoboldQR data={data} />
@@ -371,7 +393,6 @@ fn main() {
     // Demonstrate use of Rust `wasm-bindgen` https://rustwasm.github.io/docs/wasm-bindgen
     js::browser_js::run();
     wasm_logger::init(wasm_logger::Config::default());
-    debug!("main()");
     kobold::start(view! {
         <Editor />
     });

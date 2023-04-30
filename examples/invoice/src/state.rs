@@ -3,10 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use gloo_storage::{LocalStorage, Storage};
-use wasm_bindgen::{UnwrapThrowExt};
-use serde::{Serialize, Deserialize};
-use log::{info, debug, error, warn};
+use log::{debug, error, info, warn};
+use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
+use wasm_bindgen::UnwrapThrowExt;
 
 use std::ops::{Deref, DerefMut, Range};
 
@@ -69,7 +69,10 @@ impl Default for State {
             // TODO - check that this actually converts to Table type
             Err(err) => Table::mock_file_details(),
         };
-        debug!("loading local storage: {:?}\n\n{:?}", main_local_storage, details_local_storage);
+        debug!(
+            "loading local storage: {:?}\n\n{:?}",
+            main_local_storage, details_local_storage
+        );
 
         State {
             editing_main: Editing::None,
@@ -97,7 +100,7 @@ impl State {
             },
             details: Content {
                 filename: "details.csv".to_owned(),
-                table: Table::mock_file_details(),   
+                table: Table::mock_file_details(),
             },
         }
     }
@@ -105,7 +108,10 @@ impl State {
     #[inline(never)]
     // store the updated state in web browser local storage
     pub fn store(&self) {
-        debug!("updating store: {:?}\n\n{:?}", &self.main.table, &self.details.table);
+        debug!(
+            "updating store: {:?}\n\n{:?}",
+            &self.main.table, &self.details.table
+        );
         LocalStorage::set(KEY_MAIN, &self.main.table).unwrap_throw();
         LocalStorage::set(KEY_DETAILS, &self.details.table).unwrap_throw();
     }
@@ -147,7 +153,9 @@ impl TextSource {
 
 impl Table {
     fn mock() -> Self {
-        "description,total,qr\ntask1,10,0x000|h160\ntask2,20,0x100|h160".parse().unwrap_throw()
+        "description,total,qr\ntask1,10,0x000|h160\ntask2,20,0x100|h160"
+            .parse()
+            .unwrap_throw()
     }
 
     fn mock_file_details() -> Self {

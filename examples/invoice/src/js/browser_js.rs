@@ -45,5 +45,8 @@ pub fn run_non_browser_js() {
 #[wasm_bindgen]
 pub fn run_save_file(filename: &str, data: &[u8]) {
     let has_saved_file = save_file::kobold_save_file(filename, data);
-    crate::console_log!("save_file::kobold_save_file(filename, data) {:?}", has_saved_file);
+    crate::console_log!(
+        "save_file::kobold_save_file(filename, data) {:?}",
+        has_saved_file
+    );
 }

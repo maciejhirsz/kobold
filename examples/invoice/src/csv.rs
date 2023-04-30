@@ -4,11 +4,11 @@
 
 use std::str::FromStr;
 
+use log::debug;
 use logos::{Lexer, Logos};
+use take_mut::take;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{File, Url};
-use take_mut::take;
-use log::{debug};
 
 use crate::state::{Content, Table, Text, TextSource};
 
@@ -157,57 +157,56 @@ pub fn generate_csv_data_for_download(content: &Content) -> Result<String, Error
     let arr = vec![
         new_csv_variables_stringified,
         new_csv_values_stringified,
-        new_csv_labels_stringified
+        new_csv_labels_stringified,
     ];
     // debug!("{:?}", arr);
     let content_serialized: String = arr.join("\n");
     debug!("content_serialized {:?}", content_serialized);
 
-    return Ok(content_serialized)
+    return Ok(content_serialized);
 }
 
 pub fn update_csv_row_for_modified_table_cells<'a>(
     cells: &'a Vec<Text>,
-    csv_row: &mut Vec<&'a str>
+    csv_row: &mut Vec<&'a str>,
 ) -> String {
-    let _ = &cells
-        .into_iter()
-        .enumerate()
-        .for_each(|(i, el)| {
-            match el {
-                Text::Insitu(r) => {},
-                Text::Owned(s) => {
-                    let len = csv_row.len() - 1;
-                    // https://users.rust-lang.org/t/replacing-element-of-vector/57258/3
-                    // use `take` so we have a closure that must return a valid T otherwise
-                    // the closure panics and program aborts incase it panics before we've
-                    // finished the process of swapping for the new value
-                    take(csv_row, |mut cr| {
-                        // Note: Do not need this lengthy approach. Possibly don't need
-                        // `take_mut` either.
-                        // // removes elem at index i and swaps last elem into old index i
-                        // let old_cell_data = &cr.swap_remove(i);
-                        // cr.push(s); // push new elem to end of vector
-                        // cr.swap(i, len); // swap new elem into index i
-                        // debug!("replaced {:?} with {:?}", old_cell_data, s);
-    
-                        // Note: This is a simpler approach to replacing the value
-                        core::mem::replace(&mut cr[i], s);
-                        cr // must return valid T or it panics
-                    });  
-                },
+    let _ = &cells.into_iter().enumerate().for_each(|(i, el)| {
+        match el {
+            Text::Insitu(r) => {}
+            Text::Owned(s) => {
+                let len = csv_row.len() - 1;
+                // https://users.rust-lang.org/t/replacing-element-of-vector/57258/3
+                // use `take` so we have a closure that must return a valid T otherwise
+                // the closure panics and program aborts incase it panics before we've
+                // finished the process of swapping for the new value
+                take(csv_row, |mut cr| {
+                    // Note: Do not need this lengthy approach. Possibly don't need
+                    // `take_mut` either.
+                    // // removes elem at index i and swaps last elem into old index i
+                    // let old_cell_data = &cr.swap_remove(i);
+                    // cr.push(s); // push new elem to end of vector
+                    // cr.swap(i, len); // swap new elem into index i
+                    // debug!("replaced {:?} with {:?}", old_cell_data, s);
+
+                    // Note: This is a simpler approach to replacing the value
+                    core::mem::replace(&mut cr[i], s);
+                    cr // must return valid T or it panics
+                });
             }
-        });
+        }
+    });
     // debug!("{:?}", csv_row);
     let mut c = 0;
-    let new_csv_variables_stringified: String =
-        csv_row.iter().map(|text| {
+    let new_csv_variables_stringified: String = csv_row
+        .iter()
+        .map(|text| {
             if c == csv_row.len() - 1 {
                 c += 1;
                 return text.to_string();
             }
             c += 1;
             return text.to_string() + ",";
-        }).collect::<String>();
+        })
+        .collect::<String>();
     new_csv_variables_stringified
 }
