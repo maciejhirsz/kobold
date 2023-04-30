@@ -2,10 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::str::FromStr;
-
 use log::debug;
 use logos::{Lexer, Logos};
+use std::str::FromStr;
 use take_mut::take;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{File, Url};

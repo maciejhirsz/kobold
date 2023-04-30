@@ -2,13 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use gloo_storage::{LocalStorage, Storage};
 use log::{debug, error, info, warn};
+use gloo_storage::{LocalStorage, Storage};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
-use wasm_bindgen::UnwrapThrowExt;
-
 use std::ops::{Deref, DerefMut, Range};
+use wasm_bindgen::UnwrapThrowExt;
 
 const KEY_MAIN: &str = "kobold.invoice.main";
 const KEY_DETAILS: &str = "kobold.invoice.details";
