@@ -17,10 +17,10 @@ impl<T> WithCell<T> {
         }
     }
 
-    pub fn with<F, R>(&self, mutator: F) -> R
+    pub fn with<F, O>(&self, mutator: F) -> O
     where
-        F: FnOnce(&mut T) -> R,
-        R: 'static,
+        F: FnOnce(&mut T) -> O,
+        O: 'static,
     {
         if self.borrowed.get() {
             wasm_bindgen::throw_str("Cyclic state borrowing");
