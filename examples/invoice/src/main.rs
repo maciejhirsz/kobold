@@ -42,12 +42,12 @@ fn Editor() -> impl View {
                 None => return,
             };
 
-            state.update_silent(|state| state.details.filename = file.name());
+            state.update(|state| state.details.filename = file.name());
 
             if let Ok(table) = csv::read_file(file).await {
                 debug!("details.table {:#?}", table);
                 // https://docs.rs/kobold/latest/kobold/stateful/struct.Signal.html#method.update
-                state.update_silent(move |state| {
+                state.update(move |state| {
                     state.details.table = table;
                     state.store(); // update local storage
 
@@ -56,7 +56,7 @@ fn Editor() -> impl View {
                 });
 
                 // show latest state
-                state.update_silent(move |state| {
+                state.update(move |state| {
                     debug!("latest state {:#?}", &state.details.table);
                 });
             }
@@ -69,14 +69,14 @@ fn Editor() -> impl View {
             // closure has access to Signal of state.
             // `update` doesn't implement Deref so you can't access fields on it like you can with a Hook
             // `update_silent` gives access to the actual state without triggering a render
-            state.update_silent(|state| state.store());
+            state.update(|state| state.store());
 
             // closure required just to debug with access to state fields, since otherwise it'd trigger a render
-            state.update_silent(|state| {
+            state.update(|state| {
                 debug!("onsave_details: {:?}", &state.details);
             });
 
-            state.update_silent(|state| {
+            state.update(|state| {
                 match csv::generate_csv_data_obj_url_for_download(&state.details) {
                     Ok(obj_url) => {
                         debug!("obj_url {:?}", obj_url);
@@ -103,10 +103,10 @@ fn Editor() -> impl View {
                 None => return,
             };
 
-            state.update_silent(|state| state.main.filename = file.name());
+            state.update(|state| state.main.filename = file.name());
 
             if let Ok(table) = csv::read_file(file).await {
-                state.update_silent(move |state| {
+                state.update(move |state| {
                     state.main.table = table;
                     state.store(); // update local storage
                 });
