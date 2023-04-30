@@ -13,28 +13,46 @@ use crate::components::{
     HeadDetails::{HeadDetails},
 };
 
+async fn onload_common(table_variant: String, state: Signal<State>, event: Event<InputElement>) {
+    debug!("onload_details");
+    let file = match event.target().files().and_then(|list| list.get(0)) {
+        Some(file) => file,
+        None => return,
+    };
+
+    state.update(|state| {
+        match table_variant.as_str() {
+            "main" => state.main.filename = file.name(),
+            "details" => state.details.filename = file.name(),
+            &_ => panic!("unknown variant name"),
+        };
+    });
+
+    if let Ok(table) = csv::read_file(file).await {
+        debug!("table {:#?}", table);
+        // https://docs.rs/kobold/latest/kobold/stateful/struct.Signal.html#method.update
+        state.update(move |state| {
+            match table_variant.as_str() {
+                "main" => state.main.table = table,
+                "details" => state.details.table = table,
+                &_ => panic!("unknown variant name"),
+            };
+            state.store(); // update local storage
+        });
+    }
+}
+
 #[component]
 pub fn Editor() -> impl View {
     stateful(State::default, |state| {
         debug!("Editor()");
 
         let onload_details = state.bind_async(|state, event: Event<InputElement>| async move {
-            debug!("onload_details");
-            let file = match event.target().files().and_then(|list| list.get(0)) {
-                Some(file) => file,
-                None => return,
-            };
+            onload_common("details".to_string(), state, event).await;
+        });
 
-            state.update(|state| state.details.filename = file.name());
-
-            if let Ok(table) = csv::read_file(file).await {
-                debug!("state.details.table {:#?}", table);
-                // https://docs.rs/kobold/latest/kobold/stateful/struct.Signal.html#method.update
-                state.update(move |state| {
-                    state.details.table = table;
-                    state.store(); // update local storage
-                });
-            }
+        let onload_main = state.bind_async(|state, event: Event<InputElement>| async move {
+            onload_common("main".to_string(), state, event).await;
         });
 
         let onsave_details = state.bind_async(|state, event: MouseEvent<HtmlElement>| async move {
@@ -67,22 +85,6 @@ pub fn Editor() -> impl View {
                     state.details.filename
                 );
             });
-        });
-
-        let onload_main = state.bind_async(|state, event: Event<InputElement>| async move {
-            let file = match event.target().files().and_then(|list| list.get(0)) {
-                Some(file) => file,
-                None => return,
-            };
-
-            state.update(|state| state.main.filename = file.name());
-
-            if let Ok(table) = csv::read_file(file).await {
-                state.update(move |state| {
-                    state.main.table = table;
-                    state.store(); // update local storage
-                });
-            }
         });
 
         view! {
