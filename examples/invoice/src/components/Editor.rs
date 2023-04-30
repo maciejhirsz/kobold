@@ -13,7 +13,12 @@ use crate::components::{
     HeadDetails::{HeadDetails},
 };
 
-async fn onload_common(table_variant: String, state: Signal<State>, event: Event<InputElement>) {
+enum TableVariants {
+    Main,
+    Details,
+}
+
+async fn onload_common(table_variant: TableVariants, state: Signal<State>, event: Event<InputElement>) {
     debug!("onload_details");
     let file = match event.target().files().and_then(|list| list.get(0)) {
         Some(file) => file,
@@ -21,10 +26,10 @@ async fn onload_common(table_variant: String, state: Signal<State>, event: Event
     };
 
     state.update(|state| {
-        match table_variant.as_str() {
-            "main" => state.main.filename = file.name(),
-            "details" => state.details.filename = file.name(),
-            &_ => panic!("unknown variant name"),
+        match table_variant {
+            TableVariants::Main => state.main.filename = file.name(),
+            TableVariants::Details => state.details.filename = file.name(),
+            _ => panic!("unknown variant name"),
         };
     });
 
@@ -32,10 +37,10 @@ async fn onload_common(table_variant: String, state: Signal<State>, event: Event
         debug!("table {:#?}", table);
         // https://docs.rs/kobold/latest/kobold/stateful/struct.Signal.html#method.update
         state.update(move |state| {
-            match table_variant.as_str() {
-                "main" => state.main.table = table,
-                "details" => state.details.table = table,
-                &_ => panic!("unknown variant name"),
+            match table_variant {
+                TableVariants::Main => state.main.table = table,
+                TableVariants::Details => state.details.table = table,
+                _ => panic!("unknown variant name"),
             };
             state.store(); // update local storage
         });
@@ -48,11 +53,11 @@ pub fn Editor() -> impl View {
         debug!("Editor()");
 
         let onload_details = state.bind_async(|state, event: Event<InputElement>| async move {
-            onload_common("details".to_string(), state, event).await;
+            onload_common(TableVariants::Details, state, event).await;
         });
 
         let onload_main = state.bind_async(|state, event: Event<InputElement>| async move {
-            onload_common("main".to_string(), state, event).await;
+            onload_common(TableVariants::Main, state, event).await;
         });
 
         let onsave_details = state.bind_async(|state, event: MouseEvent<HtmlElement>| async move {
