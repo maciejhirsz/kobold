@@ -124,7 +124,7 @@ fn Editor() -> impl View {
                                 // but if we click the #button-file-save when the page is loaded,
                                 // then if the user edits cells it will update the object url,
                                 // so then when they click to "Save to CSV" it allows them to
-                                (true == true).then(|| view! {
+                                (|| view! {
                                     {
                                         if state.details.obj_url.len() > 0 && state.details.obj_url != "placeholder_url" {
                                             Branch2::A(view! {
@@ -136,7 +136,7 @@ fn Editor() -> impl View {
                                             })
                                         }
                                     }
-                                }).on_mount(|el| {
+                                })().on_mount(|el| {
                                     // https://yew.rs/docs/0.18.0/concepts/wasm-bindgen/web-sys
                                     let event_target: &EventTarget = el.deref(); // uses Deref
                                     let object: &js_sys::Object = event_target.deref();
