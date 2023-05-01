@@ -1,7 +1,12 @@
 use log::debug;
 
 // incase there are more columns in some rows than others we will pad them for processing
-pub fn pad_csv_data<'a>(original_csv: &Vec<&'a str>, new_csv: &mut Vec<Vec<&'a str>>, new_csv_lens: &mut Vec<usize>, padding: &'a str) {
+pub fn pad_csv_data<'a>(
+    original_csv: &Vec<&'a str>,
+    new_csv: &mut Vec<Vec<&'a str>>,
+    new_csv_lens: &mut Vec<usize>,
+    padding: &'a str,
+) {
     let mut old_csv: Vec<Vec<&str>> = vec![];
     let mut old_csv_lens: Vec<usize> = vec![];
     original_csv

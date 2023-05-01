@@ -1,7 +1,5 @@
-use crate::csv::{
-    update_csv_row_for_modified_table_cells
-};
-use crate::helpers::{csv_helpers};
+use crate::csv::update_csv_row_for_modified_table_cells;
+use crate::helpers::csv_helpers;
 use crate::state::Text;
 
 #[cfg(test)]

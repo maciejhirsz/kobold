@@ -9,8 +9,8 @@ use take_mut::take;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{File, Url};
 
+use crate::helpers::csv_helpers;
 use crate::state::{Content, Table, TableVariants, Text, TextSource};
-use crate::helpers::{csv_helpers};
 
 #[derive(Logos)]
 enum Token {
@@ -137,7 +137,10 @@ pub async fn read_file(file: File) -> Result<Table, Error> {
     text.parse()
 }
 
-fn validate_same_columns_length_all_rows(new_csv: &Vec<Vec<&str>>, new_csv_lens: &Vec<usize>) -> Result<(), Error> {
+fn validate_same_columns_length_all_rows(
+    new_csv: &Vec<Vec<&str>>,
+    new_csv_lens: &Vec<usize>,
+) -> Result<(), Error> {
     let is_not_all_same =
         |new_csv: &[usize]| -> bool { new_csv.iter().min() != new_csv.iter().max() };
     debug!("is_not_all_same {:?}", is_not_all_same(&new_csv_lens));

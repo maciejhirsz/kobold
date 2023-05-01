@@ -9,8 +9,8 @@ use kobold::prelude::*;
 
 mod components;
 mod csv;
-mod js;
 mod helpers;
+mod js;
 mod state;
 mod tests;
 use components::{
