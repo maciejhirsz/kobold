@@ -22,6 +22,8 @@ async fn onload_common(
         None => return,
     };
 
+    event.target().set_value("");
+
     // TODO - should only update filename if the upload in the next step was successful
     state.update(|state| {
         match table_variant {
@@ -132,7 +134,7 @@ pub fn Editor() -> impl View {
                         <h3>"Details table"</h3>
                         <div class="container">
                             // https://stackoverflow.com/a/48499451/3208553
-                            <input type="file" class="file-input-hidden" id="file-input-details" accept="text/csv" onchange={onload_details} onclick="this.value=null;" />
+                            <input type="file" class="file-input-hidden" id="file-input-details" accept="text/csv" onchange={onload_details} />
                             <input type="button" id="file-input-details-modern" onclick="document.getElementById('file-input-details').click()" value="Upload CSV file (Details)" />
                             <label for="file-input-details" class="label">{ ref state.details.filename }</label>
                             <button #button-file-save type="button" onclick={onsave_details}>"Save to CSV file"</button>
@@ -174,7 +176,7 @@ pub fn Editor() -> impl View {
                     <section .main>
                         <h3>"Main table"</h3>
                         <div class="container">
-                            <input type="file" class="file-input-hidden" id="file-input-main" accept="text/csv" onchange={onload_main} onclick="this.value=null;" />
+                            <input type="file" class="file-input-hidden" id="file-input-main" accept="text/csv" onchange={onload_main} />
                             <input type="button" id="file-input-main-modern" onclick="document.getElementById('file-input-main').click()" value="Upload CSV file (Main)" />
                             <label for="file-input-main" class="label">{ ref state.main.filename }</label>
                             <button #button-file-save type="button" onclick={onsave_main}>"Save to CSV file"</button>
