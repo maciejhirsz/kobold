@@ -1,42 +1,27 @@
-// use crate::{get_details_data, Details};
+use crate::csv::update_csv_row_for_modified_table_cells;
+use crate::state::Text;
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-//     #[test]
-//     fn test_get_details_data() -> Result<(), String> {
-//         let details = Details {
-//             inv_date: String::from("01.01.1970"),
-//             inv_no: String::from("0001"),
-//             from_attn_name: String::from("unknown"),
-//             from_org_name: String::from("unknown"),
-//             from_org_addr: String::from("unknown"),
-//             from_email: String::from("unknown"),
-//             to_attn_name: String::from("unknown"),
-//             to_title: String::from("unknown"),
-//             to_org_name: String::from("unknown"),
-//             to_email: String::from("unknown")
-//         };
-//         let arr: [(&str, &str); 10] = [
-//             ("inv_date","01.01.1970"),
-//             ("inv_no","0001"),
-//             ("from_attn_name","unknown"),
-//             ("from_org_name","unknown"),
-//             ("from_org_addr","unknown"),
-//             ("from_email","unknown"),
-//             ("to_attn_name","unknown"),
-//             ("to_title","unknown"),
-//             ("to_org_name","unknown"),
-//             ("to_email","unknown")
-//         ];
-//         let vec: Vec<(String, String)> = arr.iter().map(|x|
-//             (x.0.to_string(), x.1.to_string())
-//         ).collect();
-//         assert_eq!(
-//             get_details_data(&details),
-//             vec,
-//         );
-//         Ok(())
-//     }
-// }
+    #[test]
+    fn test_update_csv_row_for_modified_table_cells() -> Result<(), String> {
+        let cells: Vec<Text> = vec![
+            Text::Owned("11task1".into()),
+            Text::Insitu(27..29),
+            Text::Insitu(30..40),
+        ];
+        let bindings = vec![
+            "task1".to_string(),
+            "10".to_string(),
+            "0x000|h160".to_string(),
+        ];
+        let mut csv_row: Vec<&str> = vec![&bindings[0], &bindings[1], &bindings[2]];
+        let actual: String = update_csv_row_for_modified_table_cells(&cells, &mut csv_row);
+        let expected = "11task1,10,0x000|h160".to_string();
+
+        assert_eq!(actual, expected);
+        Ok(())
+    }
+}

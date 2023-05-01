@@ -11,6 +11,7 @@ mod components;
 mod csv;
 mod js;
 mod state;
+mod tests;
 use components::{
     Cell::Cell, CellDetails::CellDetails, Editor::Editor, Head::Head, HeadDetails::HeadDetails,
 };
