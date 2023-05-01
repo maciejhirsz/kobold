@@ -1,4 +1,4 @@
-use log::debug;
+use log::{debug};
 use std::ops::Deref;
 use web_sys::{EventTarget, HtmlElement, HtmlInputElement as InputElement, UiEvent};
 
@@ -22,6 +22,7 @@ async fn onload_common(
         None => return,
     };
 
+    // TODO - should only update filename if the upload in the next step was successful
     state.update(|state| {
         match table_variant {
             TableVariants::Main => state.main.filename = file.name(),
@@ -35,8 +36,12 @@ async fn onload_common(
         // https://docs.rs/kobold/latest/kobold/stateful/struct.Signal.html#method.update
         state.update(move |state| {
             match table_variant {
-                TableVariants::Main => state.main.table = table,
-                TableVariants::Details => state.details.table = table,
+                TableVariants::Main => {
+                    state.main.table = table;
+                },
+                TableVariants::Details => {
+                    state.details.table = table;
+                },
                 _ => panic!("unknown variant name to upload table"),
             };
             state.store(); // update local storage
@@ -72,7 +77,7 @@ async fn onsave_common(
                         js::browser_js::run_save_file(&state.main.filename, csv_data_byte_slice);
                     }
                     Err(err) => {
-                        panic!("failed to generate csv data for download");
+                        panic!("failed to generate csv data for download: {:?}", err);
                     }
                 };
                 debug!("successfully generated csv data for download");
@@ -86,7 +91,7 @@ async fn onsave_common(
                         js::browser_js::run_save_file(&state.details.filename, csv_data_byte_slice);
                     }
                     Err(err) => {
-                        panic!("failed to generate csv data for download");
+                        panic!("failed to generate csv data for download: {:?}", err);
                     }
                 };
                 debug!("successfully generated csv data for download");

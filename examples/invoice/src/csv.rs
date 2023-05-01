@@ -35,6 +35,10 @@ pub enum Error {
     FailedToWriteFile,
     FailedToLoadMetadata,
     InvalidRowLength,
+    MustBeAtLeastOneRowData,
+    MustBeAtLeastOneColumnData,
+    MustBeSameColumnLengthOnAllRows,
+    MustBeThreeRowsIncludingLabelsRowDataRowVariablesRow,
 }
 
 fn parse_row(lex: &mut Lexer<Token>, columns: usize) -> Result<Option<Vec<Text>>, Error> {
@@ -150,18 +154,63 @@ pub fn generate_csv_data_for_download(
             let original_csv: Vec<&str> = binding_source.split(&['\n'][..]).collect();
             debug!("original_csv {:?}", original_csv);
 
+            // TODO - refactor similar duplicate code into common function
             let mut old_csv: Vec<Vec<&str>> = vec![];
+            let mut old_csv_len: Vec<usize> = vec![];
             original_csv
                 .into_iter()
                 .enumerate()
                 .for_each(|(i, row_data)| {
-                    old_csv.push(row_data.split(",").collect());
+                    let data: Vec<&str> = row_data.split(",").collect();
+                    old_csv.push(data.clone());
+                    old_csv_len.push(data.len());
                 });
 
+            let old_csv_len_most_columns = old_csv_len.iter().max().unwrap();
+            debug!("old_csv {:?}", old_csv);
+            debug!("old_csv_len_most_columns {:?}", old_csv_len_most_columns);
+
+            // TODO - refactor similar duplicate code into common function
+            let val = "".to_string();
             let mut new_csv: Vec<Vec<&str>> = vec![];
+            let mut new_csv_len: Vec<usize> = vec![];
             old_csv.into_iter().enumerate().for_each(|(i, row_data)| {
-                new_csv.push(row_data.clone());
+                debug!("row_data {:?}", row_data);
+                let mut data = row_data.clone();
+                let mut data_len = &data.len();
+
+                // incase the uploaded data has an extra column on the right with only
+                // a label with cell data but no data for the other rows in that column,
+                // e.g. "description,total,qr,aaa\neat,1,0x0,\nsleep,2,0x1,"
+                // then we need to manually add the extra row values here so we don't
+                // get index out of bounds error when swapping values in
+                // function `update_csv_row_for_modified_table_cells`
+                if &data_len < &old_csv_len_most_columns {
+                    // resize to add padding to this row_data with empty string "" so
+                    // has the same as the longest length
+                    data.resize(*old_csv_len_most_columns, &val);
+                }
+                // create longer lived data length value
+                let mut data_len = &data.len(); // update after resize
+                debug!("data {:?}", &data);
+
+                new_csv.push(data);
+                new_csv_len.push(*data_len);
             });
+            debug!("new_csv {:?}", new_csv);
+
+            debug!("content.table.columns.len() {:?}", content.table.columns.len());
+            // validate qty of columns
+            if content.table.columns.len() < 1 {
+                return Err(Error::MustBeAtLeastOneColumnData);
+            }
+            debug!("new_csv_len {:?}", new_csv_len);
+            // validate qty of columns
+            let is_not_all_same = |new_csv: &[usize]| -> bool { new_csv.iter().min() != new_csv.iter().max() };
+            debug!("is_not_all_same {:?}", is_not_all_same(&new_csv_len));
+            if is_not_all_same(&new_csv_len) == true {
+                return Err(Error::MustBeSameColumnLengthOnAllRows);
+            }
 
             let mut arr = vec![];
             // only one column so start we'll process that first before the rows
@@ -170,6 +219,14 @@ pub fn generate_csv_data_for_download(
             arr.push(new_csv_labels_stringified);
 
             let content_table_rows = content.table.rows.clone();
+
+            debug!("content_table_rows {:?}", content_table_rows);
+            debug!("content_table_rows.len() {:?}", content_table_rows.len());
+            // validate qty of rows
+            if content_table_rows.len() < 1 {
+                return Err(Error::MustBeAtLeastOneRowData);
+            }
+
             // multiple rows so we'll push each of them now
             content_table_rows
                 .into_iter()
@@ -191,13 +248,68 @@ pub fn generate_csv_data_for_download(
             let binding_source = &content.table.source.source;
             let original_csv: Vec<&str> = binding_source.split(&['\n'][..]).collect();
             debug!("original_csv {:?}", original_csv);
-            let old_csv: Vec<Vec<&str>> = vec![
-                original_csv[0].split(",").collect(), // variable of each label
-                original_csv[1].split(",").collect(), // values of each label
-                original_csv[2].split(",").collect(), // label
-            ];
-            let mut new_csv: Vec<Vec<&str>> =
-                vec![old_csv[0].clone(), old_csv[1].clone(), old_csv[2].clone()];
+
+            // TODO - refactor similar duplicate code into common function
+            let mut old_csv: Vec<Vec<&str>> = vec![];
+            let mut old_csv_len: Vec<usize> = vec![];
+            // repeat for row 0 (variable of each label)
+            // row 1 (values of each label)
+            // row 2 (label)
+            original_csv
+                .into_iter()
+                .enumerate()
+                .for_each(|(i, row_data)| {
+                    let data: Vec<&str> = row_data.split(",").collect();
+                    old_csv.push(data.clone());
+                    old_csv_len.push(data.len());
+                });
+
+            let old_csv_len_most_columns = old_csv_len.iter().max().unwrap();
+            debug!("old_csv {:?}", old_csv);
+            debug!("old_csv_len_most_columns {:?}", old_csv_len_most_columns);
+
+            // TODO - refactor similar duplicate code into common function
+            let val = "".to_string();
+            let mut new_csv: Vec<Vec<&str>> = vec![];
+            let mut new_csv_len: Vec<usize> = vec![];
+            old_csv.into_iter().enumerate().for_each(|(i, row_data)| {
+                debug!("row_data {:?}", row_data);
+                let mut data = row_data.clone();
+                let mut data_len = &data.len();
+
+                // incase the uploaded data has an extra column on the right with only
+                // a label with cell data but no data for the other rows in that column,
+                // e.g. "description,total,qr,aaa\neat,1,0x0,\nsleep,2,0x1,"
+                // then we need to manually add the extra row values here so we don't
+                // get index out of bounds error when swapping values in
+                // function `update_csv_row_for_modified_table_cells`
+                if &data_len < &old_csv_len_most_columns {
+                    // resize to add padding to this row_data with empty string "" so
+                    // has the same as the longest length
+                    data.resize(*old_csv_len_most_columns, &val);
+                }
+                // create longer lived data length value
+                let mut data_len = &data.len(); // update after resize
+                debug!("data {:?}", &data);
+
+                new_csv.push(data);
+                new_csv_len.push(*data_len);
+            });
+            debug!("new_csv {:?}", new_csv);
+    
+            debug!("content cols rows {:?} {:?}", content.table.columns.len(), content.table.rows.len());
+            // validate qty of rows
+            if content.table.columns.len() != (1 as usize) && content.table.rows.len() != (2 as usize) {
+                return Err(Error::MustBeThreeRowsIncludingLabelsRowDataRowVariablesRow);
+            }
+
+            debug!("new_csv_len {:?}", new_csv_len);
+            // validate qty of columns
+            let is_not_all_same = |new_csv: &[usize]| -> bool { new_csv.iter().min() != new_csv.iter().max() };
+            debug!("is_not_all_same {:?}", is_not_all_same(&new_csv_len));
+            if is_not_all_same(&new_csv_len) == true {
+                return Err(Error::MustBeSameColumnLengthOnAllRows);
+            }
 
             let new_csv_variables_stringified: String =
                 update_csv_row_for_modified_table_cells(&content.table.columns, &mut new_csv[0]);
@@ -227,7 +339,7 @@ pub fn update_csv_row_for_modified_table_cells<'a>(
         match el {
             Text::Insitu(r) => {}
             Text::Owned(s) => {
-                let len = csv_row.len() - 1;
+                // let len = csv_row.len() - 1;
                 // https://users.rust-lang.org/t/replacing-element-of-vector/57258/3
                 // use `take` so we have a closure that must return a valid T otherwise
                 // the closure panics and program aborts incase it panics before we've
