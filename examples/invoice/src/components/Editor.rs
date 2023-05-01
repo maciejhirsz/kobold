@@ -9,14 +9,15 @@ use crate::components::{
 };
 use crate::csv;
 use crate::js;
-use crate::state::{Editing, State, TableVariants};
+use crate::state::{Content, Editing, State, TableVariants};
 
+// running `get(state)` returns either `state.main` or `state.details`
 async fn onload_common(
     table_variant: TableVariants,
+    get: impl Fn(&mut State) -> &mut Content,
     state: Signal<State>,
     event: Event<InputElement>,
 ) {
-    debug!("onload_details");
     let file = match event.target().files().and_then(|list| list.get(0)) {
         Some(file) => file,
         None => return,
@@ -25,27 +26,13 @@ async fn onload_common(
     event.target().set_value("");
 
     // TODO - should only update filename if the upload in the next step was successful
-    state.update(|state| {
-        match table_variant {
-            TableVariants::Main => state.main.filename = file.name(),
-            TableVariants::Details => state.details.filename = file.name(),
-            _ => panic!("unknown variant name to upload table with filename"),
-        };
-    });
+    state.update(|state| get(state).filename = file.name());
 
     if let Ok(table) = csv::read_file(file).await {
         debug!("table {:#?}", table);
         // https://docs.rs/kobold/latest/kobold/stateful/struct.Signal.html#method.update
         state.update(move |state| {
-            match table_variant {
-                TableVariants::Main => {
-                    state.main.table = table;
-                }
-                TableVariants::Details => {
-                    state.details.table = table;
-                }
-                _ => panic!("unknown variant name to upload table"),
-            };
+            get(state).table = table;
             state.store(); // update local storage
         });
     }
@@ -53,14 +40,12 @@ async fn onload_common(
 
 async fn onsave_common(
     table_variant: TableVariants,
+    get: impl Fn(&mut State) -> &mut Content,
     state: Signal<State>,
     event: MouseEvent<HtmlElement>,
 ) {
     // closure required just to debug with access to state fields, since otherwise it'd trigger a render
-    state.update_silent(|state| {
-        debug!("onsave_details: {:?}", &state.details);
-        debug!("onsave_main: {:?}", &state.main);
-    });
+    state.update_silent(|state| debug!("onsave_: {:?}", &get(state)));
 
     state.update(|state| {
         // update local storage and state so that &state.details isn't
@@ -71,12 +56,12 @@ async fn onsave_common(
         match table_variant {
             TableVariants::Main => {
                 // only setup for details
-                match csv::generate_csv_data_for_download(TableVariants::Main, &state.main) {
+                match csv::generate_csv_data_for_download(TableVariants::Main, &get(state)) {
                     Ok(csv_data) => {
                         debug!("csv_data {:?}", csv_data);
                         // cast String into a byte slice
                         let csv_data_byte_slice: &[u8] = csv_data.as_bytes();
-                        js::browser_js::run_save_file(&state.main.filename, csv_data_byte_slice);
+                        js::browser_js::run_save_file(&get(state).filename, csv_data_byte_slice);
                     }
                     Err(err) => {
                         panic!("failed to generate csv data for download: {:?}", err);
@@ -85,12 +70,12 @@ async fn onsave_common(
                 debug!("successfully generated csv data for download");
             }
             TableVariants::Details => {
-                match csv::generate_csv_data_for_download(TableVariants::Details, &state.details) {
+                match csv::generate_csv_data_for_download(TableVariants::Details, &get(state)) {
                     Ok(csv_data) => {
                         debug!("csv_data {:?}", csv_data);
                         // cast String into a byte slice
                         let csv_data_byte_slice: &[u8] = csv_data.as_bytes();
-                        js::browser_js::run_save_file(&state.details.filename, csv_data_byte_slice);
+                        js::browser_js::run_save_file(&get(state).filename, csv_data_byte_slice);
                     }
                     Err(err) => {
                         panic!("failed to generate csv data for download: {:?}", err);
@@ -109,19 +94,19 @@ pub fn Editor() -> impl View {
         debug!("Editor()");
 
         let onload_details = state.bind_async(|state, event: Event<InputElement>| async move {
-            onload_common(TableVariants::Details, state, event).await;
+            onload_common(TableVariants::Details, |state| &mut state.details, state, event).await;
         });
 
         let onload_main = state.bind_async(|state, event: Event<InputElement>| async move {
-            onload_common(TableVariants::Main, state, event).await;
+            onload_common(TableVariants::Main, |state| &mut state.main, state, event).await;
         });
 
         let onsave_details = state.bind_async(|state, event: MouseEvent<HtmlElement>| async move {
-            onsave_common(TableVariants::Details, state, event).await;
+            onsave_common(TableVariants::Details, |state| &mut state.details, state, event).await;
         });
 
         let onsave_main = state.bind_async(|state, event: MouseEvent<HtmlElement>| async move {
-            onsave_common(TableVariants::Main, state, event).await;
+            onsave_common(TableVariants::Main, |state| &mut state.main, state, event).await;
         });
 
         view! {
