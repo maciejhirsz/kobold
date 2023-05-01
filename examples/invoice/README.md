@@ -4,6 +4,8 @@
     * Firefox Version 112.0.2 (64-bit)
 
 * Notes:
+    * Best Practice
+        * Use `&str` and avoid `String`
     * Closure (e.g. `state.update(|state| state.store())` has access to Signal of state
         * `update` doesn't implement Deref so you can't access fields on it like you can with a Hook
         * `update_silent` gives access to the actual state without triggering a render
