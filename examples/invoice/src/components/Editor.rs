@@ -109,12 +109,6 @@ pub fn Editor() -> impl View {
             onload_common(TableVariants::Main, state, event).await;
         });
 
-        let onclick_details = state.bind_async(|state, event: MouseEvent<InputElement>| async move {
-            debug!("onclick_details");
-            let el_id = "file-input-details".to_string();
-            js::browser_js::run_input_empty_value(&el_id);
-        });
-
         let onsave_details = state.bind_async(|state, event: MouseEvent<HtmlElement>| async move {
             onsave_common(TableVariants::Details, state, event).await;
         });
@@ -133,12 +127,12 @@ pub fn Editor() -> impl View {
                         <h3>"Details table"</h3>
                         <div class="container">
                             // https://stackoverflow.com/a/48499451/3208553
-                            <input type="file" id="file-input-details" accept="text/csv" onchange={onload_details} onclick="this.value=null;" />
-                            <input type="button" onclick="document.getElementById('file-input-details').click()" value="Upload CSV file (Details)" />
-                            <label for="file-input-details" class="label"></label>
+                            <input type="file" class="file-input-hidden" id="file-input-details" accept="text/csv" onchange={onload_details} onclick="this.value=null;" />
+                            <input type="button" id="file-input-details-modern" onclick="document.getElementById('file-input-details').click()" value="Upload CSV file (Details)" />
+                            <label for="file-input-details" class="label">{ ref state.details.filename }</label>
                             <button #button-file-save type="button" onclick={onsave_details}>"Save to CSV file"</button>
-                            <br />
                         </div>
+                        <br /><br />
                         <table
                             onkeydown={
                                 state.bind(move |state, event: KeyboardEvent<_>| {
@@ -175,12 +169,12 @@ pub fn Editor() -> impl View {
                     <section .main>
                         <h3>"Main table"</h3>
                         <div class="container">
-                            <input type="file" id="file-input-main" accept="text/csv" onchange={onload_main} />
-                            <input type="button" onclick="document.getElementById('file-input-main').click()" value="Upload CSV file (Main)" />
-                            <label for="file-input-main" class="label"></label>
+                            <input type="file" class="file-input-hidden" id="file-input-main" accept="text/csv" onchange={onload_main} onclick="this.value=null;" />
+                            <input type="button" id="file-input-main-modern" onclick="document.getElementById('file-input-main').click()" value="Upload CSV file (Main)" />
+                            <label for="file-input-main" class="label">{ ref state.main.filename }</label>
                             <button #button-file-save type="button" onclick={onsave_main}>"Save to CSV file"</button>
-                            <br />
                         </div>
+                        <br /><br />
                         <table
                             onkeydown={
                                 state.bind(move |state, event: KeyboardEvent<_>| {

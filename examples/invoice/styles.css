@@ -84,7 +84,8 @@ input[type=button] {
     padding: .5em 2em;
 }
 
-#file-input {
+/* Hide traditional file upload button */
+.file-input-hidden {
     display: none;
 }
 

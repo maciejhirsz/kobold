@@ -1,3 +1,8 @@
+* Browser Compatibility:
+    * Brave Version 1.50.121 Chromium: 112.0.5615.138 (Official Build) (x86_64)
+    * Chrome Version 112.0.5615.137 (Official Build) (x86_64)
+    * Firefox Version 112.0.2 (64-bit)
+
 * Notes:
     * Closure (e.g. `state.update(|state| state.store())` has access to Signal of state
         * `update` doesn't implement Deref so you can't access fields on it like you can with a Hook
