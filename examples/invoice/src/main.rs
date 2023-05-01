@@ -10,6 +10,7 @@ use kobold::prelude::*;
 mod components;
 mod csv;
 mod js;
+mod helpers;
 mod state;
 mod tests;
 use components::{

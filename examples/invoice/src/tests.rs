@@ -1,7 +1,7 @@
 use crate::csv::{
-    pad_csv_data,
     update_csv_row_for_modified_table_cells
 };
+use crate::helpers::{csv_helpers};
 use crate::state::Text;
 
 #[cfg(test)]
@@ -39,7 +39,7 @@ mod tests {
         let mut new_csv_lens: Vec<usize> = vec![];
         // add padding "" to a 5th column for the data rows so all rows have same qty of columns
         let padding = "".to_string();
-        pad_csv_data(&original_csv, &mut new_csv, &mut new_csv_lens, &padding);
+        csv_helpers::pad_csv_data(&original_csv, &mut new_csv, &mut new_csv_lens, &padding);
 
         let label_row_vec: Vec<&str> = label_row.split(&[','][..]).collect();
         let mut row_1_vec: Vec<&str> = row_1.split(&[','][..]).collect();

@@ -10,6 +10,7 @@ use wasm_bindgen_futures::JsFuture;
 use web_sys::{File, Url};
 
 use crate::state::{Content, Table, TableVariants, Text, TextSource};
+use crate::helpers::{csv_helpers};
 
 #[derive(Logos)]
 enum Token {
@@ -136,48 +137,14 @@ pub async fn read_file(file: File) -> Result<Table, Error> {
     text.parse()
 }
 
-// incase there are more columns in some rows than others we will pad them for processing
-pub fn pad_csv_data<'a>(original_csv: &Vec<&'a str>, new_csv: &mut Vec<Vec<&'a str>>, new_csv_lens: &mut Vec<usize>, padding: &'a str) {
-    let mut old_csv: Vec<Vec<&str>> = vec![];
-    let mut old_csv_lens: Vec<usize> = vec![];
-    original_csv
-        .into_iter()
-        .enumerate()
-        .for_each(|(i, row_data)| {
-            let data: Vec<&str> = row_data.split(",").collect();
-            old_csv.push(data.clone());
-            old_csv_lens.push(data.len());
-        });
-
-    let old_csv_lens_most_columns = old_csv_lens.iter().max().unwrap();
-    debug!("old_csv {:?}", old_csv);
-    debug!("old_csv_lens_most_columns {:?}", old_csv_lens_most_columns);
-
-    old_csv.into_iter().enumerate().for_each(|(i, row_data)| {
-        debug!("row_data {:?}", row_data);
-        let mut data = row_data.clone();
-        let mut data_len = &data.len();
-
-        // incase the uploaded data has an extra column on the right with only
-        // a label with cell data but no data for the other rows in that column,
-        // e.g. "description,total,qr,aaa\neat,1,0x0,\nsleep,2,0x1,"
-        // then we need to manually add the extra row values here so we don't
-        // get index out of bounds error when swapping values in
-        // function `update_csv_row_for_modified_table_cells`
-        if &data_len < &old_csv_lens_most_columns {
-            // resize to add padding to this row_data with empty string "" so
-            // has the same as the longest length
-            data.resize(*old_csv_lens_most_columns, &padding);
-        }
-        // create longer lived data length value
-        let mut data_len = &data.len(); // update after resize
-        debug!("data {:?}", &data);
-
-        new_csv.push(data);
-        new_csv_lens.push(*data_len);
-    });
-    debug!("new_csv {:?}", new_csv);
-    debug!("new_csv_lens {:?}", new_csv_lens);
+fn validate_same_columns_length_all_rows(new_csv: &Vec<Vec<&str>>, new_csv_lens: &Vec<usize>) -> Result<(), Error> {
+    let is_not_all_same =
+        |new_csv: &[usize]| -> bool { new_csv.iter().min() != new_csv.iter().max() };
+    debug!("is_not_all_same {:?}", is_not_all_same(&new_csv_lens));
+    if is_not_all_same(&new_csv_lens) == true {
+        return Err(Error::MustBeSameColumnLengthOnAllRows);
+    }
+    Ok(())
 }
 
 // the TableVariants::Main has a single label row, and then multiple data rows under it in the CSV file. it
@@ -201,7 +168,7 @@ pub fn generate_csv_data_for_download(
             let mut new_csv: Vec<Vec<&str>> = vec![];
             let mut new_csv_lens: Vec<usize> = vec![];
             let padding = "".to_string();
-            pad_csv_data(&original_csv, &mut new_csv, &mut new_csv_lens, &padding);
+            csv_helpers::pad_csv_data(&original_csv, &mut new_csv, &mut new_csv_lens, &padding);
 
             debug!(
                 "content.table.columns.len() {:?}",
@@ -212,16 +179,11 @@ pub fn generate_csv_data_for_download(
                 return Err(Error::MustBeAtLeastOneColumnData);
             }
             debug!("new_csv_lens {:?}", new_csv_lens);
-            // validate qty of columns
-            let is_not_all_same =
-                |new_csv: &[usize]| -> bool { new_csv.iter().min() != new_csv.iter().max() };
-            debug!("is_not_all_same {:?}", is_not_all_same(&new_csv_lens));
-            if is_not_all_same(&new_csv_lens) == true {
-                return Err(Error::MustBeSameColumnLengthOnAllRows);
-            }
+
+            validate_same_columns_length_all_rows(&new_csv, &new_csv_lens)?;
 
             let mut arr = vec![];
-            // only one column so start we'll process that first before the rows
+            // only one column so we'll process that first before the rows
             let new_csv_labels_stringified: String =
                 update_csv_row_for_modified_table_cells(&content.table.columns, &mut new_csv[0]); // labels
             arr.push(new_csv_labels_stringified);
@@ -260,7 +222,7 @@ pub fn generate_csv_data_for_download(
             let mut new_csv: Vec<Vec<&str>> = vec![];
             let mut new_csv_lens: Vec<usize> = vec![];
             let padding = "".to_string();
-            pad_csv_data(&original_csv, &mut new_csv, &mut new_csv_lens, &padding);
+            csv_helpers::pad_csv_data(&original_csv, &mut new_csv, &mut new_csv_lens, &padding);
 
             debug!(
                 "content cols rows {:?} {:?}",
@@ -275,13 +237,8 @@ pub fn generate_csv_data_for_download(
             }
 
             debug!("new_csv_lens {:?}", new_csv_lens);
-            // validate qty of columns
-            let is_not_all_same =
-                |new_csv: &[usize]| -> bool { new_csv.iter().min() != new_csv.iter().max() };
-            debug!("is_not_all_same {:?}", is_not_all_same(&new_csv_lens));
-            if is_not_all_same(&new_csv_lens) == true {
-                return Err(Error::MustBeSameColumnLengthOnAllRows);
-            }
+
+            validate_same_columns_length_all_rows(&new_csv, &new_csv_lens)?;
 
             let new_csv_variables_stringified: String =
                 update_csv_row_for_modified_table_cells(&content.table.columns, &mut new_csv[0]);
