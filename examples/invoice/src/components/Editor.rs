@@ -1,4 +1,4 @@
-use log::{debug};
+use log::debug;
 use std::ops::Deref;
 use web_sys::{EventTarget, HtmlElement, HtmlInputElement as InputElement, UiEvent};
 
@@ -38,10 +38,10 @@ async fn onload_common(
             match table_variant {
                 TableVariants::Main => {
                     state.main.table = table;
-                },
+                }
                 TableVariants::Details => {
                     state.details.table = table;
-                },
+                }
                 _ => panic!("unknown variant name to upload table"),
             };
             state.store(); // update local storage

@@ -199,14 +199,18 @@ pub fn generate_csv_data_for_download(
             });
             debug!("new_csv {:?}", new_csv);
 
-            debug!("content.table.columns.len() {:?}", content.table.columns.len());
+            debug!(
+                "content.table.columns.len() {:?}",
+                content.table.columns.len()
+            );
             // validate qty of columns
             if content.table.columns.len() < 1 {
                 return Err(Error::MustBeAtLeastOneColumnData);
             }
             debug!("new_csv_len {:?}", new_csv_len);
             // validate qty of columns
-            let is_not_all_same = |new_csv: &[usize]| -> bool { new_csv.iter().min() != new_csv.iter().max() };
+            let is_not_all_same =
+                |new_csv: &[usize]| -> bool { new_csv.iter().min() != new_csv.iter().max() };
             debug!("is_not_all_same {:?}", is_not_all_same(&new_csv_len));
             if is_not_all_same(&new_csv_len) == true {
                 return Err(Error::MustBeSameColumnLengthOnAllRows);
@@ -296,16 +300,23 @@ pub fn generate_csv_data_for_download(
                 new_csv_len.push(*data_len);
             });
             debug!("new_csv {:?}", new_csv);
-    
-            debug!("content cols rows {:?} {:?}", content.table.columns.len(), content.table.rows.len());
+
+            debug!(
+                "content cols rows {:?} {:?}",
+                content.table.columns.len(),
+                content.table.rows.len()
+            );
             // validate qty of rows
-            if content.table.columns.len() != (1 as usize) && content.table.rows.len() != (2 as usize) {
+            if content.table.columns.len() != (1 as usize)
+                && content.table.rows.len() != (2 as usize)
+            {
                 return Err(Error::MustBeThreeRowsIncludingLabelsRowDataRowVariablesRow);
             }
 
             debug!("new_csv_len {:?}", new_csv_len);
             // validate qty of columns
-            let is_not_all_same = |new_csv: &[usize]| -> bool { new_csv.iter().min() != new_csv.iter().max() };
+            let is_not_all_same =
+                |new_csv: &[usize]| -> bool { new_csv.iter().min() != new_csv.iter().max() };
             debug!("is_not_all_same {:?}", is_not_all_same(&new_csv_len));
             if is_not_all_same(&new_csv_len) == true {
                 return Err(Error::MustBeSameColumnLengthOnAllRows);
