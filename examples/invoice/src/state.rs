@@ -12,6 +12,11 @@ use wasm_bindgen::UnwrapThrowExt;
 const KEY_MAIN: &str = "kobold.invoice.main";
 const KEY_DETAILS: &str = "kobold.invoice.details";
 
+pub enum TableVariants {
+    Main,
+    Details,
+}
+
 #[derive(Deserialize, Debug)]
 pub enum Error {
     StorageError,
@@ -45,7 +50,7 @@ pub struct Table {
     pub rows: Vec<Vec<Text>>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Text {
     Insitu(Range<usize>),
     Owned(Box<str>),

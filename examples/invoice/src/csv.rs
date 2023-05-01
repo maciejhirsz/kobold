@@ -9,7 +9,7 @@ use take_mut::take;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{File, Url};
 
-use crate::state::{Content, Table, Text, TextSource};
+use crate::state::{Content, Table, TableVariants, Text, TextSource};
 
 #[derive(Logos)]
 enum Token {
@@ -132,37 +132,89 @@ pub async fn read_file(file: File) -> Result<Table, Error> {
     text.parse()
 }
 
-pub fn generate_csv_data_for_download(content: &Content) -> Result<String, Error> {
+// the TableVariants::Main has a single label row, and then multiple data rows under it in the CSV file. it
+// does not have a label (variables) row.
+//
+// it needs to be processed differently from TableVariants::Details that has only a single label row,
+// a single data row, and a single label (variables) row.
+pub fn generate_csv_data_for_download(table_variant: TableVariants, content: &Content) -> Result<String, Error> {
     // generate CSV file format from object Url in state
     // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=f911a069c22a7f4cf4b5e8a9aa05e65e
 
-    let binding_source = &content.table.source.source;
-    let original_csv: Vec<&str> = binding_source.split(&['\n'][..]).collect();
-    debug!("original_csv {:?}", original_csv);
-    let old_csv: Vec<Vec<&str>> = vec![
-        original_csv[0].split(",").collect(), // variable of each label
-        original_csv[1].split(",").collect(), // values of each label
-        original_csv[2].split(",").collect(), // label
-    ];
-    let mut new_csv: Vec<Vec<&str>> =
-        vec![old_csv[0].clone(), old_csv[1].clone(), old_csv[2].clone()];
+    match table_variant {
+        TableVariants::Main => {
+            let binding_source = &content.table.source.source;
+            let original_csv: Vec<&str> = binding_source.split(&['\n'][..]).collect();
+            debug!("original_csv {:?}", original_csv);
 
-    let new_csv_variables_stringified: String =
-        update_csv_row_for_modified_table_cells(&content.table.columns, &mut new_csv[0]);
-    let new_csv_values_stringified: String =
-        update_csv_row_for_modified_table_cells(&content.table.rows[0], &mut new_csv[1]);
-    let new_csv_labels_stringified: String =
-        update_csv_row_for_modified_table_cells(&content.table.rows[1], &mut new_csv[2]);
-    let arr = vec![
-        new_csv_variables_stringified,
-        new_csv_values_stringified,
-        new_csv_labels_stringified,
-    ];
-    // debug!("{:?}", arr);
-    let content_serialized: String = arr.join("\n");
-    debug!("content_serialized {:?}", content_serialized);
+            let mut old_csv: Vec<Vec<&str>> = vec![];
+            original_csv
+                .into_iter()
+                .enumerate()
+                .for_each(|(i, row_data)| {
+                    old_csv.push(row_data.split(",").collect());
+                });
 
-    return Ok(content_serialized);
+            let mut new_csv: Vec<Vec<&str>> = vec![];
+            old_csv
+                .into_iter()
+                .enumerate()
+                .for_each(|(i, row_data)| {
+                    new_csv.push(row_data.clone());
+                });   
+
+            let mut arr = vec![];
+            // only one column so start we'll process that first before the rows
+            let new_csv_labels_stringified: String =
+                update_csv_row_for_modified_table_cells(&content.table.columns, &mut new_csv[0]); // labels
+            arr.push(new_csv_labels_stringified);
+
+            let content_table_rows = content.table.rows.clone();
+            // multiple rows so we'll push each of them now
+            content_table_rows
+                .into_iter()
+                .enumerate()
+                .for_each(|(i, row_data)| {
+                    let new_csv_data_stringified: String =
+                        update_csv_row_for_modified_table_cells(&content.table.rows[i], &mut new_csv[i + 1]); // values row 1
+                    arr.push(new_csv_data_stringified);
+                });
+
+            let content_serialized: String = arr.join("\n");
+            debug!("content_serialized {:?}", content_serialized);
+        
+            return Ok(content_serialized);
+        },
+        TableVariants::Details => {
+            let binding_source = &content.table.source.source;
+            let original_csv: Vec<&str> = binding_source.split(&['\n'][..]).collect();
+            debug!("original_csv {:?}", original_csv);
+            let old_csv: Vec<Vec<&str>> = vec![
+                original_csv[0].split(",").collect(), // variable of each label
+                original_csv[1].split(",").collect(), // values of each label
+                original_csv[2].split(",").collect(), // label
+            ];
+            let mut new_csv: Vec<Vec<&str>> =
+                vec![old_csv[0].clone(), old_csv[1].clone(), old_csv[2].clone()];
+        
+            let new_csv_variables_stringified: String =
+                update_csv_row_for_modified_table_cells(&content.table.columns, &mut new_csv[0]);
+            let new_csv_values_stringified: String =
+                update_csv_row_for_modified_table_cells(&content.table.rows[0], &mut new_csv[1]);
+            let new_csv_labels_stringified: String =
+                update_csv_row_for_modified_table_cells(&content.table.rows[1], &mut new_csv[2]);
+            let arr = vec![
+                new_csv_variables_stringified,
+                new_csv_values_stringified,
+                new_csv_labels_stringified,
+            ];
+            let content_serialized: String = arr.join("\n");
+            debug!("content_serialized {:?}", content_serialized);
+        
+            return Ok(content_serialized);
+        },
+        _ => panic!("unknown variant name to generate csv data for download"),
+    };
 }
 
 pub fn update_csv_row_for_modified_table_cells<'a>(

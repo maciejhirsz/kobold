@@ -5,18 +5,13 @@ use kobold::prelude::*;
 
 use crate::js;
 use crate::csv;
-use crate::state::{Editing, State};
+use crate::state::{Editing, State, TableVariants};
 use crate::components::{
     Cell::{Cell},
     CellDetails::{CellDetails},
     Head::{Head},
     HeadDetails::{HeadDetails},
 };
-
-enum TableVariants {
-    Main,
-    Details,
-}
 
 async fn onload_common(table_variant: TableVariants, state: Signal<State>, event: Event<InputElement>) {
     debug!("onload_details");
@@ -29,7 +24,7 @@ async fn onload_common(table_variant: TableVariants, state: Signal<State>, event
         match table_variant {
             TableVariants::Main => state.main.filename = file.name(),
             TableVariants::Details => state.details.filename = file.name(),
-            _ => panic!("unknown variant name"),
+            _ => panic!("unknown variant name to upload table with filename"),
         };
     });
 
@@ -40,11 +35,59 @@ async fn onload_common(table_variant: TableVariants, state: Signal<State>, event
             match table_variant {
                 TableVariants::Main => state.main.table = table,
                 TableVariants::Details => state.details.table = table,
-                _ => panic!("unknown variant name"),
+                _ => panic!("unknown variant name to upload table"),
             };
             state.store(); // update local storage
         });
     }
+}
+
+async fn onsave_common(table_variant: TableVariants, state: Signal<State>, event: MouseEvent<HtmlElement>) {
+    // closure required just to debug with access to state fields, since otherwise it'd trigger a render
+    state.update_silent(|state| {
+        debug!("onsave_details: {:?}", &state.details);
+        debug!("onsave_main: {:?}", &state.main);
+    });
+
+    state.update(|state| {
+        // update local storage and state so that &state.details isn't
+        // `Content { filename: "\0\0\0\0\0\0\0", table: Table { source: TextSource
+        //   { source: "\0" }, columns: [Insitu(0..0)], rows: [] } }`
+        state.store();
+
+        match table_variant {
+            TableVariants::Main => {
+                // only setup for details
+                match csv::generate_csv_data_for_download(TableVariants::Main, &state.main) {
+                    Ok(csv_data) => {
+                        debug!("csv_data {:?}", csv_data);
+                        // cast String into a byte slice
+                        let csv_data_byte_slice: &[u8] = csv_data.as_bytes();
+                        js::browser_js::run_save_file(&state.main.filename, csv_data_byte_slice);
+                    }
+                    Err(err) => {
+                        panic!("failed to generate csv data for download");
+                    }
+                };
+                debug!("successfully generated csv data for download");
+            },
+            TableVariants::Details => {
+                match csv::generate_csv_data_for_download(TableVariants::Details, &state.details) {
+                    Ok(csv_data) => {
+                        debug!("csv_data {:?}", csv_data);
+                        // cast String into a byte slice
+                        let csv_data_byte_slice: &[u8] = csv_data.as_bytes();
+                        js::browser_js::run_save_file(&state.details.filename, csv_data_byte_slice);
+                    }
+                    Err(err) => {
+                        panic!("failed to generate csv data for download");
+                    }
+                };
+                debug!("successfully generated csv data for download");
+            },
+            _ => panic!("unknown variant name to save csv data"),
+        };
+    });
 }
 
 #[component]
@@ -61,35 +104,11 @@ pub fn Editor() -> impl View {
         });
 
         let onsave_details = state.bind_async(|state, event: MouseEvent<HtmlElement>| async move {
-            // closure required just to debug with access to state fields, since otherwise it'd trigger a render
-            state.update_silent(|state| {
-                debug!("onsave_details: {:?}", &state.details);
-            });
+            onsave_common(TableVariants::Details, state, event).await;
+        });
 
-            state.update(|state| {
-                // update local storage and state so that &state.details isn't
-                // `Content { filename: "\0\0\0\0\0\0\0", table: Table { source: TextSource
-                //   { source: "\0" }, columns: [Insitu(0..0)], rows: [] } }`
-                state.store();
-                match csv::generate_csv_data_for_download(&state.details) {
-                    Ok(csv_data) => {
-                        debug!("csv_data {:?}", csv_data);
-                        // cast String into a byte slice
-                        let csv_data_byte_slice: &[u8] = csv_data.as_bytes();
-                        js::browser_js::run_save_file(&state.details.filename, csv_data_byte_slice);
-                    }
-                    Err(err) => {
-                        panic!(
-                            "failed to generate csv data for download {:?}",
-                            state.details.filename
-                        );
-                    }
-                };
-                debug!(
-                    "successfully generate csv data for download {:?}",
-                    state.details.filename
-                );
-            });
+        let onsave_main = state.bind_async(|state, event: MouseEvent<HtmlElement>| async move {
+            onsave_common(TableVariants::Main, state, event).await;
         });
 
         view! {
@@ -99,6 +118,7 @@ pub fn Editor() -> impl View {
                         <h1>"Invoice"</h1>
                     </header>
                     <section .main>
+                        <h3>"Details table"</h3>
                         <div class="container">
                             <input type="file" id="file-input-details" accept="text/csv" onchange={onload_details} />
                             <input type="button" onclick="document.getElementById('file-input-details').click()" value="Upload CSV file (Details)" />
@@ -138,11 +158,14 @@ pub fn Editor() -> impl View {
                                 </tr>
                             </tbody>
                         </table>
+                    </section>
+                    <section .main>
+                        <h3>"Main table"</h3>
                         <div class="container">
                             <input type="file" id="file-input-main" accept="text/csv" onchange={onload_main} />
                             <input type="button" onclick="document.getElementById('file-input-main').click()" value="Upload CSV file (Main)" />
                             <label for="file-input-main" class="label"></label>
-                            // <button #button-file-save type="button" onclick={onsave_main}>"Save to CSV file"</button>
+                            <button #button-file-save type="button" onclick={onsave_main}>"Save to CSV file"</button>
                             <br />
                         </div>
                         <table

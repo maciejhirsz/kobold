@@ -72,9 +72,7 @@ input[type="file"] {
 
 /* https://stackoverflow.com/questions/74115573/styling-an-input-type-file-text-next-to-the-button-not-the-button-itself-us */
 .container {
-    padding: 1em;
     border: 1px solid lightgrey;
-    margin: 1em;
     border-radius: 4px;
     display: inline-flex;
 }
@@ -121,10 +119,15 @@ textarea {
 }
   
 div.qr > div {
-    text-align: center;
+    display: inline-flex;
+    vertical-align: middle;
 }
 
 /* override todo-app-css */
 .new-todo, .edit {
     font-size: 11.5px !important;
+}
+/* override todo-app-css */
+.main {
+    margin-top: 20px !important;
 }
