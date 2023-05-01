@@ -4,6 +4,7 @@ use wasm_bindgen::prelude::*;
 use crate::js::interfaces::browser_js_spec_alert;
 use crate::js::interfaces::non_browser_js_spec_class_example as class_example;
 use crate::js::interfaces::non_browser_js_spec_save_file as save_file;
+use crate::js::interfaces::non_browser_js_spec_input_empty_value as input_empty_value;
 #[macro_use]
 use crate::js::interfaces::browser_js_spec_macros;
 
@@ -49,4 +50,9 @@ pub fn run_save_file(filename: &str, data: &[u8]) {
         "save_file::kobold_save_file(filename, data) {:?}",
         has_saved_file
     );
+}
+
+#[wasm_bindgen]
+pub fn run_input_empty_value(el_id: &str) {
+    input_empty_value::kobold_input_empty_value(el_id);
 }
