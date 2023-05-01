@@ -3,17 +3,18 @@ use web_sys::{EventTarget, HtmlElement, HtmlInputElement as InputElement};
 
 use kobold::prelude::*;
 
-use crate::js;
-use crate::csv;
-use crate::state::{Editing, State, TableVariants};
 use crate::components::{
-    Cell::{Cell},
-    CellDetails::{CellDetails},
-    Head::{Head},
-    HeadDetails::{HeadDetails},
+    Cell::Cell, CellDetails::CellDetails, Head::Head, HeadDetails::HeadDetails,
 };
+use crate::csv;
+use crate::js;
+use crate::state::{Editing, State, TableVariants};
 
-async fn onload_common(table_variant: TableVariants, state: Signal<State>, event: Event<InputElement>) {
+async fn onload_common(
+    table_variant: TableVariants,
+    state: Signal<State>,
+    event: Event<InputElement>,
+) {
     debug!("onload_details");
     let file = match event.target().files().and_then(|list| list.get(0)) {
         Some(file) => file,
@@ -42,7 +43,11 @@ async fn onload_common(table_variant: TableVariants, state: Signal<State>, event
     }
 }
 
-async fn onsave_common(table_variant: TableVariants, state: Signal<State>, event: MouseEvent<HtmlElement>) {
+async fn onsave_common(
+    table_variant: TableVariants,
+    state: Signal<State>,
+    event: MouseEvent<HtmlElement>,
+) {
     // closure required just to debug with access to state fields, since otherwise it'd trigger a render
     state.update_silent(|state| {
         debug!("onsave_details: {:?}", &state.details);
@@ -70,7 +75,7 @@ async fn onsave_common(table_variant: TableVariants, state: Signal<State>, event
                     }
                 };
                 debug!("successfully generated csv data for download");
-            },
+            }
             TableVariants::Details => {
                 match csv::generate_csv_data_for_download(TableVariants::Details, &state.details) {
                     Ok(csv_data) => {
@@ -84,7 +89,7 @@ async fn onsave_common(table_variant: TableVariants, state: Signal<State>, event
                     }
                 };
                 debug!("successfully generated csv data for download");
-            },
+            }
             _ => panic!("unknown variant name to save csv data"),
         };
     });

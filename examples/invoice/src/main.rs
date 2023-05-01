@@ -7,18 +7,14 @@ use web_sys::{EventTarget, HtmlElement, HtmlInputElement as InputElement};
 
 use kobold::prelude::*;
 
-mod csv;
 mod components;
+mod csv;
 mod js;
 mod state;
-use state::{Editing, State};
 use components::{
-    Cell::{Cell},
-    CellDetails::{CellDetails},
-    Editor::{Editor},
-    Head::{Head},
-    HeadDetails::{HeadDetails},
+    Cell::Cell, CellDetails::CellDetails, Editor::Editor, Head::Head, HeadDetails::HeadDetails,
 };
+use state::{Editing, State};
 
 fn main() {
     // Demonstrate use of Rust `wasm-bindgen` https://rustwasm.github.io/docs/wasm-bindgen

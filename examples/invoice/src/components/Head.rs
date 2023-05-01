@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use log::debug;
-use web_sys::{HtmlInputElement as InputElement};
+use web_sys::HtmlInputElement as InputElement;
 
 use kobold::prelude::*;
 

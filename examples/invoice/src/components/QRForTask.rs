@@ -7,7 +7,7 @@ use log::debug;
 use kobold::prelude::*;
 use kobold_qr::KoboldQR;
 
-use crate::components::util::sword::{sword};
+use crate::components::util::sword::sword;
 
 #[component]
 pub fn QRForTask(value: &str) -> impl View + '_ {

@@ -3,13 +3,13 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use log::debug;
-use web_sys::{HtmlInputElement as InputElement};
+use web_sys::HtmlInputElement as InputElement;
 
-use kobold::prelude::*;
 use kobold::branching::Branch3;
+use kobold::prelude::*;
 
+use crate::components::QRForTask::QRForTask;
 use crate::state::{Editing, State, Text};
-use crate::components::QRForTask::{QRForTask};
 
 #[component]
 pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
