@@ -137,21 +137,21 @@ pub async fn read_file(file: File) -> Result<Table, Error> {
 }
 
 // incase there are more columns in some rows than others we will pad them for processing
-fn pad_csv_data<'a>(original_csv: &Vec<&'a str>, new_csv: &mut Vec<Vec<&'a str>>, new_csv_len: &mut Vec<usize>, padding: &'a str) {
+pub fn pad_csv_data<'a>(original_csv: &Vec<&'a str>, new_csv: &mut Vec<Vec<&'a str>>, new_csv_lens: &mut Vec<usize>, padding: &'a str) {
     let mut old_csv: Vec<Vec<&str>> = vec![];
-    let mut old_csv_len: Vec<usize> = vec![];
+    let mut old_csv_lens: Vec<usize> = vec![];
     original_csv
         .into_iter()
         .enumerate()
         .for_each(|(i, row_data)| {
             let data: Vec<&str> = row_data.split(",").collect();
             old_csv.push(data.clone());
-            old_csv_len.push(data.len());
+            old_csv_lens.push(data.len());
         });
 
-    let old_csv_len_most_columns = old_csv_len.iter().max().unwrap();
+    let old_csv_lens_most_columns = old_csv_lens.iter().max().unwrap();
     debug!("old_csv {:?}", old_csv);
-    debug!("old_csv_len_most_columns {:?}", old_csv_len_most_columns);
+    debug!("old_csv_lens_most_columns {:?}", old_csv_lens_most_columns);
 
     old_csv.into_iter().enumerate().for_each(|(i, row_data)| {
         debug!("row_data {:?}", row_data);
@@ -164,20 +164,20 @@ fn pad_csv_data<'a>(original_csv: &Vec<&'a str>, new_csv: &mut Vec<Vec<&'a str>>
         // then we need to manually add the extra row values here so we don't
         // get index out of bounds error when swapping values in
         // function `update_csv_row_for_modified_table_cells`
-        if &data_len < &old_csv_len_most_columns {
+        if &data_len < &old_csv_lens_most_columns {
             // resize to add padding to this row_data with empty string "" so
             // has the same as the longest length
-            data.resize(*old_csv_len_most_columns, &padding);
+            data.resize(*old_csv_lens_most_columns, &padding);
         }
         // create longer lived data length value
         let mut data_len = &data.len(); // update after resize
         debug!("data {:?}", &data);
 
         new_csv.push(data);
-        new_csv_len.push(*data_len);
+        new_csv_lens.push(*data_len);
     });
     debug!("new_csv {:?}", new_csv);
-    debug!("new_csv_len {:?}", new_csv_len);
+    debug!("new_csv_lens {:?}", new_csv_lens);
 }
 
 // the TableVariants::Main has a single label row, and then multiple data rows under it in the CSV file. it
@@ -199,9 +199,9 @@ pub fn generate_csv_data_for_download(
             debug!("original_csv {:?}", original_csv);
 
             let mut new_csv: Vec<Vec<&str>> = vec![];
-            let mut new_csv_len: Vec<usize> = vec![];
+            let mut new_csv_lens: Vec<usize> = vec![];
             let padding = "".to_string();
-            pad_csv_data(&original_csv, &mut new_csv, &mut new_csv_len, &padding);
+            pad_csv_data(&original_csv, &mut new_csv, &mut new_csv_lens, &padding);
 
             debug!(
                 "content.table.columns.len() {:?}",
@@ -211,12 +211,12 @@ pub fn generate_csv_data_for_download(
             if content.table.columns.len() < 1 {
                 return Err(Error::MustBeAtLeastOneColumnData);
             }
-            debug!("new_csv_len {:?}", new_csv_len);
+            debug!("new_csv_lens {:?}", new_csv_lens);
             // validate qty of columns
             let is_not_all_same =
                 |new_csv: &[usize]| -> bool { new_csv.iter().min() != new_csv.iter().max() };
-            debug!("is_not_all_same {:?}", is_not_all_same(&new_csv_len));
-            if is_not_all_same(&new_csv_len) == true {
+            debug!("is_not_all_same {:?}", is_not_all_same(&new_csv_lens));
+            if is_not_all_same(&new_csv_lens) == true {
                 return Err(Error::MustBeSameColumnLengthOnAllRows);
             }
 
@@ -258,9 +258,9 @@ pub fn generate_csv_data_for_download(
             debug!("original_csv {:?}", original_csv);
 
             let mut new_csv: Vec<Vec<&str>> = vec![];
-            let mut new_csv_len: Vec<usize> = vec![];
+            let mut new_csv_lens: Vec<usize> = vec![];
             let padding = "".to_string();
-            pad_csv_data(&original_csv, &mut new_csv, &mut new_csv_len, &padding);
+            pad_csv_data(&original_csv, &mut new_csv, &mut new_csv_lens, &padding);
 
             debug!(
                 "content cols rows {:?} {:?}",
@@ -274,12 +274,12 @@ pub fn generate_csv_data_for_download(
                 return Err(Error::MustBeThreeRowsIncludingLabelsRowDataRowVariablesRow);
             }
 
-            debug!("new_csv_len {:?}", new_csv_len);
+            debug!("new_csv_lens {:?}", new_csv_lens);
             // validate qty of columns
             let is_not_all_same =
                 |new_csv: &[usize]| -> bool { new_csv.iter().min() != new_csv.iter().max() };
-            debug!("is_not_all_same {:?}", is_not_all_same(&new_csv_len));
-            if is_not_all_same(&new_csv_len) == true {
+            debug!("is_not_all_same {:?}", is_not_all_same(&new_csv_lens));
+            if is_not_all_same(&new_csv_lens) == true {
                 return Err(Error::MustBeSameColumnLengthOnAllRows);
             }
 
