@@ -100,9 +100,9 @@ pub fn Editor() -> impl View {
                     </header>
                     <section .main>
                         <div class="container">
-                            <input type="file" id="file-input" accept="text/csv" onchange={onload_details} />
-                            <input type="button" onclick="document.getElementById('file-input').click()" value="Upload CSV file" />
-                            <label for="file-input" class="label">{ ref state.details.filename }</label>
+                            <input type="file" id="file-input-details" accept="text/csv" onchange={onload_details} />
+                            <input type="button" onclick="document.getElementById('file-input-details').click()" value="Upload CSV file (Details)" />
+                            <label for="file-input-details" class="label"></label>
                             <button #button-file-save type="button" onclick={onsave_details}>"Save to CSV file"</button>
                             <br />
                         </div>
@@ -138,9 +138,12 @@ pub fn Editor() -> impl View {
                                 </tr>
                             </tbody>
                         </table>
-                        <div #input-file-select>
-                            <h1>{ ref state.main.filename }</h1>
-                            <input type="file" accept="text/csv" onchange={onload_main} />
+                        <div class="container">
+                            <input type="file" id="file-input-main" accept="text/csv" onchange={onload_main} />
+                            <input type="button" onclick="document.getElementById('file-input-main').click()" value="Upload CSV file (Main)" />
+                            <label for="file-input-main" class="label"></label>
+                            // <button #button-file-save type="button" onclick={onsave_main}>"Save to CSV file"</button>
+                            <br />
                         </div>
                         <table
                             onkeydown={

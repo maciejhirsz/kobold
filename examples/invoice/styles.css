@@ -70,10 +70,6 @@ input[type="file"] {
     padding: 15px;
 }
 
-#input-file-select {
-   display: inline-flex;
-}
-
 /* https://stackoverflow.com/questions/74115573/styling-an-input-type-file-text-next-to-the-button-not-the-button-itself-us */
 .container {
     padding: 1em;
