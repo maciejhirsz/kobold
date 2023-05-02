@@ -37,8 +37,14 @@ async fn onload_common(
         // https://docs.rs/kobold/latest/kobold/stateful/struct.Signal.html#method.update
         state.update(move |state| {
             get(state).table = table;
-            // TODO - might not be necessary if handled in csv.rs `try_from`
-            get(state).table.variant = table_variant;
+            // we are already obtaining the table variant if it exists prefixed in the CSV file
+            // using in csv.rs `try_from` function, but if the table variant was not provided but
+            // the user uploaded the file by clicking the button that triggered `onload_details` that
+            // passed the relevant table variant to use as a parameter to this `onload_common` function
+            // then we'll use that instead, otherwise it will be unnecessary set to `TableVariant::Unknown`
+            if get(state).table.variant == TableVariant::Unknown {
+                get(state).table.variant = table_variant;
+            }
             state.store(); // update local storage
         });
     }
@@ -58,7 +64,7 @@ async fn onsave_common(
     event: MouseEvent<HtmlElement>,
 ) {
     // closure required just to debug with access to state fields, since otherwise it'd trigger a render
-    state.update_silent(|state| debug!("onsave_: {:?}", &get(state)));
+    state.update_silent(|state| debug!("onsave: {:?}", &get(state)));
 
     state.update(|state| {
         // update local storage and state so that &state.details isn't
