@@ -93,20 +93,21 @@ pub fn Editor() -> impl View {
     stateful(State::default, |state| {
         debug!("Editor()");
 
-        let onload_details = state.bind_async(|state, event: Event<InputElement>| async move {
-            onload_common(TableVariants::Details, |state| &mut state.details, state, event).await;
+        // "closure needs to return the future onload_common returns for async_bind to work" - Maciej
+        let onload_details = state.bind_async(|state, event: Event<InputElement>| {
+            onload_common(TableVariants::Details, |state| &mut state.details, state, event)
         });
 
-        let onload_main = state.bind_async(|state, event: Event<InputElement>| async move {
-            onload_common(TableVariants::Main, |state| &mut state.main, state, event).await;
+        let onload_main = state.bind_async(|state, event: Event<InputElement>| {
+            onload_common(TableVariants::Main, |state| &mut state.main, state, event)
         });
 
-        let onsave_details = state.bind_async(|state, event: MouseEvent<HtmlElement>| async move {
-            onsave_common(TableVariants::Details, |state| &mut state.details, state, event).await;
+        let onsave_details = state.bind_async(|state, event: MouseEvent<HtmlElement>| {
+            onsave_common(TableVariants::Details, |state| &mut state.details, state, event)
         });
 
-        let onsave_main = state.bind_async(|state, event: MouseEvent<HtmlElement>| async move {
-            onsave_common(TableVariants::Main, |state| &mut state.main, state, event).await;
+        let onsave_main = state.bind_async(|state, event: MouseEvent<HtmlElement>| {
+            onsave_common(TableVariants::Main, |state| &mut state.main, state, event)
         });
 
         view! {
