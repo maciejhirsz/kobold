@@ -11,7 +11,7 @@ use crate::state::{Editing, State, Text};
 
 #[component(auto_branch)]
 pub fn HeadDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
-    // debug!("row/col: {:?}/{:?}", row, col);
+    debug!("row/col: {:?}/{:?}", row, col);
     let value = state
         .details
         .table

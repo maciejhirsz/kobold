@@ -18,6 +18,8 @@ async fn onload_common(
     state: Signal<State>,
     event: Event<InputElement>,
 ) {
+    debug!("onload_common");
+
     let file = match event.target().files().and_then(|list| list.get(0)) {
         Some(file) => file,
         None => return,
@@ -29,15 +31,26 @@ async fn onload_common(
     state.update(|state| get(state).filename = file.name());
 
     if let Ok(table) = csv::read_file(file).await {
-        debug!("table {:#?}", table);
+        debug!("table {:#?}", &table);
+        debug!("table_variant {:#?}", &table_variant);
+
         // https://docs.rs/kobold/latest/kobold/stateful/struct.Signal.html#method.update
         state.update(move |state| {
             get(state).table = table;
+            // TODO - might not be necessary if handled in csv.rs `try_from`
+            get(state).table.variant = table_variant;
             state.store(); // update local storage
         });
     }
 }
 
+// TODO - we shouldn't need to pass `TableVariant` as a parameter since anything we've uploaded to be saved
+// should already have a variant associated with it, otherwise it'll be processed as `TableVariant::Unknown`.
+// so we need to prefix the saved file's stringified value with its variant (e.g. `#details,\n...`),
+// in the function `generate_csv_data_for_download`
+// so it's ready to be processed if they re-uploaded it again later.
+// See draft code here https://github.com/maciejhirsz/kobold/commit/9287489c8091eb4c435940394bef1e1faa0da046#diff-466748d62629a0b88b2cc503a3d905976f38734933f05ae4032fe5f2b06bd2f4R42
+// and here https://github.com/maciejhirsz/kobold/commit/9287489c8091eb4c435940394bef1e1faa0da046#diff-e5b6bd12f72bc9b411526063b4215b05bf5e7686f083cb2269685fe73886c7b6R273
 async fn onsave_common(
     table_variant: TableVariant,
     get: impl Fn(&mut State) -> &mut Content,
@@ -95,7 +108,13 @@ pub fn Editor() -> impl View {
 
         // "closure needs to return the future onload_common returns for async_bind to work" - Maciej
         let onload_details = state.bind_async(|state, event: Event<InputElement>| {
-            onload_common(TableVariant::Details, |state| &mut state.details, state, event)
+            debug!("onload_details");
+            onload_common(
+                TableVariant::Details,
+                |state| &mut state.details,
+                state,
+                event,
+            )
         });
 
         let onload_main = state.bind_async(|state, event: Event<InputElement>| {
@@ -103,7 +122,12 @@ pub fn Editor() -> impl View {
         });
 
         let onsave_details = state.bind_async(|state, event: MouseEvent<HtmlElement>| {
-            onsave_common(TableVariant::Details, |state| &mut state.details, state, event)
+            onsave_common(
+                TableVariant::Details,
+                |state| &mut state.details,
+                state,
+                event,
+            )
         });
 
         let onsave_main = state.bind_async(|state, event: MouseEvent<HtmlElement>| {

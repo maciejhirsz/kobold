@@ -12,6 +12,7 @@ mod csv;
 mod helpers;
 mod js;
 mod state;
+#[cfg(test)]
 mod tests;
 use components::{
     Cell::Cell, CellDetails::CellDetails, Editor::Editor, Head::Head, HeadDetails::HeadDetails,

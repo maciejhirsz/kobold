@@ -12,15 +12,19 @@ use web_sys::{File, Url};
 use crate::helpers::csv_helpers;
 use crate::state::{Content, Table, TableVariant, Text, TextSource};
 
-#[derive(Logos)]
+#[derive(Logos, Debug, PartialEq)]
 enum Token {
     #[error]
     Err,
+    // If we use `#` as the character before the TableVariant is mentioned
+    // then we cannot use that character elsewhere in the Table `source` value
+    #[regex(r#"[#].+"#, priority = 7)]
+    Hash,
     #[token(",")]
     Comma,
     #[regex(r"[\n\r]+")]
     Newline,
-    #[regex(r#"[^"\n\r,]+"#)]
+    #[regex(r#"[^"\n\r,#]+"#)]
     Value,
     #[regex(r#""[^"]+""#, priority = 6)]
     QuotedValue,
@@ -40,6 +44,49 @@ pub enum Error {
     MustBeAtLeastOneColumnData,
     MustBeSameColumnLengthOnAllRows,
     MustBeThreeRowsIncludingLabelsRowDataRowVariablesRow,
+    TableVariantUnsupported,
+}
+
+fn parse_table_variant(lex: &mut Lexer<Token>, columns: usize) -> Result<TableVariant, Error> {
+    let mut table_variant = TableVariant::Unknown;
+
+    while let Some(token) = lex.next() {
+        match token {
+            Token::Hash => {
+                let mut slice = lex.slice();
+                // skip so get the next value in the `while` block below
+                // lex.next(); // skip the value of the Hash (e.g. "main" or "details")
+                // lex.next(); // skip newline character "\n" after Hash
+                // lex.next(); // skip the comma character after Hash
+                // lookahead and lookbehind are not supported `.+?(?=,)` or `.+?(,)`
+                // so manually have to get value between @ and next comma
+
+                // https://stackoverflow.com/a/37784410/3208553
+                let start_bytes = slice.find("#").unwrap_or(0);
+                let end_bytes = slice.find(",").unwrap_or(slice.len());
+                let result = &slice[(start_bytes + 1)..end_bytes];
+                debug!("parse_row result {:?}", result);
+                table_variant = match result {
+                    "main" => TableVariant::Main,
+                    "details" => TableVariant::Details,
+                    _ => return Err(Error::TableVariantUnsupported),
+                };
+            }
+            Token::Value => continue,
+            Token::QuotedValue => break,
+            Token::EscapedValue => break,
+            Token::Comma => break,
+            Token::Newline => break,
+            Token::Err => break,
+            // allow users to not bother using a table variant
+            _ => debug!("no table variant"),
+        }
+
+        if token == Token::Comma {
+            break;
+        }
+    }
+    Ok(table_variant)
 }
 
 fn parse_row(lex: &mut Lexer<Token>, columns: usize) -> Result<Option<Vec<Text>>, Error> {
@@ -47,6 +94,9 @@ fn parse_row(lex: &mut Lexer<Token>, columns: usize) -> Result<Option<Vec<Text>>
     let mut value = None;
 
     while let Some(token) = lex.next() {
+        let slice = lex.slice();
+        debug!("slice {:?}", slice);
+
         value = match token {
             Token::Value => Some(Text::Insitu(lex.span())),
             Token::QuotedValue => {
@@ -73,12 +123,19 @@ fn parse_row(lex: &mut Lexer<Token>, columns: usize) -> Result<Option<Vec<Text>>
                 break;
             }
             Token::Err => break,
+            _ => break,
         }
     }
 
     if let Some(value) = value {
         row.push(value);
     }
+
+    debug!(
+        "match columns row.len(), \n{:?}, \n{:?}",
+        columns,
+        row.len()
+    );
 
     match (columns, row.len()) {
         (_, 0) => Ok(None),
@@ -101,18 +158,53 @@ impl TryFrom<String> for Table {
     type Error = Error;
 
     fn try_from(source: String) -> Result<Self, Error> {
-        let mut lex = Token::lexer(&source);
+        let mut table_variant = TableVariant::Unknown;
+        let mut lex_just_to_get_variant = Token::lexer(&source);
+        table_variant = match parse_table_variant(&mut lex_just_to_get_variant, 0) {
+            Ok(variant) => variant,
+            // FIXME - if i upload a file with prefix `#blah,...` it does not propagate and
+            // show the error in the browser console
+            // from parse_table_variant for some reason, it just stops execution
+            // Err(err) => return Err(Error::TableVariantUnsupported),
+            Err(err) => panic!("table variant unsupported"),
+        };
+
+        let mut trunc_source = source.clone();
+        if table_variant != TableVariant::Unknown {
+            debug!("table_variant {:?}", &table_variant);
+            // we've obtained the `table_variant` from the file that's being uploaded
+            // and we'll store that in the `Table` state, but if it
+            // was not `TableVariant::Unknown` and it was a valid variant then we need
+            // to remove it from the `source` so we'll create another version of it removed so
+            // it doesn't interfere with processing the rest of the source
+
+            let binding = trunc_source.find(",");
+            let first_comma_index = match &binding {
+                Some(idx) => idx,
+                None => panic!("must be a comma after the table variant in source for it to exist"),
+            };
+            debug!("first_comma_index {:?}", &first_comma_index);
+            trunc_source = (&trunc_source[first_comma_index + 1..]).to_string();
+            debug!("trunc_source {:?}", &trunc_source);
+        }
+
+        // process without the truncated source
+        let mut lex = Token::lexer(&trunc_source);
 
         let columns = parse_row(&mut lex, 0)?.ok_or(Error::NoData)?;
+        debug!("columns {:?}", &columns);
 
         let mut rows = Vec::new();
 
         while let Some(row) = parse_row(&mut lex, columns.len())? {
+            debug!("row {:?}", &row);
             rows.push(row);
         }
+        debug!("rows {:?}", &rows);
 
         Ok(Table {
-            source: TextSource::from(source),
+            variant: table_variant,
+            source: TextSource::from(trunc_source),
             columns,
             rows,
         })
@@ -259,7 +351,12 @@ pub fn generate_csv_data_for_download(
 
             return Ok(content_serialized);
         }
-        _ => panic!("unknown variant name to generate csv data for download"),
+        TableVariant::Unknown => {
+            return Err(Error::TableVariantUnsupported);
+        }
+        _ => {
+            return Err(Error::TableVariantUnsupported);
+        }
     };
 }
 
