@@ -12,7 +12,7 @@ use wasm_bindgen::UnwrapThrowExt;
 const KEY_MAIN: &str = "kobold.invoice.main";
 const KEY_DETAILS: &str = "kobold.invoice.details";
 
-pub enum TableVariants {
+pub enum TableVariant {
     Main,
     Details,
 }

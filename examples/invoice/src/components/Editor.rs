@@ -9,11 +9,11 @@ use crate::components::{
 };
 use crate::csv;
 use crate::js;
-use crate::state::{Content, Editing, State, TableVariants};
+use crate::state::{Content, Editing, State, TableVariant};
 
 // running `get(state)` returns either `state.main` or `state.details`
 async fn onload_common(
-    table_variant: TableVariants,
+    table_variant: TableVariant,
     get: impl Fn(&mut State) -> &mut Content,
     state: Signal<State>,
     event: Event<InputElement>,
@@ -39,7 +39,7 @@ async fn onload_common(
 }
 
 async fn onsave_common(
-    table_variant: TableVariants,
+    table_variant: TableVariant,
     get: impl Fn(&mut State) -> &mut Content,
     state: Signal<State>,
     event: MouseEvent<HtmlElement>,
@@ -54,9 +54,9 @@ async fn onsave_common(
         state.store();
 
         match table_variant {
-            TableVariants::Main => {
+            TableVariant::Main => {
                 // only setup for details
-                match csv::generate_csv_data_for_download(TableVariants::Main, &get(state)) {
+                match csv::generate_csv_data_for_download(TableVariant::Main, &get(state)) {
                     Ok(csv_data) => {
                         debug!("csv_data {:?}", csv_data);
                         // cast String into a byte slice
@@ -69,8 +69,8 @@ async fn onsave_common(
                 };
                 debug!("successfully generated csv data for download");
             }
-            TableVariants::Details => {
-                match csv::generate_csv_data_for_download(TableVariants::Details, &get(state)) {
+            TableVariant::Details => {
+                match csv::generate_csv_data_for_download(TableVariant::Details, &get(state)) {
                     Ok(csv_data) => {
                         debug!("csv_data {:?}", csv_data);
                         // cast String into a byte slice
@@ -95,19 +95,19 @@ pub fn Editor() -> impl View {
 
         // "closure needs to return the future onload_common returns for async_bind to work" - Maciej
         let onload_details = state.bind_async(|state, event: Event<InputElement>| {
-            onload_common(TableVariants::Details, |state| &mut state.details, state, event)
+            onload_common(TableVariant::Details, |state| &mut state.details, state, event)
         });
 
         let onload_main = state.bind_async(|state, event: Event<InputElement>| {
-            onload_common(TableVariants::Main, |state| &mut state.main, state, event)
+            onload_common(TableVariant::Main, |state| &mut state.main, state, event)
         });
 
         let onsave_details = state.bind_async(|state, event: MouseEvent<HtmlElement>| {
-            onsave_common(TableVariants::Details, |state| &mut state.details, state, event)
+            onsave_common(TableVariant::Details, |state| &mut state.details, state, event)
         });
 
         let onsave_main = state.bind_async(|state, event: MouseEvent<HtmlElement>| {
-            onsave_common(TableVariants::Main, |state| &mut state.main, state, event)
+            onsave_common(TableVariant::Main, |state| &mut state.main, state, event)
         });
 
         view! {

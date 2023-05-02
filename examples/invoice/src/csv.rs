@@ -10,7 +10,7 @@ use wasm_bindgen_futures::JsFuture;
 use web_sys::{File, Url};
 
 use crate::helpers::csv_helpers;
-use crate::state::{Content, Table, TableVariants, Text, TextSource};
+use crate::state::{Content, Table, TableVariant, Text, TextSource};
 
 #[derive(Logos)]
 enum Token {
@@ -150,20 +150,20 @@ fn validate_same_columns_length_all_rows(
     Ok(())
 }
 
-// the TableVariants::Main has a single label row, and then multiple data rows under it in the CSV file. it
+// the TableVariant::Main has a single label row, and then multiple data rows under it in the CSV file. it
 // does not have a label (variables) row.
 //
-// it needs to be processed differently from TableVariants::Details that has only a single label row,
+// it needs to be processed differently from TableVariant::Details that has only a single label row,
 // a single data row, and a single label (variables) row.
 pub fn generate_csv_data_for_download(
-    table_variant: TableVariants,
+    table_variant: TableVariant,
     content: &Content,
 ) -> Result<String, Error> {
     // generate CSV file format from object Url in state
     // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=f911a069c22a7f4cf4b5e8a9aa05e65e
 
     match table_variant {
-        TableVariants::Main => {
+        TableVariant::Main => {
             let binding_source = &content.table.source.source;
             let original_csv: Vec<&str> = binding_source.split(&['\n'][..]).collect();
             debug!("original_csv {:?}", original_csv);
@@ -217,7 +217,7 @@ pub fn generate_csv_data_for_download(
 
             return Ok(content_serialized);
         }
-        TableVariants::Details => {
+        TableVariant::Details => {
             let binding_source = &content.table.source.source;
             let original_csv: Vec<&str> = binding_source.split(&['\n'][..]).collect();
             debug!("original_csv {:?}", original_csv);
