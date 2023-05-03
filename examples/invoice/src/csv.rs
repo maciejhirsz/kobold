@@ -247,12 +247,10 @@ fn validate_same_columns_length_all_rows(
 //
 // it needs to be processed differently from TableVariant::Details that has only a single label row,
 // a single data row, and a single label (variables) row.
-pub fn generate_csv_data_for_download(
-    table_variant: TableVariant,
-    content: &Content,
-) -> Result<String, Error> {
+pub fn generate_csv_data_for_download(content: &Content) -> Result<String, Error> {
     // generate CSV file format from object Url in state
     // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=f911a069c22a7f4cf4b5e8a9aa05e65e
+    let table_variant = &content.table.variant;
 
     match table_variant {
         TableVariant::Main => {
@@ -278,10 +276,17 @@ pub fn generate_csv_data_for_download(
             validate_same_columns_length_all_rows(&new_csv, &new_csv_lens)?;
 
             let mut arr = vec![];
+            let prefix = "#".to_string();
+            let table_variant_str = "main".to_string();
+            let prefix_table_variant: String = format!("{prefix}{table_variant_str},");
+
             // only one column so we'll process that first before the rows
             let new_csv_labels_stringified: String =
                 update_csv_row_for_modified_table_cells(&content.table.columns, &mut new_csv[0]); // labels
-            arr.push(new_csv_labels_stringified);
+
+            let combined = format!("{}{}", prefix_table_variant, new_csv_labels_stringified);
+            arr.push(combined);
+            debug!("arr combined: {:?}", arr);
 
             let content_table_rows = content.table.rows.clone();
 
@@ -335,17 +340,27 @@ pub fn generate_csv_data_for_download(
 
             validate_same_columns_length_all_rows(&new_csv, &new_csv_lens)?;
 
+            let mut arr = vec![];
+            let prefix = "#".to_string();
+            let table_variant_str = "details".to_string();
+            let prefix_table_variant: String = format!("{prefix}{table_variant_str},");
+
+            // FIXME - we're pushing the table variant prefix on the variables in details,
+            // but we're pushing the table variant prefix on the labels in main because
+            // it doesn't have any variables. it's inconsistent but it still works
             let new_csv_variables_stringified: String =
                 update_csv_row_for_modified_table_cells(&content.table.columns, &mut new_csv[0]);
+            let combined = format!("{}{}", prefix_table_variant, new_csv_variables_stringified);
+            arr.push(combined);
+            debug!("arr combined: {:?}", arr);
+
             let new_csv_values_stringified: String =
                 update_csv_row_for_modified_table_cells(&content.table.rows[0], &mut new_csv[1]);
+            arr.push(new_csv_values_stringified);
             let new_csv_labels_stringified: String =
                 update_csv_row_for_modified_table_cells(&content.table.rows[1], &mut new_csv[2]);
-            let arr = vec![
-                new_csv_variables_stringified,
-                new_csv_values_stringified,
-                new_csv_labels_stringified,
-            ];
+            arr.push(new_csv_labels_stringified);
+
             let content_serialized: String = arr.join("\n");
             debug!("content_serialized {:?}", content_serialized);
 
