@@ -54,10 +54,6 @@ fn parse_table_variant(lex: &mut Lexer<Token>, columns: usize) -> Result<TableVa
         match token {
             Token::Hash => {
                 let mut slice = lex.slice();
-                // skip so get the next value in the `while` block below
-                // lex.next(); // skip the value of the Hash (e.g. "main" or "details")
-                // lex.next(); // skip newline character "\n" after Hash
-                // lex.next(); // skip the comma character after Hash
                 // lookahead and lookbehind are not supported `.+?(?=,)` or `.+?(,)`
                 // so manually have to get value between @ and next comma
 

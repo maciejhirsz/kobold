@@ -54,8 +54,6 @@ async fn onload_common(
 // should already have a variant associated with it, otherwise it'll be processed as `TableVariant::Unknown`.
 // so we need to prefix the saved file's stringified value with its variant (e.g. `#details,\n...`),
 // in the function `generate_csv_data_for_download` so it's ready to be processed if they re-uploaded it again later.
-// See draft code here https://github.com/maciejhirsz/kobold/commit/9287489c8091eb4c435940394bef1e1faa0da046#diff-466748d62629a0b88b2cc503a3d905976f38734933f05ae4032fe5f2b06bd2f4R42
-// and here https://github.com/maciejhirsz/kobold/commit/9287489c8091eb4c435940394bef1e1faa0da046#diff-e5b6bd12f72bc9b411526063b4215b05bf5e7686f083cb2269685fe73886c7b6R273
 async fn onsave_common(
     get: impl Fn(&mut State) -> &mut Content,
     state: Signal<State>,
