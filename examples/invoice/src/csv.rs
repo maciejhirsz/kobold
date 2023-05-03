@@ -43,7 +43,7 @@ pub enum Error {
     MustBeAtLeastOneRowData,
     MustBeAtLeastOneColumnData,
     MustBeSameColumnLengthOnAllRows,
-    MustBeThreeRowsIncludingLabelsRowDataRowVariablesRow,
+    MustBeTwoRowsIncludingLabelsRowDataRow,
     TableVariantUnsupported,
 }
 
@@ -238,11 +238,10 @@ fn validate_same_columns_length_all_rows(
     Ok(())
 }
 
-// the TableVariant::Main has a single label row, and then multiple data rows under it in the CSV file. it
-// does not have a label (variables) row.
+// the TableVariant::Main has a single label row, and then multiple data rows under it in the CSV file.
 //
 // it needs to be processed differently from TableVariant::Details that has only a single label row,
-// a single data row, and a single label (variables) row.
+// a single data row.
 pub fn generate_csv_data_for_download(content: &Content) -> Result<String, Error> {
     // generate CSV file format from object Url in state
     // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=f911a069c22a7f4cf4b5e8a9aa05e65e
@@ -327,9 +326,9 @@ pub fn generate_csv_data_for_download(content: &Content) -> Result<String, Error
             );
             // validate qty of rows
             if content.table.columns.len() != (1 as usize)
-                && content.table.rows.len() != (2 as usize)
+                && content.table.rows.len() != (1 as usize)
             {
-                return Err(Error::MustBeThreeRowsIncludingLabelsRowDataRowVariablesRow);
+                return Err(Error::MustBeTwoRowsIncludingLabelsRowDataRow);
             }
 
             debug!("new_csv_lens {:?}", new_csv_lens);
@@ -341,21 +340,15 @@ pub fn generate_csv_data_for_download(content: &Content) -> Result<String, Error
             let table_variant_str = "details".to_string();
             let prefix_table_variant: String = format!("{prefix}{table_variant_str},");
 
-            // FIXME - we're pushing the table variant prefix on the variables in details,
-            // but we're pushing the table variant prefix on the labels in main because
-            // it doesn't have any variables. it's inconsistent but it still works
-            let new_csv_variables_stringified: String =
+            let new_csv_labels_stringified: String =
                 update_csv_row_for_modified_table_cells(&content.table.columns, &mut new_csv[0]);
-            let combined = format!("{}{}", prefix_table_variant, new_csv_variables_stringified);
+            let combined = format!("{}{}", prefix_table_variant, new_csv_labels_stringified);
             arr.push(combined);
             debug!("arr combined: {:?}", arr);
 
             let new_csv_values_stringified: String =
                 update_csv_row_for_modified_table_cells(&content.table.rows[0], &mut new_csv[1]);
             arr.push(new_csv_values_stringified);
-            let new_csv_labels_stringified: String =
-                update_csv_row_for_modified_table_cells(&content.table.rows[1], &mut new_csv[2]);
-            arr.push(new_csv_labels_stringified);
 
             let content_serialized: String = arr.join("\n");
             debug!("content_serialized {:?}", content_serialized);
@@ -402,7 +395,7 @@ pub fn update_csv_row_for_modified_table_cells<'a>(
     });
     // debug!("{:?}", csv_row);
     let mut c = 0;
-    let new_csv_variables_stringified: String = csv_row
+    let new_csv_data_stringified: String = csv_row
         .iter()
         .map(|text| {
             if c == csv_row.len() - 1 {
@@ -413,5 +406,5 @@ pub fn update_csv_row_for_modified_table_cells<'a>(
             return text.to_string() + ",";
         })
         .collect::<String>();
-    new_csv_variables_stringified
+    new_csv_data_stringified
 }

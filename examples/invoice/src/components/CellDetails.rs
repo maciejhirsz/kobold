@@ -13,6 +13,7 @@ use crate::state::{Editing, State, Text};
 
 #[component]
 pub fn CellDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
+    // debug!("row/col: {:?}/{:?}", row, col);
     let value = state
         .details
         .table

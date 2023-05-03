@@ -11,14 +11,14 @@ use crate::state::{Editing, State, Text};
 
 #[component(auto_branch)]
 pub fn HeadDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
-    debug!("row/col: {:?}/{:?}", row, col);
+    // debug!("row/col: {:?}/{:?}", row, col);
     let value = state
         .details
         .table
         .source
-        .get_text(&state.details.table.rows[row][col]);
+        .get_text(&state.details.table.columns[col]);
 
-    if state.editing_details == (Editing::Cell { row, col }) {
+    if state.editing_details == (Editing::Column { col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
             state.details.table.rows[row][col] = Text::Owned(e.target().value().into());
             state.store();
@@ -35,7 +35,7 @@ pub fn HeadDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '
             </th>
         }
     } else {
-        let ondblclick = state.bind(move |s, _| s.editing_details = Editing::Cell { row, col });
+        let ondblclick = state.bind(move |s, _| s.editing_details = Editing::Column { col });
 
         view! { <th {ondblclick}>{ ref value }</th> }
     }

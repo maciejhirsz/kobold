@@ -144,7 +144,7 @@ pub fn Editor() -> impl View {
                                 <tr>
                                 {
                                     for state.details.table.columns().map(|col| view! {
-                                        <HeadDetails {col} row={1} {state} />
+                                        <HeadDetails {col} row={0} {state} />
                                     })
                                 }
                                 </tr>

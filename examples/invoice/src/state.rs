@@ -175,7 +175,7 @@ impl Table {
     // it is removed from the source during the upload process using `parse_table_variant` in csv.rs.
     // if it is not specified then a value of `TableVariant::Unknown` is assigned.
     fn mock_file_details() -> Self {
-        let res = "#details,inv_date,inv_no,from_attn_name,from_org_name,from_org_addr,from_email,to_attn_name,to_title,to_org_name,to_email\n01.04.2023,0001,luke,clawbird,1 metaverse ave,test@test.com,recipient_name,director,nftverse,test2@test.com\ninvoice date,invoice number,name person from,organisation name from,organisation address from,email from,name person attention to,title to,organisation name to,email to"
+        let res = "#details,invoice date,invoice number,name person from,organisation name from,organisation address from,email from,name person attention to,title to,organisation name to,email to\n01.04.2023,0001,luke,clawbird,1 metaverse ave,test@test.com,recipient_name,director,nftverse,test2@test.com"
             .parse()
             .unwrap();
         debug!("mock_file_details: {:?}", res);
