@@ -7,7 +7,7 @@
     ```
     * Open in web browser http://localhost:8080
     * Upload, edit (saves in local storage), and download a backup to a CSV file for the "Main" table
-        * Create a text file similar to the `mock_file_main` in state.rs, prefixed with `#main,`.
+        * Create a text file similar to the example in folder ./data/main.csv  and `mock_file_main` in state.rs, prefixed with `#main,`.
             * Note: It looks like there is an additional column on the first row but that cell will be removed during the upload process and used to populate a `TableVariant` value in the state that is reflected in Local Storage
         * Upload a file by clicking "Upload CSV file (Main) to upload it in the "Main" table
         * View the file in the UI and serialised in browser Local Storage under key `kobald.invoice.main`
@@ -15,7 +15,7 @@
         * Save a backup of the file by clicking the associated "Save to CSV file" button
             * Note: The downloaded file should be prefixed with `#main,` to indicate it uses the `TableVariant::Main` table
     * Upload, edit (saves in local storage), and download a backup to a CSV file for the "Details" table
-        * Repeat steps used for the "Main" table, but similar to `mock_file_details` in state.rs, and prefixed with `#details,` instead, and stored under `kobald.invoice.details` in Local Storage instead.
+        * Repeat steps used for the "Main" table, but similar to example in folder ./data/details.csv and `mock_file_details` in state.rs, and prefixed with `#details,` instead, and stored under `kobald.invoice.details` in Local Storage instead.
 
 * Contributing Guidelines
     * Format `cargo fmt --all` before pushing commits
