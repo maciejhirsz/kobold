@@ -76,7 +76,20 @@ input[type="file"] {
     border-radius: 4px;
     display: inline-flex;
 }
-  
+
+#header-container {
+    display: grid;
+    grid-template-columns: 1fr 0fr;
+    grid-row-gap: 0px;
+}
+
+#title {
+
+}
+
+#logo {
+}
+
 input[type=button] {
     background-color: lightgray;
     border: 0;

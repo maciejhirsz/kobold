@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 use log::debug;
 use std::ops::Deref;
 use web_sys::{EventTarget, HtmlElement, HtmlInputElement as InputElement, UiEvent};
@@ -5,9 +9,10 @@ use web_sys::{EventTarget, HtmlElement, HtmlInputElement as InputElement, UiEven
 use kobold::prelude::*;
 
 use crate::components::{
-    Cell::Cell, CellDetails::CellDetails, Head::Head, HeadDetails::HeadDetails,
+    Cell::Cell, CellDetails::CellDetails, Head::Head, HeadDetails::HeadDetails, Logo::Logo,
 };
 use crate::csv;
+use crate::helpers::logo_helpers::get_row_value_for_label_for_table;
 use crate::js;
 use crate::state::{Content, Editing, State, TableVariant};
 
@@ -111,11 +116,23 @@ pub fn Editor() -> impl View {
             onsave_common(|state| &mut state.main, state, event)
         });
 
+        let label_to_search_for = "organisation name from".to_string();
+        let process_row_value_for_label_for_table =
+            |label: &str| -> String { get_row_value_for_label_for_table(&label, &state) };
+
         view! {
             <div .invoice-wrapper>
                 <section .invoiceapp>
                     <header .header>
-                        <h1>"Invoice"</h1>
+                        <div #header-container>
+                            <div #title><h1>"Invoice"</h1></div>
+                            <div #logo>
+                                <Logo image_url="https://github.com/clawbird.png" width="50px" height="50px"
+                                    alt={label_to_search_for.clone()}
+                                    caption={process_row_value_for_label_for_table(&label_to_search_for)}
+                                />
+                            </div>
+                        </div>
                     </header>
                     <section .main>
                         <h3>"Details table"</h3>

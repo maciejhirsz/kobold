@@ -152,10 +152,7 @@ impl From<String> for TextSource {
 impl TextSource {
     pub fn get_text<'a>(&'a self, text: &'a Text) -> &'a str {
         match text {
-            Text::Insitu(span) => {
-                debug!("span: {:?}", span);
-                return &self.source[span.clone()];
-            }
+            Text::Insitu(span) => &self.source[span.clone()],
             Text::Owned(string) => string,
         }
     }
@@ -163,11 +160,9 @@ impl TextSource {
 
 impl Table {
     fn mock_file_main() -> Self {
-        let res = "#main,description,total,qr\ntask1,10,0x000|h160\ntask2,20,0x100|h160"
+        "#main,description,total,qr\ntask1,10,0x000|h160\ntask2,20,0x100|h160"
             .parse()
-            .unwrap();
-        debug!("mock_file_main: {:?}", res);
-        res
+            .expect_throw("unable to parse mock file main")
     }
 
     // `#details,` is not a column, it is only to identify the table variant. if it was this value it would be stored
@@ -175,11 +170,9 @@ impl Table {
     // it is removed from the source during the upload process using `parse_table_variant` in csv.rs.
     // if it is not specified then a value of `TableVariant::Unknown` is assigned.
     fn mock_file_details() -> Self {
-        let res = "#details,invoice date,invoice number,name person from,organisation name from,organisation address from,email from,name person attention to,title to,organisation name to,email to\n01.04.2023,0001,luke,clawbird,1 metaverse ave,test@test.com,recipient_name,director,nftverse,test2@test.com"
+        "#details,invoice date,invoice number,name person from,organisation name from,organisation address from,email from,name person attention to,title to,organisation name to,email to\n01.04.2023,0001,luke,clawbird,1 metaverse ave,test@test.com,recipient_name,director,nftverse,test2@test.com"
             .parse()
-            .unwrap();
-        debug!("mock_file_details: {:?}", res);
-        res
+            .expect_throw("unable to parse mock file details")
     }
 
     pub fn rows(&self) -> Range<usize> {
