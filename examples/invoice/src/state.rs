@@ -122,6 +122,33 @@ impl State {
         LocalStorage::set(KEY_MAIN, &self.main.table).unwrap_throw();
         LocalStorage::set(KEY_DETAILS, &self.details.table).unwrap_throw();
     }
+
+    // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=53e5b5c0c241be2f5b37815a685e7da6
+    pub fn remove_main(&mut self, row: usize) {
+        let binding_source: &str = &self.main.table.source.source;
+        let mut rows_vec: Vec<&str> = binding_source.split('\n').collect();
+        debug!("rows_vec {:?}", rows_vec);
+        let rows_start_idx = 1; // after the label row
+        let mut rows_vec2 = rows_vec.split_off(rows_start_idx);
+        debug!("rows_vec2 {:?}: ", rows_vec2);
+        let res = rows_vec2.remove(row);
+        debug!("res {:?}: ", res);
+        rows_vec.append(&mut rows_vec2);
+        debug!("rows_vec {:?}: ", rows_vec);
+        let rows_str: String = rows_vec.join("\n");
+        debug!("rows_str {:?}", rows_str);
+        let rows_str_textsource = TextSource { source: rows_str };
+        self.main.table.source = rows_str_textsource;
+        debug!("self.main.table.source {:?}", self.main.table.source);
+        // debug!("self.main.table.columns {:?}", self.main.table.columns);
+        // self.main.table.columns.remove(row);
+        // debug!("self.main.table.columns {:?}", self.main.table.columns);
+        debug!("self.main.table.rows {:?}", self.main.table.rows);
+        self.main.table.rows.remove(row);
+        debug!("self.main.table.rows {:?}", self.main.table.rows);
+
+        self.store();
+    }
 }
 
 impl Deref for Content {

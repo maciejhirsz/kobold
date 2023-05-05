@@ -144,7 +144,7 @@ pub fn Editor() -> impl View {
                             <button #button-file-save type="button" onclick={onsave_details}>"Save to CSV file"</button>
                         </div>
                         <br /><br />
-                        <table
+                        <table.list1
                             onkeydown={
                                 state.bind(move |state, event: KeyboardEvent<_>| {
                                     if matches!(event.key().as_str(), "Esc" | "Escape") {
@@ -218,6 +218,22 @@ pub fn Editor() -> impl View {
                                         })
                                     }
                                     </tr>
+                                    <button.destroy
+                                        data={row}
+                                        onclick={
+                                            state.bind(move |state, event: MouseEvent<HtmlElement>| {
+                                                let row = match event.target().get_attribute("data") {
+                                                    Some(r) => r,
+                                                    None => return,
+                                                };
+                                                let row_usize = match row.parse::<usize>() {
+                                                    Ok(r) => r,
+                                                    Err(e) => return,
+                                                };
+                                                state.remove_main(row_usize);
+                                            })
+                                        }
+                                    />
                                 })
                             }
                             </tbody>

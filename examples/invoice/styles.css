@@ -138,3 +138,34 @@ div.qr > div {
 .main {
     margin-top: 20px !important;
 }
+
+.destroy {
+	/* display: none; */
+    display: contents !important;
+	position: absolute;
+	top: 0;
+	right: 10px;
+	bottom: 0;
+	width: 40px;
+	height: 40px;
+	margin: auto 0;
+	font-size: 30px;
+	color: #949494;
+	/* transition: color 0.2s ease-out; */
+}
+
+.destroy:hover,
+.destroy:focus {
+	color: #C18585;
+}
+
+.destroy:after {
+	content: '×';
+	display: block;
+	height: 100%;
+	line-height: 1.1;
+}
+
+.destroy {
+	display: block;
+}
