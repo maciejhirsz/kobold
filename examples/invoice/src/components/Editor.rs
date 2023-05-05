@@ -230,7 +230,7 @@ pub fn Editor() -> impl View {
                                                     Ok(r) => r,
                                                     Err(e) => return,
                                                 };
-                                                state.remove_main(row_usize);
+                                                state.remove_row_main(row_usize);
                                             })
                                         }
                                     />

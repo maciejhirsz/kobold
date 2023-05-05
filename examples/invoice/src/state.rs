@@ -124,28 +124,109 @@ impl State {
     }
 
     // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=53e5b5c0c241be2f5b37815a685e7da6
-    pub fn remove_main(&mut self, row: usize) {
+    pub fn remove_row_main(&mut self, row_idx_remove: usize) {
         let binding_source: &str = &self.main.table.source.source;
         let mut rows_vec: Vec<&str> = binding_source.split('\n').collect();
         debug!("rows_vec {:?}", rows_vec);
         let rows_start_idx = 1; // after the label row
         let mut rows_vec2 = rows_vec.split_off(rows_start_idx);
         debug!("rows_vec2 {:?}: ", rows_vec2);
-        let res = rows_vec2.remove(row);
-        debug!("res {:?}: ", res);
+        rows_vec2.remove(row_idx_remove);
         rows_vec.append(&mut rows_vec2);
+        // label row + remaining rows after removing a row
         debug!("rows_vec {:?}: ", rows_vec);
         let rows_str: String = rows_vec.join("\n");
-        debug!("rows_str {:?}", rows_str);
+        println!("rows_str {:?}", rows_str);
+
         let rows_str_textsource = TextSource { source: rows_str };
         self.main.table.source = rows_str_textsource;
         debug!("self.main.table.source {:?}", self.main.table.source);
-        // debug!("self.main.table.columns {:?}", self.main.table.columns);
-        // self.main.table.columns.remove(row);
-        // debug!("self.main.table.columns {:?}", self.main.table.columns);
-        debug!("self.main.table.rows {:?}", self.main.table.rows);
-        self.main.table.rows.remove(row);
-        debug!("self.main.table.rows {:?}", self.main.table.rows);
+
+        let mut last_insitu_range_end: usize = 0;
+        if row_idx_remove == 0 {
+            // TODO - move into common function and use `if let Some(` instead of `unwrap`
+            // we need get end of last col range in columns, since old row0 removed and replaced with old row1
+            // that will now need to start from that (last col range + 1)
+            last_insitu_range_end = self
+                .main
+                .table
+                .columns
+                .iter()
+                .rev()
+                .inspect(|x| println!("processing: {:?}", x))
+                .find_map(|x| match x {
+                    Text::Insitu(span) => Some(span.end),
+                    Text::Owned(string) => None, // keep looking for last Insitu in column
+                    _ => None,                   // keep looking for last Insitu in column
+                })
+                .unwrap();
+        // repeat for if user removes the 2nd row, and the 3rd row, etc
+        } else if row_idx_remove >= 1 {
+            // this row changed
+            last_insitu_range_end = self.main.table.rows[row_idx_remove - 1]
+                .iter()
+                .rev()
+                .inspect(|x| println!("processing: {:?}", x))
+                .find_map(|x| match x {
+                    Text::Insitu(span) => Some(span.end),
+                    Text::Owned(string) => None, // keep looking for last Insitu in column
+                    _ => None,                   // keep looking for last Insitu in column
+                })
+                .unwrap();
+        }
+
+        println!("last_insitu_range_end: {:?}", last_insitu_range_end);
+        let first_insitu_range_start = last_insitu_range_end + 1;
+
+        // let's assume `last_insitu_range_end` is `20`, then
+        // then go all `rows` associated with rows in `rows_vec2`, which is the remaining rows after removing the specific row
+        // and reduce all the values so the first Insitu starts from (`last_insitu_range_end` + 1), i.e. 21, and
+        // all other Insitu elements have their range values reduced to start from that, so if next one is 37..47,
+        // and next after that was 49..54,
+        // the first one would still be 10 usize long, but change to 21..31, and the second would still be 5 usize
+        // long but reduce by 16 like the difference of the other one, so change to 49-16=33 and 54-16=38, so would become 33-38,
+        // and any Owned values would remain unchanged.
+        &self.main.table.rows.remove(row_idx_remove); // remove from `rows`
+        let mut new_rows: Vec<Vec<_>> = vec![];
+        let mut new_row: Vec<_> = vec![];
+        let mut current_diff = 0usize;
+        let mut current_insitu_end = 0usize;
+        let mut next_insitu_start = first_insitu_range_start;
+        println!("self.main.table.rows {:?}", self.main.table.rows);
+        for (i, row) in self.main.table.rows.iter_mut().enumerate() {
+            // TODO - try to remove the use of `.clone()`
+
+            // keep the indexes from rows before the row that was removed, since later
+            // rows were moved back one index and only those need to be changed
+            if i < row_idx_remove {
+                new_rows.push(row.clone()); // push the whole row
+                continue;
+            }
+
+            for (j, cell) in row.clone().iter_mut().enumerate() {
+                match cell {
+                    Text::Insitu(span) => {
+                        current_diff = span.end - span.start;
+                        current_insitu_end = next_insitu_start + current_diff;
+                        new_row.push(Text::Insitu(Range {
+                            start: next_insitu_start,
+                            end: current_insitu_end,
+                        }));
+                        next_insitu_start = current_insitu_end + 1; //first_insitu_range_start + current_diff;
+                    }
+                    Text::Owned(string) => {
+                        new_row.push(Text::Owned((*string.clone()).into()));
+                    } // no change
+                    _ => panic!("unexpected element"),
+                }
+
+                if j == row.clone().len() - 1 {
+                    new_rows.push(new_row.clone());
+                    new_row.clear(); // empty read for next `row`
+                }
+            }
+        }
+        println!("new_rows: {:?}", new_rows);
 
         self.store();
     }
@@ -178,6 +259,7 @@ impl From<String> for TextSource {
 
 impl TextSource {
     pub fn get_text<'a>(&'a self, text: &'a Text) -> &'a str {
+        debug!("get_text source {:?}", self.source);
         match text {
             Text::Insitu(span) => &self.source[span.clone()],
             Text::Owned(string) => string,
