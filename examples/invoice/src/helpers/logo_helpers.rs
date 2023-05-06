@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use log::debug;
 use heck::ToTitleCase;
 
 use kobold::prelude::*;
@@ -29,11 +30,15 @@ pub fn get_row_value_for_label_for_table(label_to_search_for: &str, state: &Stat
         Some(i) => i,
         None => panic!("unable to find index of org_name label in labels"),
     };
-    let org_name = state
-        .details
-        .table
-        .source
-        .get_text(&state.details.table.rows[0][col_org_name_idx]);
+    debug!("get_row_value_for_label_for_table get_text source {:?}", col_org_name_idx);
+    let mut org_name = "".to_string();
+    if col_org_name_idx <= (state.details.table.columns.len() - 1) {
+        org_name = state
+            .details
+            .table
+            .source
+            .get_text(&state.details.table.rows[0][col_org_name_idx]).to_string();
+    }
     let org_name_caption: String = format!("{}", org_name.to_title_case());
     org_name_caption
 }

@@ -23,6 +23,16 @@
       data-weak-refs={true}
       href="styles.css"
     />
+    <!-- required for browser debugging with breakpoints https://github.com/maciejhirsz/kobold/issues/47 -->
+    <link
+      data-trunk rel="rust"
+      data-keep-debug={true}
+      data-type="main"
+      data-typescript={false}
+      data-wasm-opt="0"
+      data-no-demangle={false}
+      data-weak-refs={true}
+    />
   </head>
   <body></body>
 </html>

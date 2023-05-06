@@ -11,11 +11,17 @@ use crate::state::{Editing, State, Text};
 
 #[component(auto_branch)]
 pub fn Head(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
-    let value = state
-        .main
-        .table
-        .source
-        .get_text(&state.main.table.columns[col]);
+    debug!("Head get_text source {:?} {:?}", col, row);
+    let value: &str;
+    if col <= (state.details.table.columns.len() - 1) {
+        value = state
+            .main
+            .table
+            .source
+            .get_text(&state.main.table.columns[col]);
+    } else {
+        value = &"";
+    }
 
     if state.editing_main == (Editing::Column { col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {

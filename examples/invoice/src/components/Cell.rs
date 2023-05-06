@@ -13,11 +13,17 @@ use crate::state::{Editing, State, Text};
 
 #[component]
 pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
-    let value = state
-        .main
-        .table
-        .source
-        .get_text(&state.main.table.rows[row][col]);
+    debug!("Cell get_text source {:?} {:?}", col, row);
+    let value: &str;
+    if col <= (state.details.table.columns.len() - 1) {
+        value = state
+            .main
+            .table
+            .source
+            .get_text(&state.main.table.rows[row][col]);
+    } else {
+        value = &"";
+    }
 
     if state.editing_main == (Editing::Cell { row, col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {

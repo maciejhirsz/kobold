@@ -136,7 +136,7 @@ impl State {
         // label row + remaining rows after removing a row
         debug!("rows_vec {:?}: ", rows_vec);
         let rows_str: String = rows_vec.join("\n");
-        println!("rows_str {:?}", rows_str);
+        debug!("rows_str {:?}", rows_str);
 
         let rows_str_textsource = TextSource { source: rows_str };
         self.main.table.source = rows_str_textsource;
@@ -153,7 +153,7 @@ impl State {
                 .columns
                 .iter()
                 .rev()
-                .inspect(|x| println!("processing: {:?}", x))
+                // .inspect(|x| debug!("processing: {:?}", x))
                 .find_map(|x| match x {
                     Text::Insitu(span) => Some(span.end),
                     Text::Owned(string) => None, // keep looking for last Insitu in column
@@ -166,7 +166,7 @@ impl State {
             last_insitu_range_end = self.main.table.rows[row_idx_remove - 1]
                 .iter()
                 .rev()
-                .inspect(|x| println!("processing: {:?}", x))
+                // .inspect(|x| debug!("processing: {:?}", x))
                 .find_map(|x| match x {
                     Text::Insitu(span) => Some(span.end),
                     Text::Owned(string) => None, // keep looking for last Insitu in column
@@ -175,7 +175,7 @@ impl State {
                 .unwrap();
         }
 
-        println!("last_insitu_range_end: {:?}", last_insitu_range_end);
+        debug!("last_insitu_range_end: {:?}", last_insitu_range_end);
         let first_insitu_range_start = last_insitu_range_end + 1;
 
         // let's assume `last_insitu_range_end` is `20`, then
@@ -226,7 +226,7 @@ impl State {
                 }
             }
         }
-        println!("new_rows: {:?}", new_rows);
+        debug!("new_rows: {:?}", new_rows);
 
         self.store();
     }
@@ -261,7 +261,11 @@ impl TextSource {
     pub fn get_text<'a>(&'a self, text: &'a Text) -> &'a str {
         debug!("get_text source {:?}", self.source);
         match text {
-            Text::Insitu(span) => &self.source[span.clone()],
+            Text::Insitu(span) => {
+                let span_end = span.end;
+                debug!("span {:?}", span);
+                &self.source[span.clone()]
+            },
             Text::Owned(string) => string,
         }
     }
