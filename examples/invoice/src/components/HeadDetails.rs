@@ -26,7 +26,7 @@ pub fn HeadDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '
 
     if state.editing_details == (Editing::Column { col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
-            state.details.table.rows[row][col] = Text::Owned(e.target().value().into());
+            state.details.table.columns[col] = Text::Owned(e.target().value().into());
             state.store();
             state.editing_details = Editing::None;
         });

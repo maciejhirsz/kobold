@@ -3,13 +3,32 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use log::debug;
-use web_sys::HtmlInputElement as InputElement;
+use web_sys::{EventTarget, HtmlElement, HtmlInputElement as InputElement, UiEvent};
 
-use kobold::branching::Branch3;
+use kobold::branching::Branch7;
 use kobold::prelude::*;
 
 use crate::components::QRForTask::QRForTask;
+use crate::js;
 use crate::state::{Editing, State, Text};
+
+fn onremove_row_common(state: &mut State, event: MouseEvent<HtmlElement>) {
+    let row = match event.target().get_attribute("data") {
+        Some(r) => r,
+        None => return,
+    };
+    let row_usize = match row.parse::<usize>() {
+        Ok(r) => r,
+        Err(e) => return,
+    };
+    let row_id = match event.target().get_attribute("id") {
+        Some(r) => r,
+        None => return,
+    };
+
+    js::browser_js::run_remove_row(&row_id);
+    state.remove_row_main(row_usize);
+}
 
 #[component]
 pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
@@ -24,6 +43,14 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     } else {
         value = &"";
     }
+
+    let onremove_row_qr = state.bind(move |state, event: MouseEvent<HtmlElement>| {
+        onremove_row_common(state, event);
+    });
+
+    let onremove_row = state.bind(move |state, event: MouseEvent<HtmlElement>| {
+        onremove_row_common(state, event);
+    });
 
     if state.editing_main == (Editing::Cell { row, col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
@@ -43,29 +70,79 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
             }
         };
 
-        Branch3::A(view! {
-            <td.edit>
-                { ref value }
-                <input.edit
-                    {onchange}
-                    {onmouseenter}
-                    value={ ref value }
-                />
-            </td>
-        })
+        if col == (state.main.table.columns.len() - 1) {
+            Branch7::A(view! {
+                <td.edit>
+                    { ref value }
+                    <input.edit
+                        {onchange}
+                        {onmouseenter}
+                        value={ ref value }
+                    />
+                </td>
+                // TODO - move into a component since reused
+                <td>
+                    <button.destroy
+                        data={row}
+                        id={"destroy-main-".to_string() + &i32::try_from(row).unwrap().to_string()}
+                        onclick={onremove_row}
+                    />
+                </td>
+            })
+        } else {
+            Branch7::B(view! {
+                <td.edit>
+                    { ref value }
+                    <input.edit
+                        {onchange}
+                        {onmouseenter}
+                        value={ ref value }
+                    />
+                </td>
+            })
+        }
     // https://github.com/maciejhirsz/kobold/issues/51
     } else {
         let ondblclick = state.bind(move |s, _| s.editing_main = Editing::Cell { row, col });
 
-        if value.contains("0x") {
-            Branch3::B(view! {
+        // TODO - should show the delete button regardless of whether the last column contains a QR code
+        if value.contains("0x") == true && (col == state.main.table.columns.len() - 1) {
+            Branch7::C(view! {
+                <td {ondblclick}>
+                    <QRForTask {value} />
+                </td>
+                <td>
+                    <button.destroy
+                        data={row}
+                        id={"destroy-main-".to_string() + &i32::try_from(row).unwrap().to_string()}
+                        onclick={onremove_row}
+                    />
+                </td>
+            })
+        } else if value.contains("0x") == true && (col != state.main.table.columns.len() - 1) {
+            Branch7::D(view! {
                 <td {ondblclick}>
                     <QRForTask {value} />
                 </td>
             })
-        } else {
-            Branch3::C(view! {
+        } else if value.contains("0x") == false && (col == state.main.table.columns.len() - 1) {
+            Branch7::E(view! {
                 <td {ondblclick}>{ ref value }</td>
+                <td>
+                    <button.destroy
+                        data={row}
+                        id={"destroy-main-".to_string() + &i32::try_from(row).unwrap().to_string()}
+                        onclick={onremove_row}
+                    />
+                </td>
+            })
+        } else if value.contains("0x") == false && (col != state.main.table.columns.len() - 1) {
+            Branch7::F(view! {
+                <td {ondblclick}>{ ref value }</td>
+            })
+        } else {
+            Branch7::G(view! {
+                <td>"error"</td>
             })
         }
     }

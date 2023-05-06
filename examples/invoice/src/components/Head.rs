@@ -5,11 +5,12 @@
 use log::debug;
 use web_sys::HtmlInputElement as InputElement;
 
+use kobold::branching::Branch3;
 use kobold::prelude::*;
 
 use crate::state::{Editing, State, Text};
 
-#[component(auto_branch)]
+#[component]
 pub fn Head(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     debug!("Head get_text source {:?} {:?}", col, row);
     let value: &str;
@@ -30,7 +31,7 @@ pub fn Head(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
             state.editing_main = Editing::None;
         });
 
-        view! {
+        Branch3::A(view! {
             <th.edit>
                 { ref value }
                 <input.edit.edit-head
@@ -38,10 +39,19 @@ pub fn Head(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
                     value={ ref value }
                 />
             </th>
-        }
+        })
     } else {
         let ondblclick = state.bind(move |s, _| s.editing_main = Editing::Column { col });
 
-        view! { <th {ondblclick}>{ ref value }</th> }
+        if col == (state.main.table.columns.len() - 1) {
+            Branch3::B(view! {
+                <th {ondblclick}>{ ref value }</th>
+                <th></th>
+            })
+        } else {
+            Branch3::C(view! {
+                <th {ondblclick}>{ ref value }</th>
+            })
+        }
     }
 }

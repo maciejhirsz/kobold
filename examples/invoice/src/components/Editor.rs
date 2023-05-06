@@ -220,32 +220,6 @@ pub fn Editor() -> impl View {
                                         })
                                     }
                                     </tr>
-                                    <button.destroy
-                                        data={row}
-                                        id={"destroy-main-".to_string() + &i32::try_from(row).unwrap().to_string()}
-                                        onclick={
-                                            state.bind(move |state, event: MouseEvent<HtmlElement>| {
-                                                debug!("button.destroy onclick1");
-                                                let row = match event.target().get_attribute("data") {
-                                                    Some(r) => r,
-                                                    None => return,
-                                                };
-                                                debug!("button.destroy onclick2");
-                                                let row_usize = match row.parse::<usize>() {
-                                                    Ok(r) => r,
-                                                    Err(e) => return,
-                                                };
-                                                debug!("button.destroy onclick3");
-                                                let row_id = match event.target().get_attribute("id") {
-                                                    Some(r) => r,
-                                                    None => return,
-                                                };
-                                                debug!("button.destroy onclick {:?} {:?}", row_usize, row_id);
-                                                state.remove_row_main(row_usize);
-                                                js::browser_js::run_remove_row(&row_id);
-                                            })
-                                        }
-                                    />
                                 })
                             }
                             </tbody>
