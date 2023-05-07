@@ -31,7 +31,7 @@ fn onremove_row_common(state: &mut State, event: MouseEvent<HtmlElement>) {
 
 #[component]
 pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
-    debug!("Cell get_text source {:?} {:?}", col, row);
+    // debug!("Cell get_text source {:?} {:?}", col, row);
     let value: &str;
     if col <= (state.details.table.columns.len() - 1) {
         value = state

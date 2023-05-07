@@ -14,7 +14,7 @@ use crate::state::{Editing, State, Text};
 #[component]
 pub fn CellDetails(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     // debug!("row/col: {:?}/{:?}", row, col);
-    debug!("CellDetails get_text source {:?} {:?}", col, row);
+    // debug!("CellDetails get_text source {:?} {:?}", col, row);
     let value: &str;
     if col <= (state.details.table.columns.len() - 1) {
         value = state

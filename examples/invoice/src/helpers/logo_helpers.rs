@@ -33,7 +33,7 @@ pub fn get_row_value_for_label_for_table(label_to_search_for: &str, state: &Stat
             return "unknown".to_string();
         },
     };
-    debug!("get_row_value_for_label_for_table get_text source {:?}", col_org_name_idx);
+    // debug!("get_row_value_for_label_for_table get_text source {:?}", col_org_name_idx);
     let mut org_name = "".to_string();
     if col_org_name_idx <= (state.details.table.columns.len() - 1) {
         org_name = state

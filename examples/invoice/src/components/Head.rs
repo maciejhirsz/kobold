@@ -12,7 +12,7 @@ use crate::state::{Editing, State, Text};
 
 #[component]
 pub fn Head(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
-    debug!("Head get_text source {:?} {:?}", col, row);
+    // debug!("Head get_text source {:?} {:?}", col, row);
     let value: &str;
     if col <= (state.details.table.columns.len() - 1) {
         value = state

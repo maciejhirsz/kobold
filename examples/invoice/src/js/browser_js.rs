@@ -40,11 +40,11 @@ pub fn check_window() {
 #[wasm_bindgen]
 pub fn run_non_browser_js() {
     // https://rustwasm.github.io/docs/wasm-bindgen/examples/console-log.html
-    crate::console_log!("class_example::name {:?}", class_example::name());
+    // crate::console_log!("class_example::name {:?}", class_example::name());
     let x = class_example::MyClass::new();
     assert_eq!(x.number(), 42);
     x.set_number(10);
-    crate::console_log!("class_example::MyClass::render() {:?}", &x.render());
+    // crate::console_log!("class_example::MyClass::render() {:?}", &x.render());
 }
 
 #[wasm_bindgen]
