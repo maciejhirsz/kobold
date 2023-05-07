@@ -26,7 +26,6 @@ fn onremove_row_common(state: &mut State, event: MouseEvent<HtmlElement>) {
         None => return,
     };
 
-    js::browser_js::run_remove_row(&row_id);
     state.remove_row_main(row_usize);
 }
 

@@ -8,7 +8,7 @@ use wasm_bindgen::prelude::*;
 use crate::js::interfaces::browser_js_spec_alert;
 use crate::js::interfaces::non_browser_js_spec_class_example as class_example;
 use crate::js::interfaces::non_browser_js_spec_save_file as save_file;
-use crate::js::interfaces::non_browser_js_spec_remove_row as remove_row;
+
 #[macro_use]
 use crate::js::interfaces::browser_js_spec_macros;
 
@@ -53,14 +53,5 @@ pub fn run_save_file(filename: &str, data: &[u8]) {
     crate::console_log!(
         "save_file::kobold_save_file(filename, data) {:?}",
         has_saved_file
-    );
-}
-
-#[wasm_bindgen]
-pub fn run_remove_row(elem_id: &str) {
-    let has_removed_row = remove_row::kobold_remove_row(elem_id);
-    crate::console_log!(
-        "remove_row::kobold_remove_row(elem_id) {:?}",
-        has_removed_row
     );
 }
