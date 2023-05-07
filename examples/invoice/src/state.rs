@@ -96,6 +96,23 @@ impl Default for State {
     }
 }
 
+fn get_last_insitu_range_end_for_row_idx_remove(data: &Vec<Text>) -> usize {
+    match (
+        data
+            .iter()
+            .rev()
+            // .inspect(|x| debug!("processing: {:?}", x))
+            .find_map(|x| match x {
+                Text::Insitu(span) => Some(span.end),
+                Text::Owned(string) => None, // keep looking for last Insitu in column
+                _ => None,                   // keep looking for last Insitu in column
+            })
+    ) {
+        Some(end) => return end,
+        None => panic!("unable to find an Insitu end in labels column or previous row"),
+    }
+}
+
 impl State {
     pub fn mock() -> Self {
         State {
@@ -144,35 +161,13 @@ impl State {
 
         let mut last_insitu_range_end: usize = 0;
         if row_idx_remove == 0 {
-            // TODO - move into common function and use `if let Some(` instead of `unwrap`
             // we need get end of last col range in columns, since old row0 removed and replaced with old row1
             // that will now need to start from that (last col range + 1)
-            last_insitu_range_end = self
-                .main
-                .table
-                .columns
-                .iter()
-                .rev()
-                // .inspect(|x| debug!("processing: {:?}", x))
-                .find_map(|x| match x {
-                    Text::Insitu(span) => Some(span.end),
-                    Text::Owned(string) => None, // keep looking for last Insitu in column
-                    _ => None,                   // keep looking for last Insitu in column
-                })
-                .unwrap();
+            last_insitu_range_end = get_last_insitu_range_end_for_row_idx_remove(&self.main.table.columns);
         // repeat for if user removes the 2nd row, and the 3rd row, etc
         } else if row_idx_remove >= 1 {
             // this row changed
-            last_insitu_range_end = self.main.table.rows[row_idx_remove - 1]
-                .iter()
-                .rev()
-                // .inspect(|x| debug!("processing: {:?}", x))
-                .find_map(|x| match x {
-                    Text::Insitu(span) => Some(span.end),
-                    Text::Owned(string) => None, // keep looking for last Insitu in column
-                    _ => None,                   // keep looking for last Insitu in column
-                })
-                .unwrap();
+            last_insitu_range_end = get_last_insitu_range_end_for_row_idx_remove(&self.main.table.rows[row_idx_remove - 1]);
         }
 
         debug!("last_insitu_range_end: {:?}", last_insitu_range_end);
@@ -266,6 +261,7 @@ impl TextSource {
     pub fn get_text<'a>(&'a self, text: &'a Text) -> &'a str {
         debug!("get_text source {:?}", self.source);
         match text {
+            // Text::Insitu(span) => &self.source[span.clone()],
             Text::Insitu(span) => {
                 let span_end = span.end;
                 debug!("span {:?}", span);

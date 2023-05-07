@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use log::debug;
+use log::{debug, error};
 use logos::{Lexer, Logos};
 use std::str::FromStr;
 use take_mut::take;
@@ -289,7 +289,8 @@ pub fn generate_csv_data_for_download(content: &Content) -> Result<String, Error
             debug!("content_table_rows.len() {:?}", content_table_rows.len());
             // validate qty of rows
             if content_table_rows.len() < 1 {
-                return Err(Error::MustBeAtLeastOneRowData);
+                error!("{:?}", Error::MustBeAtLeastOneRowData);
+                return Ok(arr.join("\n")); // Err(Error::MustBeAtLeastOneRowData);
             }
 
             // multiple rows so we'll push each of them now
