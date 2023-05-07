@@ -226,7 +226,12 @@ impl State {
                 }
             }
         }
+        debug!("self.main.table.rows: {:?}", self.main.table.rows);
         debug!("new_rows: {:?}", new_rows);
+
+        // replace the old rows with the new_rows, where we've adjusted the Range of each Insitu
+        // to cater for the row that was removed
+        self.main.table.rows = new_rows;
 
         self.store();
     }
