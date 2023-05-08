@@ -192,10 +192,6 @@ pub fn Editor() -> impl View {
         let process_row_value_for_label_for_table =
             |label: &str| -> String { get_row_value_for_label_for_table(&label, &state) };
 
-        let generate_remove_row_id_for_row = |row: usize| -> String {
-            return "destroy-main-".to_string() + &i32::try_from(row).unwrap().to_string();
-        };
-
         view! {
             <div .invoice-wrapper>
                 <section .invoiceapp>
@@ -298,12 +294,10 @@ pub fn Editor() -> impl View {
                             <tbody>
                             {
                                 for state.main.table.rows().map(move |row| view! {
-                                    <tr
-                                        id={generate_remove_row_id_for_row(row)}
-                                    >
+                                    <tr>
                                     {
                                         for state.main.table.columns().map(move |col| view! {
-                                            <Cell {col} {row} {state} {generate_remove_row_id_for_row} />
+                                            <Cell {col} {row} {state} />
                                         })
                                     }
                                     </tr>

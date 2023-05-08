@@ -13,14 +13,8 @@ use crate::js;
 use crate::state::{Editing, State, Text};
 
 #[component]
-pub fn Cell(
-    col: usize,
-    row: usize,
-    state: &Hook<State>,
-    generate_remove_row_id_for_row: impl Fn(usize) -> String,
-) -> impl View + '_ {
+pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     // debug!("Cell get_text source {:?} {:?}", col, row);
-    let id_to_destroy = generate_remove_row_id_for_row(row);
     let value: &str;
     if col <= (state.details.table.columns.len() - 1) {
         value = state
@@ -40,12 +34,6 @@ pub fn Cell(
         let row_usize = match row.parse::<usize>() {
             Ok(r) => r,
             Err(e) => return,
-        };
-        // TODO - we're not using the `row_id` to remove rows,
-        // so we can remove `generate_remove_row_id_for_row`
-        let row_id = match event.target().get_attribute("id") {
-            Some(r) => r,
-            None => return,
         };
 
         state.remove_row_main(row_usize);
@@ -103,7 +91,6 @@ pub fn Cell(
                 <td.destroy-container>
                     <button.destroy
                         data={row}
-                        id={id_to_destroy}
                         onclick={onremove_row}
                     />
                 </td>
@@ -139,7 +126,6 @@ pub fn Cell(
                 <td.destroy-container>
                     <button.destroy
                         data={row}
-                        id={id_to_destroy}
                         onclick={onremove_row}
                     />
                 </td>
@@ -162,7 +148,6 @@ pub fn Cell(
                 <td.destroy-container>
                     <button.destroy
                         data={row}
-                        id={id_to_destroy}
                         onclick={onremove_row}
                     />
                 </td>
