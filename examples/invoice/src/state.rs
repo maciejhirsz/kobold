@@ -127,10 +127,10 @@ impl State {
     //
     // Note: The code in this draft was not necessary
     // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=53e5b5c0c241be2f5b37815a685e7da6
-    pub fn remove_row_main(&mut self, row_idx_remove: usize) {
+    pub fn destroy_row_main(&mut self, row_idx_destroy: usize) {
         // WARNING: do not remove the `source`, it must remain read-only
 
-        self.main.table.rows.remove(row_idx_remove); // remove from `rows`
+        self.main.table.rows.remove(row_idx_destroy); // remove from `rows`
 
         self.store();
     }

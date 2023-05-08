@@ -26,7 +26,7 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
         value = &"";
     }
 
-    let onremove_row = state.bind(move |state, event: MouseEvent<HtmlElement>| {
+    let ondestroy_row = state.bind(move |state, event: MouseEvent<HtmlElement>| {
         let row = match event.target().get_attribute("data") {
             Some(r) => r,
             None => return,
@@ -36,7 +36,7 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
             Err(e) => return,
         };
 
-        state.remove_row_main(row_usize);
+        state.destroy_row_main(row_usize);
     });
 
     let onadd_row = state.bind(move |state, event: MouseEvent<HtmlElement>| {
@@ -91,7 +91,7 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
                 <td.destroy-container>
                     <button.destroy
                         data={row}
-                        onclick={onremove_row}
+                        onclick={ondestroy_row}
                     />
                 </td>
             })
@@ -126,7 +126,7 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
                 <td.destroy-container>
                     <button.destroy
                         data={row}
-                        onclick={onremove_row}
+                        onclick={ondestroy_row}
                     />
                 </td>
             })
@@ -148,7 +148,7 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
                 <td.destroy-container>
                     <button.destroy
                         data={row}
-                        onclick={onremove_row}
+                        onclick={ondestroy_row}
                     />
                 </td>
             })
@@ -163,3 +163,29 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
         }
     }
 }
+
+// #[component(auto_branch)]
+// pub fn AddRow(
+//     row: usize,
+//     onadd_row_fn: &dyn Fn(&mut State, MouseEvent<HtmlElement>)
+// ) -> impl View {
+//     view! {
+//         <button.add
+//             data={row}
+//             onclick={onadd_row_fn}
+//         />
+//     }
+// }
+
+// #[component(auto_branch)]
+// pub fn DestroyRow(
+//     row: usize,
+//     ondestroy_row_fn: &dyn Fn(&mut State, MouseEvent<HtmlElement>)
+// ) -> impl View {
+//     view! {
+//         <button.destroy
+//             data={row}
+//             onclick={ondestroy_row_fn}
+//         />
+//     }
+// }
