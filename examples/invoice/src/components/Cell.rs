@@ -13,9 +13,14 @@ use crate::js;
 use crate::state::{Editing, State, Text};
 
 #[component]
-pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
+pub fn Cell(
+    col: usize,
+    row: usize,
+    state: &Hook<State>,
+    generate_remove_row_id_for_row: impl Fn(usize) -> String,
+) -> impl View + '_ {
     // debug!("Cell get_text source {:?} {:?}", col, row);
-    let id_to_destroy = "destroy-main-".to_string() + &i32::try_from(row).unwrap().to_string();
+    let id_to_destroy = generate_remove_row_id_for_row(row);
     let value: &str;
     if col <= (state.details.table.columns.len() - 1) {
         value = state
