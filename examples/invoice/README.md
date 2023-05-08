@@ -12,6 +12,7 @@
         * Upload a file by clicking "Upload CSV file (Main) to upload it in the "Main" table
         * View the file in the UI and serialised in browser Local Storage under key `kobald.invoice.main`
         * Modify the table by double clicking cells and pressing escape or enter to save
+        * Add rows to the "Main" table if required by clicking the "+" icon above where you want to insert a new row
         * Remove rows from the "Main" table if required by clicking the "X" icon on that row
         * Save a backup of the file by clicking the associated "Save to CSV file" button
             * Note: The downloaded file should be prefixed with `#main,` to indicate it uses the `TableVariant::Main` table
