@@ -79,7 +79,7 @@ pub fn Cell(
                     />
                 </td>
                 // TODO - move into a component since reused
-                <td>
+                <td.destroy-container>
                     <button.destroy
                         data={row}
                         id={id_to_destroy}
@@ -109,7 +109,7 @@ pub fn Cell(
                 <td {ondblclick}>
                     <QRForTask {value} />
                 </td>
-                <td>
+                <td.destroy-container>
                     <button.destroy
                         data={row}
                         id={id_to_destroy}
@@ -126,7 +126,7 @@ pub fn Cell(
         } else if value.contains("0x") == false && (col == state.main.table.columns.len() - 1) {
             Branch7::E(view! {
                 <td {ondblclick}>{ ref value }</td>
-                <td>
+                <td.destroy-container>
                     <button.destroy
                         data={row}
                         id={id_to_destroy}

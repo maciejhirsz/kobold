@@ -139,6 +139,10 @@ div.qr > div {
     margin-top: 20px !important;
 }
 
+.destroy-container {
+    border: 1px solid transparent;
+    background-color: transparent;
+}
 .destroy {
 	/* display: none; */
     display: contents !important;

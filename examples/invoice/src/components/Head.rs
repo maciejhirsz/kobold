@@ -46,7 +46,7 @@ pub fn Head(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
         if col == (state.main.table.columns.len() - 1) {
             Branch3::B(view! {
                 <th {ondblclick}>{ ref value }</th>
-                <th></th>
+                <th.destroy-container></th> // for the destroy row button column
             })
         } else {
             Branch3::C(view! {
