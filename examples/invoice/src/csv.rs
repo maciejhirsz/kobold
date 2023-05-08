@@ -293,6 +293,53 @@ pub fn generate_csv_data_for_download(content: &Content) -> Result<String, Error
                 return Ok(arr.join("\n")); // Err(Error::MustBeAtLeastOneRowData);
             }
 
+            // if the user add any additional rows to `content_table_rows`, then we need to add a
+            // new row in the same index to new_csv.
+            // since new_csv contains the label row, we subtract 1 from new_csv since we don't
+            // want to include the label row in the length, since `content_table_rows` doesn't have
+            // the labels row.
+            let diff = match content_table_rows.len().checked_sub(new_csv.len() - 1) {
+                Some(d) => d,
+                None => 0,
+            };
+            if diff > 0 {
+                for (i, row) in content_table_rows.iter().enumerate() {
+                    // count how many elements in the row equal Owned("").
+                    // if they're all `Owned("")` then that index was a row added by the user
+                    let mut count_same: i32 = 0;
+                    row.into_iter().enumerate().for_each(|(j, element)| {
+                        match element {
+                            Text::Owned(s) => {
+                                if s.to_string() == "".to_string() {
+                                    count_same += 1;
+                                } else {
+                                    // TODO - how to `continue` to next iteration in closure?
+                                    // using something like `debug!("")` is dumb
+                                    debug!(""); // continue
+                                }
+                            }
+                            _ => debug!(""), // continue
+                        }
+                    });
+                    // if they're all the same value of Owned("") on this row,
+                    // then it was a row added to this index i by the user
+                    if row.len() == count_same as usize {
+                        if new_csv.get(i + 1).is_some() {
+                            new_csv.insert(i + 1, vec!["", "", ""]);
+                        } else {
+                            // for rows added by the user to the end of
+                            // `content_table_rows` that don't exist
+                            // in `new_csv` then push them to the end
+                            new_csv.push(vec!["", "", ""]);
+                        }
+                    }
+                }
+            }
+
+            // debug!("new_csv {:?}", new_csv);
+            // debug!("new_csv_lens {:?}", new_csv_lens);
+            // debug!("content.table.rows {:?}", content.table.rows);
+
             // multiple rows so we'll push each of them now
             content_table_rows
                 .into_iter()
@@ -300,6 +347,7 @@ pub fn generate_csv_data_for_download(content: &Content) -> Result<String, Error
                 .for_each(|(i, row_data)| {
                     let new_csv_data_stringified: String = update_csv_row_for_modified_table_cells(
                         &content.table.rows[i],
+                        // start with `+ 1` since `new_csv[0]` are its labels but we're only doing the rows
                         &mut new_csv[i + 1],
                     ); // values row 1
                     arr.push(new_csv_data_stringified);

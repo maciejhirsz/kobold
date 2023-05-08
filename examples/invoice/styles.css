@@ -139,37 +139,66 @@ div.qr > div {
     margin-top: 20px !important;
 }
 
+.add-container {
+    border: 1px solid transparent;
+    background-color: transparent;
+}
+
+.add {
+    display: contents !important;
+    position: absolute;
+    top: 0;
+    right: 10px;
+    bottom: 0;
+    width: 40px;
+    height: 40px;
+    margin: auto 0;
+    font-size: 30px;
+    font-weight: 100;
+    color: #949494;
+    transition: color 0.2s ease-out;
+}
+
+.add:hover,
+.add:focus {
+    color: #11cc11;
+}
+
+.add:after {
+    content: '+'; /* U+002B */
+    display: block;
+    height: 100%;
+    line-height: 1.1;
+}
+
 .destroy-container {
     border: 1px solid transparent;
     background-color: transparent;
 }
+
 .destroy {
-	/* display: none; */
+    /* display: none; */
     display: contents !important;
-	position: absolute;
-	top: 0;
-	right: 10px;
-	bottom: 0;
-	width: 40px;
-	height: 40px;
-	margin: auto 0;
-	font-size: 30px;
-	color: #949494;
-	/* transition: color 0.2s ease-out; */
+    position: absolute;
+    top: 0;
+    right: 10px;
+    bottom: 0;
+    width: 40px;
+    height: 40px;
+    margin: auto 0;
+    font-size: 30px;
+    color: #949494;
+    /* transition: color 0.2s ease-out; */
 }
 
 .destroy:hover,
 .destroy:focus {
-	color: #C18585;
+    color: #C18585;
 }
 
 .destroy:after {
-	content: '×';
-	display: block;
-	height: 100%;
-	line-height: 1.1;
-}
-
-.destroy {
-	display: block;
+    content: '×';
+    display: block;
+    height: 100%;
+    line-height: 1.1;
 }

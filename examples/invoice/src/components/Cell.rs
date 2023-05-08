@@ -41,12 +41,27 @@ pub fn Cell(
             Ok(r) => r,
             Err(e) => return,
         };
+        // TODO - we're not using the `row_id` to remove rows,
+        // so we can remove `generate_remove_row_id_for_row`
         let row_id = match event.target().get_attribute("id") {
             Some(r) => r,
             None => return,
         };
 
         state.remove_row_main(row_usize);
+    });
+
+    let onadd_row = state.bind(move |state, event: MouseEvent<HtmlElement>| {
+        let row = match event.target().get_attribute("data") {
+            Some(r) => r,
+            None => return,
+        };
+        let row_usize = match row.parse::<usize>() {
+            Ok(r) => r,
+            Err(e) => return,
+        };
+        // pass row index to insert at
+        state.add_row_main(row_usize + 1);
     });
 
     if state.editing_main == (Editing::Cell { row, col }) {
@@ -79,6 +94,12 @@ pub fn Cell(
                     />
                 </td>
                 // TODO - move into a component since reused
+                <td.add-container>
+                    <button.add
+                        data={row}
+                        onclick={onadd_row}
+                    />
+                </td>
                 <td.destroy-container>
                     <button.destroy
                         data={row}
@@ -109,6 +130,12 @@ pub fn Cell(
                 <td {ondblclick}>
                     <QRForTask {value} />
                 </td>
+                <td.add-container>
+                    <button.add
+                        data={row}
+                        onclick={onadd_row}
+                    />
+                </td>
                 <td.destroy-container>
                     <button.destroy
                         data={row}
@@ -126,6 +153,12 @@ pub fn Cell(
         } else if value.contains("0x") == false && (col == state.main.table.columns.len() - 1) {
             Branch7::E(view! {
                 <td {ondblclick}>{ ref value }</td>
+                <td.add-container>
+                    <button.add
+                        data={row}
+                        onclick={onadd_row}
+                    />
+                </td>
                 <td.destroy-container>
                     <button.destroy
                         data={row}

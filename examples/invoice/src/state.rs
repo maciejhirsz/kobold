@@ -134,6 +134,17 @@ impl State {
 
         self.store();
     }
+
+    pub fn add_row_main(&mut self, row_idx_to_insert_at: usize) {
+        let mut new_row: Vec<Text> = vec![];
+        for i in 0..self.main.table.columns.len() {
+            new_row.push(Text::Owned("".into()));
+        }
+        self.main.table.rows.insert(row_idx_to_insert_at, new_row); // add to `rows`
+
+        debug!("self.main.table.rows: {:?}", self.main.table.rows);
+        self.store();
+    }
 }
 
 impl Deref for Content {
