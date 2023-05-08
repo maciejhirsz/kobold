@@ -12,26 +12,10 @@ use crate::components::QRForTask::QRForTask;
 use crate::js;
 use crate::state::{Editing, State, Text};
 
-fn onremove_row_common(state: &mut State, event: MouseEvent<HtmlElement>) {
-    let row = match event.target().get_attribute("data") {
-        Some(r) => r,
-        None => return,
-    };
-    let row_usize = match row.parse::<usize>() {
-        Ok(r) => r,
-        Err(e) => return,
-    };
-    let row_id = match event.target().get_attribute("id") {
-        Some(r) => r,
-        None => return,
-    };
-
-    state.remove_row_main(row_usize);
-}
-
 #[component]
 pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     // debug!("Cell get_text source {:?} {:?}", col, row);
+    let id_to_destroy = "destroy-main-".to_string() + &i32::try_from(row).unwrap().to_string();
     let value: &str;
     if col <= (state.details.table.columns.len() - 1) {
         value = state
@@ -43,12 +27,21 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
         value = &"";
     }
 
-    let onremove_row_qr = state.bind(move |state, event: MouseEvent<HtmlElement>| {
-        onremove_row_common(state, event);
-    });
-
     let onremove_row = state.bind(move |state, event: MouseEvent<HtmlElement>| {
-        onremove_row_common(state, event);
+        let row = match event.target().get_attribute("data") {
+            Some(r) => r,
+            None => return,
+        };
+        let row_usize = match row.parse::<usize>() {
+            Ok(r) => r,
+            Err(e) => return,
+        };
+        let row_id = match event.target().get_attribute("id") {
+            Some(r) => r,
+            None => return,
+        };
+    
+        state.remove_row_main(row_usize);
     });
 
     if state.editing_main == (Editing::Cell { row, col }) {
@@ -69,6 +62,7 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
             }
         };
 
+        // only show remove row button after the last column
         if col == (state.main.table.columns.len() - 1) {
             Branch7::A(view! {
                 <td.edit>
@@ -83,7 +77,7 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
                 <td>
                     <button.destroy
                         data={row}
-                        id={"destroy-main-".to_string() + &i32::try_from(row).unwrap().to_string()}
+                        id={id_to_destroy}
                         onclick={onremove_row}
                     />
                 </td>
@@ -113,7 +107,7 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
                 <td>
                     <button.destroy
                         data={row}
-                        id={"destroy-main-".to_string() + &i32::try_from(row).unwrap().to_string()}
+                        id={id_to_destroy}
                         onclick={onremove_row}
                     />
                 </td>
@@ -130,7 +124,7 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
                 <td>
                     <button.destroy
                         data={row}
-                        id={"destroy-main-".to_string() + &i32::try_from(row).unwrap().to_string()}
+                        id={id_to_destroy}
                         onclick={onremove_row}
                     />
                 </td>
