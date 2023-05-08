@@ -5,12 +5,28 @@
 use log::debug;
 use web_sys::{EventTarget, HtmlElement, HtmlInputElement as InputElement, UiEvent};
 
-use kobold::branching::Branch7;
 use kobold::prelude::*;
+use kobold::branching::Branch7;
+use kobold::event::Listener;
 
-use crate::components::QRForTask::QRForTask;
+use crate::components::{QRForTask::QRForTask};
 use crate::js;
 use crate::state::{Editing, State, Text};
+
+#[component]
+pub fn ButtonAddRow
+// <F: Listener<MouseEvent<HtmlElement>>>
+(
+    row: usize,
+    // onadd_row_fn: F
+) -> impl View {
+    view! {
+        <button.add
+            data={row}
+            // onclick={onadd_row_fn}
+        />
+    }
+}
 
 #[component]
 pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
@@ -144,6 +160,10 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
                         data={row}
                         onclick={onadd_row}
                     />
+                    <ButtonAddRow
+                        row={row}
+                        // onadd_row_fn={onadd_row}
+                    />
                 </td>
                 <td.destroy-container>
                     <button.destroy
@@ -163,29 +183,3 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
         }
     }
 }
-
-// #[component(auto_branch)]
-// pub fn AddRow(
-//     row: usize,
-//     onadd_row_fn: &dyn Fn(&mut State, MouseEvent<HtmlElement>)
-// ) -> impl View {
-//     view! {
-//         <button.add
-//             data={row}
-//             onclick={onadd_row_fn}
-//         />
-//     }
-// }
-
-// #[component(auto_branch)]
-// pub fn DestroyRow(
-//     row: usize,
-//     ondestroy_row_fn: &dyn Fn(&mut State, MouseEvent<HtmlElement>)
-// ) -> impl View {
-//     view! {
-//         <button.destroy
-//             data={row}
-//             onclick={ondestroy_row_fn}
-//         />
-//     }
-// }
