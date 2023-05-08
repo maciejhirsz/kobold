@@ -40,7 +40,7 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
             Some(r) => r,
             None => return,
         };
-    
+
         state.remove_row_main(row_usize);
     });
 
