@@ -77,6 +77,26 @@ input[type="file"] {
     display: inline-flex;
 }
 
+#multi-upload-container {
+    border: 1px solid lightgrey;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+#file-input-multiple-modern {
+    /* display: inline-block; */
+    background-color: #999999;
+    border: 2px solid #000000;
+    border-radius: 4px;
+    padding: .5em 2em;
+    width: 250px;
+    color: #ffffff;
+    text-align: center;
+    /* margin-left: 20px; */
+    font-size: 1.0em;
+    font-weight: 600;
+}
+
 #header-container {
     display: grid;
     grid-template-columns: 1fr 0fr;

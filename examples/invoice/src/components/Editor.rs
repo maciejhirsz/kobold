@@ -4,7 +4,9 @@
 
 use log::debug;
 use std::ops::Deref;
-use web_sys::{EventTarget, HtmlElement, HtmlInputElement as InputElement, UiEvent};
+use web_sys::{
+    EventTarget, File, FileList, HtmlElement, HtmlInputElement as InputElement, UiEvent,
+};
 
 use kobold::prelude::*;
 
@@ -88,6 +90,73 @@ async fn onsave_common(
     });
 }
 
+fn get_files_for_file_list(file_list: web_sys::FileList) -> Vec<web_sys::File> {
+    debug!("file_list {:?}", file_list);
+    let mut no_more_files = false;
+    let mut files: Vec<web_sys::File> = vec![];
+    let mut i: usize = 0;
+
+    while no_more_files == false {
+        let iter_file = file_list.get(i.try_into().unwrap());
+        match iter_file {
+            Some(file) => {
+                debug!("found file {:?}", file);
+
+                files.push(file.clone());
+                i = i + 1;
+                continue;
+            }
+            None => {
+                debug!("no more files found");
+                no_more_files = true;
+            }
+        }
+    }
+    files
+}
+
+// only support uploads where the user specifies the variant at the start of the file.
+// for example the file for the Main table must be prefixed with `#main,` and the file
+// for the Details table must be prefixed with `#details,`.
+// to select multiple files, press CTRL or CMD during the process of selecting both files.
+async fn onload_multiple_process(state: Signal<State>, event: Event<InputElement>) {
+    let file_list: web_sys::FileList = match event.target().files() {
+        Some(f) => f,
+        None => return,
+    };
+    let files: Vec<web_sys::File> = get_files_for_file_list(file_list);
+    debug!("files {:#?}", files);
+    debug!("files.len() {:#?}", files.len());
+
+    event.target().set_value("");
+
+    for (i, file) in files.iter().enumerate() {
+        if let Ok(table) = csv::read_file(file.clone()).await {
+            debug!("table {:#?}", &table);
+            // get the variant from the loaded file i.e. `#main`
+            debug!("table.variant {:#?}", &table.variant);
+
+            // https://docs.rs/kobold/latest/kobold/stateful/struct.Signal.html#method.update
+            state.update(move |state| {
+                match table.variant {
+                    TableVariant::Main => {
+                        state.main.table = table;
+                        state.main.filename = file.name();
+                        state.store(); // update local storage
+                    }
+                    TableVariant::Details => {
+                        state.details.table = table;
+                        state.details.filename = file.name();
+                        state.store(); // update local storage
+                    }
+                    TableVariant::Unknown => panic!("unsupported variant in file"),
+                    _ => panic!("unsupported variant in file"),
+                }
+            });
+        }
+    }
+}
+
 #[component]
 pub fn Editor() -> impl View {
     stateful(State::default, |state| {
@@ -107,6 +176,9 @@ pub fn Editor() -> impl View {
         let onload_main = state.bind_async(|state, event: Event<InputElement>| {
             onload_common(TableVariant::Main, |state| &mut state.main, state, event)
         });
+
+        let onload_multiple = state
+            .bind_async(|state, event: Event<InputElement>| onload_multiple_process(state, event));
 
         let onsave_details = state.bind_async(|state, event: MouseEvent<HtmlElement>| {
             onsave_common(|state| &mut state.details, state, event)
@@ -139,11 +211,21 @@ pub fn Editor() -> impl View {
                         </div>
                     </header>
                     <section .main>
+                        <div #multi-upload-container>
+                            <div>
+                                <input type="file" multiple="true" class="file-input-hidden" id="file-input-multiple" accept="text/csv" onchange={onload_multiple} />
+                                <input type="button" id="file-input-multiple-modern" onclick="document.getElementById('file-input-multiple').click()" value="Upload CSV files (Multiple)" />
+                                <label for="file-input-multiple" class="label"></label>
+                                // <button #button-file-save type="button" onclick={onsave_multiple}>"Save to CSV file"</button>
+                            </div>
+                            <div>"Instructions: Upload two table files at once by holding down CMD or CTRL. One file prefixed with '#main,' and a second prefixed with '#details,'."</div>
+                        </div>
                         <h3>"Details table"</h3>
                         <div class="container">
-                            // https://stackoverflow.com/a/48499451/3208553
-                            <input type="file" class="file-input-hidden" id="file-input-details" accept="text/csv" onchange={onload_details} />
-                            <input type="button" id="file-input-details-modern" onclick="document.getElementById('file-input-details').click()" value="Upload CSV file (Details)" />
+                            // Note: Since we now have file-input-multiple we can upload both files at the same time
+                            // // https://stackoverflow.com/a/48499451/3208553
+                            // <input type="file" class="file-input-hidden" id="file-input-details" accept="text/csv" onchange={onload_details} />
+                            // <input type="button" id="file-input-details-modern" onclick="document.getElementById('file-input-details').click()" value="Upload CSV file (Details)" />
                             <label for="file-input-details" class="label">{ ref state.details.filename }</label>
                             <button #button-file-save type="button" onclick={onsave_details}>"Save to CSV file"</button>
                         </div>
@@ -184,8 +266,9 @@ pub fn Editor() -> impl View {
                     <section .main>
                         <h3>"Main table"</h3>
                         <div class="container">
-                            <input type="file" class="file-input-hidden" id="file-input-main" accept="text/csv" onchange={onload_main} />
-                            <input type="button" id="file-input-main-modern" onclick="document.getElementById('file-input-main').click()" value="Upload CSV file (Main)" />
+                            // Note: Since we now have file-input-multiple we can upload both files at the same time
+                            // <input type="file" class="file-input-hidden" id="file-input-main" accept="text/csv" onchange={onload_main} />
+                            // <input type="button" id="file-input-main-modern" onclick="document.getElementById('file-input-main').click()" value="Upload CSV file (Main)" />
                             <label for="file-input-main" class="label">{ ref state.main.filename }</label>
                             <button #button-file-save type="button" onclick={onsave_main}>"Save to CSV file"</button>
                         </div>
