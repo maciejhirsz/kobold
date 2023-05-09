@@ -1,3 +1,5 @@
+pub mod ButtonAddRow;
+pub mod ButtonDestroyRow;
 pub mod Cell;
 pub mod CellDetails;
 pub mod Editor;

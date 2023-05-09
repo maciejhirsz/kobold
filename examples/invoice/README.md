@@ -31,6 +31,8 @@
 * Notes:
     * Best Practice
         * Use `&str` and avoid `String`
+    * Troubleshooting
+        * If you try to pass a function to a child component through props with `impl Listener<MouseEvent<HtmlElement>>` or `&dyn Fn(&mut State, MouseEvent<HtmlElement>)` or `pub fn MyChildComponent<F: Fn(&mut State, MouseEvent<HtmlElement>)>(onfoobar_fn: F) -> impl View {` or by passing a bound closure `pub fn MyChildComponent<F: Listener<MouseEvent<HtmlElement>>>(onfoobar_fn: F) -> impl View {` using kobold::event::Listener (https://docs.rs/kobold/latest/kobold/event/trait.Listener.html) that calls a function that is defined in a parent component and manipulates the state then you may encounter errors, which is not yet supported in Kobold. In the meantime just pass a `state: &Hook<State>` prop to the child component and interact with the state in an `onclick` handler or similar directly by containing the function in the handler. This approach is used in the commit that updated this README comment.
     * Closure (e.g. `state.update(|state| state.store())` has access to Signal of state
         * `update` doesn't implement Deref so you can't access fields on it like you can with a Hook
         * `update_silent` gives access to the actual state without triggering a render

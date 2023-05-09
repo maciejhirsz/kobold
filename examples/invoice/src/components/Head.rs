@@ -8,6 +8,7 @@ use web_sys::{HtmlElement, HtmlInputElement as InputElement};
 use kobold::branching::Branch3;
 use kobold::prelude::*;
 
+use crate::components::ButtonAddRow::ButtonAddRow;
 use crate::state::{Editing, State, Text};
 
 #[component]
@@ -23,19 +24,6 @@ pub fn Head(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     } else {
         value = &"";
     }
-
-    let onadd_row = state.bind(move |state, event: MouseEvent<HtmlElement>| {
-        let row = match event.target().get_attribute("data") {
-            Some(r) => r,
-            None => return,
-        };
-        let row_usize = match row.parse::<usize>() {
-            Ok(r) => r,
-            Err(e) => return,
-        };
-
-        state.add_row_main(row_usize);
-    });
 
     if state.editing_main == (Editing::Column { col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
@@ -61,10 +49,7 @@ pub fn Head(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
                 <th {ondblclick}>{ ref value }</th>
                 // for the add row button column
                 <th.add-container>
-                    <button.add
-                        data={row}
-                        onclick={onadd_row}
-                    />
+                    <ButtonAddRow {row} {state} />
                 </th>
                 // for the destroy row button column
                 <th.destroy-container></th>

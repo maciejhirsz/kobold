@@ -6,40 +6,19 @@ use log::debug;
 use web_sys::{EventTarget, HtmlElement, HtmlInputElement as InputElement, UiEvent};
 
 use kobold::branching::Branch7;
-use kobold::event::Listener;
 use kobold::prelude::*;
 
-use crate::components::QRForTask::QRForTask;
+use crate::components::{
+    ButtonAddRow::ButtonAddRow, ButtonDestroyRow::ButtonDestroyRow, QRForTask::QRForTask,
+};
 use crate::js;
 use crate::state::{Editing, State, Text};
-
-#[component]
-pub fn ButtonAddRow(row: usize, state: &Hook<State>) -> impl View {
-    view! {
-        <button.add
-            data={row}
-            onclick={
-                state.bind(move |state, event: MouseEvent<HtmlElement>| {
-                    let row = match event.target().get_attribute("data") {
-                        Some(r) => r,
-                        None => return,
-                    };
-                    let row_usize = match row.parse::<usize>() {
-                        Ok(r) => r,
-                        Err(e) => return,
-                    };
-                    // pass row index to insert at
-                    state.add_row_main(row_usize + 1);
-                })
-            }
-        />
-    }
-}
 
 #[component]
 pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     // debug!("Cell get_text source {:?} {:?}", col, row);
     let value: &str;
+    let row_idx_below_current_row_idx = row + 1;
     if col <= (state.details.table.columns.len() - 1) {
         value = state
             .main
@@ -49,19 +28,6 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     } else {
         value = &"";
     }
-
-    let ondestroy_row = state.bind(move |state, event: MouseEvent<HtmlElement>| {
-        let row = match event.target().get_attribute("data") {
-            Some(r) => r,
-            None => return,
-        };
-        let row_usize = match row.parse::<usize>() {
-            Ok(r) => r,
-            Err(e) => return,
-        };
-
-        state.destroy_row_main(row_usize);
-    });
 
     if state.editing_main == (Editing::Cell { row, col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
@@ -92,15 +58,11 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
                         value={ ref value }
                     />
                 </td>
-                // TODO - move into a component since reused
                 <td.add-container>
-                    <ButtonAddRow {row} {state} />
+                    <ButtonAddRow row={row_idx_below_current_row_idx} {state} />
                 </td>
                 <td.destroy-container>
-                    <button.destroy
-                        data={row}
-                        onclick={ondestroy_row}
-                    />
+                    <ButtonDestroyRow {row} {state} />
                 </td>
             })
         } else {
@@ -126,13 +88,10 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
                     <QRForTask {value} />
                 </td>
                 <td.add-container>
-                    <ButtonAddRow {row} {state} />
+                    <ButtonAddRow row={row_idx_below_current_row_idx} {state} />
                 </td>
                 <td.destroy-container>
-                    <button.destroy
-                        data={row}
-                        onclick={ondestroy_row}
-                    />
+                    <ButtonDestroyRow {row} {state} />
                 </td>
             })
         } else if value.contains("0x") == true && (col != state.main.table.columns.len() - 1) {
@@ -145,13 +104,10 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
             Branch7::E(view! {
                 <td {ondblclick}>{ ref value }</td>
                 <td.add-container>
-                    <ButtonAddRow {row} {state} />
+                    <ButtonAddRow row={row_idx_below_current_row_idx} {state} />
                 </td>
                 <td.destroy-container>
-                    <button.destroy
-                        data={row}
-                        onclick={ondestroy_row}
-                    />
+                    <ButtonDestroyRow {row} {state} />
                 </td>
             })
         } else if value.contains("0x") == false && (col != state.main.table.columns.len() - 1) {
