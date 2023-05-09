@@ -218,10 +218,9 @@ pub fn Editor() -> impl View {
                         </div>
                         <h3>"Details table"</h3>
                         <div class="container">
-                            // Note: Since we now have file-input-multiple we can upload both files at the same time
-                            // // https://stackoverflow.com/a/48499451/3208553
-                            // <input type="file" class="file-input-hidden" id="file-input-details" accept="text/csv" onchange={onload_details} />
-                            // <input type="button" id="file-input-details-modern" onclick="document.getElementById('file-input-details').click()" value="Upload CSV file (Details)" />
+                            // https://stackoverflow.com/a/48499451/3208553
+                            <input type="file" class="file-input-hidden" id="file-input-details" accept="text/csv" onchange={onload_details} />
+                            <input type="button" id="file-input-details-modern" onclick="document.getElementById('file-input-details').click()" value="Upload CSV file (Details)" />
                             <label for="file-input-details" class="label">{ ref state.details.filename }</label>
                             <button #button-file-save type="button" onclick={onsave_details}>"Save to CSV file"</button>
                         </div>
@@ -262,9 +261,8 @@ pub fn Editor() -> impl View {
                     <section .main>
                         <h3>"Main table"</h3>
                         <div class="container">
-                            // Note: Since we now have file-input-multiple we can upload both files at the same time
-                            // <input type="file" class="file-input-hidden" id="file-input-main" accept="text/csv" onchange={onload_main} />
-                            // <input type="button" id="file-input-main-modern" onclick="document.getElementById('file-input-main').click()" value="Upload CSV file (Main)" />
+                            <input type="file" class="file-input-hidden" id="file-input-main" accept="text/csv" onchange={onload_main} />
+                            <input type="button" id="file-input-main-modern" onclick="document.getElementById('file-input-main').click()" value="Upload CSV file (Main)" />
                             <label for="file-input-main" class="label">{ ref state.main.filename }</label>
                             <button #button-file-save type="button" onclick={onsave_main}>"Save to CSV file"</button>
                         </div>
