@@ -5,18 +5,16 @@
 use log::debug;
 use web_sys::{EventTarget, HtmlElement, HtmlInputElement as InputElement, UiEvent};
 
-use kobold::prelude::*;
 use kobold::branching::Branch7;
 use kobold::event::Listener;
+use kobold::prelude::*;
 
-use crate::components::{QRForTask::QRForTask};
+use crate::components::QRForTask::QRForTask;
 use crate::js;
 use crate::state::{Editing, State, Text};
 
 #[component]
-pub fn ButtonAddRow
-// <F: Listener<MouseEvent<HtmlElement>>>
-(
+pub fn ButtonAddRow(
     row: usize,
     // onadd_row_fn: F
 ) -> impl View {

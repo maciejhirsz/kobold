@@ -17,6 +17,9 @@ table {
   
 th {
     background: #eee;
+    position: sticky;
+    top: 0; /* this is required for the stickiness of the table header */
+    box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
 }
   
 td, th, input.edit {
