@@ -1,0 +1,40 @@
+[package]
+name = "kobold_invoice"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "main"
+path = "src/main.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+kobold = { version = "0.8.0", path = "../../crates/kobold" }
+kobold_macros = { version = "0.8.0", path = "../../crates/kobold_macros" }
+kobold_qr = { version = "0.8.0", path = "../../crates/kobold_qr" }
+compact_str = "0.7.0"
+gloo-console = "0.2.3"
+gloo-file = "0.2.3"
+gloo-storage = "0.2.1"
+gloo-utils = { version = "0.1.2", features = ["serde"] }
+heck = "0.4.1"
+js-sys = "0.3.61"
+log = "0.4.17"
+logos = "0.12.1"
+serde = "1.0.159"
+serde_json = "1.0.95"
+take_mut = "0.2.2"
+wasm-bindgen = "0.2.84"
+wasm-bindgen-futures = "0.4.34"
+wasm-logger = "0.2.0"
+
+[dependencies.web-sys]
+version = "0.3.61"
+features = [
+	"console",
+	"Document",
+	"HtmlInputElement",
+	"File",
+	"FileList",
+]

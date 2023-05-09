@@ -1,0 +1,227 @@
+canvas {
+    display: inline-block;
+    margin: 10px;
+    vertical-align: middle;
+    width: 50px;
+    height: 50px;
+}
+  
+html, body {
+    font-family: sans-serif;
+}
+  
+table {
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+  
+th {
+    background: #eee;
+    position: sticky;
+    top: 0; /* this is required for the stickiness of the table header */
+    box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
+}
+  
+td, th, input.edit {
+    padding: 4px 10px;
+    font-size: 12px;
+    border: 1px solid #ccc;
+}
+  
+thead.details {
+    float: left;
+}
+  
+thead.details th {
+    display: block;
+    text-align: left;
+}
+  
+tbody.details {
+    float: right;   
+}
+  
+tbody.details td {
+    display: block;
+    text-align: center;
+}
+  
+div.edit, td.edit, th.edit {
+    position: relative;
+}
+  
+input.edit {
+    font-family: sans-serif;
+    border: 0;
+    background: #ffa;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    outline: none;
+}
+  
+input.edit-head {
+    font-weight: bold;
+    text-align: center;
+}
+  
+input[type="file"] {
+    padding: 15px;
+}
+
+/* https://stackoverflow.com/questions/74115573/styling-an-input-type-file-text-next-to-the-button-not-the-button-itself-us */
+.container {
+    border: 1px solid lightgrey;
+    border-radius: 4px;
+    display: inline-flex;
+}
+
+#multi-upload-container {
+    border: 1px solid lightgrey;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+#file-input-multiple-modern {
+    /* display: inline-block; */
+    background-color: #999999;
+    border: 2px solid #000000;
+    border-radius: 4px;
+    padding: .5em 2em;
+    width: 250px;
+    color: #ffffff;
+    text-align: center;
+    /* margin-left: 20px; */
+    font-size: 1.0em;
+    font-weight: 600;
+}
+
+#header-container {
+    display: grid;
+    grid-template-columns: 1fr 0fr;
+    grid-row-gap: 0px;
+}
+
+input[type=button] {
+    background-color: lightgray;
+    border: 0;
+    border-radius: 4px;
+    padding: .5em 2em;
+}
+
+/* Hide traditional file upload button */
+.file-input-hidden {
+    display: none;
+}
+
+.label {
+    display: block;
+    margin-top: .5em;
+    margin-left: 10px;
+}
+  
+#button-file-save {
+    display: inline-block;
+    background-color: #11cc11;
+    border: 2px solid #11aa11;
+    border-radius: 4px;
+    padding: .5em 2em;
+    width: 200px;
+    color: #ffffff;
+    text-align: center;
+    margin-left: 20px;
+    font-size: 1.0em;
+    font-weight: 600;
+}
+  
+textarea {
+    display: block;
+    margin: 10px;
+    width: 35%;
+    height: 100%;
+    min-width: 150px;
+    min-height: 30px;
+    vertical-align: top;
+}
+  
+div.qr > div {
+    display: inline-flex;
+    vertical-align: middle;
+}
+
+/* override todo-app-css */
+.new-todo, .edit {
+    font-size: 11.5px !important;
+}
+/* override todo-app-css */
+.main {
+    margin-top: 20px !important;
+}
+
+.add-container {
+    border: 1px solid transparent;
+    background-color: transparent;
+}
+
+.add {
+    display: contents !important;
+    position: absolute;
+    top: 0;
+    right: 10px;
+    bottom: 0;
+    width: 40px;
+    height: 40px;
+    margin: auto 0;
+    font-size: 30px;
+    font-weight: 100;
+    color: #949494;
+    transition: color 0.2s ease-out;
+}
+
+.add:hover,
+.add:focus {
+    color: #11cc11;
+}
+
+.add:after {
+    content: '+'; /* U+002B */
+    display: block;
+    height: 100%;
+    line-height: 1.1;
+}
+
+.destroy-container {
+    border: 1px solid transparent;
+    background-color: transparent;
+}
+
+.destroy {
+    /* display: none; */
+    display: contents !important;
+    position: absolute;
+    top: 0;
+    right: 10px;
+    bottom: 0;
+    width: 40px;
+    height: 40px;
+    margin: auto 0;
+    font-size: 30px;
+    color: #949494;
+    /* transition: color 0.2s ease-out; */
+}
+
+.destroy:hover,
+.destroy:focus {
+    color: #C18585;
+}
+
+.destroy:after {
+    content: '×';
+    display: block;
+    height: 100%;
+    line-height: 1.1;
+}

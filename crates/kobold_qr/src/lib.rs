@@ -19,7 +19,7 @@ pub fn KoboldQR(data: &str, size: usize) -> impl View + '_ {
 
         Some(
             view! {
-                <canvas width={pixels} height={pixels} {style} />
+                <canvas width={pixels} height={pixels} style="width: 50px; height: 50px;" />
             }
             .on_render(move |canvas| {
                 let ctx = match canvas.get_context("2d") {
