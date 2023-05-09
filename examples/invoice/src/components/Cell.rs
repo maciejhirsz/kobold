@@ -14,14 +14,24 @@ use crate::js;
 use crate::state::{Editing, State, Text};
 
 #[component]
-pub fn ButtonAddRow(
-    row: usize,
-    // onadd_row_fn: F
-) -> impl View {
+pub fn ButtonAddRow(row: usize, state: &Hook<State>) -> impl View {
     view! {
         <button.add
             data={row}
-            // onclick={onadd_row_fn}
+            onclick={
+                state.bind(move |state, event: MouseEvent<HtmlElement>| {
+                    let row = match event.target().get_attribute("data") {
+                        Some(r) => r,
+                        None => return,
+                    };
+                    let row_usize = match row.parse::<usize>() {
+                        Ok(r) => r,
+                        Err(e) => return,
+                    };
+                    // pass row index to insert at
+                    state.add_row_main(row_usize + 1);
+                })
+            }
         />
     }
 }
@@ -51,19 +61,6 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
         };
 
         state.destroy_row_main(row_usize);
-    });
-
-    let onadd_row = state.bind(move |state, event: MouseEvent<HtmlElement>| {
-        let row = match event.target().get_attribute("data") {
-            Some(r) => r,
-            None => return,
-        };
-        let row_usize = match row.parse::<usize>() {
-            Ok(r) => r,
-            Err(e) => return,
-        };
-        // pass row index to insert at
-        state.add_row_main(row_usize + 1);
     });
 
     if state.editing_main == (Editing::Cell { row, col }) {
@@ -97,10 +94,7 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
                 </td>
                 // TODO - move into a component since reused
                 <td.add-container>
-                    <button.add
-                        data={row}
-                        onclick={onadd_row}
-                    />
+                    <ButtonAddRow {row} {state} />
                 </td>
                 <td.destroy-container>
                     <button.destroy
@@ -132,10 +126,7 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
                     <QRForTask {value} />
                 </td>
                 <td.add-container>
-                    <button.add
-                        data={row}
-                        onclick={onadd_row}
-                    />
+                    <ButtonAddRow {row} {state} />
                 </td>
                 <td.destroy-container>
                     <button.destroy
@@ -154,14 +145,7 @@ pub fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
             Branch7::E(view! {
                 <td {ondblclick}>{ ref value }</td>
                 <td.add-container>
-                    <button.add
-                        data={row}
-                        onclick={onadd_row}
-                    />
-                    <ButtonAddRow
-                        row={row}
-                        // onadd_row_fn={onadd_row}
-                    />
+                    <ButtonAddRow {row} {state} />
                 </td>
                 <td.destroy-container>
                     <button.destroy
