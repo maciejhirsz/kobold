@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "esbuild": "node esbuild.js"
+  },
+  "dependencies": {
+    "@polkadot/api": "^10.6.1",
+    "esbuild": "^0.17.19"
+  },
+  "type": "module"
+}
