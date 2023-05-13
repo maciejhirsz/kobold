@@ -11,7 +11,7 @@ use kobold::prelude::*;
 mod js;
 
 struct State {
-    hash: String
+    hash: String,
 }
 
 impl State {
@@ -22,36 +22,30 @@ impl State {
     }
 }
 
-async fn onclick_pjs_process(
-    state: Signal<State>,
-    event: MouseEvent<HtmlElement>,
-) {
+async fn onclick_pjs_process(state: Signal<State>, event: MouseEvent<HtmlElement>) {
     let res: Result<wasm_bindgen::JsValue, wasm_bindgen::JsValue> =
         js::browser_js::run_npm_lib().await;
 
-    state.update(move |state| {
-        match res {
-            Ok(jsv) => {
-                debug!("jsv {:?}", jsv);
-                match JsValue::as_string(&jsv) {
-                    Some(hash) => {
-                        debug!("hash {:?}", hash);
-                        state.hash = hash;
-                    },
-                    None => panic!("error converting JsValue to String for hash")
+    state.update(move |state| match res {
+        Ok(jsv) => {
+            debug!("jsv {:?}", jsv);
+            match JsValue::as_string(&jsv) {
+                Some(hash) => {
+                    debug!("hash {:?}", hash);
+                    state.hash = hash;
                 }
-            },
-            _ => panic!("error fetching from API")
+                None => panic!("error converting JsValue to String for hash"),
+            }
         }
+        _ => panic!("error fetching from API"),
     });
 }
 
 #[component]
 fn NpmLib() -> impl View {
     stateful(State::new, |state| {
-        let onclick_pjs = state.bind_async(|state, event: MouseEvent<HtmlElement>| {
-            onclick_pjs_process(state, event)
-        });
+        let onclick_pjs = state
+            .bind_async(|state, event: MouseEvent<HtmlElement>| onclick_pjs_process(state, event));
 
         // No need to close tags at the end of the macro
         view! {
