@@ -5,6 +5,10 @@ yarn
 yarn run esbuild
 RUST_LOG=info trunk serve --address=127.0.0.1 --open
 ```
+* Test
+```bash
+cargo test --target wasm32-unknown-unknown
+```
 
 * References:
     * https://rustwasm.github.io/docs/wasm-bindgen

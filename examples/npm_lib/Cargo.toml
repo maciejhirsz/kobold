@@ -13,6 +13,7 @@ js-sys = "0.3.61"
 log = "0.4.17"
 wasm-bindgen = "0.2.84"
 wasm-bindgen-futures = "0.4.34"
+wasm-bindgen-test = "0.3.35"
 
 [dependencies.web-sys]
 version = "0.3.61"
