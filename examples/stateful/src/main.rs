@@ -1,5 +1,5 @@
-use kobold::prelude::*;
 use kobold::diff::VString;
+use kobold::prelude::*;
 
 struct State {
     name: VString,
