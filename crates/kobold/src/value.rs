@@ -4,7 +4,7 @@
 
 use web_sys::Node;
 
-use crate::diff::{Diff, Ref};
+use crate::diff::{Diff, Ref, VString};
 use crate::dom::{Anchor, Property, TextContent};
 use crate::internal::{self, In, Out};
 use crate::View;
@@ -34,7 +34,7 @@ macro_rules! impl_text {
 }
 
 impl_text! {
-    text_node [&str, &String, &Ref<str>]
+    text_node [&str, &String, &Ref<str>, &VString]
     text_node_num [i8, i16, i32, isize, u8, u16, u32, usize, f32, f64]
     text_node_bool [bool]
 }
@@ -54,7 +54,7 @@ macro_rules! impl_value {
     };
 }
 
-impl_value!(&'a str: &str, &String, &Ref<str>);
+impl_value!(&'a str: &str, &String, &Ref<str>, &VString);
 impl_value!(bool: bool);
 impl_value!(f64: u8, u16, u32, usize, i8, i16, i32, isize, f32, f64);
 
@@ -159,7 +159,7 @@ macro_rules! impl_text_view {
     };
 }
 
-impl_text_view!(&str, &String, &Ref<str>);
+impl_text_view!(&str, &String, &Ref<str>, &VString);
 impl_text_view!(bool, u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64);
 
 impl<'a> View for &&'a str {

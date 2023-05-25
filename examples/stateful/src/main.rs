@@ -1,14 +1,15 @@
 use kobold::prelude::*;
+use kobold::diff::VString;
 
 struct State {
-    name: String,
+    name: VString,
     age: u32,
 }
 
 impl State {
     fn new() -> Self {
         State {
-            name: "Bob".to_owned(),
+            name: "Bob".into(),
             age: 42,
         }
     }
