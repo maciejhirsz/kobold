@@ -106,3 +106,29 @@ where
         }
     }
 }
+
+#[cfg(feature = "serde")]
+mod serde {
+    use serde::de::{Deserialize, Deserializer};
+    use serde::ser::{Serialize, Serializer};
+
+    use super::VString;
+
+    impl Serialize for VString {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            self.inner.serialize(serializer)
+        }
+    }
+
+    impl<'de> Deserialize<'de> for VString {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            String::deserialize(deserializer).map(|inner| VString { inner, ver: 0 })
+        }
+    }
+}
