@@ -5,12 +5,28 @@
 use crate::diff::Diff;
 use std::ops::{Deref, DerefMut};
 
+/// Versioned string.
+///
+/// This type acts as a drop-in replacement for a regular owned [`String`](String). Internally its
+/// memory layout is identical, except in addition to pointer, length, and capacity, `VString` also
+/// tracks a _version_ integer that's automatically incremented on any mutable access.
+///
+/// Using a `&VString` reference as a [`View`](crate::View) is more efficient than `&String` (or `&str`), as it performs
+/// no allocations and only needs to compare the version and pointer address to reliably determine if
+/// the contents of the string have changed.
+///
+/// For best performance `VString` should always be used in place of a `String` when using the
+/// [`ref`](crate::keywords::ref) keyword is not viable.
+///
+/// You may add the `serde` feature to the `kobold` crate to add support for the `serde::Serialize` and
+/// `serde::Deserialize` traits.
 pub struct VString {
     inner: String,
     ver: usize,
 }
 
 impl VString {
+    /// Creates a new empty `VString`.
     pub fn new() -> VString {
         VString {
             inner: String::new(),
@@ -18,6 +34,7 @@ impl VString {
         }
     }
 
+    /// Creates a new empty `VString` with at least the specified capacity.
     pub fn with_capacity(capacity: usize) -> VString {
         VString {
             inner: String::with_capacity(capacity),
@@ -25,6 +42,7 @@ impl VString {
         }
     }
 
+    /// Get the underlying `String` from this `VString`.
     pub fn into_inner(self) -> String {
         self.inner
     }
@@ -103,6 +121,32 @@ where
         VString {
             inner: String::from_iter(iter),
             ver: 0,
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+mod serde {
+    use serde::de::{Deserialize, Deserializer};
+    use serde::ser::{Serialize, Serializer};
+
+    use super::VString;
+
+    impl Serialize for VString {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            self.inner.serialize(serializer)
+        }
+    }
+
+    impl<'de> Deserialize<'de> for VString {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            String::deserialize(deserializer).map(|inner| VString { inner, ver: 0 })
         }
     }
 }
