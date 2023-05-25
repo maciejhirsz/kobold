@@ -31,12 +31,10 @@ impl VString {
 }
 
 impl Diff for &'_ VString {
-    // Compiler should be able to optimize this diff to
-    // 64bit int diff on wasm32 targets
-    type Memo = [usize; 2];
+    type Memo = u64;
 
     fn into_memo(self) -> Self::Memo {
-        [self.inner.as_ptr() as usize, self.ver]
+        (self.ver as u64).wrapping_shl(32) | self.inner.as_ptr() as u64
     }
 
     fn diff(self, memo: &mut Self::Memo) -> bool {
