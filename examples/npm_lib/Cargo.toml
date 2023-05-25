@@ -1,0 +1,22 @@
+[package]
+name = "kobold_npm_lib_example"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "main"
+path = "src/main.rs"
+
+[dependencies]
+kobold = { version = "0.8.1", path = "../../crates/kobold" }
+js-sys = "0.3.61"
+log = "0.4.17"
+wasm-bindgen = "0.2.84"
+wasm-bindgen-futures = "0.4.34"
+wasm-bindgen-test = "0.3.35"
+
+[dependencies.web-sys]
+version = "0.3.61"
+features = [
+	"HtmlInputElement",
+]
