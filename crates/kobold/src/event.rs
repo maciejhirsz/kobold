@@ -83,6 +83,24 @@ event! {
     MouseEvent,
 }
 
+pub trait IntoListener<E: EventCast> {
+    type Listener: Listener<E>;
+
+    fn into_listener(self) -> Self::Listener;
+}
+
+impl<E, L> IntoListener<E> for L
+where
+    L: Listener<E>,
+    E: EventCast,
+{
+    type Listener = L;
+
+    fn into_listener(self) -> L {
+        self
+    }
+}
+
 pub trait Listener<E>
 where
     E: EventCast,

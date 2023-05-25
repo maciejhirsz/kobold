@@ -585,7 +585,7 @@ macro_rules! class {
 ///     let increment = move |_| *count += 1;
 ///     let decrement = move |_| *count -= 1;
 /// }
-/// # fn throwaway(_: impl kobold::event::Listener<kobold::reexport::web_sys::Event>) {}
+/// # fn throwaway(_: kobold::stateful::Bound<i32, impl FnMut(&mut i32, kobold::reexport::web_sys::Event)>) {}
 /// # throwaway(increment);
 /// # throwaway(decrement);
 /// # }
@@ -597,7 +597,7 @@ macro_rules! class {
 /// # fn test(count: &Hook<i32>) {
 /// let increment = count.bind(move |count, _| *count += 1);
 /// let decrement = count.bind(move |count, _| *count -= 1);
-/// # fn throwaway(_: impl kobold::event::Listener<kobold::reexport::web_sys::Event>) {}
+/// # fn throwaway(_: kobold::stateful::Bound<i32, impl FnMut(&mut i32, kobold::reexport::web_sys::Event)>) {}
 /// # throwaway(increment);
 /// # throwaway(decrement);
 /// # }

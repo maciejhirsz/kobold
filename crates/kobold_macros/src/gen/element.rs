@@ -134,7 +134,7 @@ impl IntoGenerator for HtmlElement {
                                 expr.stream,
                             )
                         } else {
-                            expr.stream
+                            (expr.stream, ".into_listener()").tokenize()
                         };
 
                         let value = gen.add_field(coerce).event(event, el.typ).name;
