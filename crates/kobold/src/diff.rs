@@ -14,6 +14,10 @@ use crate::internal::{In, Out};
 use crate::value::{IntoText, Value};
 use crate::{init, Mountable, View};
 
+mod vstring;
+
+pub use vstring::VString;
+
 /// This is a wrapper around a `view` that will prevent updates to it, unless
 /// the value of `guard` has changed.
 ///
