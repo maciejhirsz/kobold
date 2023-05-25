@@ -252,26 +252,33 @@ where
 
 #[cfg(test)]
 mod test {
+    use std::cell::UnsafeCell;
+    use wasm_bindgen::JsCast;
+
+    use crate::stateful::cell::WithCell;
+    use crate::stateful::product::ProductHandler;
+    use crate::value::TextProduct;
+
     use super::*;
 
     #[test]
     fn bound_callback_is_copy() {
-        union MockInner<S> {
-            thin: (*const (), usize),
-            fat: *const Inner<S>,
-        }
-
-        // This is horribly wrong, but since this is just a test and we
-        // never dereference the pointer it should be fine.
-        let inner: *const Inner<i32> = unsafe {
-            MockInner { thin: (std::ptr::null(), 0) }.fat
+        let inner = Inner {
+            state: WithCell::new(0_i32),
+            prod: UnsafeCell::new(ProductHandler::mock(
+                |_, _| {},
+                TextProduct {
+                    memo: 0,
+                    node: wasm_bindgen::JsValue::UNDEFINED.unchecked_into(),
+                },
+            )),
         };
 
         let mock = Bound {
-            inner,
+            inner: &inner as *const _,
             callback: |state: &mut i32, _: web_sys::Event| {
                 *state += 1;
-            }
+            },
         };
 
         // Make sure we can copy the mock twice

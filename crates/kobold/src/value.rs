@@ -59,8 +59,8 @@ impl_value!(bool: bool);
 impl_value!(f64: u8, u16, u32, usize, i8, i16, i32, isize, f32, f64);
 
 pub struct TextProduct<M> {
-    memo: M,
-    node: Node,
+    pub(crate) memo: M,
+    pub(crate) node: Node,
 }
 
 impl<M> Anchor for TextProduct<M> {
