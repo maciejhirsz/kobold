@@ -153,7 +153,7 @@ dependencies = [
 
 [[package]]
 name = "kobold"
-version = "0.8.1"
+version = "0.9.0"
 dependencies = [
  "console_error_panic_hook",
  "itoa",
@@ -207,7 +207,7 @@ dependencies = [
 
 [[package]]
 name = "kobold_macros"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "arrayvec",
  "beef",
@@ -225,7 +225,7 @@ dependencies = [
 
 [[package]]
 name = "kobold_qr"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "fast_qr",
  "kobold",

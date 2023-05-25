@@ -93,7 +93,7 @@ impl<S> Hook<S> {
 
     /// Binds a closure to a mutable reference of the state. While this method is public
     /// it's recommended to use the [`bind!`](crate::bind) macro instead.
-    pub fn bind<E, F, O>(&self, callback: F) -> impl Listener<E>
+    pub fn bind<E, F, O>(&self, callback: F) -> Bound<S, F>
     where
         S: 'static,
         E: EventCast,
@@ -102,25 +102,7 @@ impl<S> Hook<S> {
     {
         let inner = &self.inner as *const Inner<S>;
 
-        let bound = move |e| {
-            // ⚠️ Safety:
-            // ==========
-            //
-            // This is fired only as event listener from the DOM, which guarantees that
-            // state is not currently borrowed, as events cannot interrupt normal
-            // control flow, and `Signal`s cannot borrow state across .await points.
-            let inner = unsafe { &*inner };
-            let state = unsafe { inner.state.mut_unchecked() };
-
-            if callback(state, e).should_render() {
-                inner.update();
-            }
-        };
-
-        Bound {
-            bound,
-            _unbound: PhantomData::<F>,
-        }
+        Bound { inner, callback }
     }
 
     pub fn bind_async<E, F, T>(&self, callback: F) -> impl Listener<E>
@@ -162,12 +144,63 @@ impl<S> Hook<S> {
     }
 }
 
-struct Bound<B, U> {
+pub struct Bound<S, F> {
+    inner: *const Inner<S>,
+    callback: F,
+}
+
+impl<S, F> Bound<S, F> {
+    pub fn into_listener<E, O>(self) -> impl Listener<E>
+    where
+        S: 'static,
+        E: EventCast,
+        F: Fn(&mut S, E) -> O + 'static,
+        O: ShouldRender,
+    {
+        let Bound { inner, callback } = self;
+
+        let bound = move |e| {
+            // ⚠️ Safety:
+            // ==========
+            //
+            // This is fired only as event listener from the DOM, which guarantees that
+            // state is not currently borrowed, as events cannot interrupt normal
+            // control flow, and `Signal`s cannot borrow state across .await points.
+            let inner = unsafe { &*inner };
+            let state = unsafe { inner.state.mut_unchecked() };
+
+            if callback(state, e).should_render() {
+                inner.update();
+            }
+        };
+
+        BoundListener {
+            bound,
+            _unbound: PhantomData::<F>,
+        }
+    }
+}
+
+impl<S, F> Clone for Bound<S, F>
+where
+    F: Clone,
+{
+    fn clone(&self) -> Self {
+        Bound {
+            inner: self.inner,
+            callback: self.callback.clone(),
+        }
+    }
+}
+
+impl<S, F> Copy for Bound<S, F> where F: Copy {}
+
+struct BoundListener<B, U> {
     bound: B,
     _unbound: PhantomData<U>,
 }
 
-impl<B, U, E> Listener<E> for Bound<B, U>
+impl<B, U, E> Listener<E> for BoundListener<B, U>
 where
     B: Listener<E>,
     E: EventCast,
@@ -214,5 +247,34 @@ where
 
     fn update(self, p: &mut Self::Product) {
         (**self).update(p)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn bound_callback_is_copy() {
+        union MockInner<S> {
+            thin: (*const (), usize),
+            fat: *const Inner<S>,
+        }
+
+        // This is horribly wrong, but since this is just a test and we
+        // never dereference the pointer it should be fine.
+        let inner: *const Inner<i32> = unsafe {
+            MockInner { thin: (std::ptr::null(), 0) }.fat
+        };
+
+        let mock = Bound {
+            inner,
+            callback: |state: &mut i32, _: web_sys::Event| {
+                *state += 1;
+            }
+        };
+
+        // Make sure we can copy the mock twice
+        drop([mock, mock]);
     }
 }

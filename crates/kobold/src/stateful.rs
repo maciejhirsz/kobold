@@ -31,7 +31,7 @@ mod should_render;
 use cell::WithCell;
 use product::{Product, ProductHandler};
 
-pub use hook::{Hook, Signal};
+pub use hook::{Bound, Hook, Signal};
 pub use into_state::IntoState;
 pub use should_render::{ShouldRender, Then};
 

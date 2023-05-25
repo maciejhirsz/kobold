@@ -184,6 +184,7 @@ impl Tokenize for Transient {
                 "\
                 use ::kobold::dom::Mountable as _;\
                 use ::kobold::event::ListenerHandle as _;\
+                use ::kobold::event::IntoListener as _;\
                 use ::kobold::reexport::wasm_bindgen;\
                 ",
                 self.js,
