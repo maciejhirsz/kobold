@@ -2,8 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::diff::Diff;
+use std::fmt::{self, Debug, Display, Write};
+use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
+
+use crate::diff::Diff;
 
 /// Versioned string.
 ///
@@ -20,6 +23,7 @@ use std::ops::{Deref, DerefMut};
 ///
 /// You may add the `serde` feature to the `kobold` crate to add support for the `serde::Serialize` and
 /// `serde::Deserialize` traits.
+#[derive(Default)]
 pub struct VString {
     inner: String,
     ver: usize,
@@ -110,6 +114,45 @@ where
     }
 }
 
+impl PartialEq<VString> for VString {
+    fn eq(&self, other: &VString) -> bool {
+        self.inner.eq(&other.inner)
+    }
+}
+
+impl Eq for VString {}
+
+impl PartialOrd<VString> for VString {
+    fn partial_cmp(&self, other: &VString) -> Option<std::cmp::Ordering> {
+        self.inner.partial_cmp(&other.inner)
+    }
+}
+
+impl Ord for VString {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.inner.cmp(&other.inner)
+    }
+}
+
+impl Debug for VString {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Debug::fmt(&self.inner, f)
+    }
+}
+
+impl Display for VString {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Display::fmt(&self.inner, f)
+    }
+}
+
+impl Write for VString {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.ver += 1;
+        self.inner.write_str(s)
+    }
+}
+
 impl<A> FromIterator<A> for VString
 where
     String: FromIterator<A>,
@@ -122,6 +165,15 @@ where
             inner: String::from_iter(iter),
             ver: 0,
         }
+    }
+}
+
+impl Hash for VString {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        self.inner.hash(state)
     }
 }
 
