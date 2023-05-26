@@ -100,7 +100,7 @@ impl<S> Hook<S> {
         F: Fn(&mut S, E) -> O + 'static,
         O: ShouldRender,
     {
-        let inner = &self.inner as *const Inner<S>;
+        let inner = &self.inner;
 
         Bound { inner, callback }
     }
@@ -144,12 +144,12 @@ impl<S> Hook<S> {
     }
 }
 
-pub struct Bound<S, F> {
-    inner: *const Inner<S>,
+pub struct Bound<'b, S, F> {
+    inner: &'b Inner<S>,
     callback: F,
 }
 
-impl<S, F> Bound<S, F> {
+impl<S, F> Bound<'_, S, F> {
     pub fn into_listener<E, O>(self) -> impl Listener<E>
     where
         S: 'static,
@@ -159,6 +159,7 @@ impl<S, F> Bound<S, F> {
     {
         let Bound { inner, callback } = self;
 
+        let inner = inner as *const Inner<S>;
         let bound = move |e| {
             // ⚠️ Safety:
             // ==========
@@ -181,7 +182,7 @@ impl<S, F> Bound<S, F> {
     }
 }
 
-impl<S, F> Clone for Bound<S, F>
+impl<S, F> Clone for Bound<'_, S, F>
 where
     F: Clone,
 {
@@ -193,7 +194,7 @@ where
     }
 }
 
-impl<S, F> Copy for Bound<S, F> where F: Copy {}
+impl<S, F> Copy for Bound<'_, S, F> where F: Copy {}
 
 struct BoundListener<B, U> {
     bound: B,
@@ -275,7 +276,7 @@ mod test {
         };
 
         let mock = Bound {
-            inner: &inner as *const _,
+            inner: &inner,
             callback: |state: &mut i32, _: web_sys::Event| {
                 *state += 1;
             },
