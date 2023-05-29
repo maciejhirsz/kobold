@@ -10,8 +10,8 @@ use crate::dom::{Anchor, Fragment, FragmentBuilder};
 use crate::internal::{In, Out};
 use crate::{Mountable, View};
 
-mod tracking;
 mod page_list;
+mod tracking;
 
 use page_list::PageList;
 pub use tracking::Tracking;
