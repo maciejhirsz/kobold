@@ -1,14 +1,15 @@
+use kobold::diff::VString;
 use kobold::prelude::*;
 
 struct State {
-    name: String,
+    name: VString,
     age: u32,
 }
 
 impl State {
     fn new() -> Self {
         State {
-            name: "Bob".to_owned(),
+            name: "Bob".into(),
             age: 42,
         }
     }
@@ -31,7 +32,7 @@ fn App() -> impl View {
             };
 
             let inc_age = move |_| state.age += 1;
-            let adult = move |_| state.age = 0;
+            let adult = move |_| state.age = 18;
         }
 
         view! {

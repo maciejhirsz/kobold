@@ -122,7 +122,7 @@ impl Tokenize for Transient {
         let mut build = String::new();
         let mut update = String::new();
         let mut declare = String::new();
-        let mut vars = String::new();
+        let mut build2 = String::new();
 
         let mut product_declare = String::new();
         let mut product_generics = String::new();
@@ -133,24 +133,15 @@ impl Tokenize for Transient {
 
             let _ = write!(generics, "{typ},");
 
-            field.build(&mut build);
+            field.build(&mut build, &mut build2);
             field.update(&mut update);
             field.declare(&mut declare);
-            field.var(&mut vars);
 
             match field.kind {
                 FieldKind::StaticView => (),
-                FieldKind::View | FieldKind::Attribute { .. } => {
+                _ => {
                     let _ = write!(product_generics, "{typ},");
                     let _ = write!(product_generics_binds, "{typ}::Product,");
-                    field.declare(&mut product_declare);
-                }
-                FieldKind::Event { .. } => {
-                    let _ = write!(product_generics, "{typ},");
-                    let _ = write!(
-                        product_generics_binds,
-                        "::kobold::event::ListenerProduct<{typ}>,"
-                    );
                     field.declare(&mut product_declare);
                 }
             }
@@ -161,16 +152,16 @@ impl Tokenize for Transient {
         for (jsfn, el) in self.js.functions.iter().zip(self.els) {
             let JsFunction { name, anchor, args } = jsfn;
 
-            let anchor_typ = anchor.as_type();
+            let anchor_type = anchor.as_type();
 
-            let _ = write!(declare_els, "{el}: {anchor_typ},");
+            let _ = write!(declare_els, "{el}: {anchor_type},");
 
             let args = args
                 .iter()
                 .map(|a| {
                     let mut temp = ArrayString::<24>::new();
                     let name = a.name;
-                    let _ = match a.abi.map(InlineAbi::method) {
+                    let _ = match a.abi.and_then(|abi| abi.method()) {
                         Some(method) => write!(temp, "self.{name}{method}"),
                         None => write!(temp, "{name}.js()"),
                     };
@@ -178,8 +169,10 @@ impl Tokenize for Transient {
                 })
                 .join(",");
 
-            let _ = write!(build, "let {el}: {anchor_typ} = {name}({args}).into();");
-            let _ = write!(vars, "{el},");
+            let _ = write!(
+                build,
+                "let {el} = ::kobold::init!(_p.{el} = {anchor_type}::from({name}({args})));"
+            );
         }
         let anchor = &self.js.functions.last().unwrap().anchor;
 
@@ -189,7 +182,9 @@ impl Tokenize for Transient {
         block((
             (
                 "\
-                use ::kobold::dom::{Mountable as _};\
+                use ::kobold::dom::Mountable as _;\
+                use ::kobold::event::ListenerHandle as _;\
+                use ::kobold::event::IntoListener as _;\
                 use ::kobold::reexport::wasm_bindgen;\
                 ",
                 self.js,
@@ -224,12 +219,13 @@ impl Tokenize for Transient {
                 {{\
                     type Product = TransientProduct<{product_generics_binds}>;\
                     \
-                    fn build(self) -> Self::Product {{\
-                        {build}\
-                        \
-                        TransientProduct {{\
-                            {vars}\
-                        }}\
+                    fn build(self, _p: ::kobold::internal::In<Self::Product>) -> ::kobold::internal::Out<Self::Product> {{\
+                        _p.in_place(move |_p| unsafe {{\
+                            {build}\
+                            {build2}\
+                            \
+                            ::kobold::internal::Out::from_raw(_p)\
+                        }})\
                     }}\
                     \
                     fn update(self, p: &mut Self::Product) {{\
@@ -477,33 +473,39 @@ impl Field {
         let _ = write!(buf, "{name}: {typ},");
     }
 
-    fn build(&self, buf: &mut String) {
+    fn build(&self, buf: &mut String, post: &mut String) {
         let Field { name, kind, .. } = self;
 
         match kind {
-            FieldKind::View | FieldKind::StaticView | FieldKind::Event { .. } => {
-                let _ = write!(buf, "let {name} = self.{name}.build();");
+            FieldKind::StaticView => {
+                let _ = write!(
+                    buf,
+                    "\
+                    let {name} = std::pin::pin!(std::mem::MaybeUninit::uninit());\
+                    let {name} = ::kobold::internal::In::pinned({name}, move |_p| self.{name}.build(_p));\
+                    "
+                );
             }
-            _ => (),
-        }
-    }
-
-    fn var(&self, buf: &mut String) {
-        let Field { name, kind, .. } = self;
-
-        match kind {
-            FieldKind::StaticView => (),
             FieldKind::View => {
-                let _ = write!(buf, "{name},");
+                let _ = write!(
+                    buf,
+                    "let {name} = ::kobold::init!(_p.{name} @ self.{name}.build(_p));"
+                );
             }
             FieldKind::Event { .. } => {
-                let _ = write!(buf, "{name},");
+                let _ = write!(
+                    buf,
+                    "let mut {name} = ::kobold::init!(_p.{name} @ self.{name}.build(_p));"
+                );
             }
             FieldKind::Attribute { attr, .. } if attr.abi.is_some() => {
-                let _ = write!(buf, "{name}: self.{name}.build(),");
+                let _ = write!(post, "::kobold::init!(_p.{name} = self.{name}.build());");
             }
             FieldKind::Attribute { el, prop, .. } => {
-                let _ = write!(buf, "{name}: self.{name}.build_in({prop}, &{el}),");
+                let _ = write!(
+                    post,
+                    "::kobold::init!(_p.{name} = self.{name}.build_in({prop}, &{el}));"
+                );
             }
         }
     }

@@ -7,7 +7,7 @@
 ///
 /// * [`Hook::bind`](crate::stateful::Hook::bind)
 /// * [`IntoState::update`](crate::stateful::IntoState::update)
-pub trait ShouldRender {
+pub trait ShouldRender: 'static {
     fn should_render(self) -> bool;
 }
 

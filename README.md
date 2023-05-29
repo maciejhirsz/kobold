@@ -2,15 +2,20 @@
 
 # Kobold
 
-![Test](https://github.com/maciejhirsz/kobold/workflows/CI/badge.svg?branch=master)
-[![Crates.io version shield](https://img.shields.io/crates/v/kobold.svg)](https://crates.io/crates/kobold)
-[![Docs](https://docs.rs/kobold/badge.svg)](https://docs.rs/kobold)
-[![Crates.io license shield](https://img.shields.io/crates/l/kobold.svg)](https://crates.io/crates/kobold)
+[![Join Discord](https://img.shields.io/discord/1092732324610850816?label=&logo=discord&labelColor=6A7EC2&logoColor=ffffff&color=7389D8)](https://discord.gg/ZYffhkW2)
+[![Test](https://img.shields.io/github/actions/workflow/status/maciejhirsz/kobold/ci.yml?label=tests)](https://github.com/maciejhirsz/kobold/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/docsrs/kobold/latest)](https://docs.rs/kobold)
+[![Crates.io](https://img.shields.io/crates/v/kobold.svg)](https://crates.io/crates/kobold)
+[![MPL-2.0](https://img.shields.io/crates/l/kobold.svg?label=)](https://www.mozilla.org/en-US/MPL/)
 
 _Easy declarative web interfaces._
 
-**Kobold** uses macros to deliver familiar HTML-esque syntax for building declarative web interfaces,
-while leveraging Rust's powerful type system for safety and performance.
+Key features:
+
+* Declarative [`view!`](https://docs.rs/kobold/latest/kobold/macro.view.html) macro that uses HTML-esque syntax complete with optional closing tags.
+* Functional [components](https://docs.rs/kobold/latest/kobold/attr.component.html) with optional parameters.
+* State management and event handling.
+* High performance and consistently the lowest Wasm footprint in the Rust ecosystem.
 
 ### Zero-Cost Static HTML
 
@@ -66,7 +71,7 @@ error[E0560]: struct `Hello` has no field named `nam`
 You can even use [rust-analyzer](https://rust-analyzer.github.io/) to refactor component or field names,
 and it will change the invocations inside the macros for you.
 
-### Stateful
+### State management
 
 The `stateful` function can be used to create views that own and manipulate
 their state:
@@ -126,9 +131,9 @@ fn Status(code: u32) -> impl View {
 }
 
 view! {
-    // "Status code was 200"
+    // Status code was 200
     <Status />
-    // "Status code was 404"
+    // Status code was 404
     <Status code={404} />
 }
 ```
@@ -148,9 +153,9 @@ inside an `if` or `match` expression, and wrap them in an enum making them the s
 #[component(auto_branch)]
 fn Conditional(illuminatus: bool) -> impl View {
     if illuminatus {
-        view! { <p>"It was the year when they finally immanentized the Eschaton."</p> }
+        view! { <p> "It was the year when they finally immanentized the Eschaton." }
     } else {
-        view! { <blockquote>"It was love at first sight."</blockquote> }
+        view! { <blockquote> "It was love at first sight." }
     }
 }
 ```
@@ -170,9 +175,8 @@ fn IterateNumbers(count: u32) -> impl View {
     view! {
         <ul>
         {
-            for (1..=count).map(|n| view! { <li>"Item #"{n}</li> })
+            for (1..=count).map(|n| view! { <li> "Item #"{n} })
         }
-        </ul>
     }
 }
 ```
@@ -195,9 +199,8 @@ fn Users<'a>(names: &'a [&'a str]) -> impl View + 'a {
     view! {
         <ul>
         {
-            for names.iter().map(|name| view! { <li>{ name }</li> })
+            for names.iter().map(|name| view! { <li> { name } })
         }
-        </ul>
     }
 }
 ```

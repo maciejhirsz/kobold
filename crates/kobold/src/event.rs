@@ -7,10 +7,11 @@
 use std::marker::PhantomData;
 use std::ops::Deref;
 
-use wasm_bindgen::closure::Closure;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{HtmlElement, HtmlInputElement};
+
+use crate::internal::{self, In, Out};
 
 #[wasm_bindgen]
 extern "C" {
@@ -82,14 +83,34 @@ event! {
     MouseEvent,
 }
 
+pub trait IntoListener<E: EventCast> {
+    type Listener: Listener<E>;
+
+    fn into_listener(self) -> Self::Listener;
+}
+
+impl<E, L> IntoListener<E> for L
+where
+    L: Listener<E>,
+    E: EventCast,
+{
+    type Listener = L;
+
+    fn into_listener(self) -> L {
+        self
+    }
+}
+
 pub trait Listener<E>
 where
     E: EventCast,
     Self: Sized + 'static,
 {
-    fn build(self) -> ListenerProduct<Self>;
+    type Product: ListenerHandle;
 
-    fn update(self, p: &mut ListenerProduct<Self>);
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product>;
+
+    fn update(self, p: &mut Self::Product);
 }
 
 impl<E, F> Listener<E> for F
@@ -97,33 +118,38 @@ where
     F: FnMut(E) + 'static,
     E: EventCast,
 {
-    fn build(self) -> ListenerProduct<Self> {
-        let raw = Box::leak(Box::new(self));
+    type Product = ListenerProduct<Self, E>;
 
-        let js = Closure::wrap(unsafe {
-            Box::from_raw(raw as *mut dyn FnMut(E) as *mut dyn FnMut(web_sys::Event))
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        p.put(ListenerProduct {
+            closure: self,
+            _event: PhantomData,
         })
-        .into_js_value();
-
-        // `into_js_value` will _forget_ the previous Box, so we can safely reconstruct it
-        let boxed = unsafe { Box::from_raw(raw) };
-
-        ListenerProduct { js, boxed }
     }
 
-    fn update(self, p: &mut ListenerProduct<Self>) {
-        *p.boxed = self;
+    fn update(self, p: &mut ListenerProduct<Self, E>) {
+        p.closure = self;
     }
 }
 
-pub struct ListenerProduct<F> {
-    js: JsValue,
-    boxed: Box<F>,
+pub struct ListenerProduct<F, E> {
+    closure: F,
+    _event: PhantomData<E>,
 }
 
-impl<F> ListenerProduct<F> {
-    pub fn js(&self) -> &JsValue {
-        &self.js
+pub trait ListenerHandle {
+    fn js(&mut self) -> JsValue;
+}
+
+impl<F, E> ListenerHandle for ListenerProduct<F, E>
+where
+    F: FnMut(E) + 'static,
+    E: EventCast,
+{
+    fn js(&mut self) -> JsValue {
+        let vcall: fn(E, *mut ()) = |e, ptr| unsafe { (*(ptr as *mut F))(e) };
+
+        internal::make_event_handler((&mut self.closure) as *mut F as *mut (), vcall as usize)
     }
 }
 

@@ -7,10 +7,13 @@
 use web_sys::Node;
 
 use crate::dom::{Anchor, Fragment, FragmentBuilder};
+use crate::internal::{In, Out};
 use crate::{Mountable, View};
 
 mod tracking;
+mod page_list;
 
+use page_list::PageList;
 pub use tracking::Tracking;
 
 /// Wrapper type that implements `View` for iterators, created by the
@@ -18,13 +21,26 @@ pub use tracking::Tracking;
 #[repr(transparent)]
 pub struct List<T>(pub(crate) T);
 
-pub struct ListProduct<T> {
-    list: Vec<T>,
-    visible: usize,
+pub struct ListProduct<P: Mountable> {
+    list: PageList<AutoUnmount<P>>,
     fragment: FragmentBuilder,
 }
 
-impl<T> Anchor for ListProduct<T> {
+struct AutoUnmount<P: Mountable>(P);
+
+impl<P> Drop for AutoUnmount<P>
+where
+    P: Mountable,
+{
+    fn drop(&mut self) {
+        self.0.unmount();
+    }
+}
+
+impl<P> Anchor for ListProduct<P>
+where
+    P: Mountable,
+{
     type Js = Node;
     type Target = Fragment;
 
@@ -40,67 +56,41 @@ where
 {
     type Product = ListProduct<<T::Item as View>::Product>;
 
-    fn build(self) -> Self::Product {
-        let iter = self.0.into_iter();
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
         let fragment = FragmentBuilder::new();
 
-        let list: Vec<_> = iter
-            .map(|item| {
-                let built = item.build();
+        let list = PageList::build(self.0, |view, b| {
+            let built = view.build(unsafe { b.cast() });
 
-                fragment.append(built.js());
+            fragment.append(built.js());
 
-                built
-            })
-            .collect();
+            unsafe { built.cast() }
+        });
 
-        let visible = list.len();
-
-        ListProduct {
-            list,
-            visible,
-            fragment,
-        }
+        p.put(ListProduct { list, fragment })
     }
 
     fn update(self, p: &mut Self::Product) {
         let mut new = self.0.into_iter();
-        let mut updated = 0;
+        let mut old = p.list.cursor();
 
-        for (old, new) in p.list[..p.visible].iter_mut().zip(&mut new) {
-            new.update(old);
-            updated += 1;
-        }
+        old.zip_each(&mut new, |old, new| new.update(&mut old.0));
 
-        if p.visible > updated {
-            for old in p.list[updated..p.visible].iter() {
-                old.unmount();
-            }
-            p.visible = updated;
-        } else {
-            for (old, new) in p.list[updated..].iter_mut().zip(&mut new) {
-                new.update(old);
+        old.truncate_rest().extend(new, |view, b| {
+            let built = view.build(unsafe { b.cast() });
 
-                p.fragment.append(old.js());
-                p.visible += 1;
-            }
+            p.fragment.append(built.js());
 
-            for new in new {
-                let built = new.build();
-
-                p.fragment.append(built.js());
-                p.list.push(built);
-                p.visible += 1;
-            }
-        }
+            unsafe { built.cast() }
+        });
     }
 }
 
 impl<V: View> View for Vec<V> {
     type Product = ListProduct<V::Product>;
 
-    fn build(self) -> Self::Product {
-        List(self).build()
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        List(self).build(p)
     }
 
     fn update(self, p: &mut Self::Product) {
@@ -114,8 +104,8 @@ where
 {
     type Product = ListProduct<<&'a V as View>::Product>;
 
-    fn build(self) -> Self::Product {
-        List(self).build()
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        List(self).build(p)
     }
 
     fn update(self, p: &mut Self::Product) {
@@ -126,8 +116,8 @@ where
 impl<V: View, const N: usize> View for [V; N] {
     type Product = ListProduct<V::Product>;
 
-    fn build(self) -> Self::Product {
-        List(self).build()
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        List(self).build(p)
     }
 
     fn update(self, p: &mut Self::Product) {

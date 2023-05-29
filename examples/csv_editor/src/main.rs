@@ -1,6 +1,5 @@
 use kobold::prelude::*;
-use wasm_bindgen_futures::spawn_local;
-use web_sys::HtmlInputElement as Input;
+use web_sys::HtmlInputElement as InputElement;
 
 mod csv;
 mod state;
@@ -10,24 +9,22 @@ use state::{Editing, State, Text};
 #[component]
 fn Editor() -> impl View {
     stateful(State::mock, |state| {
-        let onload = state.bind_signal(|signal, e: Event<Input>| {
-            let file = match e.target().files().and_then(|list| list.get(0)) {
+        let onload = state.bind_async(|state, event: Event<InputElement>| async move {
+            let file = match event.target().files().and_then(|list| list.get(0)) {
                 Some(file) => file,
                 None => return,
             };
 
-            signal.update(|state| state.name = file.name());
+            state.update(|state| state.name = file.name());
 
-            let signal = signal.clone();
-
-            spawn_local(async move {
-                if let Ok(table) = csv::read_file(file).await {
-                    signal.update(move |state| state.table = table);
-                }
-            })
+            if let Ok(table) = csv::read_file(file).await {
+                state.update(move |state| state.table = table);
+            }
         });
 
-        bind! { state:
+        bind! {
+            state:
+
             let onkeydown = move |event: KeyboardEvent<_>| {
                 if matches!(event.key().as_str(), "Esc" | "Escape") {
                     state.editing = Editing::None;
@@ -68,7 +65,7 @@ fn Head(col: usize, state: &Hook<State>) -> impl View + '_ {
     let value = state.source.get_text(&state.columns[col]);
 
     if state.editing == (Editing::Column { col }) {
-        let onchange = state.bind(move |state, e: Event<Input>| {
+        let onchange = state.bind(move |state, e: Event<InputElement>| {
             state.columns[col] = Text::Owned(e.target().value().into());
             state.editing = Editing::None;
         });
@@ -93,7 +90,7 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
         bind! {
             state:
 
-            let onchange = move |e: Event<Input>| {
+            let onchange = move |e: Event<InputElement>| {
                 state.rows[row][col] = Text::Owned(e.target().value().into());
                 state.editing = Editing::None;
             };
@@ -101,7 +98,7 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 
         let mut selected = false;
 
-        let onmouseenter = move |e: MouseEvent<Input>| {
+        let onmouseenter = move |e: MouseEvent<InputElement>| {
             if !selected {
                 let input = e.target();
                 input.focus();

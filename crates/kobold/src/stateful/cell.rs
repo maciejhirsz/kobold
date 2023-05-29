@@ -17,27 +17,30 @@ impl<T> WithCell<T> {
         }
     }
 
-    pub fn with<F>(&self, mutator: F)
+    pub fn with<F, O>(&self, mutator: F) -> O
     where
-        F: FnOnce(&mut T),
+        F: FnOnce(&mut T) -> O,
+        O: 'static,
     {
         if self.borrowed.get() {
             wasm_bindgen::throw_str("Cyclic state borrowing");
         }
 
         self.borrowed.set(true);
-        mutator(unsafe { &mut *self.data.get() });
+        let result = mutator(unsafe { &mut *self.data.get() });
         self.borrowed.set(false);
+        result
     }
 
     pub unsafe fn ref_unchecked(&self) -> &T {
-        debug_assert_eq!(self.borrowed.get(), false);
+        debug_assert!(!self.borrowed.get());
 
         &*self.data.get()
     }
 
+    #[allow(clippy::mut_from_ref)]
     pub unsafe fn mut_unchecked(&self) -> &mut T {
-        debug_assert_eq!(self.borrowed.get(), false);
+        debug_assert!(!self.borrowed.get());
 
         &mut *self.data.get()
     }

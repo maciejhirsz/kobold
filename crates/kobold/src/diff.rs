@@ -10,8 +10,13 @@ use web_sys::Node;
 
 use crate::attribute::Attribute;
 use crate::dom::{Anchor, TextContent};
+use crate::internal::{In, Out};
 use crate::value::{IntoText, Value};
-use crate::{Mountable, View};
+use crate::{init, Mountable, View};
+
+mod vstring;
+
+pub use vstring::VString;
 
 /// This is a wrapper around a `view` that will prevent updates to it, unless
 /// the value of `guard` has changed.
@@ -70,11 +75,13 @@ where
 {
     type Product = Fence<D::Memo, V::Product>;
 
-    fn build(self) -> Self::Product {
-        Fence {
-            guard: self.guard.into_memo(),
-            inner: (self.inner)().build(),
-        }
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        p.in_place(|p| unsafe {
+            init!(p.guard = self.guard.into_memo());
+            init!(p.inner @ (self.inner)().build(p));
+
+            Out::from_raw(p)
+        })
     }
 
     fn update(self, p: &mut Self::Product) {
@@ -228,8 +235,8 @@ macro_rules! impl_no_diff {
         {
             type Product = Node;
 
-            fn build(self) -> Node {
-                self.into_text()
+            fn build(self, p: In<Node>) -> Out<Node> {
+                p.put(self.into_text())
             }
 
             fn update(self, node: &mut Node) {

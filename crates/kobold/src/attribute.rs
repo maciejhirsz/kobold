@@ -7,7 +7,7 @@ use std::ops::Deref;
 
 use web_sys::Node;
 
-use crate::diff::{Diff, Ref};
+use crate::diff::{Diff, Ref, VString};
 use crate::dom::Property;
 use crate::internal;
 use crate::value::Value as Text;
@@ -160,7 +160,7 @@ macro_rules! impl_attribute_view {
     };
 }
 
-impl_attribute_view!(&str, &String, &Ref<str>);
+impl_attribute_view!(&str, &String, &Ref<str>, &VString);
 impl_attribute_view!(u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64);
 
 #[inline]
