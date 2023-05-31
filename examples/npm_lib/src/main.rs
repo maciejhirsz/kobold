@@ -23,22 +23,14 @@ impl State {
 }
 
 async fn onclick_pjs_process(state: Signal<State>, event: MouseEvent<HtmlElement>) {
-    let res: Result<wasm_bindgen::JsValue, wasm_bindgen::JsValue> =
-        js::browser_js::run_npm_lib().await;
+    let res = js::browser_js::run_npm_lib().await;
+        
+    let hash = match res.ok().and_then(|value| value.as_string()) {
+        Some(hash) => hash,
+        None => panic!("error fetching from API"),
+    };
 
-    state.update(move |state| match res {
-        Ok(jsv) => {
-            debug!("jsv {:?}", jsv);
-            match JsValue::as_string(&jsv) {
-                Some(hash) => {
-                    debug!("hash {:?}", hash);
-                    state.hash = hash;
-                }
-                None => panic!("error converting JsValue to String for hash"),
-            }
-        }
-        _ => panic!("error fetching from API"),
-    });
+    state.update(move |state| state.hash = hash);
 }
 
 #[component]
