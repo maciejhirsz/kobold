@@ -220,6 +220,7 @@ dependencies = [
 name = "kobold_npm_lib_example"
 version = "0.1.0"
 dependencies = [
+ "gloo-console",
  "js-sys",
  "kobold",
  "log",

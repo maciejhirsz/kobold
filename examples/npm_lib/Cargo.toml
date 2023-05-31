@@ -8,6 +8,7 @@ name = "main"
 path = "src/main.rs"
 
 [dependencies]
+gloo-console = "0.2.3"
 kobold = { version = "0.8.1", path = "../../crates/kobold" }
 js-sys = "0.3.61"
 log = "0.4.17"
