@@ -13,15 +13,9 @@ async fn onclick_pjs_process_async() -> Result<wasm_bindgen::JsValue, wasm_bindg
 
 #[wasm_bindgen_test]
 async fn test_onclick_pjs_process() {
-    let expected = JsValue::from_str("0x00");
+    let expected = "0x00";
 
-    let promise: Promise = future_to_promise(async {
-        let val = onclick_pjs_process_async().await.unwrap();
-        Ok(val)
-    });
-
-    // Convert that promise into a future and make the test wait on it.
-    let actual = JsFuture::from(promise).await.unwrap();
+    let actual = run_npm_lib().await.unwrap().as_string().unwrap();
 
     assert_eq!(actual, expected);
 }
