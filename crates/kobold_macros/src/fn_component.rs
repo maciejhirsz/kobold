@@ -283,6 +283,7 @@ impl Parse for Argument {
 
 impl Tokenize for FnComponent {
     fn tokenize_in(self, out: &mut TokenStream) {
+        let mut mo = TokenStream::new();
         let name = &self.name;
 
         let mut finder: Option<GenericFinder> = match &self.generics {
@@ -293,10 +294,9 @@ impl Tokenize for FnComponent {
         let mut args = if self.arguments.is_empty() {
             ("_:", name).tokenize()
         } else {
-            let destruct = (name, block(each(self.arguments.iter().map(Argument::name))));
+            let destruct = ("__Props", block(each(self.arguments.iter().map(Argument::name))));
             let props_ty = (
-                name,
-                '<',
+                "__Props<",
                 each(self.arguments.iter().map(Argument::ty)),
                 '>',
             );
@@ -312,17 +312,17 @@ impl Tokenize for FnComponent {
             None => "#[doc(hidden)] pub fn __render",
         };
 
-        out.write((
-            "#[allow(non_camel_case_types)]",
-            self.r#pub,
+        mo.write((
+            "#[doc(hidden)] #[allow(non_camel_case_types)] pub",
             self.r#struct,
-            name,
+            // name,
+            "__Props",
         ));
 
         if self.arguments.is_empty() {
-            out.write(';');
+            mo.write(';');
         } else {
-            out.write((
+            mo.write((
                 '<',
                 each(self.arguments.iter().map(Argument::generic)).tokenize(),
                 '>',
@@ -342,26 +342,33 @@ impl Tokenize for FnComponent {
         );
 
         let fn_props = (
-            "#[doc(hidden)] pub const fn __undefined() -> Self",
+            "#[doc(hidden)] pub const fn __undefined() -> __Props",
             block((
-                "Self",
+                "__Props",
                 block(each(self.arguments.iter().map(Argument::default)).tokenize()),
             )),
         );
 
-        out.write(("impl", name, block((fn_props, fn_render))));
+        mo.write((fn_props, fn_render));
+        // out.write(("impl", name, block((fn_props, fn_render))));
 
         let field_generics = ('<', each(self.arguments.iter().map(Argument::name)), '>').tokenize();
 
-        out.write((
+        mo.write((
             "#[allow(non_camel_case_types)] impl",
             field_generics.clone(),
-            name,
+            "__Props",
             field_generics,
             block(each(self.arguments.iter().enumerate().map(|(i, a)| {
-                a.setter(name, finder.as_mut(), i, &self.arguments)
+                a.setter(finder.as_mut(), i, &self.arguments)
             }))),
         ));
+
+        // panic!("{mo}");
+
+        out.write((self.r#pub, "mod", name, block(("use super::*;", mo))));
+
+        // out.write(mo);
     }
 }
 
@@ -390,7 +397,6 @@ impl Argument {
 
     fn setter<'a>(
         &'a self,
-        comp: &'a Ident,
         finder: Option<&mut GenericFinder>,
         pos: usize,
         args: &'a [Argument],
@@ -427,7 +433,7 @@ impl Argument {
             }
         }
 
-        let ret_type = ("->", comp, '<', ret_generics, '>', where_clause);
+        let ret_type = ("-> __Props<", ret_generics, '>', where_clause);
 
         (
             "#[inline(always)] pub fn ",
@@ -442,7 +448,7 @@ impl Argument {
                 ("self, value:", maybe_ty),
             ),
             ret_type,
-            block((comp, block(body))),
+            block(("__Props", block(body))),
         )
     }
 

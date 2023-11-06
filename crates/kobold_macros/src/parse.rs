@@ -94,7 +94,7 @@ impl Tokenize for ParseError {
             })
             .collect::<TokenStream>();
 
-        ("fn _parse_error()", block(err)).tokenize_in(stream)
+        block(("fn _parse_error()", block(err), "0")).tokenize_in(stream)
     }
 }
 

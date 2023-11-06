@@ -81,7 +81,7 @@ impl View for String {
         p.put(TextProduct { memo: self, node })
     }
 
-    fn update(self, mut p: &mut Self::Product) {
+    fn update(self, p: &mut Self::Product) {
         if p.memo != self {
             p.memo = self;
             p.memo.set_prop(TextContent, &p.node);

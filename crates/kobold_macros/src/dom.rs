@@ -100,9 +100,7 @@ impl Node {
             Some(Ok(ShallowNode::Expression(expr))) => {
                 return Ok(Some(Expression::from(expr).into()));
             }
-            Some(Err(error)) => {
-                return Err(error.msg("Expected a tag, a string literal, or an {expression}"))
-            }
+            Some(Err(error)) => return Err(error),
             None => return Ok(None),
         };
 
