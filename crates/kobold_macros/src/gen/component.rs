@@ -13,9 +13,9 @@ impl Component {
         let mut render = self.path.clone();
 
         render.write(if self.children.is_some() {
-            "::__render_with"
+            "::render_with"
         } else {
-            "::__render"
+            "::render"
         });
 
         if let Some(generics) = self.generics {
@@ -24,7 +24,7 @@ impl Component {
 
         let mut params = self.path;
 
-        params.write("::__undefined()");
+        params.write("::props()");
 
         for Property { name, expr } in self.props {
             params.write(('.', call(name, expr.stream)));

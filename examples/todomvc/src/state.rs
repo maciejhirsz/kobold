@@ -1,5 +1,3 @@
-use kobold::{prelude::*, event::Listener};
-
 use gloo_storage::{LocalStorage, Storage};
 use wasm_bindgen::UnwrapThrowExt;
 

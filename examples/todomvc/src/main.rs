@@ -20,15 +20,15 @@ fn app(state: &Hook<State>) -> impl View + '_ {
             <section.todoapp>
                 <header.header>
                     <h1>"todos"</h1>
-                    <entry_input {state} />
+                    <!entry_input {state}>
                 </header>
                 <section .main.{hidden}>
-                    <ToggleAll {active_count} {state} />
+                    <!toggle_all {active_count} {state}>
                     <ul.todo-list>
                         {
                             for state
                                 .filtered_entries()
-                                .map(move |(idx, entry)| view! { <!entry_view {idx} {entry} {state}> })
+                                .map(move |(idx, entry)| view! { <!entry {idx} {entry} {state}> })
                         }
                 </section>
                 <footer.footer.{hidden}>
@@ -42,9 +42,9 @@ fn app(state: &Hook<State>) -> impl View + '_ {
                         }
                     </span>
                     <ul.filters>
-                        <filter by={Filter::All} {state} />
-                        <filter by={Filter::Active} {state} />
-                        <filter by={Filter::Completed} {state} />
+                        <!filter by={Filter::All} {state}>
+                        <!filter by={Filter::Active} {state}>
+                        <!filter by={Filter::Completed} {state}>
                     </ul>
                     <button.clear-completed.{completed_hidden} onclick={clear}> "Clear completed"
             </section>
@@ -75,19 +75,19 @@ fn entry_input(state: &Hook<State>) -> impl View + '_ {
 }
 
 #[component]
-fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl View + '_ {
+fn toggle_all(active_count: usize, state: &Hook<State>) -> impl View + '_ {
     bind! { state:
         let onclick = move |_| state.set_all(active_count != 0);
     }
 
     view! {
         <input #toggle-all.toggle-all type="checkbox" checked={active_count == 0} {onclick}>
-        <label for="toggle-all" />
+        <label for="toggle-all">
     }
 }
 
 #[component]
-fn entry_view<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl View + 'a {
+fn entry<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl View + 'a {
     let input = entry.editing.then(move || {
         bind! {
             state:
@@ -134,7 +134,7 @@ fn entry_view<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl 
                     { ref entry.description }
                 </label>
                 <button.destroy onclick={remove}>
-            // </div>
+            </div>
             { input }
     }
 }
