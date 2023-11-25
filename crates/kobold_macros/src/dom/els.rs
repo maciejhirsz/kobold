@@ -1,20 +1,44 @@
-use std::fmt::{self, Debug};
+use std::fmt::{self, Debug, Display};
 use std::ops::Deref;
 
 use fnv::FnvHashMap;
 use once_cell::sync::Lazy;
 
+macro_rules! build_tags_aux {
+    (
+		@parse_option $ns:literal
+	) => {
+        Some($ns)
+    };
+    (
+		@parse_option
+	) => {
+        None
+    };
+}
+
 macro_rules! build_tags {
     (
-        $($variant:ident $tag:literal $closing:expr;)*
+        $($variant:ident $tag:literal $(: $ns:literal)? $closing:expr;)*
     ) => {
         const VARIANTS: usize = 0 $(+ { let _ = ElementTag::$variant; 1 })*;
 
-        #[derive(Clone, Copy, PartialEq, Eq)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         #[repr(u8)]
         pub enum ElementTag {
             $($variant,)*
         }
+
+		impl ElementTag {
+			pub fn namespace(self) -> Option<&'static str> {
+				match self {
+					$(
+					Self::$variant =>
+						build_tags_aux!(@parse_option $($ns)?),
+					)*
+				}
+			}
+		}
 
         static TAGS: [&str; VARIANTS] = [$($tag,)*];
 
@@ -30,7 +54,7 @@ macro_rules! build_tags {
     };
 }
 
-impl Debug for ElementTag {
+impl Display for ElementTag {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self)
     }
@@ -92,6 +116,14 @@ impl ElementTag {
         };
 
         tags.contains(&other)
+    }
+
+    pub fn to_js_create_element(self) -> String {
+        if let Some(ns) = self.namespace() {
+            format!(r#"document.createElementNS("{ns}", "{self}")"#)
+        } else {
+            format!(r#"document.createElement("{self}")"#)
+        }
     }
 }
 
@@ -223,4 +255,12 @@ build_tags! {
     Var         "var"           __;
     Video       "video"         __;
     Wbr         "wbr"           ForbidsChildren;
+	// some SVG tags
+	Svg         "svg"     : "http://www.w3.org/2000/svg" __;
+	SvgPath     "path"    : "http://www.w3.org/2000/svg" ForbidsChildren;
+	SvgCircle   "circle"  : "http://www.w3.org/2000/svg" ForbidsChildren;
+	SvgRect     "rect"    : "http://www.w3.org/2000/svg" ForbidsChildren;
+	SvgPolygon  "polygon" : "http://www.w3.org/2000/svg" ForbidsChildren;
+	SvgEllipse  "ellipse" : "http://www.w3.org/2000/svg" ForbidsChildren;
+	SvgText     "text"    : "http://www.w3.org/2000/svg" __;
 }

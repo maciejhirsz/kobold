@@ -92,10 +92,12 @@ impl Generator {
                 args,
                 hoisted: _,
             }) => {
+                let create_tag = tag.to_js_create_element();
+
                 let body = if code.is_empty() {
-                    format!("return document.createElement(\"{tag:?}\");\n")
+                    format!("return {create_tag};\n")
                 } else {
-                    format!("let {var}=document.createElement(\"{tag:?}\");\n{code}return {var};\n")
+                    format!("let {var}={create_tag};\n{code}return {var};\n")
                 };
 
                 (var, body, args, Anchor::Element(typ))
