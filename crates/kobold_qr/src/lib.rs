@@ -10,7 +10,7 @@ use kobold::diff::fence;
 use web_sys::CanvasRenderingContext2d;
 
 #[component(size?: 200)]
-pub fn KoboldQR(data: &str, size: usize) -> impl View + '_ {
+pub fn qr(data: &str, size: usize) -> impl View + '_ {
     fence(data, move || {
         let qr = QRBuilder::new(data).build().ok()?;
         let pixel = ((size / qr.size) + 1) * 2;

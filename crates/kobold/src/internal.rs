@@ -15,14 +15,14 @@ use crate::View;
 
 /// Uninitialized stable pointer to `T`.
 ///
-/// Used for the initialize-in-place strategy employed by the [`View::build`](View::build) method.
+/// Used for the initialize-in-place strategy employed by the [`View::build`] method.
 #[must_use]
 #[repr(transparent)]
 pub struct In<'a, T>(&'a mut MaybeUninit<T>);
 
 /// Initialized stable pointer to `T`.
 ///
-/// Used for the initialize-in-place strategy employed by the [`View::build`](View::build) method.
+/// Used for the initialize-in-place strategy employed by the [`View::build`] method.
 #[repr(transparent)]
 pub struct Out<'a, T>(&'a mut T);
 
@@ -174,7 +174,7 @@ macro_rules! init {
     };
 }
 
-/// Wrapper that turns `extern` precompiled JavaScript functions into [`View`](View)s.
+/// Wrapper that turns `extern` precompiled JavaScript functions into [`View`]s.
 #[repr(transparent)]
 pub struct Precompiled<F>(pub F);
 

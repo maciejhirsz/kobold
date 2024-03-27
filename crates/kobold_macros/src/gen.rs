@@ -20,7 +20,7 @@ mod transient;
 pub use element::JsElement;
 pub use fragment::{append, JsFragment};
 pub use transient::{Anchor, Field, FieldKind, Hint, Transient};
-pub use transient::{JsArgument, JsFnName, JsFunction, JsModule, JsString};
+pub use transient::{JsArgument, JsFnName, JsFunction, JsString};
 
 // Short string for auto-generated variable names
 pub type Short = ArrayString<4>;

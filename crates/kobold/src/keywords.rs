@@ -8,7 +8,7 @@ use crate::diff::{Eager, Ref, Static};
 use crate::list::List;
 use crate::View;
 
-/// `{ for ... }`: turn an [`IntoIterator`](IntoIterator) type into a [`View`](View).
+/// `{ for ... }`: turn an [`IntoIterator`] type into a [`View`].
 ///
 /// ```
 /// # use kobold::prelude::*;
@@ -42,7 +42,7 @@ where
 /// }
 ///
 /// #[component]
-/// fn UserRow(user: &User) -> impl View + '_ {
+/// fn user_row(user: &User) -> impl View + '_ {
 ///     view! {
 ///         <tr>
 ///             // If `name` and `email` are always sent to the UI as

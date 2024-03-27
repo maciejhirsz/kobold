@@ -300,7 +300,7 @@ impl Tokenize for FnComponent {
         };
 
         let mut args = if self.arguments.is_empty() {
-            ("_:", name).tokenize()
+            "_: Props".tokenize()
         } else {
             let destruct = (
                 "Props",
@@ -314,12 +314,12 @@ impl Tokenize for FnComponent {
         let fn_render = match self.children {
             Some(children) => {
                 args.write((',', children));
-                "#[doc(hidden)] pub fn render_with"
+                "pub fn render_with"
             }
-            None => "#[doc(hidden)] pub fn render",
+            None => "pub fn render",
         };
 
-        mo.write("#[doc(hidden)] #[allow(non_camel_case_types)] pub struct Props");
+        mo.write("#[allow(non_camel_case_types)] pub struct Props");
 
         if self.arguments.is_empty() {
             mo.write(';');
@@ -347,7 +347,7 @@ impl Tokenize for FnComponent {
         );
 
         let fn_props = (
-            "#[doc(hidden)] pub const fn props() -> Props",
+            "pub const fn props() -> Props",
             block((
                 "Props",
                 block(each(self.arguments.iter().map(Argument::default)).tokenize()),
@@ -376,7 +376,13 @@ impl Tokenize for FnComponent {
         out.write((&self.r#pub, self.r#fn, name, self.generics, self.raw_args));
         out.write((self.ret, block(self.render)));
 
-        out.write((self.r#pub, self.r#mod, name, block(("use super::*;", mo))));
+        out.write((
+            format!("#[doc = \"`#[component]` handlers for the [`{name}`](fn.{name}.html) function.\"]").as_str(),
+            self.r#pub,
+            self.r#mod,
+            name,
+            block(("use super::*;", mo)),
+        ));
     }
 }
 

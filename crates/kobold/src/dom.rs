@@ -27,7 +27,7 @@ pub trait Mountable: 'static {
     fn replace_with(&self, new: &JsValue);
 }
 
-/// A light-weight [`Deref`](Deref)-like trait that
+/// A light-weight [`Deref`]-like trait that
 /// auto-implements `Mountable` by proxying it to another type.
 pub trait Anchor {
     type Js: JsCast;

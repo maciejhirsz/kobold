@@ -2,12 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! The [`Maybe`](Maybe) trait and its implementations
+//! The [`Maybe`] trait and its implementations
 
 /// Undefined component parameter. If you've encountered this type it usually means
 /// you've failed to set a required component parameter.
 ///
-/// This is a zero-sized type that implements [`Maybe<T>`](Maybe) for all `T: Default`.
+/// This is a zero-sized type that implements [`Maybe<T>`](Maybe) for all `T`.
 pub struct Undefined;
 
 /// Helper trait for handling optional parameters in components.
