@@ -45,6 +45,7 @@
 //!         view! { <blockquote>"It was love at first sight."</blockquote> }
 //!     }
 //! }
+//! # fn main() {}
 //! ```
 //!
 //! This flag is not enabled by default, yet, as there might be situations [`auto_branch`](crate::component#componentauto_branch)
@@ -70,6 +71,7 @@
 //!         })
 //!     }
 //! }
+//! # fn main() {}
 //! ```
 //!
 //! This is in fact all that the [`auto_branch`](crate::component#componentauto_branch) flag does for you automatically.
@@ -88,6 +90,7 @@
 //!         None
 //!     }
 //! }
+//! # fn main() {}
 //! ```
 
 use std::mem::MaybeUninit;

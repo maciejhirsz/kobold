@@ -129,6 +129,7 @@
 //!     }
 //! }
 //!
+//! # fn main() {
 //! # let _ =
 //! view! {
 //!     // Status code was 200
@@ -136,7 +137,7 @@
 //!     // Status code was 404
 //!     <!status code={404} />
 //! }
-//! # ;
+//! # ; }
 //! ```
 //!
 //! For more details visit the [`#[component]` macro documentation](component#optional-parameters-componentparam).
@@ -160,6 +161,7 @@
 //!         view! { <blockquote> "It was love at first sight." }
 //!     }
 //! }
+//! # fn main() {}
 //! ```
 //!
 //! For more details visit the [`branching` module documentation](branching).
@@ -180,6 +182,7 @@
 //!         }
 //!     }
 //! }
+//! # fn main() {}
 //! ```
 //!
 //! On updates the iterator is consumed once and all items are diffed with the previous version.
@@ -205,6 +208,7 @@
 //!         }
 //!     }
 //! }
+//! # fn main() {}
 //! ```
 //!
 //! ### Components with Children
@@ -285,6 +289,7 @@
 ///         <p>"Hello, world!"</p>
 ///     }
 /// }
+/// # fn main() {}
 /// ```
 ///
 /// ## Flags
@@ -316,7 +321,7 @@
 ///     }
 /// }
 ///
-/// # let _ =
+/// # fn main() { let _ =
 /// view! {
 ///     // Hello Kobold
 ///     <!greeter />
@@ -325,7 +330,7 @@
 ///     // Hello Bob, you are 42 years old
 ///     <!greeter name="Bob" age={42} />
 /// }
-/// # ;
+/// # ; }
 /// ```
 ///
 /// Optional parameters of any type `T` can be set using any type that implements
@@ -341,7 +346,7 @@
 ///     }
 /// }
 ///
-/// # let _ =
+/// # fn main() { let _ =
 /// view! {
 ///     // Status code was 200
 ///     <!status_code />
@@ -353,7 +358,7 @@
 ///     // Status code was 500
 ///     <!status_code code={Some(500)} />
 /// }
-/// # ;
+/// # ; }
 /// ```
 ///
 /// All values are lazy-evaluated:
@@ -367,6 +372,7 @@
 ///         <p> "Hello "{ name }
 ///     }
 /// }
+/// # fn main() {}
 /// ```
 ///
 /// #### 💡 Note:

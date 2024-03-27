@@ -53,6 +53,7 @@ where
 ///         </tr>
 ///     }
 /// }
+/// # fn main() {}
 /// ```
 pub const fn r#ref(value: &str) -> &Ref<str> {
     unsafe { &*(value as *const _ as *const Ref<str>) }

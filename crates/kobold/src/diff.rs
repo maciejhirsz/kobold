@@ -48,6 +48,7 @@ pub use vstring::VString;
 ///         </tr>
 ///     })
 /// }
+/// # fn main() {}
 /// ```
 pub const fn fence<D, V, F>(guard: D, render: F) -> Fence<D, F>
 where
