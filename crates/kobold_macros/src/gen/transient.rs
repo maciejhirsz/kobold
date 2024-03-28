@@ -32,7 +32,7 @@ pub struct Hint {
 
 impl Transient {
     fn is_const(&self) -> bool {
-        let jsfn = match self.js.functions.get(0) {
+        let jsfn = match self.js.functions.first() {
             Some(fun) => fun,
             None => return false,
         };

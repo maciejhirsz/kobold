@@ -1,7 +1,7 @@
 use kobold::prelude::*;
 
 #[component]
-fn ListExample(count: u32) -> impl View {
+fn list_example(count: u32) -> impl View {
     stateful(count, |count| {
         bind! { count:
             let dec = move |_| *count = count.saturating_sub(1);
@@ -23,21 +23,19 @@ fn ListExample(count: u32) -> impl View {
                     //
                     // On subsequent renders `Kobold` can very cheaply diff items yielded
                     // by iterators, avoiding allocations unless new items are added.
-                    //
-                    // `{n}` is just shorthand for `n={n}`.
-                    for (1..=count.get()).map(|n| view! { <ListItem {n} /> })
+                    for (1..=count.get()).map(list_item)
                 }
         }
     })
 }
 
 #[component]
-fn ListItem(n: u32) -> impl View {
+fn list_item(n: u32) -> impl View {
     view! { <li>"Item #"{ n }</li> }
 }
 
 fn main() {
     kobold::start(view! {
-        <ListExample count={2} />
+        <!list_example count={2}>
     });
 }

@@ -1,26 +1,23 @@
 use kobold::prelude::*;
 
-#[component]
-fn Counter() -> impl View {
-    stateful(0_u32, |count| {
-        bind! { count:
-            let onclick = move |_| *count += 1;
-            let reset = move |_| *count = 0;
-        }
+fn app(count: &Hook<u32>) -> impl View + '_ {
+    bind! { count:
+        let onclick = move |_| *count += 1;
+        let reset = move |_| *count = 0;
+    }
 
-        view! {
-            <p>
-                <ShowCount count={count.get()} />
+    view! {
+        <p>
+            <!counter count={count.get()}>
 
-                // `{onclick}` here is shorthand for `onclick={onclick}`
-                <button {onclick}>"Click me!"</button>
-                <button onclick={reset}>"Reset"</button>
-        }
-    })
+            // `{onclick}` here is shorthand for `onclick={onclick}`
+            <button {onclick}>"Click me!"</button>
+            <button onclick={reset}>"Reset"</button>
+    }
 }
 
 #[component(auto_branch)]
-fn ShowCount(count: u32) -> impl View {
+fn counter(count: u32) -> impl View {
     let count = match count {
         0 => view! { "zero times." },
         1 => view! { "once." },
@@ -31,7 +28,5 @@ fn ShowCount(count: u32) -> impl View {
 }
 
 fn main() {
-    kobold::start(view! {
-        <Counter />
-    });
+    kobold::start(stateful(0_u32, app));
 }

@@ -27,8 +27,8 @@
 //! string or an integer only updates the exact [`Text` node](https://developer.mozilla.org/en-US/docs/Web/API/Text)
 //! that string or integer was rendered to.
 //!
-//! _If the [`view!`](view) macro invocation contains DOM elements with no expressions, the constructed [`View`](View)
-//! type will be zero-sized, and its [`View::update`](View::update) method will be empty, making updates of static
+//! _If the [`view!`](view) macro invocation contains DOM elements with no expressions, the constructed [`View`]
+//! type will be zero-sized, and its [`View::update`] method will be empty, making updates of static
 //! HTML literally zero-cost._
 //!
 //! ### Hello World!
@@ -39,7 +39,7 @@
 //! use kobold::prelude::*;
 //!
 //! #[component]
-//! fn Hello(name: &str) -> impl View + '_ {
+//! fn hello(name: &str) -> impl View + '_ {
 //!     view! {
 //!         <h1>"Hello "{ name }"!"</h1>
 //!     }
@@ -47,12 +47,12 @@
 //!
 //! fn main() {
 //!     kobold::start(view! {
-//!         <Hello name="Kobold" />
+//!         <!hello name="Kobold">
 //!     });
 //! }
 //! ```
 //!
-//! The component function must return a type that implements the [`View`](View) trait. Since the [`view!`](view) macro
+//! The component function must return a type that implements the [`View`] trait. Since the [`view!`](view) macro
 //! produces transient locally defined types the best approach here is to always use the opaque `impl View` return type.
 //!
 //! Everything here is statically typed and the macro doesn't delete any information when manipulating the
@@ -62,8 +62,8 @@
 //! error[E0560]: struct `Hello` has no field named `nam`
 //!   --> examples/hello_world/src/main.rs:12:16
 //!    |
-//! 12 |         <Hello nam="Kobold" />
-//!    |                ^^^ help: a field with a similar name exists: `name`
+//! 12 |         <!hello nam="Kobold">
+//!    |                 ^^^ help: there is a method with a similar name: `name`
 //! ```
 //!
 //! You can even use [rust-analyzer](https://rust-analyzer.github.io/) to refactor component or field names,
@@ -78,7 +78,7 @@
 //! use kobold::prelude::*;
 //!
 //! #[component]
-//! fn Counter(init: u32) -> impl View {
+//! fn counter(init: u32) -> impl View {
 //!     stateful(init, |count| {
 //!         bind! { count:
 //!             // Create an event handler with access to `&mut u32`
@@ -98,7 +98,7 @@
 //!
 //! fn main() {
 //!     kobold::start(view! {
-//!         <Counter init={0} />
+//!         <!counter init={0}>
 //!     });
 //! }
 //! ```
@@ -123,20 +123,21 @@
 //! # use kobold::prelude::*;
 //! // `code` will default to `200` if omitted
 //! #[component(code?: 200)]
-//! fn Status(code: u32) -> impl View {
+//! fn status(code: u32) -> impl View {
 //!     view! {
 //!         <p> "Status code was "{ code }
 //!     }
 //! }
 //!
+//! # fn main() {
 //! # let _ =
 //! view! {
 //!     // Status code was 200
-//!     <Status />
+//!     <!status>
 //!     // Status code was 404
-//!     <Status code={404} />
+//!     <!status code={404}>
 //! }
-//! # ;
+//! # ; }
 //! ```
 //!
 //! For more details visit the [`#[component]` macro documentation](component#optional-parameters-componentparam).
@@ -153,13 +154,14 @@
 //! ```
 //! # use kobold::prelude::*;
 //! #[component(auto_branch)]
-//! fn Conditional(illuminatus: bool) -> impl View {
+//! fn conditional(illuminatus: bool) -> impl View {
 //!     if illuminatus {
 //!         view! { <p> "It was the year when they finally immanentized the Eschaton." }
 //!     } else {
 //!         view! { <blockquote> "It was love at first sight." }
 //!     }
 //! }
+//! # fn main() {}
 //! ```
 //!
 //! For more details visit the [`branching` module documentation](branching).
@@ -172,7 +174,7 @@
 //! use kobold::prelude::*;
 //!
 //! #[component]
-//! fn IterateNumbers(count: u32) -> impl View {
+//! fn iterate_numbers(count: u32) -> impl View {
 //!     view! {
 //!         <ul>
 //!         {
@@ -180,6 +182,7 @@
 //!         }
 //!     }
 //! }
+//! # fn main() {}
 //! ```
 //!
 //! On updates the iterator is consumed once and all items are diffed with the previous version.
@@ -190,14 +193,14 @@
 //!
 //! ### Borrowed Values
 //!
-//! [`View`](View) types are truly transient and only need to live for the duration of the initial render,
+//! [`View`] types are truly transient and only need to live for the duration of the initial render,
 //! or for the duration of the subsequent update. This means that you can easily and cheaply render borrowed
 //! state without unnecessary clones:
 //!
 //! ```
 //! # use kobold::prelude::*;
 //! #[component]
-//! fn Users<'a>(names: &'a [&'a str]) -> impl View + 'a {
+//! fn users<'a>(names: &'a [&'a str]) -> impl View + 'a {
 //!     view! {
 //!         <ul>
 //!         {
@@ -205,6 +208,7 @@
 //!         }
 //!     }
 //! }
+//! # fn main() {}
 //! ```
 //!
 //! ### Components with Children
@@ -216,7 +220,7 @@
 //! use kobold::prelude::*;
 //!
 //! #[component(children)]
-//! fn Header(children: impl View) -> impl View {
+//! fn header(children: impl View) -> impl View {
 //!     view! {
 //!         <header><h1>{ children }</h1></header>
 //!     }
@@ -224,7 +228,7 @@
 //!
 //! fn main() {
 //!     kobold::start(view! {
-//!         <Header>"Hello Kobold"</Header>
+//!         <!header>"Hello Kobold"</!header>
 //!     });
 //! }
 //! ```
@@ -236,7 +240,7 @@
 //!
 //! // Capture children into the argument `n`
 //! #[component(children: n)]
-//! fn AddTen(n: i32) -> i32 {
+//! fn add_ten(n: i32) -> i32 {
 //!     // integers implement `View` so they can be passed by value
 //!     n + 10
 //! }
@@ -245,7 +249,7 @@
 //!     kobold::start(view! {
 //!         <p>
 //!             "Meaning of life is "
-//!             <AddTen>{ 32 }</AddTen>
+//!             <!add_ten>{ 32 }</!add_ten>
 //!         </p>
 //!     });
 //! }
@@ -280,11 +284,12 @@
 /// ```
 /// # use kobold::prelude::*;
 /// #[component]
-/// fn MyComponent() -> impl View {
+/// fn my_component() -> impl View {
 ///     view! {
 ///         <p>"Hello, world!"</p>
 ///     }
 /// }
+/// # fn main() {}
 /// ```
 ///
 /// ## Flags
@@ -296,7 +301,7 @@
 ///
 /// Allows for parameters to have default values. Available syntax:
 ///
-/// * `#[component(foo?)]`: mark the parameter `foo` as optional, use [`Default`](Default) trait implementation if absent.
+/// * `#[component(foo?)]`: mark the parameter `foo` as optional, use [`Default`] trait implementation if absent.
 /// * `#[component(foo?: <expression>)]`: mark the parameter `foo` as optional, default to `<expression>`.
 ///
 /// #### Examples
@@ -308,7 +313,7 @@
 ///     // Make `age` an optional parameter, use the `Default` value
 ///     age?,
 /// )]
-/// fn Greeter<'a>(name: &'a str, age: Option<u32>) -> impl View + 'a {
+/// fn greeter<'a>(name: &'a str, age: Option<u32>) -> impl View + 'a {
 ///     let age = age.map(|age| view!(", you are "{ age }" years old"));
 ///
 ///     view! {
@@ -316,44 +321,44 @@
 ///     }
 /// }
 ///
-/// # let _ =
+/// # fn main() { let _ =
 /// view! {
 ///     // Hello Kobold
-///     <Greeter />
+///     <!greeter>
 ///     // Hello Alice
-///     <Greeter name="Alice" />
+///     <!greeter name="Alice">
 ///     // Hello Bob, you are 42 years old
-///     <Greeter name="Bob" age={42} />
+///     <!greeter name="Bob" age={42}>
 /// }
-/// # ;
+/// # ; }
 /// ```
 ///
 /// Optional parameters of any type `T` can be set using any type that implements
 /// [`Maybe<T>`](crate::maybe::Maybe).
 ///
-/// This allows you to set optional parameters using an [`Option`](Option):
+/// This allows you to set optional parameters using an [`Option`]:
 /// ```
 /// # use kobold::prelude::*;
 /// #[component(code?: 200)]
-/// fn StatusCode(code: u32) -> impl View {
+/// fn status_code(code: u32) -> impl View {
 ///     view! {
 ///         <p> "Status code was "{ code }
 ///     }
 /// }
 ///
-/// # let _ =
+/// # fn main() { let _ =
 /// view! {
 ///     // Status code was 200
-///     <StatusCode />
+///     <!status_code>
 ///     // Status code was 404
-///     <StatusCode code={404} />
+///     <!status_code code={404}>
 ///
 ///     // Status code was 200
-///     <StatusCode code={None} />
+///     <!status_code code={None}>
 ///     // Status code was 500
-///     <StatusCode code={Some(500)} />
+///     <!status_code code={Some(500)}>
 /// }
-/// # ;
+/// # ; }
 /// ```
 ///
 /// All values are lazy-evaluated:
@@ -362,16 +367,17 @@
 /// # use kobold::prelude::*;
 /// // The owned `String` will only be created if the `name` is not set.
 /// #[component(name?: "Kobold".to_string())]
-/// fn Greeter(name: String) -> impl View {
+/// fn greeter(name: String) -> impl View {
 ///     view! {
 ///         <p> "Hello "{ name }
 ///     }
 /// }
+/// # fn main() {}
 /// ```
 ///
 /// #### 💡 Note:
 ///
-/// You can only mark types that implement the [`Default`](Default) trait as optional, even if you provide
+/// You can only mark types that implement the [`Default`] trait as optional, even if you provide
 /// a concrete value using `param?: value`. This requirement might be relaxed in the future when trait
 /// specialization is stabilized.
 ///
@@ -390,7 +396,7 @@
 /// * `#[component(children: my_name)]`: children will be captured by the `my_name` argument on the function.
 pub use kobold_macros::component;
 
-/// Macro for creating transient [`View`](View) types. See the [main documentation](crate) for details.
+/// Macro for creating transient [`View`] types. See the [main documentation](crate) for details.
 pub use kobold_macros::view;
 
 use wasm_bindgen::JsCast;
@@ -533,7 +539,7 @@ where
     }
 }
 
-/// Start the Kobold app by mounting given [`View`](View) in the document `body`.
+/// Start the Kobold app by mounting given [`View`] in the document `body`.
 pub fn start(view: impl View) {
     init_panic_hook();
 
@@ -556,7 +562,7 @@ fn init_panic_hook() {
         use std::cell::Cell;
 
         thread_local! {
-            static INIT: Cell<bool> = Cell::new(false);
+            static INIT: Cell<bool> = const { Cell::new(false) };
         }
         if !INIT.with(|init| init.get()) {
             std::panic::set_hook(Box::new(console_error_panic_hook::hook));

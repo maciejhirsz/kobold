@@ -44,11 +44,9 @@ export function removeClass(n,v) { n.classList.remove(v); }
 export function replaceClass(n,o,v) { n.classList.replace(o,v); }
 export function toggleClass(n,c,v) { n.classList.toggle(c,v); }
 
-export function makeEventHandler(c,f) { return (e) => koboldCallback(e,c,f); }
-export function checkEventHandler() { if (typeof koboldCallback !== "function") console.error(
-`Missing \`koboldCallback\` in global scope.
-Add the following to your Trunk.toml:
-
-[build]
-pattern_script = "<script type=\\"module\\">import init, { koboldCallback } from '{base}{js}';init('{base}{wasm}');window.koboldCallback = koboldCallback;</script>"
+export function makeEventHandler(c,f) { return (e) => wasmBindings.koboldCallback(e,c,f); }
+export function checkEventHandler() { if (typeof wasmBindings !== "object") console.error(
+`Missing \`wasmBindings\` in global scope.
+As of Kobold v0.10 and Trunk v0.17.16 you no longer need to export bindings manually, \
+please remove the custom \`pattern_script\' from your \`Trunk.toml\` file.
 `) }

@@ -283,6 +283,6 @@ mod test {
         };
 
         // Make sure we can copy the mock twice
-        drop([mock, mock]);
+        let _ = [mock, mock];
     }
 }

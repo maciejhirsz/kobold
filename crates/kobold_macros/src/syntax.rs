@@ -13,6 +13,7 @@ use crate::tokenize::prelude::*;
 
 /// Regular Rust `<Generic, Types>`, we don't care about what they are,
 /// but we do care about nested angle braces.
+#[derive(Clone)]
 pub struct Generics {
     pub tokens: TokenStream,
 }

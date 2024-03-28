@@ -35,7 +35,7 @@ pub use vstring::VString;
 /// }
 ///
 /// #[component]
-/// fn UserRow(user: &User) -> impl View + '_ {
+/// fn user_row(user: &User) -> impl View + '_ {
 ///     fence(user.id, || view! {
 ///         // This row is only re-rendered if `user.id` has changed
 ///         <tr>
@@ -48,6 +48,7 @@ pub use vstring::VString;
 ///         </tr>
 ///     })
 /// }
+/// # fn main() {}
 /// ```
 pub const fn fence<D, V, F>(guard: D, render: F) -> Fence<D, F>
 where
@@ -61,7 +62,7 @@ where
     }
 }
 
-/// Smart [`View`](View) that guards against unnecessary renders, see [`fence`](fence).
+/// Smart [`View`] that guards against unnecessary renders, see [`fence`].
 pub struct Fence<D, F> {
     guard: D,
     inner: F,
@@ -165,7 +166,7 @@ macro_rules! impl_diff {
 impl_diff_str!(&str, &String);
 impl_diff!(bool, u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64);
 
-/// Smart [`View`](View) that only updates its content when the reference to T has changed.
+/// Smart [`View`] that only updates its content when the reference to T has changed.
 /// See [`ref`](crate::keywords::ref).
 #[repr(transparent)]
 pub struct Ref<T: ?Sized>(T);
@@ -203,7 +204,7 @@ impl<T: ?Sized> Diff for &Ref<T> {
     }
 }
 
-/// Smart [`View`](View) that never performs diffing and instead always triggers
+/// Smart [`View`] that never performs diffing and instead always triggers
 /// updates.
 ///
 /// See [`use`](crate::keywords::use)
@@ -211,7 +212,7 @@ impl<T: ?Sized> Diff for &Ref<T> {
 #[repr(transparent)]
 pub struct Eager<T>(pub(crate) T);
 
-/// Smart [`View`](View) that never performs diffing and instead never triggers
+/// Smart [`View`] that never performs diffing and instead never triggers
 /// updates.
 ///
 /// See [`static`](crate::keywords::static)

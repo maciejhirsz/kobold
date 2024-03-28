@@ -7,7 +7,7 @@ mod state;
 use state::{Editing, State, Text};
 
 #[component]
-fn Editor() -> impl View {
+fn editor() -> impl View {
     stateful(State::mock, |state| {
         let onload = state.bind_async(|state, event: Event<InputElement>| async move {
             let file = match event.target().files().and_then(|list| list.get(0)) {
@@ -43,16 +43,14 @@ fn Editor() -> impl View {
                 <thead>
                     <tr>
                     {
-                        for state.columns().map(|col| view! { <Head {col} {state} /> })
+                        for state.columns().map(|col| head(col, state))
                     }
                 <tbody>
                 {
                     for state.rows().map(move |row| view! {
                         <tr>
                         {
-                            for state.columns().map(move |col| view! {
-                                <Cell {col} {row} {state} />
-                            })
+                            for state.columns().map(move |col| cell(col, row, state))
                         }
                     })
                 }
@@ -61,7 +59,7 @@ fn Editor() -> impl View {
 }
 
 #[component(auto_branch)]
-fn Head(col: usize, state: &Hook<State>) -> impl View + '_ {
+fn head(col: usize, state: &Hook<State>) -> impl View + '_ {
     let value = state.source.get_text(&state.columns[col]);
 
     if state.editing == (Editing::Column { col }) {
@@ -83,7 +81,7 @@ fn Head(col: usize, state: &Hook<State>) -> impl View + '_ {
 }
 
 #[component(auto_branch)]
-fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
+fn cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     let value = state.source.get_text(&state.rows[row][col]);
 
     if state.editing == (Editing::Cell { row, col }) {
@@ -121,6 +119,6 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 
 fn main() {
     kobold::start(view! {
-        <Editor />
+        <!editor>
     });
 }

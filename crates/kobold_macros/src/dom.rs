@@ -21,9 +21,7 @@ pub fn parse(tokens: TokenStream) -> Result<Vec<Node>, ParseError> {
 
     let mut nodes = Vec::new();
 
-    while let Some(node) = Node::parse(&mut stream)? {
-        nodes.push(node);
-    }
+    while Node::parse(&mut stream, &mut nodes)? > 0 {}
 
     if nodes.is_empty() {
         return Err(ParseError::new("Empty view! invocation", Span::call_site()));
@@ -91,23 +89,23 @@ impl From<Expression> for AttributeValue {
 }
 
 impl Node {
-    fn parse(stream: &mut ShallowStream) -> Result<Option<Self>, ParseError> {
+    fn parse(stream: &mut ShallowStream, parent: &mut Vec<Node>) -> Result<usize, ParseError> {
         let tag = match stream.next() {
             Some(Ok(ShallowNode::Tag(tag))) => tag,
             Some(Ok(ShallowNode::Literal(lit))) => {
-                return Ok(Some(Node::Text(lit)));
+                parent.push(Node::Text(lit));
+                return Ok(1);
             }
             Some(Ok(ShallowNode::Expression(expr))) => {
-                return Ok(Some(Expression::from(expr).into()));
+                parent.push(Expression::from(expr).into());
+                return Ok(1);
             }
-            Some(Err(error)) => {
-                return Err(error.msg("Expected a tag, a string literal, or an {expression}"))
-            }
-            None => return Ok(None),
+            Some(Err(error)) => return Err(error),
+            None => return Ok(0),
         };
 
         let children = match tag.nesting {
-            TagNesting::SelfClosing => None,
+            TagNesting::SelfClosing => Children::None,
             TagNesting::Opening => Node::parse_children(&tag.name, stream)?,
             TagNesting::Closing => {
                 return Err(ParseError::new(
@@ -131,14 +129,26 @@ impl Node {
                     props.push(content.parse()?);
                 }
 
-                Ok(Some(Node::Component(Component {
+                let (children, tail) = match children {
+                    Children::None => (None, Vec::new()),
+                    Children::Explicit(children) => (Some(children), Vec::new()),
+                    Children::Implicit(tail) => (None, tail),
+                };
+
+                let count = 1 + tail.len();
+
+                parent.push(Node::Component(Component {
                     name,
                     span,
                     path,
                     generics,
                     props,
                     children,
-                })))
+                }));
+
+                parent.extend(tail);
+
+                Ok(count)
             }
             TagName::HtmlElement { name, span } => {
                 let mut content = tag.content.parse_stream();
@@ -174,28 +184,34 @@ impl Node {
                     }
                 }
 
-                Ok(Some(Node::HtmlElement(HtmlElement {
+                let children = match children {
+                    Children::None => None,
+                    Children::Explicit(children) | Children::Implicit(children) => Some(children),
+                };
+
+                parent.push(Node::HtmlElement(HtmlElement {
                     name,
                     span,
                     classes,
                     attributes,
                     children,
-                })))
+                }));
+
+                Ok(1)
             }
         }
     }
 
-    fn parse_children(
-        name: &TagName,
-        stream: &mut ShallowStream,
-    ) -> Result<Option<Vec<Node>>, ParseError> {
+    fn parse_children(name: &TagName, stream: &mut ShallowStream) -> Result<Children, ParseError> {
         let mut children = Vec::new();
+        let mut explicit = false;
 
         loop {
             if let Some(Ok(ShallowNode::Tag(tag))) = stream.peek() {
                 match tag.is_closing(name) {
                     IsClosing::Explicit => {
                         stream.next();
+                        explicit = true;
                         break;
                     }
                     IsClosing::Implicit => {
@@ -205,18 +221,25 @@ impl Node {
                 }
             }
 
-            match Node::parse(stream)? {
-                Some(node) => children.push(node),
-                None => break,
+            if Node::parse(stream, &mut children)? == 0 {
+                break;
             }
         }
 
         if children.is_empty() {
-            Ok(None)
+            Ok(Children::None)
+        } else if explicit {
+            Ok(Children::Explicit(children))
         } else {
-            Ok(Some(children))
+            Ok(Children::Implicit(children))
         }
     }
+}
+
+enum Children {
+    None,
+    Explicit(Vec<Node>),
+    Implicit(Vec<Node>),
 }
 
 impl Parse for Property {

@@ -153,7 +153,7 @@ dependencies = [
 
 [[package]]
 name = "kobold"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "console_error_panic_hook",
  "itoa",
@@ -208,7 +208,7 @@ dependencies = [
 
 [[package]]
 name = "kobold_macros"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "arrayvec",
  "beef",
@@ -300,15 +300,15 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.17.1"
+version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7e5500299e16ebb147ae15a00a942af264cf3688f47923b8fc2cd5858f23ad3"
+checksum = "3fdb12b2476b595f9358c5161aa467c2438859caa136dec86c26fdd2efe17b92"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.58"
+version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa1fb82fc0c281dd9671101b66b771ebbe1eaf967b96ac8740dcba4b70005ca8"
+checksum = "e835ff2298f5721608eb1a980ecaee1aef2c132bf95ecc026a11b7bf3c01c02e"
 dependencies = [
  "unicode-ident",
 ]

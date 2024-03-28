@@ -8,7 +8,7 @@
 //! is no way to update them short of the parent view re-rendering them.
 //!
 //! However a fully functional app like that wouldn't be very useful, as all it
-//! could ever do is render itself once. To get around this the [`stateful`](stateful) function can
+//! could ever do is render itself once. To get around this the [`stateful`] function can
 //! be used to create views that have ownership over some arbitrary mutable state.
 //!
 use std::cell::UnsafeCell;
@@ -50,8 +50,8 @@ pub struct StatefulProduct<S> {
     inner: Rc<Inner<S>>,
 }
 
-/// Create a stateful [`View`](crate::View) over some mutable state. The state
-/// needs to be created using the [`IntoState`](IntoState) trait.
+/// Create a stateful [`View`] over some mutable state. The state
+/// needs to be created using the [`IntoState`] trait.
 ///
 /// ```
 /// # use::kobold::prelude::*;
