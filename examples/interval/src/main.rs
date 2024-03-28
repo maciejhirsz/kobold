@@ -29,6 +29,6 @@ fn elapsed(seconds: u32) -> impl View {
 
 fn main() {
     kobold::start(view! {
-        <!elapsed seconds={0} />
+        <!elapsed seconds={0}>
     });
 }

@@ -47,7 +47,7 @@
 //!
 //! fn main() {
 //!     kobold::start(view! {
-//!         <!hello name="Kobold" />
+//!         <!hello name="Kobold">
 //!     });
 //! }
 //! ```
@@ -62,7 +62,7 @@
 //! error[E0560]: struct `Hello` has no field named `nam`
 //!   --> examples/hello_world/src/main.rs:12:16
 //!    |
-//! 12 |         <!hello nam="Kobold" />
+//! 12 |         <!hello nam="Kobold">
 //!    |                 ^^^ help: there is a method with a similar name: `name`
 //! ```
 //!
@@ -98,7 +98,7 @@
 //!
 //! fn main() {
 //!     kobold::start(view! {
-//!         <!counter init={0} />
+//!         <!counter init={0}>
 //!     });
 //! }
 //! ```
@@ -133,9 +133,9 @@
 //! # let _ =
 //! view! {
 //!     // Status code was 200
-//!     <!status />
+//!     <!status>
 //!     // Status code was 404
-//!     <!status code={404} />
+//!     <!status code={404}>
 //! }
 //! # ; }
 //! ```
@@ -324,11 +324,11 @@
 /// # fn main() { let _ =
 /// view! {
 ///     // Hello Kobold
-///     <!greeter />
+///     <!greeter>
 ///     // Hello Alice
-///     <!greeter name="Alice" />
+///     <!greeter name="Alice">
 ///     // Hello Bob, you are 42 years old
-///     <!greeter name="Bob" age={42} />
+///     <!greeter name="Bob" age={42}>
 /// }
 /// # ; }
 /// ```
@@ -349,14 +349,14 @@
 /// # fn main() { let _ =
 /// view! {
 ///     // Status code was 200
-///     <!status_code />
+///     <!status_code>
 ///     // Status code was 404
-///     <!status_code code={404} />
+///     <!status_code code={404}>
 ///
 ///     // Status code was 200
-///     <!status_code code={None} />
+///     <!status_code code={None}>
 ///     // Status code was 500
-///     <!status_code code={Some(500)} />
+///     <!status_code code={Some(500)}>
 /// }
 /// # ; }
 /// ```

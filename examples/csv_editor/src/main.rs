@@ -43,16 +43,14 @@ fn editor() -> impl View {
                 <thead>
                     <tr>
                     {
-                        for state.columns().map(|col| view! { <!head {col} {state} /> })
+                        for state.columns().map(|col| head(col, state))
                     }
                 <tbody>
                 {
                     for state.rows().map(move |row| view! {
                         <tr>
                         {
-                            for state.columns().map(move |col| view! {
-                                <!cell {col} {row} {state} />
-                            })
+                            for state.columns().map(move |col| cell(col, row, state))
                         }
                     })
                 }
@@ -121,6 +119,6 @@ fn cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 
 fn main() {
     kobold::start(view! {
-        <!editor />
+        <!editor>
     });
 }

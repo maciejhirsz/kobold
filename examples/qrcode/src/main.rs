@@ -13,7 +13,7 @@ fn qr_example() -> impl View {
 
         view! {
             <h1>"QR code example"</h1>
-            <!qr {data} />
+            <!qr {data}>
             <textarea {onkeyup}>{ static data.as_str() }</textarea>
         }
     })

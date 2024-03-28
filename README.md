@@ -41,7 +41,7 @@ Components in **Kobold** are created by annotating a _render function_ with a `#
 use kobold::prelude::*;
 
 #[component]
-fn Hello(name: &str) -> impl View + '_ {
+fn hello(name: &str) -> impl View + '_ {
     view! {
         <h1>"Hello "{ name }"!"</h1>
     }
@@ -49,7 +49,7 @@ fn Hello(name: &str) -> impl View + '_ {
 
 fn main() {
     kobold::start(view! {
-        <Hello name="Kobold" />
+        <!hello name="Kobold">
     });
 }
 ```
@@ -64,8 +64,8 @@ token stream, so the Rust compiler can tell you when you've made a mistake:
 error[E0560]: struct `Hello` has no field named `nam`
   --> examples/hello_world/src/main.rs:12:16
    |
-12 |         <Hello nam="Kobold" />
-   |                ^^^ help: a field with a similar name exists: `name`
+12 |         <!hello nam="Kobold">
+   |                 ^^^ help: there is a method with a similar name: `name`
 ```
 
 You can even use [rust-analyzer](https://rust-analyzer.github.io/) to refactor component or field names,
@@ -80,7 +80,7 @@ their state:
 use kobold::prelude::*;
 
 #[component]
-fn Counter(init: u32) -> impl View {
+fn counter(init: u32) -> impl View {
     stateful(init, |count| {
         bind! { count:
             // Create an event handler with access to `&mut u32`
@@ -100,7 +100,7 @@ fn Counter(init: u32) -> impl View {
 
 fn main() {
     kobold::start(view! {
-        <Counter init={0} />
+        <!counter init={0}>
     });
 }
 ```
@@ -109,7 +109,7 @@ The `stateful` function takes two parameters:
 
 * State constructor that implements the `IntoState` trait. **Kobold** comes with default
   implementations for most primitive types, so we can use `u32` here.
-* The anonymous render function that uses the constructed state, in our case its argument is `&Hook<u32>`.
+* The anonymous render closure that uses the constructed state, in our case its argument is `&Hook<u32>`.
 
 The `Hook` here is a smart pointer to the state itself that allows non-mutable access to the
 state. The `bind!` macro can be invoked for any `Hook` to create closures with `&mut` references to the
@@ -124,7 +124,7 @@ Use `#[component(<param>?)]` syntax to set a component parameter as default:
 ```rust
 // `code` will default to `200` if omitted
 #[component(code?: 200)]
-fn Status(code: u32) -> impl View {
+fn status(code: u32) -> impl View {
     view! {
         <p> "Status code was "{ code }
     }
@@ -132,9 +132,9 @@ fn Status(code: u32) -> impl View {
 
 view! {
     // Status code was 200
-    <Status />
+    <!status>
     // Status code was 404
-    <Status code={404} />
+    <!status code={404}>
 }
 ```
 
@@ -151,7 +151,7 @@ inside an `if` or `match` expression, and wrap them in an enum making them the s
 
 ```rust
 #[component(auto_branch)]
-fn Conditional(illuminatus: bool) -> impl View {
+fn conditional(illuminatus: bool) -> impl View {
     if illuminatus {
         view! { <p> "It was the year when they finally immanentized the Eschaton." }
     } else {
@@ -167,11 +167,10 @@ For more details visit the [`branching` module documentation](https://docs.rs/ko
 To render an iterator use the `for` keyword:
 
 ```rust
-// `ListIteratorExt` is included in the prelude
 use kobold::prelude::*;
 
 #[component]
-fn IterateNumbers(count: u32) -> impl View {
+fn iterate_numbers(count: u32) -> impl View {
     view! {
         <ul>
         {
@@ -195,7 +194,7 @@ state without unnecessary clones:
 
 ```rust
 #[component]
-fn Users<'a>(names: &'a [&'a str]) -> impl View + 'a {
+fn users<'a>(names: &'a [&'a str]) -> impl View + 'a {
     view! {
         <ul>
         {
@@ -214,7 +213,7 @@ If you wish to capture children from parent `view!` invocation, simply change
 use kobold::prelude::*;
 
 #[component(children)]
-fn Header(children: impl View) -> impl View {
+fn header(children: impl View) -> impl View {
     view! {
         <header><h1>{ children }</h1></header>
     }
@@ -222,7 +221,7 @@ fn Header(children: impl View) -> impl View {
 
 fn main() {
     kobold::start(view! {
-        <Header>"Hello Kobold"</Header>
+        <!header>"Hello Kobold"</!header>
     });
 }
 ```
@@ -234,7 +233,7 @@ use kobold::prelude::*;
 
 // Capture children into the argument `n`
 #[component(children: n)]
-fn AddTen(n: i32) -> i32 {
+fn add_ten(n: i32) -> i32 {
     // integers implement `View` so they can be passed by value
     n + 10
 }
@@ -243,7 +242,7 @@ fn main() {
     kobold::start(view! {
         <p>
             "Meaning of life is "
-            <AddTen>{ 32 }</AddTen>
+            <!add_ten>{ 32 }</!add_ten>
         </p>
     });
 }
@@ -251,7 +250,7 @@ fn main() {
 
 ## More Examples
 
-To run **Kobold** you'll need to install [`trunk`](https://trunkrs.dev/) (check the [full instructions](https://trunkrs.dev/#install) if you have problems):
+To run **Kobold** you'll need to install [`trunk`](https://trunkrs.dev/):
 ```sh
 cargo install --locked trunk
 ```
