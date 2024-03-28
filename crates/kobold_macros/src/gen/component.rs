@@ -12,11 +12,7 @@ impl Component {
     fn into_expression(self) -> TokenStream {
         let mut render = self.path.clone();
 
-        render.write(if self.children.is_some() {
-            "::render_with"
-        } else {
-            "::render"
-        });
+        render.write("::render");
 
         if let Some(generics) = self.generics {
             render.write(("::", generics));
@@ -33,7 +29,7 @@ impl Component {
         if let Some(children) = self.children {
             let children = crate::gen::generate(children);
 
-            params.write((',', children));
+            params.write(('.', call("children", children)));
         }
 
         call(render, params)

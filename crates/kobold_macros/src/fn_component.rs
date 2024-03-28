@@ -140,31 +140,32 @@ struct FnComponent {
     arguments: Vec<Argument>,
     ret: TokenStream,
     render: TokenStream,
-    children: Option<Argument>,
 }
 
 impl FnComponent {
     fn new(args: &mut ComponentArgs, mut fun: Function) -> Result<FnComponent, ParseError> {
-        let children = match &args.children {
-            Some(children) => {
-                let ident = children.to_string();
+        if let Some(children) = args.children.take() {
+            let ident = children.to_string();
+            let mut found = false;
 
-                let children_idx = fun.arguments.iter().position(|arg| arg.name.eq_str(&ident));
+            for arg in fun.arguments.iter_mut() {
+                if arg.name.eq_str(&ident) {
+                    arg.name = Ident::new("children", arg.name.span());
 
-                match children_idx {
-                    Some(idx) => Some(fun.arguments.remove(idx)),
-                    None => {
-                        return Err(ParseError::new(
-                            format!(
-                                "Missing argument `{ident}` required to capture component children"
-                            ),
-                            children.span(),
-                        ));
-                    }
+                    found = true;
+                    break;
                 }
             }
-            None => None,
-        };
+
+            if !found {
+                return Err(ParseError::new(
+                    format!(
+                        "Missing argument `{ident}` required to capture component children"
+                    ),
+                    children.span(),
+                ));
+            }
+        }
 
         let mut temp_var = String::with_capacity(40);
 
@@ -203,7 +204,6 @@ impl FnComponent {
             arguments: fun.arguments,
             ret: fun.r#return,
             render,
-            children,
         })
     }
 }
@@ -299,7 +299,7 @@ impl Tokenize for FnComponent {
             Some(generics) => generics.tokens.clone().parse_stream().parse().ok(),
         };
 
-        let mut args = if self.arguments.is_empty() {
+        let args = if self.arguments.is_empty() {
             "_: Props".tokenize()
         } else {
             let destruct = (
@@ -309,14 +309,6 @@ impl Tokenize for FnComponent {
             let props_ty = ("Props<", each(self.arguments.iter().map(Argument::ty)), '>');
 
             (destruct, ':', props_ty).tokenize()
-        };
-
-        let fn_render = match self.children {
-            Some(children) => {
-                args.write((',', children));
-                "pub fn render_with"
-            }
-            None => "pub fn render",
         };
 
         mo.write("#[allow(non_camel_case_types)] pub struct Props");
@@ -333,7 +325,7 @@ impl Tokenize for FnComponent {
         };
 
         let fn_render = (
-            fn_render,
+            "pub fn render",
             self.generics.clone(),
             group('(', args),
             self.ret.clone(),

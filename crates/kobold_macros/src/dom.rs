@@ -204,18 +204,17 @@ impl Node {
 
     fn parse_children(name: &TagName, stream: &mut ShallowStream) -> Result<Children, ParseError> {
         let mut children = Vec::new();
-        let mut explicit = true;
+        let mut explicit = false;
 
         loop {
             if let Some(Ok(ShallowNode::Tag(tag))) = stream.peek() {
                 match tag.is_closing(name) {
                     IsClosing::Explicit => {
                         stream.next();
+                        explicit = true;
                         break;
                     }
                     IsClosing::Implicit => {
-                        explicit = false;
-                        // panic!("{children:#?}");
                         break;
                     }
                     IsClosing::No => (),
