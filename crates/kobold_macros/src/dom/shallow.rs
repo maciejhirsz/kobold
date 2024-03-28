@@ -97,7 +97,7 @@ impl TagName {
     pub fn forbids_children(&self) -> bool {
         match self {
             TagName::HtmlElement { name, .. } => name.forbids_children(),
-            TagName::Component { .. } => true,
+            TagName::Component { .. } => false,
         }
     }
 }
