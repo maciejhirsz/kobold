@@ -3,7 +3,6 @@ wasm_bindgen = "0.2.84"
 
 [build]
 filehash = false
-pattern_script = "<script type=\"module\">import init, { koboldCallback } from '{base}{js}';init('{base}{wasm}');window.koboldCallback = koboldCallback;</script>"
 
 # Does not work with `trunk serve`
 # public_url = "./"
