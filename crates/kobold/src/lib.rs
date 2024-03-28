@@ -562,7 +562,7 @@ fn init_panic_hook() {
         use std::cell::Cell;
 
         thread_local! {
-            static INIT: Cell<bool> = Cell::new(false);
+            static INIT: Cell<bool> = const { Cell::new(false) };
         }
         if !INIT.with(|init| init.get()) {
             std::panic::set_hook(Box::new(console_error_panic_hook::hook));

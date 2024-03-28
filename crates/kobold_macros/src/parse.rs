@@ -307,7 +307,7 @@ mod util {
     use arrayvec::ArrayString;
 
     thread_local! {
-        static FMT_BUF: RefCell<ArrayString<40>> = RefCell::new(ArrayString::new());
+        static FMT_BUF: RefCell<ArrayString<40>> = const { RefCell::new(ArrayString::new_const()) };
     }
 
     pub trait IdentExt: Display {
