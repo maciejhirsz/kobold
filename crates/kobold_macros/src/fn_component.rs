@@ -159,9 +159,7 @@ impl FnComponent {
 
             if !found {
                 return Err(ParseError::new(
-                    format!(
-                        "Missing argument `{ident}` required to capture component children"
-                    ),
+                    format!("Missing argument `{ident}` required to capture component children"),
                     children.span(),
                 ));
             }
@@ -369,7 +367,10 @@ impl Tokenize for FnComponent {
         out.write((self.ret, block(self.render)));
 
         out.write((
-            format!("#[doc = \"`#[component]` handlers for the [`{name}`](fn.{name}.html) function.\"]").as_str(),
+            format!(
+                "#[doc = \"`#[component]` handlers for the [`{name}`](fn.{name}.html) function.\"]"
+            )
+            .as_str(),
             self.r#pub,
             self.r#mod,
             name,
