@@ -434,7 +434,7 @@ use internal::{In, Out};
 /// ```
 pub mod prelude {
     pub use crate::event::{Event, KeyboardEvent, MouseEvent};
-    pub use crate::{bind, event, class};
+    pub use crate::{bind, class, event};
     pub use crate::{component, view, View};
 
     #[cfg(feature = "stateful")]
