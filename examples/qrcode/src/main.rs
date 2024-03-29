@@ -5,11 +5,9 @@ use kobold_qr::qr;
 #[component]
 fn qr_example() -> impl View {
     stateful("Enter something", |data| {
-        bind! {
-            data:
-
-            let onkeyup = move |event: KeyboardEvent<HtmlTextAreaElement>| *data = event.target().value();
-        }
+        let onkeyup = event!(|data, e: KeyboardEvent<HtmlTextAreaElement>| {
+            *data = e.target().value();
+        });
 
         view! {
             <h1>"QR code example"</h1>

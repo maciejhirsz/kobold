@@ -3,10 +3,8 @@ use kobold::prelude::*;
 #[component]
 fn list_example(count: u32) -> impl View {
     stateful(count, |count| {
-        bind! { count:
-            let dec = move |_| *count = count.saturating_sub(1);
-            let inc = move |_| *count += 1;
-        }
+        let dec = event!(*count = count.saturating_sub(1));
+        let inc = event!(*count += 1);
 
         view! {
             <div>

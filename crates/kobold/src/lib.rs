@@ -434,7 +434,7 @@ use internal::{In, Out};
 /// ```
 pub mod prelude {
     pub use crate::event::{Event, KeyboardEvent, MouseEvent};
-    pub use crate::{bind, class};
+    pub use crate::{bind, class, event};
     pub use crate::{component, view, View};
 
     #[cfg(feature = "stateful")]
@@ -614,5 +614,32 @@ macro_rules! bind {
         $(
             let $v = $hook.bind(move |$hook, $e $(: $e_ty)*| $body);
         )*
+    };
+}
+
+#[macro_export]
+macro_rules! event {
+    (move |$state:ident| $body:expr) => {
+        $state.bind(move |$state, _| $body)
+    };
+
+    (move |$state:ident, $e:tt $(: $e_ty:ty)?| $body:expr) => {
+        $state.bind(move |$state, $e $(: $e_ty)*| $body)
+    };
+
+    (|$state:ident| $body:expr) => {
+        $state.bind(|$state, _| $body)
+    };
+
+    (|$state:ident, $e:tt $(: $e_ty:ty)?| $body:expr) => {
+        $state.bind(|$state, $e $(: $e_ty)*| $body)
+    };
+
+    (*$state:ident $($body:tt)+) => {
+        $state.bind(move |$state, _| *$state $($body)*)
+    };
+
+    ($state:ident $($body:tt)+) => {
+        $state.bind(move |$state, _| $state $($body)*)
     };
 }

@@ -22,19 +22,15 @@ fn editor() -> impl View {
             }
         });
 
-        bind! {
-            state:
+        let onkeydown = event!(move |state, e: KeyboardEvent<_>| {
+            if matches!(e.key().as_str(), "Esc" | "Escape") {
+                state.editing = Editing::None;
 
-            let onkeydown = move |event: KeyboardEvent<_>| {
-                if matches!(event.key().as_str(), "Esc" | "Escape") {
-                    state.editing = Editing::None;
-
-                    Then::Render
-                } else {
-                    Then::Stop
-                }
-            };
-        }
+                Then::Render
+            } else {
+                Then::Stop
+            }
+        });
 
         view! {
             <input type="file" accept="text/csv" onchange={onload}>
@@ -85,14 +81,10 @@ fn cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     let value = state.source.get_text(&state.rows[row][col]);
 
     if state.editing == (Editing::Cell { row, col }) {
-        bind! {
-            state:
-
-            let onchange = move |e: Event<InputElement>| {
-                state.rows[row][col] = Text::Owned(e.target().value().into());
-                state.editing = Editing::None;
-            };
-        }
+        let onchange = event!(move |state, e: Event<InputElement>| {
+            state.rows[row][col] = Text::Owned(e.target().value().into());
+            state.editing = Editing::None;
+        });
 
         let mut selected = false;
 

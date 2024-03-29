@@ -11,9 +11,7 @@ fn app(state: &Hook<State>) -> impl View + '_ {
     let active_count = state.count_active();
     let completed_hidden = class!("hidden" if state.entries.len() == active_count);
 
-    bind! { state:
-        let clear = move |_| state.clear();
-    }
+    let clear = event!(state.clear());
 
     view! {
         <div.todomvc-wrapper>
@@ -57,17 +55,12 @@ fn app(state: &Hook<State>) -> impl View + '_ {
 
 #[component]
 fn entry_input(state: &Hook<State>) -> impl View + '_ {
-    bind! {
-        state:
+    let onchange = event!(|state, e: Event<InputElement>| {
+        let input = e.target();
+        state.add(input.value());
 
-        let onchange = move |event: Event<InputElement>| {
-            let input = event.target();
-            let value = input.value();
-
-            input.set_value("");
-            state.add(value);
-        };
-    }
+        input.set_value("");
+    });
 
     view! {
         <input.new-todo placeholder="What needs to be done?" {onchange}>
@@ -76,9 +69,7 @@ fn entry_input(state: &Hook<State>) -> impl View + '_ {
 
 #[component]
 fn toggle_all(active_count: usize, state: &Hook<State>) -> impl View + '_ {
-    bind! { state:
-        let onclick = move |_| state.set_all(active_count != 0);
-    }
+    let onclick = event!(state.set_all(active_count != 0));
 
     view! {
         <input #toggle-all.toggle-all type="checkbox" checked={active_count == 0} {onclick}>
@@ -89,21 +80,18 @@ fn toggle_all(active_count: usize, state: &Hook<State>) -> impl View + '_ {
 #[component]
 fn entry<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl View + 'a {
     let input = entry.editing.then(move || {
-        bind! {
-            state:
+        let onkeypress = event!(move |state, e: KeyboardEvent<InputElement>| {
+            if e.key() == "Enter" {
+                state.update(idx, e.target().value());
 
-            let onkeypress = move |event: KeyboardEvent<InputElement>| {
-                if event.key() == "Enter" {
-                    state.update(idx, event.target().value());
-
-                    Then::Render
-                } else {
-                    Then::Stop
-                }
-            };
-
-            let onblur = move |event: Event<InputElement>| state.update(idx, event.target().value());
-        }
+                Then::Render
+            } else {
+                Then::Stop
+            }
+        });
+        let onblur = event!(move |state, e: Event<InputElement>| {
+            state.update(idx, e.target().value());
+        });
 
         view! {
             <input.edit
@@ -116,13 +104,10 @@ fn entry<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl View 
         }
     });
 
-    bind! {
-        state:
+    let onchange = event!(state.toggle(idx));
+    let edit = event!(state.edit_entry(idx));
+    let remove = event!(state.remove(idx));
 
-        let onchange = move |_| state.toggle(idx);
-        let edit = move |_| state.edit_entry(idx);
-        let remove = move |_| state.remove(idx);
-    }
     let editing = class!("editing" if entry.editing);
     let completed = class!("completed" if entry.completed);
 
@@ -143,12 +128,7 @@ fn entry<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl View 
 fn filter(by: Filter, state: &Hook<State>) -> impl View + '_ {
     let selected = state.filter;
     let class = class!("selected" if selected == by);
-
-    bind! {
-        state:
-
-        let onclick = move |_| state.filter = by;
-    }
+    let onclick = event!(state.filter = by);
 
     view! {
         <li>
