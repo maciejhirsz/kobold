@@ -16,22 +16,22 @@ impl State {
 }
 
 fn app(state: &Hook<State>) -> impl View + '_ {
-    bind! { state:
-        // Since we work with a state that owns a `String`,
-        // callbacks can mutate it at will.
-        let exclaim = move |_| state.name.push('!');
+    // Since we work with a state that owns a `String`,
+    // callbacks can mutate it at will.
+    let exclaim = event!(state.name.push('!'));
 
-        // Repeatedly clicking the Alice button does not have to do anything.
-        let alice = move |_| if state.name != "Alice" {
+    // Repeatedly clicking the Alice button does not have to do anything.
+    let alice = event!(|state| {
+        if state.name != "Alice" {
             "Alice".clone_into(&mut state.name);
             Then::Render
         } else {
             Then::Stop
-        };
+        }
+    });
 
-        let inc_age = move |_| state.age += 1;
-        let adult = move |_| state.age = 18;
-    }
+    let inc_age = event!(state.age += 1);
+    let adult = event!(state.age = 18);
 
     view! {
         <div>

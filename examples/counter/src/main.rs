@@ -1,10 +1,8 @@
 use kobold::prelude::*;
 
 fn app(count: &Hook<u32>) -> impl View + '_ {
-    bind! { count:
-        let onclick = move |_| *count += 1;
-        let reset = move |_| *count = 0;
-    }
+    let onclick = event!(*count += 1);
+    let reset = event!(*count = 0);
 
     view! {
         <p>
