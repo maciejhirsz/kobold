@@ -53,6 +53,7 @@ impl From<Group> for Expression {
             let span = ident.span();
             let mut is_static = false;
             let mut deref = false;
+            let mut invoke = false;
 
             let keyword = ident.with_str(|ident| match ident {
                 "for" | "use" => Some(Ident::new_raw(ident, span)),
@@ -66,6 +67,11 @@ impl From<Group> for Expression {
 
                     Some(Ident::new_raw(ident, span))
                 }
+                "do" => {
+                    invoke = true;
+
+                    Some(Ident::new_raw(ident, span))
+                }
                 _ => None,
             });
 
@@ -74,7 +80,7 @@ impl From<Group> for Expression {
 
                 return Expression {
                     stream: call(
-                        ("::kobold::keywords::", keyword),
+                        ("::kobold::keywords::", keyword, invoke.then_some('!')),
                         (deref.then_some('&'), stream),
                     ),
                     span: group.span(),

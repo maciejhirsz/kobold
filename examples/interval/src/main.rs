@@ -4,13 +4,10 @@ use kobold::prelude::*;
 #[component]
 fn elapsed(seconds: u32) -> impl View {
     stateful(seconds, |seconds| {
-        let onclick = event!(*seconds = 0);
-
         view! {
             <p>
                 "Elapsed seconds: "{ seconds }" "
-                // `{onclick}` here is shorthand for `onclick={onclick}`
-                <button {onclick}>"Reset"</button>
+                <button onclick={do *seconds = 0}>"Reset"</button>
         }
     })
     .once(|signal| {

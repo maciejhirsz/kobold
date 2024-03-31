@@ -220,14 +220,6 @@ impl InlineAbi {
         }
     }
 
-    pub fn method(self) -> Option<&'static str> {
-        match self {
-            InlineAbi::Bool => Some(".into()"),
-            InlineAbi::Str => Some(".as_ref()"),
-            InlineAbi::Event => None,
-        }
-    }
-
     pub fn bound(self) -> &'static str {
         match self {
             InlineAbi::Bool => "+ Into<bool> + Copy",

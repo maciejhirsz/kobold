@@ -11,8 +11,6 @@ fn app(state: &Hook<State>) -> impl View + '_ {
     let active_count = state.count_active();
     let completed_hidden = class!("hidden" if state.entries.len() == active_count);
 
-    let clear = event!(state.clear());
-
     view! {
         <div.todomvc-wrapper>
             <section.todoapp>
@@ -44,7 +42,7 @@ fn app(state: &Hook<State>) -> impl View + '_ {
                         <!filter by={Filter::Active} {state}>
                         <!filter by={Filter::Completed} {state}>
                     </ul>
-                    <button.clear-completed.{completed_hidden} onclick={clear}> "Clear completed"
+                    <button.clear-completed.{completed_hidden} onclick={do state.clear()}> "Clear completed"
             </section>
             <footer.info>
                 <p> "Double-click to edit a todo"
@@ -69,10 +67,12 @@ fn entry_input(state: &Hook<State>) -> impl View + '_ {
 
 #[component]
 fn toggle_all(active_count: usize, state: &Hook<State>) -> impl View + '_ {
-    let onclick = event!(state.set_all(active_count != 0));
-
     view! {
-        <input #toggle-all.toggle-all type="checkbox" checked={active_count == 0} {onclick}>
+        <input #toggle-all.toggle-all
+            type="checkbox"
+            checked={active_count == 0}
+            onclick={do state.set_all(active_count != 0)}
+        >
         <label for="toggle-all">
     }
 }
@@ -104,21 +104,17 @@ fn entry<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl View 
         }
     });
 
-    let onchange = event!(state.toggle(idx));
-    let edit = event!(state.edit_entry(idx));
-    let remove = event!(state.remove(idx));
-
     let editing = class!("editing" if entry.editing);
     let completed = class!("completed" if entry.completed);
 
     view! {
         <li.todo.{editing}.{completed}>
             <div.view>
-                <input.toggle type="checkbox" checked={entry.completed} {onchange}>
-                <label ondblclick={edit} >
+                <input.toggle type="checkbox" checked={entry.completed} onchange={do state.toggle(idx)}>
+                <label ondblclick={do state.edit_entry(idx)} >
                     { ref entry.description }
                 </label>
-                <button.destroy onclick={remove}>
+                <button.destroy onclick={do state.remove(idx)}>
             </div>
             { input }
     }
@@ -126,13 +122,11 @@ fn entry<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl View 
 
 #[component]
 fn filter(by: Filter, state: &Hook<State>) -> impl View + '_ {
-    let selected = state.filter;
-    let class = class!("selected" if selected == by);
-    let onclick = event!(state.filter = by);
+    let class = class!("selected" if state.filter == by);
 
     view! {
         <li>
-            <a {class} {onclick} href={static by.href()}>
+            <a {class} onclick={do state.filter = by} href={static by.href()}>
                 { static by.label() }
     }
 }
