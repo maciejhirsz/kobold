@@ -160,11 +160,9 @@ impl Tokenize for Transient {
                 .iter()
                 .map(|a| {
                     let mut temp = ArrayString::<24>::new();
-                    let name = a.name;
-                    let _ = match a.abi.and_then(|abi| abi.method()) {
-                        Some(method) => write!(temp, "self.{name}{method}"),
-                        None => write!(temp, "{name}.js()"),
-                    };
+
+                    let _ = write!(temp, "{a}");
+
                     temp
                 })
                 .join(",");
@@ -347,6 +345,19 @@ impl JsArgument {
         JsArgument {
             name,
             abi: Some(abi),
+        }
+    }
+}
+
+impl Display for JsArgument {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = self.name;
+
+        match self.abi {
+            Some(InlineAbi::Bool) => write!(f, "self.{name}.into()"),
+            Some(InlineAbi::Str) => write!(f, "self.{name}.as_ref()"),
+            Some(InlineAbi::Event) => write!(f, "{name}.js_value()"),
+            None => write!(f, "{name}.js()"),
         }
     }
 }

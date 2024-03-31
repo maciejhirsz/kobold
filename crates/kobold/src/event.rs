@@ -138,7 +138,7 @@ pub struct ListenerProduct<F, E> {
 }
 
 pub trait ListenerHandle {
-    fn js(&mut self) -> JsValue;
+    fn js_value(&mut self) -> JsValue;
 }
 
 impl<F, E> ListenerHandle for ListenerProduct<F, E>
@@ -146,7 +146,7 @@ where
     F: FnMut(E) + 'static,
     E: EventCast,
 {
-    fn js(&mut self) -> JsValue {
+    fn js_value(&mut self) -> JsValue {
         let vcall: fn(E, *mut ()) = |e, ptr| unsafe { (*(ptr as *mut F))(e) };
 
         internal::make_event_handler((&mut self.closure) as *mut F as *mut (), vcall as usize)
