@@ -16,10 +16,6 @@ impl State {
 }
 
 fn app(state: &Hook<State>) -> impl View + '_ {
-    // Since we work with a state that owns a `String`,
-    // callbacks can mutate it at will.
-    let exclaim = event!(state.name.push('!'));
-
     // Repeatedly clicking the Alice button does not have to do anything.
     let alice = event!(|state| {
         if state.name != "Alice" {
@@ -30,18 +26,15 @@ fn app(state: &Hook<State>) -> impl View + '_ {
         }
     });
 
-    let inc_age = event!(state.age += 1);
-    let adult = event!(state.age = 18);
-
     view! {
         <div>
             // Render can borrow `name` from state, no need for clones
             <h1>{ &state.name }" is "{ state.age }" years old."</h1>
             <button onclick={alice}>"Alice"</button>
-            <button onclick={exclaim}>"!"</button>
+            <button onclick={do state.name.push('!')}>"!"</button>
             " "
-            <button onclick={adult}>"18"</button>
-            <button onclick={inc_age}>"+"</button>
+            <button onclick={do state.age = 18}>"18"</button>
+            <button onclick={do state.age += 1}>"+"</button>
     }
 }
 

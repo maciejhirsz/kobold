@@ -70,3 +70,6 @@ pub const fn r#use<T>(value: T) -> Eager<T> {
 pub const fn r#static<T>(value: T) -> Static<T> {
     Static(value)
 }
+
+/// `{ do ... }` is an alias for [`{ event!(...) }`](../macro.event.html)
+pub use crate::event as r#do;

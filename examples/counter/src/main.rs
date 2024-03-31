@@ -1,16 +1,12 @@
 use kobold::prelude::*;
 
 fn app(count: &Hook<u32>) -> impl View + '_ {
-    let onclick = event!(*count += 1);
-    let reset = event!(*count = 0);
-
     view! {
         <p>
             <!counter count={count.get()}>
 
-            // `{onclick}` here is shorthand for `onclick={onclick}`
-            <button {onclick}>"Click me!"</button>
-            <button onclick={reset}>"Reset"</button>
+            <button onclick={do *count += 1}>"Click me!"</button>
+            <button onclick={do *count = 0}>"Reset"</button>
     }
 }
 

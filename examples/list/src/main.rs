@@ -3,17 +3,14 @@ use kobold::prelude::*;
 #[component]
 fn list_example(count: u32) -> impl View {
     stateful(count, |count| {
-        let dec = event!(*count = count.saturating_sub(1));
-        let inc = event!(*count += 1);
-
         view! {
             <div>
                 <h1 class="Greeter">"List example"</h1>
                 <p>
                     "This component dynamically creates a list from a range iterator ending at "
-                    <button onclick={dec}>"-"</button>
+                    <button onclick={do *count = count.saturating_sub(1)}>"-"</button>
                     " "{ count }" "
-                    <button onclick={inc}>"+"</button>
+                    <button onclick={do *count += 1}>"+"</button>
                 </p>
                 <ul>
                 {
