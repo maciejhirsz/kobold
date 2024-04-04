@@ -18,7 +18,7 @@ fn app(state: &Hook<State>) -> impl View + '_ {
                     <h1>"todos"</h1>
                     <!entry_input {state}>
                 </header>
-                <section .main.{hidden}>
+                <section.main.{hidden}>
                     <!toggle_all {active_count} {state}>
                     <ul.todo-list>
                         {
