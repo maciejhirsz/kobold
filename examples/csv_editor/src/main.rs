@@ -10,7 +10,7 @@ use state::{Editing, State, Text};
 fn editor() -> impl View {
     stateful(State::mock, |state| {
         let onload = state.bind_async(|state, event: Event<InputElement>| async move {
-            let file = match event.target().files().and_then(|list| list.get(0)) {
+            let file = match event.current_target().files().and_then(|list| list.get(0)) {
                 Some(file) => file,
                 None => return,
             };
@@ -60,7 +60,7 @@ fn head(col: usize, state: &Hook<State>) -> impl View + '_ {
 
     if state.editing == (Editing::Column { col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
-            state.columns[col] = Text::Owned(e.target().value().into());
+            state.columns[col] = Text::Owned(e.current_target().value().into());
             state.editing = Editing::None;
         });
 
@@ -82,7 +82,7 @@ fn cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 
     if state.editing == (Editing::Cell { row, col }) {
         let onchange = event!(move |state, e: Event<InputElement>| {
-            state.rows[row][col] = Text::Owned(e.target().value().into());
+            state.rows[row][col] = Text::Owned(e.current_target().value().into());
             state.editing = Editing::None;
         });
 
@@ -90,7 +90,7 @@ fn cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 
         let onmouseenter = move |e: MouseEvent<InputElement>| {
             if !selected {
-                let input = e.target();
+                let input = e.current_target();
                 input.focus();
                 input.select();
                 selected = true;

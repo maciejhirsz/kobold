@@ -54,7 +54,7 @@ fn app(state: &Hook<State>) -> impl View + '_ {
 #[component]
 fn entry_input(state: &Hook<State>) -> impl View + '_ {
     let onchange = event!(|state, e: Event<InputElement>| {
-        let input = e.target();
+        let input = e.current_target();
         state.add(input.value());
 
         input.set_value("");
@@ -82,7 +82,7 @@ fn entry<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl View 
     let input = entry.editing.then(move || {
         let onkeypress = event!(move |state, e: KeyboardEvent<InputElement>| {
             if e.key() == "Enter" {
-                state.update(idx, e.target().value());
+                state.update(idx, e.current_target().value());
 
                 Then::Render
             } else {
@@ -90,14 +90,14 @@ fn entry<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl View 
             }
         });
         let onblur = event!(move |state, e: Event<InputElement>| {
-            state.update(idx, e.target().value());
+            state.update(idx, e.current_target().value());
         });
 
         view! {
             <input.edit
                 type="text"
                 value={static &entry.description}
-                onmouseover={|event| event.target().focus()}
+                onmouseover={|event| event.current_target().focus()}
                 {onkeypress}
                 {onblur}
             >

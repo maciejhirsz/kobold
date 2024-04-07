@@ -6,7 +6,7 @@ use kobold_qr::qr;
 fn qr_example() -> impl View {
     stateful("Enter something", |data| {
         let onkeyup = event!(|data, e: KeyboardEvent<HtmlTextAreaElement>| {
-            *data = e.target().value();
+            *data = e.current_target().value();
         });
 
         view! {
