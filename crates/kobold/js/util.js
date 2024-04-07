@@ -35,6 +35,7 @@ export function setAttribute(n,a,v) { n.setAttribute(a, v); }
 
 export function setChecked(n,v) { if (n.checked !== v) n.checked = v; }
 export function setClassName(n,v) { n.className = v; }
+export function setInnerHTML(n,v) { n.innerHTML = v; }
 export function setHref(n,v) { n.href = v; }
 export function setStyle(n,v) { n.style = v; }
 export function setValue(n,v) { n.value = v; }

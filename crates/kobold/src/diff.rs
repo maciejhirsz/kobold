@@ -117,6 +117,26 @@ pub trait Diff: Copy {
     fn diff(self, memo: &mut Self::Memo) -> bool;
 }
 
+impl<T> Diff for Option<T>
+where
+    T: Copy + Eq + 'static,
+{
+    type Memo = Self;
+
+    fn into_memo(self) -> Self {
+        self
+    }
+
+    fn diff(self, memo: &mut Self) -> bool {
+        if self != *memo {
+            *memo = self;
+            true
+        } else {
+            false
+        }
+    }
+}
+
 macro_rules! impl_diff_str {
     ($($ty:ty),*) => {
         $(

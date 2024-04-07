@@ -52,9 +52,9 @@ impl IntoGenerator for HtmlElement {
             hoisted: false, // None, // self.classes.iter().any(CssValue::is_expression),
         };
 
-        match self.classes.len() {
-            0 => (),
-            1 => match self.classes.remove(0) {
+        match (self.classes.len(), el.tag.namespace().is_none()) {
+            (0, _) => (),
+            (1, true) => match self.classes.remove(0) {
                 CssValue::Literal(class) => writeln!(el, "{var}.className={class};"),
                 CssValue::Expression(expr) => {
                     el.hoisted = true;
@@ -112,6 +112,7 @@ impl IntoGenerator for HtmlElement {
 
             match value {
                 AttributeValue::Literal(value) => {
+                    let name = attribute_name(&name.label);
                     writeln!(el, "{var}.setAttribute(\"{name}\",{value});");
                 }
                 AttributeValue::Boolean(value) => {
@@ -148,6 +149,7 @@ impl IntoGenerator for HtmlElement {
                         el.args.push(JsArgument::with_abi(value, InlineAbi::Event))
                     }
                     AttributeType::Provided(attr) => {
+                        let name = attribute_name(&name.label);
                         el.hoisted = true;
 
                         let value = gen
@@ -278,6 +280,14 @@ fn is_inline_closure(out: &mut TokenStream) -> bool {
     is_closure
 }
 
+fn attribute_name(attr: &str) -> &str {
+    match attr {
+        "html" => "innerHTML",
+        "view_box" => "viewBox",
+        name => name,
+    }
+}
+
 fn attribute_type(attr: &str) -> AttributeType {
     if attr.starts_with("on") && attr.len() > 2 {
         return AttributeType::Event(event_js_type(&attr[2..]));
@@ -290,6 +300,10 @@ fn attribute_type(attr: &str) -> AttributeType {
         },
         "href" => Attr {
             name: "Href",
+            abi: Some(InlineAbi::Str),
+        },
+        "html" => Attr {
+            name: "InnerHtml",
             abi: Some(InlineAbi::Str),
         },
         "style" => Attr {

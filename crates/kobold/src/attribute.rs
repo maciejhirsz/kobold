@@ -72,6 +72,8 @@ attribute!(
     Checked [checked: bool]
     /// The `className` attribute: <https://developer.mozilla.org/en-US/docs/Web/API/Element/className>
     ClassName [class_name: &str]
+    /// The `innerHTML` attribute: <https://developer.mozilla.org/en-US/docs/Web/API/Element/innerHTML>
+    InnerHtml [inner_html: &str]
     /// The `style` attribute: <https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/style>
     Style [style: &str]
     /// The `href` attribute: <https://developer.mozilla.org/en-US/docs/Web/API/HTMLAnchorElement/href>

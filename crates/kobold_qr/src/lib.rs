@@ -9,10 +9,42 @@ use fast_qr::qr::QRBuilder;
 use kobold::diff::fence;
 use web_sys::CanvasRenderingContext2d;
 
-#[component(size?: 200)]
-pub fn qr(data: &str, size: usize) -> impl View + '_ {
+/// Error Correction Coding has 4 levels
+pub enum Ecl {
+    /// Low, 7%
+    L,
+    /// Medium, 15%
+    M,
+    /// Quartile, 25%
+    Q,
+    /// High, 30%
+    H,
+}
+
+impl From<Ecl> for fast_qr::ECL {
+    fn from(value: Ecl) -> Self {
+        match value {
+            Ecl::L => fast_qr::ECL::L,
+            Ecl::M => fast_qr::ECL::M,
+            Ecl::Q => fast_qr::ECL::Q,
+            Ecl::H => fast_qr::ECL::H,
+        }
+    }
+}
+
+impl Default for Ecl {
+    fn default() -> Self {
+        Ecl::Q
+    }
+}
+
+#[component(
+    size?: 200,
+    ecl?,
+)]
+pub fn qr(data: &str, size: usize, ecl: Ecl) -> impl View + '_ {
     fence(data, move || {
-        let qr = QRBuilder::new(data).build().ok()?;
+        let qr = QRBuilder::new(data).ecl(ecl.into()).build().ok()?;
         let pixel = ((size / qr.size) + 1) * 2;
         let pixels = qr.size * pixel;
         let style = format!("width: {size}px; height: {size}px;");

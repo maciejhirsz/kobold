@@ -267,6 +267,8 @@ extern "C" {
     pub(crate) fn checked(node: &Node, value: bool);
     #[wasm_bindgen(js_name = "setClassName")]
     pub(crate) fn class_name(node: &Node, value: &str);
+    #[wasm_bindgen(js_name = "setInnerHTML")]
+    pub(crate) fn inner_html(node: &Node, value: &str);
     #[wasm_bindgen(js_name = "setHref")]
     pub(crate) fn href(node: &Node, value: &str);
     #[wasm_bindgen(js_name = "setStyle")]

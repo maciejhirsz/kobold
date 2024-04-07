@@ -19,6 +19,9 @@ extern "C" {
 
     #[wasm_bindgen(method, getter)]
     fn target(this: &EventWithTarget) -> HtmlElement;
+
+    #[wasm_bindgen(method, getter, js_name = "currentTarget")]
+    fn current_target(this: &EventWithTarget) -> HtmlElement;
 }
 
 macro_rules! event {
@@ -55,11 +58,19 @@ macro_rules! event {
                 ///
                 /// This method shadows over the [`Event::target`](web_sys::Event::target)
                 /// method provided by `web-sys` and makes it infallible.
-                pub fn target(&self) -> EventTarget<T>
+                pub fn target(&self) -> HtmlElement {
+                    self.event.unchecked_ref::<EventWithTarget>().target().unchecked_into()
+                }
+
+                /// Return a reference to the target element.
+                ///
+                /// This method shadows over the [`Event::target`](web_sys::Event::target)
+                /// method provided by `web-sys` and makes it infallible.
+                pub fn current_target(&self) -> EventTarget<T>
                 where
                     T: JsCast,
                 {
-                    EventTarget(self.event.unchecked_ref::<EventWithTarget>().target().unchecked_into())
+                    EventTarget(self.event.unchecked_ref::<EventWithTarget>().current_target().unchecked_into())
                 }
             }
         )*
