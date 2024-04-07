@@ -52,9 +52,9 @@ impl IntoGenerator for HtmlElement {
             hoisted: false, // None, // self.classes.iter().any(CssValue::is_expression),
         };
 
-        match self.classes.len() {
-            0 => (),
-            1 => match self.classes.remove(0) {
+        match (self.classes.len(), el.tag.namespace().is_none()) {
+            (0, _) => (),
+            (1, true) => match self.classes.remove(0) {
                 CssValue::Literal(class) => writeln!(el, "{var}.className={class};"),
                 CssValue::Expression(expr) => {
                     el.hoisted = true;
