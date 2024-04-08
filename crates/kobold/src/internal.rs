@@ -18,7 +18,7 @@ use crate::View;
 /// Used for the initialize-in-place strategy employed by the [`View::build`] method.
 #[must_use]
 #[repr(transparent)]
-pub struct In<'a, T>(&'a mut MaybeUninit<T>);
+pub struct In<'a, T>(pub(crate) &'a mut MaybeUninit<T>);
 
 /// Initialized stable pointer to `T`.
 ///
