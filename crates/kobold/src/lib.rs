@@ -434,6 +434,7 @@ use internal::{In, Out};
 /// ```
 pub mod prelude {
     pub use crate::event::{Event, KeyboardEvent, MouseEvent};
+    pub use crate::list::with;
     pub use crate::{bind, class, event};
     pub use crate::{component, view, View};
 

@@ -13,6 +13,13 @@ use crate::dom::{Anchor, Fragment, FragmentBuilder};
 use crate::internal::{In, Out};
 use crate::{Mountable, View};
 
+mod keyed;
+// mod page_list;
+
+// use page_list::PageList;
+
+pub use keyed::{with, Keyed};
+
 /// Wrapper type that implements `View` for iterators, created by the
 /// [`for`](crate::keywords::for) keyword.
 #[repr(transparent)]
