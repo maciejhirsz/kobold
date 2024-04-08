@@ -485,10 +485,6 @@ pub trait View {
             handler,
         }
     }
-
-    fn is_producer_of(&self, _: &Self::Product) -> bool {
-        true
-    }
 }
 
 pub struct OnMount<V, F> {
