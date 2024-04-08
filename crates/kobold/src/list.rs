@@ -4,15 +4,14 @@
 
 //! Utilities for rendering lists
 
+use std::mem::MaybeUninit;
+use std::pin::Pin;
+
 use web_sys::Node;
 
 use crate::dom::{Anchor, Fragment, FragmentBuilder};
 use crate::internal::{In, Out};
 use crate::{Mountable, View};
-
-mod page_list;
-
-use page_list::PageList;
 
 /// Wrapper type that implements `View` for iterators, created by the
 /// [`for`](crate::keywords::for) keyword.
@@ -20,19 +19,9 @@ use page_list::PageList;
 pub struct List<T>(pub(crate) T);
 
 pub struct ListProduct<P: Mountable> {
-    list: PageList<AutoUnmount<P>>,
+    list: Vec<Box<P>>,
+    mounted: usize,
     fragment: FragmentBuilder,
-}
-
-struct AutoUnmount<P: Mountable>(P);
-
-impl<P> Drop for AutoUnmount<P>
-where
-    P: Mountable,
-{
-    fn drop(&mut self) {
-        self.0.unmount();
-    }
 }
 
 impl<P> Anchor for ListProduct<P>
@@ -47,6 +36,18 @@ where
     }
 }
 
+fn uninit<T>() -> Pin<Box<MaybeUninit<T>>> {
+    unsafe {
+        let ptr = std::alloc::alloc(std::alloc::Layout::new::<T>());
+
+        Pin::new_unchecked(Box::from_raw(ptr as *mut MaybeUninit<T>))
+    }
+}
+
+unsafe fn unpin_assume_init<T>(pin: Pin<Box<MaybeUninit<T>>>) -> Box<T> {
+    std::mem::transmute(pin)
+}
+
 impl<T> View for List<T>
 where
     T: IntoIterator,
@@ -55,32 +56,73 @@ where
     type Product = ListProduct<<T::Item as View>::Product>;
 
     fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        let iter = self.0.into_iter();
         let fragment = FragmentBuilder::new();
 
-        let list = PageList::build(self.0, |view, b| {
-            let built = view.build(unsafe { b.cast() });
+        let list: Vec<_> = iter
+            .map(|view| {
+                let mut pin = uninit();
 
-            fragment.append(built.js());
+                let built = In::pinned(pin.as_mut(), |b| view.build(b));
 
-            unsafe { built.cast() }
-        });
+                fragment.append(built.js());
 
-        p.put(ListProduct { list, fragment })
+                unsafe { unpin_assume_init(pin) }
+            })
+            .collect();
+
+        let mounted = list.len();
+
+        p.put(ListProduct {
+            list,
+            mounted,
+            fragment,
+        })
     }
 
     fn update(self, p: &mut Self::Product) {
+        // `mounted` is always within the bounds of `len`, this
+        // convinces the compiler that this is indeed the fact,
+        // so it can optimize bounds checks here.
+        if p.mounted > p.list.len() {
+            unsafe { std::hint::unreachable_unchecked() }
+        }
+
         let mut new = self.0.into_iter();
-        let mut old = p.list.cursor();
+        let mut consumed = 0;
 
-        old.zip_each(&mut new, |old, new| new.update(&mut old.0));
+        while let Some(old) = p.list.get_mut(consumed) {
+            let Some(new) = new.next() else {
+                break;
+            };
 
-        old.truncate_rest().extend(new, |view, b| {
-            let built = view.build(unsafe { b.cast() });
+            new.update(old);
+            consumed += 1;
+        }
 
+        if consumed < p.mounted {
+            for tail in p.list[consumed..p.mounted].iter() {
+                tail.unmount();
+            }
+            p.mounted = consumed;
+            return;
+        }
+
+        p.list.extend(new.map(|view| {
+            let mut pin = uninit();
+
+            In::pinned(pin.as_mut(), |b| view.build(b));
+
+            consumed += 1;
+
+            unsafe { unpin_assume_init(pin) }
+        }));
+
+        for built in p.list[p.mounted..consumed].iter() {
             p.fragment.append(built.js());
+        }
 
-            unsafe { built.cast() }
-        });
+        p.mounted = consumed;
     }
 }
 
