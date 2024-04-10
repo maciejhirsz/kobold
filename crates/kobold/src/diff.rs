@@ -65,6 +65,19 @@ where
 /// Create a wrapper around a `view` that will prevent updates to it.
 ///
 /// This is effectively an unconditional [`fence`].
+///
+/// ```
+/// use kobold::prelude::*;
+/// use kobold::diff::invar;
+///
+/// #[component]
+/// fn tag(label: &'static str) -> impl View {
+///     invar(move || view! {
+///         <span.tag>{ static label }</span>
+///     })
+/// }
+/// # fn main() {}
+/// ```
 pub const fn invar<F, V>(render: F) -> Invar<F>
 where
     F: FnOnce() -> V,
