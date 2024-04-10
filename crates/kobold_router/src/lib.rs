@@ -47,11 +47,14 @@ impl Router {
         V: View,
     {
         self.router
-            .insert(route, Box::new(move |params| {
-                let view = render(params);
+            .insert(
+                route,
+                Box::new(move |params| {
+                    let view = render(params);
 
-                start_route(view)
-            }))
+                    start_route(view)
+                }),
+            )
             .expect_throw("Failed to insert route");
     }
 
