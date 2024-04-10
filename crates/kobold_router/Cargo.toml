@@ -1,0 +1,25 @@
+[package]
+name = "kobold_router"
+version = "0.1.0"
+authors = ["Bailey Townsend"]
+edition = "2021"
+license = "MPL-2.0"
+readme = "../../README.md"
+keywords = ["web", "wasm", "router", "kobold"]
+categories = ["wasm", "web-programming"]
+description = "A router for web applications written with Kobold"
+repository = "https://github.com/maciejhirsz/kobold"
+documentation = "https://docs.rs/kobold"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+kobold = { path = "../kobold" }
+matchit = "0.8.0"
+serde = { version = "1.0.197", features = ["derive"] }
+serde-wasm-bindgen = "0.4"
+wasm-bindgen = "0.2.84"
+
+[dependencies.web-sys]
+version = "0.3"
+features = ["Window", "Location", "History"]

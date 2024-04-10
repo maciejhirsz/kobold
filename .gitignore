@@ -6,3 +6,4 @@ examples/*/dist
 examples/*/Cargo.lock
 crates/*/Cargo.lock
 .DS_Store
+.idea
