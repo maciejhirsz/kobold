@@ -18,7 +18,7 @@ mod vstring;
 
 pub use vstring::VString;
 
-/// This is a wrapper around a `view` that will prevent updates to it, unless
+/// Create a wrapper around a `view` that will prevent updates to it, unless
 /// the value of `guard` has changed.
 ///
 /// Fencing against updates can be a great optimization that combines well
@@ -60,6 +60,48 @@ where
         guard,
         inner: render,
     }
+}
+
+/// Create a wrapper around a `view` that will prevent updates to it.
+///
+/// This is effectively an unconditional [`fence`].
+///
+/// ```
+/// use kobold::prelude::*;
+/// use kobold::diff::invar;
+///
+/// #[component]
+/// fn tag(label: &'static str) -> impl View {
+///     invar(move || view! {
+///         <span.tag>{ static label }</span>
+///     })
+/// }
+/// # fn main() {}
+/// ```
+pub const fn invar<F, V>(render: F) -> Invar<F>
+where
+    F: FnOnce() -> V,
+    V: View,
+{
+    Invar(render)
+}
+
+/// Smart [`View`] that prevents updates, see [`invar`].
+#[repr(transparent)]
+pub struct Invar<F>(F);
+
+impl<V, F> View for Invar<F>
+where
+    F: FnOnce() -> V,
+    V: View,
+{
+    type Product = V::Product;
+
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        (self.0)().build(p)
+    }
+
+    fn update(self, _: &mut Self::Product) {}
 }
 
 /// Smart [`View`] that guards against unnecessary renders, see [`fence`].
