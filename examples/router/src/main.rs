@@ -1,17 +1,13 @@
 use kobold::prelude::*;
 use kobold::View;
-use kobold_router::get_param;
-use kobold_router::link;
-use kobold_router::route_view;
-use kobold_router::start_route;
-use kobold_router::Router;
+use kobold_router::{link, Params, Router};
 use wasm_bindgen::JsValue;
 use web_sys::console::error_1;
 use web_sys::HtmlInputElement;
 
 #[component]
-fn inventory() -> impl View + 'static {
-    let attempt_to_get_id = get_param::<usize>("id");
+fn inventory(params: Params) -> impl View + 'static {
+    let attempt_to_get_id = params.get("id");
 
     let id = match attempt_to_get_id {
         Ok(id) => Some(id),
@@ -76,26 +72,21 @@ fn route_two(state: &Hook<State>) -> impl View + '_ {
     }
 }
 
-fn get_router() -> Router {
+fn main() {
     let mut router = Router::new();
-    router.add_route(
-        "/",
-        route_view!(view! {
+
+    router.add_route("/", |_| {
+        view! {
             <h1>{"Welcome to the router example!"}</h1>
             <!link route={"/one"}>"View your first route here!"</!link>
 
-        }),
-    );
+        }
+    });
 
-    router.add_route("/one", route_view!(stateful(State::default, route_one)));
-    router.add_route("/two", route_view!(stateful(State::default, route_two)));
-    router.add_route("/inventory/{id}", route_view!(view!(<!inventory>)));
+    router.add_route("/one", |_| stateful(State::default, route_one));
+    router.add_route("/two", |_| stateful(State::default, route_two));
+    router.add_route("/inventory/{id}", |params| view!(<!inventory {params}>));
 
-    router
-}
-
-fn main() {
-    let mut router = get_router();
     router.start();
 }
 

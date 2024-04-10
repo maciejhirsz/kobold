@@ -1,21 +1,20 @@
+use std::str::FromStr;
+
 use kobold::dom::Mountable;
 use kobold::internal::In;
 use kobold::prelude::*;
+
 use matchit::Match;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::rc::Rc;
 use wasm_bindgen::{closure::Closure, JsCast, JsValue, UnwrapThrowExt};
 
 mod internal;
 
 /// Routes type
-type Routes = matchit::Router<Box<dyn Fn()>>;
-type Params = HashMap<String, String>;
+type Routes = matchit::Router<Box<dyn Fn(Params)>>;
 
 /// A web router for Kobold
 pub struct Router {
-    router: Rc<RefCell<Routes>>,
+    router: Routes,
 }
 
 /// Get the current path via web_sys
@@ -32,71 +31,53 @@ pub fn get_path() -> String {
 pub enum ParamError {
     CouldNotFindParam,
     CouldNotParseParam,
-    ParamsNotSet,
 }
 
 /// Implement of [Router]
 impl Router {
     pub fn new() -> Self {
-        let router = Rc::new(RefCell::new(matchit::Router::new()));
+        let router = matchit::Router::new();
         Router { router }
     }
 
     /// Add a route to the router
-    pub fn add_route<F>(&mut self, route: &str, view: F)
+    pub fn add_route<F, V>(&mut self, route: &str, render: F)
     where
-        F: Fn() + 'static,
+        F: Fn(Params) -> V + 'static,
+        V: View,
     {
         self.router
-            .borrow_mut()
-            .insert(route, Box::new(move || view()))
+            .insert(route, Box::new(move |params| {
+                let view = render(params);
+
+                start_route(view)
+            }))
             .expect_throw("Failed to insert route");
     }
 
     /// Starts and hosts your web app with a router
-    pub fn start(&mut self) {
+    pub fn start(self) {
         kobold::start(view! {
            <div id="routerView"></div>
         });
 
-        let local_router = Rc::clone(&self.router);
-
-        let window = web_sys::window().expect_throw("no window");
         //This is what decides what is render and triggered by pushState
-        let conditonal_router_render: Closure<dyn FnMut()> = Closure::new(
-            move || match local_router.borrow().at(get_path().as_str()) {
+        let conditonal_router_render: Closure<dyn FnMut()> =
+            Closure::new(move || match self.router.at(get_path().as_str()) {
                 Ok(Match {
-                    value: render_view_fn,
+                    value: render,
                     params,
                 }) => {
-                    let history = web_sys::window()
-                        .expect_throw("no window")
-                        .history()
-                        .expect_throw("no history");
-
-                    let params = params
-                        .iter()
-                        .map(|(k, v)| (k.to_owned(), v.to_owned()))
-                        .collect::<Params>();
-
-                    match serde_wasm_bindgen::to_value(&params) {
-                        Ok(new_state) => {
-                            history
-                                .replace_state(&new_state, "")
-                                .expect_throw("failed to replace state");
-                        }
-                        Err(_) => {}
-                    }
-
                     //Runs the Fn() to render out the view
-                    render_view_fn();
+                    render(Params(params));
                 }
                 //TODO add ability to load your own 404 page. Possibly view a macro, or raw html
                 Err(_) => start_route(view! {
                     <h1> "404" </h1>
                 }),
-            },
-        );
+            });
+
+        let window = web_sys::window().expect_throw("no window");
 
         //Sets up a listener for pushState events
         internal::setup_push_state_event();
@@ -116,7 +97,7 @@ impl Router {
 }
 
 /// Start a route with a view
-pub fn start_route(view: impl View) {
+fn start_route(view: impl View) {
     use std::mem::MaybeUninit;
     use std::pin::pin;
 
@@ -136,24 +117,20 @@ pub fn navigate(path: &str) {
         .expect_throw("failed to push state");
 }
 
-/// Get the value of a parameter from the current route
-pub fn get_param<T: std::str::FromStr>(key: &str) -> Result<T, ParamError> {
-    let history_state = web_sys::window()
-        .expect_throw("no window")
-        .history()
-        .expect_throw("no history")
-        .state()
-        .expect_throw("no state");
+pub struct Params<'p>(matchit::Params<'p, 'p>);
 
-    match serde_wasm_bindgen::from_value::<Params>(history_state) {
-        Ok(params) => match params.get(key) {
+impl Params<'_> {
+    pub fn get<T>(&self, key: &str) -> Result<T, ParamError>
+    where
+        T: FromStr,
+    {
+        match self.0.get(key) {
             Some(value) => match value.parse::<T>() {
                 Ok(value) => Ok(value),
                 Err(_) => Err(ParamError::CouldNotParseParam),
             },
             None => Err(ParamError::CouldNotFindParam),
-        },
-        Err(_) => Err(ParamError::ParamsNotSet),
+        }
     }
 }
 
@@ -172,12 +149,4 @@ pub fn link<'a>(route: &'a str, class: &'a str, children: impl View + 'a) -> imp
     view! {
         <a href={href} {class} {onclick}>{children}</a>
     }
-}
-
-/// Allows short hand for creating a fn
-#[macro_export]
-macro_rules! route_view {
-    ($view:expr) => {
-        || crate::start_route($view)
-    };
 }
