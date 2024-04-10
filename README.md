@@ -1,6 +1,6 @@
-<img src="https://raw.githubusercontent.com/maciejhirsz/kobold/master/kobold.svg?sanitize=true" alt="Kobold logo" width="250" align="right" style="max-width: 40vw;">
-
 # Kobold
+
+<img src="https://raw.githubusercontent.com/maciejhirsz/kobold/master/kobold.svg?sanitize=true" alt="Kobold logo" width="250" align="right" style="max-width: 40vw;">
 
 [![Join Discord](https://img.shields.io/discord/1092732324610850816?label=&logo=discord&labelColor=6A7EC2&logoColor=ffffff&color=7389D8)](https://discord.gg/tgNX5VYSWF)
 [![Test](https://img.shields.io/github/actions/workflow/status/maciejhirsz/kobold/ci.yml?label=tests)](https://github.com/maciejhirsz/kobold/actions/workflows/ci.yml)
