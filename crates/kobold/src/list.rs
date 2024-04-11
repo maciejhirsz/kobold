@@ -12,7 +12,7 @@ use crate::dom::{Anchor, Fragment, FragmentBuilder};
 use crate::internal::{In, Out};
 use crate::{Mountable, View};
 
-mod unbounded;
+// mod unbounded;
 
 /// Wrapper type that implements `View` for iterators, created by the
 /// [`for`](crate::keywords::for) keyword.
@@ -23,6 +23,24 @@ pub struct ListProduct<P: Mountable> {
     list: Vec<Box<P>>,
     mounted: usize,
     fragment: FragmentBuilder,
+}
+
+impl<P: Mountable> ListProduct<P> {
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: Iterator,
+        I::Item: View<Product = P>
+    {
+        self.list.extend(iter.map(|view| {
+            let built = In::boxed(|p| view.build(p));
+
+            self.fragment.append(built.js());
+
+            built
+        }));
+
+        self.mounted = self.list.len();
+    }
 }
 
 impl<P> Anchor for ListProduct<P>
@@ -64,20 +82,15 @@ where
     type Product = ListProduct<<T::Item as View>::Product>;
 
     fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
-        let iter = self.0.into_iter();
-        let fragment = FragmentBuilder::new();
+        let mut list = ListProduct {
+            list: Vec::new(),
+            mounted: 0,
+            fragment: FragmentBuilder::new(),
+        };
 
-        let mut list: Vec<_> = Collection::new();
+        list.extend(self.0.into_iter());
 
-        list.extend_list(iter, &fragment);
-
-        let mounted = list.len();
-
-        p.put(ListProduct {
-            list,
-            mounted,
-            fragment,
-        })
+        p.put(list)
     }
 
     fn update(self, p: &mut Self::Product) {
@@ -101,18 +114,16 @@ where
         }
 
         if consumed < p.mounted {
-            for tail in p.list.products(consumed..p.mounted) {
+            for tail in p.list[consumed..p.mounted].iter() {
                 tail.unmount();
             }
             p.mounted = consumed;
         } else {
-            for built in p.list.products(p.mounted..consumed) {
+            for built in p.list[p.mounted..consumed].iter() {
                 p.fragment.append(built.js());
             }
 
-            p.list.extend_list(new, &p.fragment);
-
-            p.mounted = p.list.len();
+            p.extend(new);
         }
     }
 }
