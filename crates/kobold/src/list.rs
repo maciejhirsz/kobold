@@ -4,11 +4,15 @@
 
 //! Utilities for rendering lists
 
+use std::ops::Range;
+
 use web_sys::Node;
 
 use crate::dom::{Anchor, Fragment, FragmentBuilder};
 use crate::internal::{In, Out};
 use crate::{Mountable, View};
+
+mod unbounded;
 
 /// Wrapper type that implements `View` for iterators, created by the
 /// [`for`](crate::keywords::for) keyword.
@@ -33,6 +37,25 @@ where
     }
 }
 
+trait Collection<P> {
+    type Iter<'a>: Iterator<Item = &'a P>
+    where
+        Self: 'a,
+        P: 'a;
+
+    fn new() -> Self;
+
+    fn extend_list<I>(&mut self, iter: I, frag: &FragmentBuilder)
+    where
+        P: Mountable,
+        I: Iterator,
+        I::Item: View<Product = P>;
+
+    fn products(&self, range: Range<usize>) -> Self::Iter<'_>;
+
+    fn len(&self) -> usize;
+}
+
 impl<T> View for List<T>
 where
     T: IntoIterator,
@@ -44,15 +67,9 @@ where
         let iter = self.0.into_iter();
         let fragment = FragmentBuilder::new();
 
-        let list: Vec<_> = iter
-            .map(|view| {
-                let built = In::boxed(|p| view.build(p));
+        let mut list: Vec<_> = Collection::new();
 
-                fragment.append(built.js());
-
-                built
-            })
-            .collect();
+        list.extend_list(iter, &fragment);
 
         let mounted = list.len();
 
@@ -84,24 +101,19 @@ where
         }
 
         if consumed < p.mounted {
-            for tail in p.list[consumed..p.mounted].iter() {
+            for tail in p.list.products(consumed..p.mounted) {
                 tail.unmount();
             }
             p.mounted = consumed;
-            return;
+        } else {
+            for built in p.list.products(p.mounted..consumed) {
+                p.fragment.append(built.js());
+            }
+
+            p.list.extend_list(new, &p.fragment);
+
+            p.mounted = p.list.len();
         }
-
-        p.list.extend(new.map(|view| {
-            consumed += 1;
-
-            In::boxed(|p| view.build(p))
-        }));
-
-        for built in p.list[p.mounted..consumed].iter() {
-            p.fragment.append(built.js());
-        }
-
-        p.mounted = consumed;
     }
 }
 
