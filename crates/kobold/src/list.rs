@@ -98,13 +98,13 @@ where
 }
 
 impl<V: View, const N: usize> View for [V; N] {
-    type Product = ListProduct<V::Product>;
+    type Product = BoundedProduct<V::Product, N>;
 
     fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
-        List::new(self).build(p)
+        List::new_bounded(self).build(p)
     }
 
     fn update(self, p: &mut Self::Product) {
-        List::new(self).update(p)
+        List::new_bounded(self).update(p)
     }
 }
