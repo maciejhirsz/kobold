@@ -4,48 +4,38 @@
 
 //! Utilities for rendering lists
 
-use std::mem::MaybeUninit;
-use std::pin::Pin;
+use std::marker::PhantomData;
 
-use web_sys::Node;
-
-use crate::dom::{Anchor, Fragment, FragmentBuilder};
 use crate::internal::{In, Out};
-use crate::{Mountable, View};
+use crate::View;
+
+pub mod bounded;
+pub mod unbounded;
+
+use bounded::BoundedProduct;
+use unbounded::ListProduct;
+
+/// Zero-sized marker making the [`List`] unbounded: it can grow to arbitrary
+/// size but will require memory allocation.
+pub struct Unbounded;
+
+/// Zero-sized marker making the [`List`] bounded to a max length of `N`:
+/// elements over the limit are ignored and no allocations are made.
+pub struct Bounded<const N: usize>;
 
 /// Wrapper type that implements `View` for iterators, created by the
 /// [`for`](crate::keywords::for) keyword.
 #[repr(transparent)]
-pub struct List<T>(pub(crate) T);
+pub struct List<T, B = Unbounded>(T, PhantomData<B>);
 
-pub struct ListProduct<P: Mountable> {
-    list: Vec<Box<P>>,
-    mounted: usize,
-    fragment: FragmentBuilder,
-}
-
-impl<P> Anchor for ListProduct<P>
-where
-    P: Mountable,
-{
-    type Js = Node;
-    type Target = Fragment;
-
-    fn anchor(&self) -> &Fragment {
-        &self.fragment
+impl<T> List<T> {
+    pub const fn new(item: T) -> Self {
+        List(item, PhantomData)
     }
-}
 
-fn uninit<T>() -> Pin<Box<MaybeUninit<T>>> {
-    unsafe {
-        let ptr = std::alloc::alloc(std::alloc::Layout::new::<T>());
-
-        Pin::new_unchecked(Box::from_raw(ptr as *mut MaybeUninit<T>))
+    pub const fn new_bounded<const N: usize>(item: T) -> List<T, Bounded<N>> {
+        List(item, PhantomData)
     }
-}
-
-unsafe fn unpin_assume_init<T>(pin: Pin<Box<MaybeUninit<T>>>) -> Box<T> {
-    std::mem::transmute(pin)
 }
 
 impl<T> View for List<T>
@@ -56,73 +46,27 @@ where
     type Product = ListProduct<<T::Item as View>::Product>;
 
     fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
-        let iter = self.0.into_iter();
-        let fragment = FragmentBuilder::new();
-
-        let list: Vec<_> = iter
-            .map(|view| {
-                let mut pin = uninit();
-
-                let built = In::pinned(pin.as_mut(), |b| view.build(b));
-
-                fragment.append(built.js());
-
-                unsafe { unpin_assume_init(pin) }
-            })
-            .collect();
-
-        let mounted = list.len();
-
-        p.put(ListProduct {
-            list,
-            mounted,
-            fragment,
-        })
+        ListProduct::build(self.0.into_iter(), p)
     }
 
     fn update(self, p: &mut Self::Product) {
-        // `mounted` is always within the bounds of `len`, this
-        // convinces the compiler that this is indeed the fact,
-        // so it can optimize bounds checks here.
-        if p.mounted > p.list.len() {
-            unsafe { std::hint::unreachable_unchecked() }
-        }
+        p.update(self.0.into_iter());
+    }
+}
 
-        let mut new = self.0.into_iter();
-        let mut consumed = 0;
+impl<T, const N: usize> View for List<T, Bounded<N>>
+where
+    T: IntoIterator,
+    <T as IntoIterator>::Item: View,
+{
+    type Product = BoundedProduct<<T::Item as View>::Product, N>;
 
-        while let Some(old) = p.list.get_mut(consumed) {
-            let Some(new) = new.next() else {
-                break;
-            };
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        BoundedProduct::build(self.0.into_iter(), p)
+    }
 
-            new.update(old);
-            consumed += 1;
-        }
-
-        if consumed < p.mounted {
-            for tail in p.list[consumed..p.mounted].iter() {
-                tail.unmount();
-            }
-            p.mounted = consumed;
-            return;
-        }
-
-        p.list.extend(new.map(|view| {
-            let mut pin = uninit();
-
-            In::pinned(pin.as_mut(), |b| view.build(b));
-
-            consumed += 1;
-
-            unsafe { unpin_assume_init(pin) }
-        }));
-
-        for built in p.list[p.mounted..consumed].iter() {
-            p.fragment.append(built.js());
-        }
-
-        p.mounted = consumed;
+    fn update(self, p: &mut Self::Product) {
+        p.update(self.0.into_iter());
     }
 }
 
@@ -130,11 +74,11 @@ impl<V: View> View for Vec<V> {
     type Product = ListProduct<V::Product>;
 
     fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
-        List(self).build(p)
+        List::new(self).build(p)
     }
 
     fn update(self, p: &mut Self::Product) {
-        List(self).update(p);
+        List::new(self).update(p);
     }
 }
 
@@ -145,22 +89,22 @@ where
     type Product = ListProduct<<&'a V as View>::Product>;
 
     fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
-        List(self).build(p)
+        List::new(self).build(p)
     }
 
     fn update(self, p: &mut Self::Product) {
-        List(self).update(p)
+        List::new(self).update(p)
     }
 }
 
 impl<V: View, const N: usize> View for [V; N] {
-    type Product = ListProduct<V::Product>;
+    type Product = BoundedProduct<V::Product, N>;
 
     fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
-        List(self).build(p)
+        List::new_bounded(self).build(p)
     }
 
     fn update(self, p: &mut Self::Product) {
-        List(self).update(p)
+        List::new_bounded(self).update(p)
     }
 }
