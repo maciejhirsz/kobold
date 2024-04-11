@@ -97,7 +97,7 @@ impl Node {
                 return Ok(1);
             }
             Some(Ok(ShallowNode::Expression(expr))) => {
-                parent.push(Expression::from(expr).into());
+                parent.push(Expression::try_from(expr)?.into());
                 return Ok(1);
             }
             Some(Err(error)) => return Err(error),
@@ -259,7 +259,7 @@ impl Parse for Property {
 
             return Ok(Property {
                 name,
-                expr: Expression::from(expr),
+                expr: Expression::try_from(expr)?,
             });
         }
 
@@ -270,11 +270,11 @@ impl Parse for Property {
         match stream.next() {
             Some(tt) if tt.is('{') || tt.is(Lit) => Ok(Property {
                 name,
-                expr: Expression::from(tt),
+                expr: Expression::try_from(tt)?,
             }),
             Some(TokenTree::Ident(b)) if b.one_of(["true", "false"]) => Ok(Property {
                 name,
-                expr: Expression::from(TokenTree::from(b)),
+                expr: Expression::try_from(TokenTree::from(b))?,
             }),
             _ => Err(ParseError::new(
                 "Component properties must contain {expressions} or literals",
@@ -307,7 +307,7 @@ impl CssValue {
 impl Parse for CssValue {
     fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
         if let Some(expr) = stream.allow_consume('{') {
-            return Ok(CssValue::Expression(Expression::from(expr)));
+            return Ok(CssValue::Expression(Expression::try_from(expr)?));
         }
 
         let css_label: CssLabel = stream
@@ -358,7 +358,7 @@ impl Parse for Attribute {
 
             return Ok(Attribute {
                 name,
-                value: Expression::from(expr).into(),
+                value: Expression::try_from(expr)?.into(),
             });
         }
 
@@ -384,7 +384,7 @@ impl Parse for Attribute {
             }),
             Some(tt) if tt.is('{') => Ok(Attribute {
                 name,
-                value: Expression::from(tt).into(),
+                value: Expression::try_from(tt)?.into(),
             }),
             _ => Err(ParseError::new(
                 "Element attributes must contain {expressions} or literals",
