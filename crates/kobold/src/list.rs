@@ -12,8 +12,6 @@ use crate::dom::{Anchor, Fragment, FragmentBuilder};
 use crate::internal::{In, Out};
 use crate::{Mountable, View};
 
-// mod unbounded;
-
 /// Wrapper type that implements `View` for iterators, created by the
 /// [`for`](crate::keywords::for) keyword.
 #[repr(transparent)]
@@ -82,15 +80,14 @@ where
     type Product = ListProduct<<T::Item as View>::Product>;
 
     fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
-        let mut list = ListProduct {
+        let mut list = p.put(ListProduct {
             list: Vec::new(),
             mounted: 0,
             fragment: FragmentBuilder::new(),
-        };
+        });
 
         list.extend(self.0.into_iter());
-
-        p.put(list)
+        list
     }
 
     fn update(self, p: &mut Self::Product) {
