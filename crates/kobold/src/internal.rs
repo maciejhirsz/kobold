@@ -67,6 +67,20 @@ impl<T> DerefMut for Out<'_, T> {
 }
 
 impl<'a, T> In<'a, T> {
+    /// Create a box from an `In` -> `Out` constructor.
+    pub fn boxed<F>(f: F) -> Box<T>
+    where
+        F: FnOnce(In<T>) -> Out<T>,
+    {
+        unsafe {
+            let ptr = std::alloc::alloc(std::alloc::Layout::new::<T>()) as *mut T;
+
+            In::raw(ptr, f);
+
+            Box::from_raw(ptr)
+        }
+    }
+
     /// Cast this pointer from `In<T>` to `In<U>`.
     ///
     /// # Safety
@@ -303,6 +317,13 @@ mod test {
     use super::*;
 
     use std::pin::pin;
+
+    #[test]
+    fn boxed() {
+        let data = In::boxed(|p| p.put(42));
+
+        assert_eq!(*data, 42);
+    }
 
     #[test]
     fn pinned() {

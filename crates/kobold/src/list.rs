@@ -4,9 +4,6 @@
 
 //! Utilities for rendering lists
 
-use std::mem::MaybeUninit;
-use std::pin::Pin;
-
 use web_sys::Node;
 
 use crate::dom::{Anchor, Fragment, FragmentBuilder};
@@ -36,18 +33,6 @@ where
     }
 }
 
-fn uninit<T>() -> Pin<Box<MaybeUninit<T>>> {
-    unsafe {
-        let ptr = std::alloc::alloc(std::alloc::Layout::new::<T>());
-
-        Pin::new_unchecked(Box::from_raw(ptr as *mut MaybeUninit<T>))
-    }
-}
-
-unsafe fn unpin_assume_init<T>(pin: Pin<Box<MaybeUninit<T>>>) -> Box<T> {
-    std::mem::transmute(pin)
-}
-
 impl<T> View for List<T>
 where
     T: IntoIterator,
@@ -61,13 +46,11 @@ where
 
         let list: Vec<_> = iter
             .map(|view| {
-                let mut pin = uninit();
-
-                let built = In::pinned(pin.as_mut(), |b| view.build(b));
+                let built = In::boxed(|p| view.build(p));
 
                 fragment.append(built.js());
 
-                unsafe { unpin_assume_init(pin) }
+                built
             })
             .collect();
 
@@ -109,13 +92,9 @@ where
         }
 
         p.list.extend(new.map(|view| {
-            let mut pin = uninit();
-
-            In::pinned(pin.as_mut(), |b| view.build(b));
-
             consumed += 1;
 
-            unsafe { unpin_assume_init(pin) }
+            In::boxed(|p| view.build(p))
         }));
 
         for built in p.list[p.mounted..consumed].iter() {
