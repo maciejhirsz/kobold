@@ -5,7 +5,7 @@
 //! Keyword handles for `{ ... }` expressions in the [`view!`](crate::view) macro.
 
 use crate::diff::{Eager, Ref, Static};
-use crate::list::List;
+use crate::list;
 use crate::View;
 
 /// `{ for ... }`: turn an [`IntoIterator`] type into a [`View`].
@@ -20,12 +20,12 @@ use crate::View;
 /// }
 /// # ;
 /// ```
-pub const fn r#for<T>(iterator: T) -> List<T>
+pub const fn r#for<T>(iterator: T) -> list::List<T>
 where
     T: IntoIterator,
     T::Item: View,
 {
-    List(iterator)
+    list::List(iterator)
 }
 
 /// `{ ref ... }`: diff this value by its reference address.

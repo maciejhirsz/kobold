@@ -11,7 +11,27 @@ pub mod unbounded;
 
 use unbounded::ListProduct;
 
-pub use unbounded::List;
+/// Wrapper type that implements `View` for iterators, created by the
+/// [`for`](crate::keywords::for) keyword.
+#[repr(transparent)]
+pub struct List<T>(pub(crate) T);
+
+impl<T> View for List<T>
+where
+    T: IntoIterator,
+    <T as IntoIterator>::Item: View,
+{
+    type Product = ListProduct<<T::Item as View>::Product>;
+
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        ListProduct::build(self.0.into_iter(), p)
+    }
+
+    fn update(self, p: &mut Self::Product) {
+        p.update(self.0.into_iter());
+    }
+}
+
 
 impl<V: View> View for Vec<V> {
     type Product = ListProduct<V::Product>;
