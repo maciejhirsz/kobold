@@ -162,6 +162,17 @@ where
     panic!();
 }
 
+unsafe fn get_hook_unchecked<S>() -> *const Hook<S>
+where
+    S: 'static,
+{
+    let hook = HOOK.get();
+
+    debug_assert!(hook.typ == u64type_id::<S>(), "get_hook_unchecked");
+
+    StaticHookPtr { raw: hook.ptr }.ptr as _
+}
+
 fn set_global_hook<S>(hook: &Hook<S>) -> &Hook<S>
 where
     S: 'static,
@@ -195,7 +206,6 @@ where
         // not touched until an event is fired, which happens after this method
         // completes and initializes the `prod`.
         let view = (self.render)(Hook::new(unsafe { inner.as_init() }));
-        unset_global_hook();
 
         // ⚠️ Safety:
         // ==========
@@ -214,6 +224,8 @@ where
                 )
             });
         }
+
+        unset_global_hook();
 
         // ⚠️ Safety:
         // ==========
