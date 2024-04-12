@@ -11,6 +11,8 @@
 //! could ever do is render itself once. To get around this the [`stateful`] function can
 //! be used to create views that have ownership over some arbitrary mutable state.
 //!
+use std::any::TypeId;
+use std::cell::Cell;
 use std::cell::UnsafeCell;
 use std::mem::MaybeUninit;
 use std::rc::Rc;
@@ -78,7 +80,7 @@ where
     //
     // The `stateful` function ensures that correct lifetimes are used before we
     // erase them for the use in the `Stateful` struct.
-    let render = move |hook: *const Hook<S::State>| render(unsafe { &*hook });
+    let render = move |hook: *const Hook<S::State>| render(set_global_hook(unsafe { &*hook }));
     Stateful { state, render }
 }
 
@@ -109,6 +111,69 @@ impl<S> Inner<S> {
     }
 }
 
+thread_local! {
+    static HOOK: Cell<StaticHook> = const { Cell::new(VOID) };
+}
+
+#[derive(Clone, Copy)]
+struct StaticHook {
+    typ: u64,
+    ptr: (usize, usize),
+}
+
+union StaticHookPtr {
+    ptr: *const Hook<()>,
+    raw: (usize, usize),
+}
+
+const VOID: StaticHook = StaticHook {
+    typ: 0,
+    ptr: (0, 0),
+};
+
+impl StaticHook {
+    fn new<S: 'static>(hook: &Hook<S>) -> Self {
+        StaticHook {
+            typ: u64type_id::<S>(),
+            ptr: unsafe { StaticHookPtr { ptr: hook as *const _ as *const Hook<()> }.raw },
+        }
+    }
+}
+
+fn u64type_id<S: 'static>() -> u64 {
+    let typ: (u64, u64) = unsafe { std::mem::transmute(TypeId::of::<S>()) };
+
+    typ.0 ^ typ.1
+}
+
+pub fn hook<S, F, V>(f: F) -> V
+where
+    S: 'static,
+    F: FnOnce(&Hook<S>) -> V,
+{
+    let hook = HOOK.get();
+
+    if hook.typ == u64type_id::<S>() {
+        let hook = unsafe { StaticHookPtr { raw: hook.ptr }.ptr };
+
+        return f(unsafe { &*(hook as *const Hook<S>) });
+    }
+
+    panic!();
+}
+
+fn set_global_hook<S>(hook: &Hook<S>) -> &Hook<S>
+where
+    S: 'static,
+{
+    HOOK.set(StaticHook::new(hook));
+    hook
+}
+
+fn unset_global_hook() {
+    HOOK.set(VOID);
+}
+
 impl<S, F, V> View for Stateful<S, F>
 where
     S: IntoState,
@@ -130,6 +195,7 @@ where
         // not touched until an event is fired, which happens after this method
         // completes and initializes the `prod`.
         let view = (self.render)(Hook::new(unsafe { inner.as_init() }));
+        unset_global_hook();
 
         // ⚠️ Safety:
         // ==========
@@ -139,7 +205,10 @@ where
         unsafe {
             In::raw((*inner.prod.get()).as_mut_ptr(), |prod| {
                 ProductHandler::build(
-                    move |hook, product: *mut V::Product| (self.render)(hook).update(&mut *product),
+                    move |hook, product: *mut V::Product| {
+                        (self.render)(hook).update(&mut *product);
+                        unset_global_hook();
+                    },
                     view,
                     prod,
                 )
