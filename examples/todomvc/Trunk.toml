@@ -1,3 +1,4 @@
 [build]
 filehash = false
 public_url = "./"
+no_sri = true
