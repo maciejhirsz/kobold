@@ -81,6 +81,10 @@ impl<'a, T> In<'a, T> {
         }
     }
 
+    // pub unsafe fn from_raw(raw: *mut T) -> Self {
+    //     In(&mut *(raw as *mut MaybeUninit<T>))
+    // }
+
     /// Cast this pointer from `In<T>` to `In<U>`.
     ///
     /// # Safety
