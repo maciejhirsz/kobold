@@ -158,24 +158,22 @@ impl<T, const N: usize> Deref for BoundedVec<T, N> {
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
-        if self.len > N {
-            unsafe { std::hint::unreachable_unchecked() }
-        }
+        debug_assert!(self.len <= N);
 
-        let ptr = &self.data[..self.len] as *const [MaybeUninit<T>] as *const [T];
-
-        unsafe { &*ptr }
+        unsafe { &*(self.data.get_unchecked(..self.len) as *const [_] as *const [T]) }
     }
 }
 
 impl<T, const N: usize> DerefMut for BoundedVec<T, N> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        if self.len > N {
-            unsafe { std::hint::unreachable_unchecked() }
-        }
+        debug_assert!(self.len <= N);
 
-        let ptr = &mut self.data[..self.len] as *mut [MaybeUninit<T>] as *mut [T];
+        unsafe { &mut *(self.data.get_unchecked_mut(..self.len) as *mut [_] as *mut [T]) }
+    }
+}
 
-        unsafe { &mut *ptr }
+impl<T, const N: usize> Drop for BoundedVec<T, N> {
+    fn drop(&mut self) {
+        unsafe { std::ptr::drop_in_place(&mut **self as *mut [T]) }
     }
 }
