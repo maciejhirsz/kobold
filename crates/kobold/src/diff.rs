@@ -346,6 +346,20 @@ macro_rules! impl_no_diff {
                 self.0
             }
         }
+
+        impl View for $name<String> {
+            type Product = Node;
+
+            fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+                p.put(self.into_text())
+            }
+
+            fn update(self, p: &mut Self::Product) {
+                if $update {
+                    self.0.set_prop(TextContent, p);
+                }
+            }
+        }
     };
 }
 
