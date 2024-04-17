@@ -302,7 +302,7 @@ fn attribute_type(attr: &str) -> AttributeType {
             name: "Href",
             abi: Some(InlineAbi::Str),
         },
-        "html" => Attr {
+        "html" | "innerHTML" => Attr {
             name: "InnerHtml",
             abi: Some(InlineAbi::Str),
         },
@@ -312,6 +312,14 @@ fn attribute_type(attr: &str) -> AttributeType {
         },
         "value" => Attr {
             name: "Value",
+            abi: None,
+        },
+        "view_box" | "viewBox" => Attr {
+            name: "SvgViewBox",
+            abi: Some(InlineAbi::Str),
+        },
+        "d" => Attr {
+            name: "SvgPath",
             abi: None,
         },
         _ => return AttributeType::Unknown,

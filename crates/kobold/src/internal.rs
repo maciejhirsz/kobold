@@ -292,6 +292,13 @@ extern "C" {
     #[wasm_bindgen(js_name = "setValue")]
     pub(crate) fn value_num(node: &Node, value: f64);
 
+    // provided attribute setters for SVG elements ----------------
+
+    #[wasm_bindgen(js_name = "setSvgViewBox")]
+    pub(crate) fn svg_view_box(node: &Node, value: &str);
+    #[wasm_bindgen(js_name = "setSvgPath")]
+    pub(crate) fn svg_path(node: &Node, value: &str);
+
     // ----------------
 
     #[wasm_bindgen(js_name = "addClass")]

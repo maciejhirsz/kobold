@@ -80,6 +80,10 @@ attribute!(
     Href [href: &str]
     /// The `value` attribute: <https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#value>
     Value [value: &str, value_num: f64]
+    /// The `viewBox` SVG attribute: <https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/viewBox>
+    SvgViewBox [svg_view_box: &str]
+    /// The `d` SVG attribute: <https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/d>
+    SvgPath [svg_path: &str]
 );
 
 pub trait Attribute<P> {

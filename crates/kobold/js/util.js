@@ -40,6 +40,9 @@ export function setHref(n,v) { n.href = v; }
 export function setStyle(n,v) { n.style = v; }
 export function setValue(n,v) { n.value = v; }
 
+export function setSvgViewBox(n,v) { n.setAttribute("viewBox",v); }
+export function setSvgPath(n,v) { n.setAttribute("d",v); }
+
 export function addClass(n,v) { n.classList.add(v); }
 export function removeClass(n,v) { n.classList.remove(v); }
 export function replaceClass(n,o,v) { n.classList.replace(o,v); }
