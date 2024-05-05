@@ -89,19 +89,19 @@ pub(crate) struct TextContent;
 
 impl Property<&str> for TextContent {
     fn set(self, this: &Node, value: &str) {
-        internal::set_text(this, value)
+        internal::obj(this).set_text(value);
     }
 }
 
 impl Property<f64> for TextContent {
     fn set(self, this: &Node, value: f64) {
-        internal::set_text_num(this, value)
+        internal::obj(this).set_text_num(value);
     }
 }
 
 impl Property<bool> for TextContent {
     fn set(self, this: &Node, value: bool) {
-        internal::set_text_bool(this, value)
+        internal::obj(this).set_text_bool(value);
     }
 }
 
@@ -118,7 +118,7 @@ impl FragmentBuilder {
     }
 
     pub fn append(&self, child: &JsValue) {
-        internal::append_before(&self.tail, child);
+        internal::obj(&self.tail).append_before(child);
     }
 }
 
@@ -138,11 +138,11 @@ impl Mountable for Node {
     }
 
     fn unmount(&self) {
-        internal::unmount(self)
+        internal::obj(self).unmount();
     }
 
     fn replace_with(&self, new: &JsValue) {
-        internal::replace(self, new)
+        internal::obj(self).replace(new);
     }
 }
 

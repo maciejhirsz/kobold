@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::fmt::{Debug, Write};
-use std::hash::Hash;
 
 use arrayvec::ArrayString;
 use tokens::{Ident, TokenStream};
@@ -74,8 +73,6 @@ impl Generator {
     }
 
     fn hoist(&mut self, node: DomNode) -> Option<JsFnName> {
-        use std::hash::Hasher;
-
         let (var, body, args, anchor) = match node {
             DomNode::Variable(_) => return None,
             DomNode::TextNode(text) => {
@@ -114,12 +111,7 @@ impl Generator {
 
         self.out.els.push(var);
 
-        let mut hasher = fnv::FnvHasher::default();
-        var.hash(&mut hasher);
-        body.hash(&mut hasher);
-
-        let hash = hasher.finish();
-        let name = JsFnName::try_from(format_args!("__{var}_{hash:016x}")).unwrap();
+        let name = crate::unique();
 
         let js_args = args.iter().map(|a| a.name).join(",");
 

@@ -31,19 +31,19 @@ impl Deref for AttributeName {
 
 impl Property<&str> for &AttributeName {
     fn set(self, this: &Node, value: &str) {
-        internal::set_attr(this, self, value)
+        internal::obj(this).set_attr(self, value);
     }
 }
 
 impl Property<f64> for &AttributeName {
     fn set(self, this: &Node, value: f64) {
-        internal::set_attr_num(this, self, value)
+        internal::obj(this).set_attr_num(self, value)
     }
 }
 
 impl Property<bool> for &AttributeName {
     fn set(self, this: &Node, value: bool) {
-        internal::set_attr_bool(this, self, value)
+        internal::obj(this).set_attr_bool(self, value);
     }
 }
 
@@ -56,7 +56,7 @@ macro_rules! attribute {
             $(
                 impl Property<$abi> for $name {
                     fn set(self, this: &Node, value: $abi) {
-                        internal::$util(this, value)
+                        internal::obj(this).$util(value);
                     }
                 }
             )*
@@ -64,12 +64,19 @@ macro_rules! attribute {
     }
 }
 
+/// The `checked` attribute: <https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#checked>
+pub struct Checked;
+
+impl Property<bool> for Checked {
+    fn set(self, this: &Node, value: bool) {
+        internal::checked(this, value);
+    }
+}
+
 /// The `Element.classList` property: <https://developer.mozilla.org/en-US/docs/Web/API/Element/classList>
 pub struct Class;
 
 attribute!(
-    /// The `checked` attribute: <https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#checked>
-    Checked [checked: bool]
     /// The `className` attribute: <https://developer.mozilla.org/en-US/docs/Web/API/Element/className>
     ClassName [class_name: &str]
     /// The `innerHTML` attribute: <https://developer.mozilla.org/en-US/docs/Web/API/Element/innerHTML>
@@ -234,19 +241,70 @@ impl Attribute<Class> for String {
 }
 
 #[derive(Clone, Copy)]
-pub struct OptionalClass {
-    class: &'static str,
+pub struct StaticClass<T> {
+    toggle: T,
     on: bool,
 }
 
-impl AsRef<str> for OptionalClass {
-    fn as_ref(&self) -> &str {
-        if self.on {
-            self.class
-        } else {
-            ""
+impl<T> StaticClass<T> {
+    pub const fn new(toggle: T, on: bool) -> Self
+    where
+        T: Fn(&Node, bool),
+    {
+        StaticClass { toggle, on }
+    }
+}
+
+impl<T> Attribute<Class> for StaticClass<T>
+where
+    T: Fn(&Node, bool),
+{
+    type Product = bool;
+
+    fn build(self) -> bool {
+        self.on
+    }
+
+    fn build_in(self, _: Class, node: &Node) -> bool {
+        (self.toggle)(node, self.on);
+        self.on
+    }
+
+    fn update_in(self, _: Class, node: &Node, memo: &mut bool) {
+        if self.on != *memo {
+            (self.toggle)(node, self.on);
+            *memo = self.on;
         }
     }
+}
+
+impl<T> Attribute<ClassName> for StaticClass<T>
+where
+    T: Fn(&Node, bool),
+{
+    type Product = bool;
+
+    fn build(self) -> bool {
+        self.on
+    }
+
+    fn build_in(self, _: ClassName, node: &Node) -> bool {
+        (self.toggle)(node, self.on);
+        self.on
+    }
+
+    fn update_in(self, _: ClassName, node: &Node, memo: &mut bool) {
+        if self.on != *memo {
+            (self.toggle)(node, self.on);
+            *memo = self.on;
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct OptionalClass {
+    class: &'static str,
+    on: bool,
 }
 
 impl OptionalClass {
@@ -286,14 +344,14 @@ impl Attribute<ClassName> for OptionalClass {
 
     fn build_in(self, _: ClassName, node: &Node) -> bool {
         if self.on {
-            internal::class_name(node, self.class);
+            internal::obj(node).class_name(self.class);
         }
         self.on
     }
 
     fn update_in(self, _: ClassName, node: &Node, memo: &mut bool) {
         if self.on != *memo {
-            internal::class_name(node, self.as_ref());
+            internal::obj(node).class_name(self.class);
             *memo = self.on;
         }
     }
