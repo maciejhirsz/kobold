@@ -2,6 +2,7 @@ use std::fmt::{self, Debug};
 use std::path::PathBuf;
 
 use clap::Parser;
+use leb128::write::unsigned as leb128_write;
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
@@ -161,7 +162,7 @@ fn main() -> anyhow::Result<()> {
 
     wasm_new.extend_from_slice(parsed.head);
 
-    leb128::write::unsigned(&mut wasm_imports, parsed.imports.len() as u64)?;
+    leb128_write(&mut wasm_imports, parsed.imports.len() as u64)?;
 
     let mut saved = 0;
 
@@ -191,7 +192,7 @@ fn main() -> anyhow::Result<()> {
 
     js_new.push_str(remaining);
 
-    leb128::write::unsigned(&mut wasm_new, wasm_imports.len() as u64)?;
+    leb128_write(&mut wasm_new, wasm_imports.len() as u64)?;
 
     wasm_new.extend_from_slice(&wasm_imports);
     wasm_new.extend_from_slice(parsed.tail);
