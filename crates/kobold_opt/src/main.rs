@@ -175,7 +175,7 @@ fn main() -> anyhow::Result<()> {
 
         symbol(n, &mut sym);
 
-        // println!("Renaming {} to {sym}", import.name);
+        println!("Renaming {} to {sym}", import.name);
 
         saved += import.name.len() as isize - sym.len() as isize;
 
@@ -205,21 +205,23 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn symbol(mut n: usize, buf: &mut String) {
-    pub const ALPHABET: [u8; 62] = *b"abcdefghijklmnopqrstuvwxyz\
+    pub const ALPHABET: [u8; 52] = *b"abcdefghijklmnopqrstuvwxyz\
                                       ABCDEFGHIJKLMNOPQRSTUVWXYZ\
-                                      0123456789";
+                                      ";
 
     buf.clear();
 
     loop {
-        let byte = ALPHABET[n % 62];
+        let byte = ALPHABET[n % 52];
 
         buf.push(byte as char);
 
-        n /= 62;
+        n /= 52;
 
         if n == 0 {
             break;
         }
+
+        n -= 1;
     }
 }
