@@ -234,19 +234,70 @@ impl Attribute<Class> for String {
 }
 
 #[derive(Clone, Copy)]
-pub struct OptionalClass {
-    class: &'static str,
+pub struct StaticClass<T> {
+    toggle: T,
     on: bool,
 }
 
-impl AsRef<str> for OptionalClass {
-    fn as_ref(&self) -> &str {
-        if self.on {
-            self.class
-        } else {
-            ""
+impl<T> StaticClass<T> {
+    pub const fn new(toggle: T, on: bool) -> Self
+    where
+        T: Fn(&Node, bool),
+    {
+        StaticClass { toggle, on }
+    }
+}
+
+impl<T> Attribute<Class> for StaticClass<T>
+where
+    T: Fn(&Node, bool),
+{
+    type Product = bool;
+
+    fn build(self) -> bool {
+        self.on
+    }
+
+    fn build_in(self, _: Class, node: &Node) -> bool {
+        (self.toggle)(node, self.on);
+        self.on
+    }
+
+    fn update_in(self, _: Class, node: &Node, memo: &mut bool) {
+        if self.on != *memo {
+            (self.toggle)(node, self.on);
+            *memo = self.on;
         }
     }
+}
+
+impl<T> Attribute<ClassName> for StaticClass<T>
+where
+    T: Fn(&Node, bool),
+{
+    type Product = bool;
+
+    fn build(self) -> bool {
+        self.on
+    }
+
+    fn build_in(self, _: ClassName, node: &Node) -> bool {
+        (self.toggle)(node, self.on);
+        self.on
+    }
+
+    fn update_in(self, _: ClassName, node: &Node, memo: &mut bool) {
+        if self.on != *memo {
+            (self.toggle)(node, self.on);
+            *memo = self.on;
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct OptionalClass {
+    class: &'static str,
+    on: bool,
 }
 
 impl OptionalClass {
@@ -293,7 +344,7 @@ impl Attribute<ClassName> for OptionalClass {
 
     fn update_in(self, _: ClassName, node: &Node, memo: &mut bool) {
         if self.on != *memo {
-            internal::class_name(node, self.as_ref());
+            internal::class_name(node, self.class);
             *memo = self.on;
         }
     }

@@ -397,7 +397,7 @@
 pub use kobold_macros::component;
 
 /// Macro for creating transient [`View`] types. See the [main documentation](crate) for details.
-pub use kobold_macros::view;
+pub use kobold_macros::{class, view};
 
 use wasm_bindgen::JsCast;
 
@@ -570,16 +570,6 @@ fn init_panic_hook() {
             INIT.with(|init| init.set(true));
         }
     }
-}
-
-#[macro_export]
-macro_rules! class {
-    ($class:literal if $on:expr) => {
-        ::kobold::attribute::OptionalClass::new($class, $on)
-    };
-    ($class:tt if $on:expr) => {
-        ::kobold::attribute::OptionalClass::new($class, $on)
-    };
 }
 
 /// Binds a closure to a given [`Hook`](stateful::Hook). In practice:
