@@ -1,0 +1,18 @@
+[package]
+name = "kobold_opt"
+version = "0.10.0"
+authors = ["Maciej Hirsz <hello@maciej.codes>"]
+edition = "2021"
+license = "MPL-2.0"
+readme = "../../README.md"
+keywords = ["web", "wasm", "javascript"]
+categories = ["wasm", "web-programming"]
+description = "Wasm file optimizer for the Kobold framework"
+repository = "https://github.com/maciejhirsz/kobold"
+documentation = "https://docs.rs/kobold"
+
+[dependencies]
+clap = { version = "4.5.4", features = ["derive"] }
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
