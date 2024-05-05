@@ -31,19 +31,19 @@ impl Deref for AttributeName {
 
 impl Property<&str> for &AttributeName {
     fn set(self, this: &Node, value: &str) {
-        internal::set_attr(this, self, value)
+        internal::obj(this).set_attr(self, value);
     }
 }
 
 impl Property<f64> for &AttributeName {
     fn set(self, this: &Node, value: f64) {
-        internal::set_attr_num(this, self, value)
+        internal::obj(this).set_attr_num(self, value)
     }
 }
 
 impl Property<bool> for &AttributeName {
     fn set(self, this: &Node, value: bool) {
-        internal::set_attr_bool(this, self, value)
+        internal::obj(this).set_attr_bool(self, value);
     }
 }
 
@@ -56,7 +56,7 @@ macro_rules! attribute {
             $(
                 impl Property<$abi> for $name {
                     fn set(self, this: &Node, value: $abi) {
-                        internal::$util(this, value)
+                        internal::obj(this).$util(value);
                     }
                 }
             )*
@@ -64,12 +64,19 @@ macro_rules! attribute {
     }
 }
 
+/// The `checked` attribute: <https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#checked>
+pub struct Checked;
+
+impl Property<bool> for Checked {
+    fn set(self, this: &Node, value: bool) {
+        internal::checked(this, value);
+    }
+}
+
 /// The `Element.classList` property: <https://developer.mozilla.org/en-US/docs/Web/API/Element/classList>
 pub struct Class;
 
 attribute!(
-    /// The `checked` attribute: <https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#checked>
-    Checked [checked: bool]
     /// The `className` attribute: <https://developer.mozilla.org/en-US/docs/Web/API/Element/className>
     ClassName [class_name: &str]
     /// The `innerHTML` attribute: <https://developer.mozilla.org/en-US/docs/Web/API/Element/innerHTML>
@@ -337,14 +344,14 @@ impl Attribute<ClassName> for OptionalClass {
 
     fn build_in(self, _: ClassName, node: &Node) -> bool {
         if self.on {
-            internal::class_name(node, self.class);
+            internal::obj(node).class_name(self.class);
         }
         self.on
     }
 
     fn update_in(self, _: ClassName, node: &Node, memo: &mut bool) {
         if self.on != *memo {
-            internal::class_name(node, self.class);
+            internal::obj(node).class_name(self.class);
             *memo = self.on;
         }
     }
