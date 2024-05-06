@@ -14,7 +14,7 @@ use crate::parse::IdentExt;
 use crate::tokenize::prelude::*;
 
 // JS function name, capacity must fit a `Short`, a hash, and few underscores
-pub type JsFnName = ArrayString<8>;
+pub type JsFnName = ArrayString<24>;
 
 #[derive(Default, Debug)]
 pub struct Transient {

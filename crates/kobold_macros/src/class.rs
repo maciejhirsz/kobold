@@ -2,6 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use std::hash::{Hash, Hasher};
+
+use crate::gen::JsFnName;
 use crate::parse::prelude::*;
 use crate::tokenize::prelude::*;
 use crate::TokenStreamExt;
@@ -17,7 +20,11 @@ pub fn parse(stream: TokenStream) -> Result<TokenStream, ParseError> {
 
     stream.expect("if")?;
 
-    let fn_name = crate::unique();
+    let mut hasher = fnv::FnvHasher::default();
+    class.hash(&mut hasher);
+
+    let hash = hasher.finish();
+    let fn_name = JsFnName::try_from(format_args!("__class_{hash:016x}")).unwrap();
 
     let condition: TokenStream = stream.collect();
 

@@ -166,28 +166,44 @@ fn main() -> anyhow::Result<()> {
 
     let mut saved = 0;
 
+    let Some(idx) = remaining.find(".wbg") else {
+        panic!("Couldn't find the `wbg` imports in the JavaScript input");
+    };
+
+    js_new.push_str(&remaining[..idx]);
+    js_new.push_str("._");
+
+    remaining = &remaining[idx + 4..];
+
     for (n, import) in parsed.imports.into_iter().enumerate() {
-        let Some(idx) = remaining.find(import.name) else {
+        let Some(mut idx) = remaining.find(import.name) else {
             panic!(
                 "Couldn't find the import {} in the JavaScript input",
                 import.name
             );
         };
 
+        if !remaining[..idx].ends_with(".wbg.") {
+            continue;
+        }
+
+        idx -= 5;
+
         symbol(n, &mut sym);
 
-        println!("Renaming {} to {sym}", import.name);
+        println!("Renaming wbg.{} to _.{sym}", import.name);
 
-        saved += import.name.len() as isize - sym.len() as isize;
+        saved += (2 + import.name.len()) as isize - sym.len() as isize;
 
         js_new.push_str(&remaining[..idx]);
+        js_new.push_str("._.");
         js_new.push_str(&sym);
-        wasm_imports.extend_from_slice(b"\x03wbg");
+        wasm_imports.extend_from_slice(b"\x01_");
         wasm_imports.push(sym.len() as u8);
         wasm_imports.extend_from_slice(sym.as_bytes());
         wasm_imports.extend_from_slice(import.ty);
 
-        remaining = &remaining[idx + import.name.len()..];
+        remaining = &remaining[idx + import.name.len() + 5..];
     }
 
     js_new.push_str(remaining);
