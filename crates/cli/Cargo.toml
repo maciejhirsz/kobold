@@ -1,5 +1,5 @@
 [package]
-name = "kobold_opt"
+name = "kobold_cli"
 version = "0.10.0"
 authors = ["Maciej Hirsz <hello@maciej.codes>"]
 edition = "2021"
@@ -7,9 +7,14 @@ license = "MPL-2.0"
 readme = "../../README.md"
 keywords = ["web", "wasm", "javascript"]
 categories = ["wasm", "web-programming"]
-description = "Wasm file optimizer for the Kobold framework"
+description = "CLI tools for the Kobold framework"
 repository = "https://github.com/maciejhirsz/kobold"
 documentation = "https://docs.rs/kobold"
+default-run = "kobold"
+
+[[bin]]
+name = "kobold"
+path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0.82"

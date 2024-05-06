@@ -1,4 +1,7 @@
+trunk-version = "0.20"
+
 [build]
 filehash = false
 public_url = "./"
 no_sri = true
+minify = "on_release"
