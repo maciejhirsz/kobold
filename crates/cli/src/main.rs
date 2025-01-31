@@ -1,6 +1,7 @@
+use std::env;
 use std::io::{self, IsTerminal};
+use std::path::PathBuf;
 use std::process::ExitCode;
-use std::{env, path::PathBuf};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
@@ -58,8 +59,8 @@ enum When {
 #[derive(Args)]
 struct Build {
     /// The asset output directory
-    #[arg(short, long, default_value = "dist")]
-    dist: PathBuf,
+    #[arg(short, long)]
+    dist: Option<PathBuf>,
 
     /// Build the crate in release mode
     #[arg(short, long)]
@@ -68,6 +69,10 @@ struct Build {
     /// When to add auto-reload script to the final build
     #[arg(long, default_value_t, value_enum)]
     autoreload: When,
+
+    /// Package to build
+    #[arg(short, long)]
+    package: Option<String>,
 }
 
 #[derive(Args)]
@@ -87,7 +92,7 @@ struct Serve {
     address: String,
 
     /// The development server port
-    #[arg(short, long, default_value_t = 3000)]
+    #[arg(long, default_value_t = 3000)]
     port: u16,
 
     /// Watch files and directories
@@ -115,7 +120,7 @@ fn main() -> ExitCode {
     }
 
     let res = match cli.command {
-        Command::Build(b) => build(&b),
+        Command::Build(b) => build(&b).map(drop),
         Command::Init(i) => init(&i),
         Command::Serve(s) => serve(&s),
     };
@@ -124,6 +129,11 @@ fn main() -> ExitCode {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
             log::error!("{err}");
+
+            for note in err.notes() {
+                log::note!("{note}");
+            }
+
             ExitCode::FAILURE
         }
     }

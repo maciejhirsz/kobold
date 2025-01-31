@@ -32,6 +32,41 @@ macro_rules! error {
 
 pub use error;
 
+pub struct Error;
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let title = "error";
+        if is_color_output_enabled() {
+            write!(f, "{}", title.dark_red().bold())
+        } else {
+            write!(f, "{title}")
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! note {
+    ($($arg:tt)*) => {{
+        eprintln!("{}: {}", $crate::log::Note, format_args!($($arg)*));
+    }};
+}
+
+pub use note;
+
+pub struct Note;
+
+impl fmt::Display for Note {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let title = " note";
+        if is_color_output_enabled() {
+            write!(f, "{}", title.dark_blue().bold())
+        } else {
+            write!(f, "{title}")
+        }
+    }
+}
+
 #[macro_export]
 macro_rules! building {
     ($($arg:tt)*) => {{
@@ -78,19 +113,6 @@ macro_rules! info {
 }
 
 pub use info;
-
-pub struct Error;
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let title = "error";
-        if is_color_output_enabled() {
-            write!(f, "{}", title.dark_red().bold())
-        } else {
-            write!(f, "{title}")
-        }
-    }
-}
 
 pub struct Title(pub &'static str);
 

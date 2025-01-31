@@ -1,7 +1,7 @@
 use std::convert::Infallible;
 use std::fmt::Display;
 use std::future::Future;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::thread;
@@ -23,13 +23,13 @@ use tower_async::{Service, ServiceBuilder};
 use tower_async_http::compression::CompressionLayer;
 use tower_async_http::services::ServeDir;
 
-use crate::build::build;
+use crate::build::{build, BuildInfo};
 use crate::log;
 use crate::report::{Error, ErrorExt, Report};
 use crate::Serve;
 
 pub fn serve(s: &Serve) -> Report<()> {
-    build(&s.build)?;
+    let BuildInfo { dist_path, .. } = build(&s.build)?;
 
     let (notifier, builder, debounce_routine) = debounce(Timings {
         delay_after_update: Duration::from_millis(250),
@@ -51,7 +51,7 @@ pub fn serve(s: &Serve) -> Report<()> {
             .build()
             .message("failed to create tokio runtime")?
             .block_on(async {
-                future::try_zip(start_server(s, updates), async {
+                future::try_zip(start_server(s, &dist_path, updates), async {
                     debounce_routine.await;
                     Ok(())
                 })
@@ -78,7 +78,7 @@ fn rebuild(s: &Serve, mut builder: Builder, updates: Updates) {
         }
 
         _ = done.send(());
-        updates.produce(res);
+        updates.produce(res.map(drop));
     }
 }
 
@@ -186,7 +186,7 @@ struct BuildEvent {
     done: oneshot::Sender<()>,
 }
 
-async fn start_server(s: &Serve, updates: Updates) -> Report<Infallible> {
+async fn start_server(s: &Serve, dist_path: &Path, updates: Updates) -> Report<Infallible> {
     let listener = TcpListener::bind((s.address.as_str(), s.port))
         .await
         .with_message(|| format!("failed to bind tcp listener to {}:{}", s.address, s.port))?;
@@ -196,7 +196,7 @@ async fn start_server(s: &Serve, updates: Updates) -> Report<Infallible> {
     let serve = {
         let files = ServiceBuilder::new()
             .layer(CompressionLayer::new())
-            .service(ServeDir::new(&s.build.dist));
+            .service(ServeDir::new(dist_path));
 
         let serve = ServiceBuilder::new().layer_fn(Logger).service(Events {
             path: "/events",

@@ -8,10 +8,11 @@ pub type Report<T> = Result<T, Error>;
 pub struct Error {
     err: Option<io::Error>,
     message: String,
+    notes: Vec<String>,
 }
 
 impl Error {
-    pub fn new<U, M>(err: U, message: M) -> Self
+    fn new<U, M>(err: U, message: M) -> Self
     where
         U: Into<io::Error>,
         M: Into<String>,
@@ -19,6 +20,7 @@ impl Error {
         Self {
             err: Some(err.into()),
             message: message.into(),
+            notes: vec![],
         }
     }
 
@@ -29,7 +31,12 @@ impl Error {
         Self {
             err: None,
             message: message.into(),
+            notes: vec![],
         }
+    }
+
+    pub fn notes(&self) -> &[String] {
+        &self.notes
     }
 }
 
@@ -58,6 +65,11 @@ pub trait ErrorExt<T, E> {
         E: Into<io::Error>,
         F: FnOnce() -> M,
         M: Into<String>;
+
+    fn note<M>(self, note: M) -> Result<T, Error>
+    where
+        E: Into<Error>,
+        M: Into<String>;
 }
 
 impl<T, E> ErrorExt<T, E> for Result<T, E> {
@@ -82,5 +94,17 @@ impl<T, E> ErrorExt<T, E> for Result<T, E> {
         M: Into<String>,
     {
         self.map_err(|err| Error::new(err, f()))
+    }
+
+    fn note<M>(self, note: M) -> Result<T, Error>
+    where
+        E: Into<Error>,
+        M: Into<String>,
+    {
+        self.map_err(|err| {
+            let mut err = err.into();
+            err.notes.push(note.into());
+            err
+        })
     }
 }

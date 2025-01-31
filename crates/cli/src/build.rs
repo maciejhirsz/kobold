@@ -12,24 +12,28 @@ use lol_html::{element, rewrite_str, RewriteStrSettings};
 use wasmparser::BinaryReaderError;
 
 use crate::log;
-use crate::manifest::{manifest, Manifest};
+use crate::manifest::{manifest, Manifest, Package};
 use crate::report::{Error, ErrorExt, Report};
 use crate::{Build, When};
 
-pub fn build(b: &Build) -> Report<()> {
+pub fn build(b: &Build) -> Report<BuildInfo> {
     let Manifest {
-        crate_name,
-        crate_version,
+        package:
+            Package {
+                name,
+                version,
+                manifest_path,
+            },
         mut target,
-    } = manifest()?;
+    } = manifest(b.package.as_deref())?;
 
-    log::building!("{crate_name} v{crate_version}");
+    log::building!("{name} v{version}");
 
-    build_wasm(b.release)?;
+    build_wasm(b.release, &manifest_path)?;
 
     target.push("wasm32-unknown-unknown");
     target.push(if b.release { "release" } else { "debug" });
-    target.push(&crate_name);
+    target.push(&name);
     target.set_extension("wasm");
 
     if !target.exists() {
@@ -39,11 +43,21 @@ pub fn build(b: &Build) -> Report<()> {
         )));
     }
 
+    let dist_path = match &b.dist {
+        Some(dist) => Cow::Borrowed(dist.as_path()),
+        None => Cow::Owned(
+            manifest_path
+                .parent()
+                .ok_or_else(|| Error::message("falied to find the package directory"))?
+                .join("dist"),
+        ),
+    };
+
     let start = Instant::now();
 
-    run_wasm_bindgen(&target, &b.dist)?;
+    run_wasm_bindgen(&target, &dist_path)?;
 
-    let mut wasm = b.dist.join(format!("{crate_name}_bg"));
+    let mut wasm = dist_path.join(format!("{name}_bg"));
     wasm.set_extension("wasm");
 
     if b.release {
@@ -54,18 +68,18 @@ pub fn build(b: &Build) -> Report<()> {
     let wasm_path = absolute(&wasm).message("failed to get absolute path")?;
     log::optimized!("wasm `{}` in {elapsed:.2?}", wasm_path.display());
 
-    let mut js = b.dist.join(&crate_name);
+    let mut js = dist_path.join(&name);
     js.set_extension("js");
 
     // mangle_wasm(&wasm, &js)?;
 
-    let snippets_dir = b.dist.join("snippets");
+    let snippets_dir = dist_path.join("snippets");
     let snippets = read_file_paths(&snippets_dir)
         .with_message(|| format!("failed to read {} directory", snippets_dir.display()))?;
 
-    let index = b.dist.join("index.html");
+    let index = dist_path.join("index.html");
     let paths = Paths {
-        dist: Dist(&b.dist),
+        dist: Dist(&dist_path),
         snippets: &snippets,
         wasm: &wasm,
         js: &js,
@@ -82,12 +96,17 @@ pub fn build(b: &Build) -> Report<()> {
         },
     })?;
 
-    Ok(())
+    Ok(BuildInfo { dist_path })
 }
 
-fn build_wasm(release: bool) -> Report<()> {
+pub struct BuildInfo<'build> {
+    pub dist_path: Cow<'build, Path>,
+}
+
+fn build_wasm(release: bool, manifest_path: &Path) -> Report<()> {
     let mut cargo = Command::new("cargo");
     cargo.args(["build", "--target=wasm32-unknown-unknown"]);
+    cargo.arg("--manifest-path").arg(manifest_path);
 
     if release {
         cargo.arg("--release");
@@ -138,6 +157,7 @@ fn optimize_wasm(file: &Path) -> Report<()> {
     Ok(())
 }
 
+#[expect(dead_code)]
 fn mangle_wasm(wasm: &Path, js: &Path) -> Report<()> {
     let wasm_bytes =
         fs::read(wasm).with_message(|| format!("failed to read {}", wasm.display()))?;

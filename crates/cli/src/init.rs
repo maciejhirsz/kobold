@@ -59,7 +59,7 @@ fn write_file(path: &Path, contents: &str) -> Report<()> {
 }
 
 fn make_cargo_toml(name: &str) -> String {
-    let template = include_str!("../init/Cargo.toml");
+    let template = include_str!("../init/Cargo");
     let kobold_version = env!("CARGO_PKG_VERSION");
 
     let mut out = String::new();
