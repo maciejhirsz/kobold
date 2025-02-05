@@ -27,6 +27,10 @@ pub fn build(b: &Build) -> Report<BuildInfo> {
         mut target,
     } = manifest(b.package.as_deref())?;
 
+    let package_path = manifest_path
+        .parent()
+        .ok_or_else(|| Error::message("falied to find the package directory"))?;
+
     log::building!("{name} v{version}");
 
     build_wasm(b.release, &manifest_path)?;
@@ -45,12 +49,7 @@ pub fn build(b: &Build) -> Report<BuildInfo> {
 
     let dist_path = match &b.dist {
         Some(dist) => Cow::Borrowed(dist.as_path()),
-        None => Cow::Owned(
-            manifest_path
-                .parent()
-                .ok_or_else(|| Error::message("falied to find the package directory"))?
-                .join("dist"),
-        ),
+        None => Cow::Owned(package_path.join("dist")),
     };
 
     let start = Instant::now();
@@ -87,7 +86,7 @@ pub fn build(b: &Build) -> Report<BuildInfo> {
     };
 
     make_index_html(MakeIndex {
-        orig_index: Path::new("index.html"),
+        orig_index: &package_path.join("index.html"),
         paths,
         embed_autoreload_script: match b.autoreload {
             When::Auto => !b.release,
