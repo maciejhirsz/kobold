@@ -477,6 +477,7 @@ fn make_index_html(m: MakeIndex) -> Report<()> {
     let html = fs::read_to_string(orig_index)
         .or_else(|err| {
             if err.kind() == io::ErrorKind::NotFound {
+                log::warning!("the index.html file not found, select the default template");
                 Ok(include_str!("../init/index.html").to_owned())
             } else {
                 Err(err)

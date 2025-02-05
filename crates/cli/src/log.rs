@@ -99,6 +99,15 @@ macro_rules! starting {
 pub use starting;
 
 #[macro_export]
+macro_rules! warning {
+    ($($arg:tt)*) => {{
+        eprintln!("{} {}", $crate::log::Print("     Warning", $crate::log::color::DARK_YELLOW), format_args!($($arg)*));
+    }};
+}
+
+pub use warning;
+
+#[macro_export]
 macro_rules! info {
     ($($arg:tt)*) => {{
         if $crate::log::is_verbose_output_enabled() {
