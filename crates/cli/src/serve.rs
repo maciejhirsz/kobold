@@ -201,7 +201,7 @@ async fn start_server(s: &Serve, dist_path: &Path, updates: Updates) -> Report<I
             .service(ServeDir::new(dist_path));
 
         let serve = ServiceBuilder::new().layer_fn(Logger).service(Events {
-            path: "/events",
+            path: "/kobold-events",
             updates,
             inner: files,
         });
@@ -269,8 +269,7 @@ impl Updates {
     }
 
     fn subscribe(&self) -> Subscriber {
-        let events = self.0.subscribe();
-        Subscriber(events)
+        Subscriber(self.0.subscribe())
     }
 }
 
@@ -294,14 +293,12 @@ impl<S> Events<S> {
     fn event_stream(&self) -> EventStream {
         let subscriber = self.updates.subscribe();
         let stream = stream::unfold(subscriber, |mut subscriber| async {
-            let recv = async { Some(subscriber.wait().await?) };
-
             let ping = async {
                 tokio::time::sleep(Duration::from_secs(15)).await;
                 const { Some(Bytes::from_static(b":\n\n")) }
             };
 
-            let chunk = future::or(recv, ping).await?;
+            let chunk = future::or(subscriber.wait(), ping).await?;
             Some((chunk, subscriber))
         })
         .map(Frame::data)

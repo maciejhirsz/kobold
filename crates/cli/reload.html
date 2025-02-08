@@ -84,7 +84,7 @@
             spin.classList.remove('hide');
         }
 
-        const showMessage = (msg) => {
+        const showMessage = msg => {
             fail.classList.remove('hide');
             spin.classList.add('hide');
 
@@ -92,7 +92,7 @@
             p.innerHTML = msg;
         }
 
-        const es = new EventSource('events');
+        const es = new EventSource('kobold-events');
         window.addEventListener('beforeunload', () => es.close());
 
         es.addEventListener('update', ev => {
