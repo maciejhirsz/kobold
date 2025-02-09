@@ -68,6 +68,8 @@ fn rebuild(s: &Serve, mut builder: Builder, updates: Updates) {
             break;
         };
 
+        updates.produce(Update::Start);
+
         for path in &paths {
             log::info!("updated {}", path.display());
         }
@@ -78,7 +80,7 @@ fn rebuild(s: &Serve, mut builder: Builder, updates: Updates) {
         }
 
         _ = done.send(());
-        updates.produce(res.map(drop));
+        updates.produce(Update::Finish(res.map(drop)));
     }
 }
 
@@ -199,7 +201,7 @@ async fn start_server(s: &Serve, dist_path: &Path, updates: Updates) -> Report<I
             .service(ServeDir::new(dist_path));
 
         let serve = ServiceBuilder::new().layer_fn(Logger).service(Events {
-            path: "/events",
+            path: "/kobold-events",
             updates,
             inner: files,
         });
@@ -230,33 +232,13 @@ async fn start_server(s: &Serve, dist_path: &Path, updates: Updates) -> Report<I
     }
 }
 
-#[derive(Clone)]
-struct Update(Bytes);
-
-impl Update {
-    fn new(res: Result<(), Error>) -> Self {
-        #[derive(Serialize)]
-        #[serde(rename_all = "lowercase")]
-        enum Repr {
-            Reload,
-            Error(String),
-        }
-
-        let repr = match res {
-            Ok(()) => Repr::Reload,
-            Err(err) => Repr::Error(err.to_string()),
-        };
-
-        let mut buf = b"event: update\ndata: ".to_vec();
-        serde_json::to_writer(&mut buf, &repr).expect("serialize json");
-        buf.extend(b"\n\n");
-
-        Self(Bytes::from(buf))
-    }
+enum Update {
+    Start,
+    Finish(Result<(), Error>),
 }
 
 #[derive(Clone)]
-struct Updates(broadcast::Sender<Update>);
+struct Updates(broadcast::Sender<Bytes>);
 
 impl Updates {
     fn new() -> Self {
@@ -264,20 +246,37 @@ impl Updates {
         Self(events)
     }
 
-    fn produce(&self, res: Result<(), Error>) {
-        _ = self.0.send(Update::new(res));
+    fn produce(&self, upd: Update) {
+        #[derive(Serialize)]
+        #[serde(rename_all = "lowercase")]
+        enum Repr {
+            Wait,
+            Reload,
+            Error(String),
+        }
+
+        let repr = match upd {
+            Update::Start => Repr::Wait,
+            Update::Finish(Ok(())) => Repr::Reload,
+            Update::Finish(Err(err)) => Repr::Error(err.to_string()),
+        };
+
+        let mut buf = b"event: update\ndata: ".to_vec();
+        serde_json::to_writer(&mut buf, &repr).expect("serialize json");
+        buf.extend(b"\n\n");
+
+        _ = self.0.send(Bytes::from(buf));
     }
 
     fn subscribe(&self) -> Subscriber {
-        let events = self.0.subscribe();
-        Subscriber(events)
+        Subscriber(self.0.subscribe())
     }
 }
 
-struct Subscriber(broadcast::Receiver<Update>);
+struct Subscriber(broadcast::Receiver<Bytes>);
 
 impl Subscriber {
-    async fn wait(&mut self) -> Option<Update> {
+    async fn wait(&mut self) -> Option<Bytes> {
         self.0.recv().await.ok()
     }
 }
@@ -294,17 +293,12 @@ impl<S> Events<S> {
     fn event_stream(&self) -> EventStream {
         let subscriber = self.updates.subscribe();
         let stream = stream::unfold(subscriber, |mut subscriber| async {
-            let recv = async {
-                let Update(bytes) = subscriber.wait().await?;
-                Some(bytes)
-            };
-
             let ping = async {
                 tokio::time::sleep(Duration::from_secs(15)).await;
                 const { Some(Bytes::from_static(b":\n\n")) }
             };
 
-            let chunk = future::or(recv, ping).await?;
+            let chunk = future::or(subscriber.wait(), ping).await?;
             Some((chunk, subscriber))
         })
         .map(Frame::data)

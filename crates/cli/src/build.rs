@@ -27,6 +27,10 @@ pub fn build(b: &Build) -> Report<BuildInfo> {
         mut target,
     } = manifest(b.package.as_deref())?;
 
+    let package_path = manifest_path
+        .parent()
+        .ok_or_else(|| Error::message("falied to find the package directory"))?;
+
     log::building!("{name} v{version}");
 
     build_wasm(b.release, &manifest_path)?;
@@ -87,9 +91,9 @@ pub fn build(b: &Build) -> Report<BuildInfo> {
     };
 
     make_index_html(MakeIndex {
-        orig_index: Path::new("index.html"),
+        orig_index: &package_path.join("index.html"),
         paths,
-        embed_autoreload_script: match b.autoreload {
+        embed_autoreload: match b.autoreload {
             When::Auto => !b.release,
             When::Always => true,
             When::Never => false,
@@ -441,14 +445,14 @@ impl Dist<'_> {
 struct MakeIndex<'path> {
     orig_index: &'path Path,
     paths: Paths<'path>,
-    embed_autoreload_script: bool,
+    embed_autoreload: bool,
 }
 
 fn make_index_html(m: MakeIndex) -> Report<()> {
     let MakeIndex {
         orig_index,
         paths,
-        embed_autoreload_script,
+        embed_autoreload,
     } = m;
 
     let js_link = |p| {
@@ -478,6 +482,7 @@ fn make_index_html(m: MakeIndex) -> Report<()> {
     let html = fs::read_to_string(orig_index)
         .or_else(|err| {
             if err.kind() == io::ErrorKind::NotFound {
+                log::warning!("the index.html file not found, select the default template");
                 Ok(include_str!("../init/index.html").to_owned())
             } else {
                 Err(err)
@@ -485,7 +490,7 @@ fn make_index_html(m: MakeIndex) -> Report<()> {
         })
         .with_message(|| format!("failed to read {}", orig_index.display()))?;
 
-    let mut embed_links = Some(|el: &mut Element| {
+    let mut embed_to_head = Some(|el: &mut Element| {
         el.append(&js_link(paths.js), ContentType::Html);
         el.append(&wasm_link(paths.wasm), ContentType::Html);
         for snippet in paths.snippets {
@@ -497,27 +502,25 @@ fn make_index_html(m: MakeIndex) -> Report<()> {
         }
     });
 
-    let mut embed_js_script = Some(|el: &mut Element| {
+    let mut embed_to_body = Some(|el: &mut Element| {
         el.append(&js_script, ContentType::Html);
 
-        if embed_autoreload_script {
-            el.append("<script>", ContentType::Html);
-            el.append(include_str!("../reload.js"), ContentType::Html);
-            el.append("</script>", ContentType::Html);
+        if embed_autoreload {
+            el.append(include_str!("../reload.html"), ContentType::Html);
         }
     });
 
     let settings = RewriteStrSettings {
         element_content_handlers: vec![
             element!("head", |el| {
-                if let Some(f) = embed_links.take() {
+                if let Some(f) = embed_to_head.take() {
                     f(el);
                 }
 
                 Ok(())
             }),
             element!("body", |el| {
-                if let Some(f) = embed_js_script.take() {
+                if let Some(f) = embed_to_body.take() {
                     f(el);
                 }
 
@@ -531,14 +534,14 @@ fn make_index_html(m: MakeIndex) -> Report<()> {
         .map_err_into_io()
         .message("failed to rewrite html")?;
 
-    if embed_links.is_some() {
+    if embed_to_head.is_some() {
         return Err(Error::message(format!(
             "<head> tag not found in {} file",
             orig_index.display(),
         )));
     }
 
-    if embed_js_script.is_some() {
+    if embed_to_body.is_some() {
         return Err(Error::message(format!(
             "<body> tag not found in {} file",
             orig_index.display(),
