@@ -15,10 +15,10 @@ yarn run esbuild
 rustup update
 rustup target add wasm32-unknown-unknown
 cargo install --locked trunk
-RUST_LOG=info trunk serve --address=127.0.0.1 --open
+RUST_LOG=info trunk serve
 ```
 
-Click "Connect" in the UI at http://127.0.0.1:8080 and view it use Polkadot.js API to fetch and display a genesis hash
+Click "Connect" in the UI at http://localhost:8080 and view it use Polkadot.js API to fetch and display a genesis hash
 
 ### Testing
 
@@ -29,6 +29,12 @@ cargo clean
 # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
 cargo install wasm-bindgen-cli --vers "0.2.100"
 cargo +nightly test --target wasm32-unknown-unknown -Zdoctest-xcompile
+```
+
+### Config
+
+```sh
+RUST_LOG=debug trunk --config ./examples/npm_lib config show
 ```
 
 ### References:
