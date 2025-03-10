@@ -14,7 +14,7 @@ cargo miri setup
 cd examples/npm_lib
 # rustup update
 # PATH=$HOME/.cargo/bin:$PATH
-rustup target add wasm32-unknown-unknown
+rustup target add wasm32-unknown-unknown --toolchain nightly
 # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
 cargo install wasm-bindgen-cli --vers "0.2.100"
 
