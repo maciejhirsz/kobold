@@ -23,6 +23,7 @@ Click "Connect" in the UI at http://127.0.0.1:8080 and view it use Polkadot.js A
 ### Testing
 
 ```bash
+cargo clean
 cargo test --target wasm32-unknown-unknown
 ```
 
