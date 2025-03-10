@@ -4,7 +4,7 @@
 
 use std::fmt::Write;
 
-use tokens::{Ident, TokenStream, TokenTree};
+use tokens::{Group, Ident, TokenStream, TokenTree};
 
 use crate::parse::prelude::*;
 use crate::tokenize::prelude::*;
@@ -124,44 +124,46 @@ struct Function {
     r#pub: Option<TokenStream>,
     name: Ident,
     generics: Option<Generics>,
+    raw_args: Option<Group>,
     arguments: Vec<Argument>,
     r#return: TokenStream,
     body: TokenTree,
 }
 
 struct FnComponent {
-    r#struct: Ident,
+    r#fn: TokenTree,
+    r#mod: Ident,
     r#pub: Option<TokenStream>,
     name: Ident,
     generics: Option<Generics>,
+    raw_args: Option<Group>,
     arguments: Vec<Argument>,
     ret: TokenStream,
     render: TokenStream,
-    children: Option<Argument>,
 }
 
 impl FnComponent {
     fn new(args: &mut ComponentArgs, mut fun: Function) -> Result<FnComponent, ParseError> {
-        let children = match &args.children {
-            Some(children) => {
-                let ident = children.to_string();
+        if let Some(children) = args.children.take() {
+            let ident = children.to_string();
+            let mut found = false;
 
-                let children_idx = fun.arguments.iter().position(|arg| arg.name.eq_str(&ident));
+            for arg in fun.arguments.iter_mut() {
+                if arg.name.eq_str(&ident) {
+                    arg.name = Ident::new("children", arg.name.span());
 
-                match children_idx {
-                    Some(idx) => Some(fun.arguments.remove(idx)),
-                    None => {
-                        return Err(ParseError::new(
-                            format!(
-                                "Missing argument `{ident}` required to capture component children"
-                            ),
-                            children.span(),
-                        ));
-                    }
+                    found = true;
+                    break;
                 }
             }
-            None => None,
-        };
+
+            if !found {
+                return Err(ParseError::new(
+                    format!("Missing argument `{ident}` required to capture component children"),
+                    children.span(),
+                ));
+            }
+        }
 
         let mut temp_var = String::with_capacity(40);
 
@@ -188,17 +190,18 @@ impl FnComponent {
             tt => tt.into(),
         };
 
-        let r#struct = Ident::new("struct", fun.r#fn.span());
+        let r#mod = Ident::new("mod", fun.r#fn.span());
 
         Ok(FnComponent {
-            r#struct,
+            r#fn: fun.r#fn,
+            r#mod,
             r#pub: fun.r#pub,
             name: fun.name,
             generics: fun.generics,
+            raw_args: fun.raw_args,
             arguments: fun.arguments,
             ret: fun.r#return,
             render,
-            children,
         })
     }
 }
@@ -227,8 +230,10 @@ impl Parse for Function {
         };
 
         let mut arguments = Vec::new();
+        let mut raw_args = None;
 
         if let TokenTree::Group(args) = stream.expect('(')? {
+            raw_args = Some(args.clone());
             let mut stream = args.stream().parse_stream();
 
             while !stream.end() {
@@ -256,6 +261,7 @@ impl Parse for Function {
                 r#pub,
                 name,
                 generics,
+                raw_args,
                 arguments,
                 r#return: ret,
                 body,
@@ -283,6 +289,7 @@ impl Parse for Argument {
 
 impl Tokenize for FnComponent {
     fn tokenize_in(self, out: &mut TokenStream) {
+        let mut mo = TokenStream::new();
         let name = &self.name;
 
         let mut finder: Option<GenericFinder> = match &self.generics {
@@ -290,39 +297,24 @@ impl Tokenize for FnComponent {
             Some(generics) => generics.tokens.clone().parse_stream().parse().ok(),
         };
 
-        let mut args = if self.arguments.is_empty() {
-            ("_:", name).tokenize()
+        let args = if self.arguments.is_empty() {
+            "_: Props".tokenize()
         } else {
-            let destruct = (name, block(each(self.arguments.iter().map(Argument::name))));
-            let props_ty = (
-                name,
-                '<',
-                each(self.arguments.iter().map(Argument::ty)),
-                '>',
+            let destruct = (
+                "Props",
+                block(each(self.arguments.iter().map(Argument::name))),
             );
+            let props_ty = ("Props<", each(self.arguments.iter().map(Argument::ty)), '>');
 
             (destruct, ':', props_ty).tokenize()
         };
 
-        let fn_render = match self.children {
-            Some(children) => {
-                args.write((',', children));
-                "#[doc(hidden)] pub fn __render_with"
-            }
-            None => "#[doc(hidden)] pub fn __render",
-        };
-
-        out.write((
-            "#[allow(non_camel_case_types)]",
-            self.r#pub,
-            self.r#struct,
-            name,
-        ));
+        mo.write("#[allow(non_camel_case_types)] pub struct Props");
 
         if self.arguments.is_empty() {
-            out.write(';');
+            mo.write(';');
         } else {
-            out.write((
+            mo.write((
                 '<',
                 each(self.arguments.iter().map(Argument::generic)).tokenize(),
                 '>',
@@ -331,36 +323,58 @@ impl Tokenize for FnComponent {
         };
 
         let fn_render = (
-            fn_render,
-            self.generics,
+            "pub fn render",
+            self.generics.clone(),
             group('(', args),
-            self.ret,
+            self.ret.clone(),
             block((
                 each(self.arguments.iter().map(Argument::maybe)),
-                self.render,
+                call(
+                    ("super::", name),
+                    each(self.arguments.iter().map(Argument::name)),
+                ),
             )),
         );
 
         let fn_props = (
-            "#[doc(hidden)] pub const fn __undefined() -> Self",
+            "pub const fn props() -> Props",
             block((
-                "Self",
+                "Props",
                 block(each(self.arguments.iter().map(Argument::default)).tokenize()),
             )),
         );
 
-        out.write(("impl", name, block((fn_props, fn_render))));
+        mo.write((fn_props, fn_render));
 
         let field_generics = ('<', each(self.arguments.iter().map(Argument::name)), '>').tokenize();
 
-        out.write((
+        mo.write((
             "#[allow(non_camel_case_types)] impl",
             field_generics.clone(),
-            name,
+            "Props",
             field_generics,
-            block(each(self.arguments.iter().enumerate().map(|(i, a)| {
-                a.setter(name, finder.as_mut(), i, &self.arguments)
-            }))),
+            block(each(
+                self.arguments
+                    .iter()
+                    .enumerate()
+                    .map(|(i, a)| a.setter(finder.as_mut(), i, &self.arguments)),
+            )),
+        ));
+
+        // panic!("{mo}");
+
+        out.write((&self.r#pub, self.r#fn, name, self.generics, self.raw_args));
+        out.write((self.ret, block(self.render)));
+
+        out.write((
+            format!(
+                "#[doc = \"`#[component]` handlers for the [`{name}`](fn.{name}.html) function.\"]"
+            )
+            .as_str(),
+            self.r#pub,
+            self.r#mod,
+            name,
+            block(("use super::*;", mo)),
         ));
     }
 }
@@ -390,7 +404,6 @@ impl Argument {
 
     fn setter<'a>(
         &'a self,
-        comp: &'a Ident,
         finder: Option<&mut GenericFinder>,
         pos: usize,
         args: &'a [Argument],
@@ -427,7 +440,7 @@ impl Argument {
             }
         }
 
-        let ret_type = ("->", comp, '<', ret_generics, '>', where_clause);
+        let ret_type = ("-> Props<", ret_generics, '>', where_clause);
 
         (
             "#[inline(always)] pub fn ",
@@ -442,7 +455,7 @@ impl Argument {
                 ("self, value:", maybe_ty),
             ),
             ret_type,
-            block((comp, block(body))),
+            block(("Props", block(body))),
         )
     }
 

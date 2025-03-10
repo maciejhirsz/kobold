@@ -1,8 +1,6 @@
 use gloo_storage::{LocalStorage, Storage};
 use wasm_bindgen::UnwrapThrowExt;
 
-use crate::filter::Filter;
-
 const KEY: &str = "kobold.todomvc.example";
 
 pub struct State {
@@ -120,11 +118,10 @@ impl State {
         if let Some(entry) = self.editing.and_then(|idx| self.entries.get_mut(idx)) {
             entry.editing = false;
         }
-
-        self.editing = Some(idx);
-        self.entries[idx].editing = true;
-
-        self.store();
+        if let Some(entry) = self.entries.get_mut(idx) {
+            self.editing = Some(idx);
+            entry.editing = true;
+        }
     }
 
     pub fn add(&mut self, description: String) {
@@ -144,7 +141,9 @@ impl State {
     }
 
     pub fn update(&mut self, idx: usize, description: String) {
-        let entry = &mut self.entries[idx];
+        let Some(entry) = self.entries.get_mut(idx) else {
+            return;
+        };
 
         entry.editing = false;
 
@@ -155,8 +154,34 @@ impl State {
     }
 
     pub fn toggle(&mut self, idx: usize) {
-        self.entries[idx].completed ^= true;
+        if let Some(entry) = self.entries.get_mut(idx) {
+            entry.completed ^= true;
+            self.store();
+        }
+    }
+}
 
-        self.store();
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Filter {
+    All,
+    Active,
+    Completed,
+}
+
+impl Filter {
+    pub fn href(self) -> &'static str {
+        match self {
+            Filter::All => "#/",
+            Filter::Active => "#/active",
+            Filter::Completed => "#/completed",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Filter::All => "All",
+            Filter::Active => "Active",
+            Filter::Completed => "Completed",
+        }
     }
 }

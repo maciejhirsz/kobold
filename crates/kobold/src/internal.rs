@@ -15,14 +15,14 @@ use crate::View;
 
 /// Uninitialized stable pointer to `T`.
 ///
-/// Used for the initialize-in-place strategy employed by the [`View::build`](View::build) method.
+/// Used for the initialize-in-place strategy employed by the [`View::build`] method.
 #[must_use]
 #[repr(transparent)]
-pub struct In<'a, T>(&'a mut MaybeUninit<T>);
+pub struct In<'a, T>(pub(crate) &'a mut MaybeUninit<T>);
 
 /// Initialized stable pointer to `T`.
 ///
-/// Used for the initialize-in-place strategy employed by the [`View::build`](View::build) method.
+/// Used for the initialize-in-place strategy employed by the [`View::build`] method.
 #[repr(transparent)]
 pub struct Out<'a, T>(&'a mut T);
 
@@ -67,6 +67,20 @@ impl<T> DerefMut for Out<'_, T> {
 }
 
 impl<'a, T> In<'a, T> {
+    /// Create a box from an `In` -> `Out` constructor.
+    pub fn boxed<F>(f: F) -> Box<T>
+    where
+        F: FnOnce(In<T>) -> Out<T>,
+    {
+        unsafe {
+            let ptr = std::alloc::alloc(std::alloc::Layout::new::<T>()) as *mut T;
+
+            In::raw(ptr, f);
+
+            Box::from_raw(ptr)
+        }
+    }
+
     /// Cast this pointer from `In<T>` to `In<U>`.
     ///
     /// # Safety
@@ -174,7 +188,7 @@ macro_rules! init {
     };
 }
 
-/// Wrapper that turns `extern` precompiled JavaScript functions into [`View`](View)s.
+/// Wrapper that turns `extern` precompiled JavaScript functions into [`View`]s.
 #[repr(transparent)]
 pub struct Precompiled<F>(pub F);
 
@@ -200,6 +214,8 @@ where
 
 #[wasm_bindgen]
 extern "C" {
+    pub(crate) type UnsafeNode;
+
     #[wasm_bindgen(js_namespace = ["document", "body"], js_name = appendChild)]
     pub(crate) fn append_body(node: &JsValue);
     #[wasm_bindgen(js_namespace = document, js_name = createTextNode)]
@@ -208,6 +224,52 @@ extern "C" {
     pub(crate) fn text_node_num(t: f64) -> Node;
     #[wasm_bindgen(js_namespace = document, js_name = createTextNode)]
     pub(crate) fn text_node_bool(t: bool) -> Node;
+
+    // dom manipulation ----------------
+
+    #[wasm_bindgen(method, js_name = "before")]
+    pub(crate) fn append_before(this: &UnsafeNode, insert: &JsValue);
+    #[wasm_bindgen(method, js_name = "remove")]
+    pub(crate) fn unmount(this: &UnsafeNode);
+    #[wasm_bindgen(method, js_name = "replaceWith")]
+    pub(crate) fn replace(this: &UnsafeNode, new: &JsValue);
+
+    // `set_text` variants ----------------
+
+    #[wasm_bindgen(method, setter, js_name = "textContent")]
+    pub(crate) fn set_text(this: &UnsafeNode, t: &str);
+    #[wasm_bindgen(method, setter, js_name = "textContent")]
+    pub(crate) fn set_text_num(this: &UnsafeNode, t: f64);
+    #[wasm_bindgen(method, setter, js_name = "textContent")]
+    pub(crate) fn set_text_bool(this: &UnsafeNode, t: bool);
+
+    // `set_attr` variants ----------------
+
+    #[wasm_bindgen(method, js_name = "setAttribute")]
+    pub(crate) fn set_attr(this: &UnsafeNode, a: &str, v: &str);
+    #[wasm_bindgen(method, js_name = "setAttribute")]
+    pub(crate) fn set_attr_num(this: &UnsafeNode, a: &str, v: f64);
+    #[wasm_bindgen(method, js_name = "setAttribute")]
+    pub(crate) fn set_attr_bool(this: &UnsafeNode, a: &str, v: bool);
+
+    // provided attribute setters ----------------
+
+    #[wasm_bindgen(method, setter, js_name = "className")]
+    pub(crate) fn class_name(this: &UnsafeNode, value: &str);
+    #[wasm_bindgen(method, setter, js_name = "innerHTML")]
+    pub(crate) fn inner_html(this: &UnsafeNode, value: &str);
+    #[wasm_bindgen(method, setter, js_name = "href")]
+    pub(crate) fn href(this: &UnsafeNode, value: &str);
+    #[wasm_bindgen(method, setter, js_name = "style")]
+    pub(crate) fn style(this: &UnsafeNode, value: &str);
+    #[wasm_bindgen(method, setter, js_name = "value")]
+    pub(crate) fn value(this: &UnsafeNode, value: &str);
+    #[wasm_bindgen(method, setter, js_name = "value")]
+    pub(crate) fn value_num(this: &UnsafeNode, value: f64);
+}
+
+pub(crate) fn obj(node: &Node) -> &UnsafeNode {
+    node.unchecked_ref()
 }
 
 mod hidden {
@@ -223,15 +285,6 @@ mod hidden {
 
 #[wasm_bindgen(module = "/js/util.js")]
 extern "C" {
-    #[wasm_bindgen(js_name = "appendChild")]
-    pub(crate) fn append_child(parent: &Node, child: &JsValue);
-    #[wasm_bindgen(js_name = "appendBefore")]
-    pub(crate) fn append_before(node: &Node, insert: &JsValue);
-    #[wasm_bindgen(js_name = "removeNode")]
-    pub(crate) fn unmount(node: &JsValue);
-    #[wasm_bindgen(js_name = "replaceNode")]
-    pub(crate) fn replace(old: &JsValue, new: &JsValue);
-
     #[wasm_bindgen(js_name = "emptyNode")]
     pub(crate) fn empty_node() -> Node;
     #[wasm_bindgen(js_name = "fragment")]
@@ -243,38 +296,10 @@ extern "C" {
     #[wasm_bindgen(js_name = "fragmentReplace")]
     pub(crate) fn fragment_replace(f: &Node, new: &JsValue);
 
-    // `set_text` variants ----------------
-
-    #[wasm_bindgen(js_name = "setTextContent")]
-    pub(crate) fn set_text(el: &Node, t: &str);
-    #[wasm_bindgen(js_name = "setTextContent")]
-    pub(crate) fn set_text_num(el: &Node, t: f64);
-    #[wasm_bindgen(js_name = "setTextContent")]
-    pub(crate) fn set_text_bool(el: &Node, t: bool);
-
-    // `set_attr` variants ----------------
-
-    #[wasm_bindgen(js_name = "setAttribute")]
-    pub(crate) fn set_attr(el: &JsValue, a: &str, v: &str);
-    #[wasm_bindgen(js_name = "setAttribute")]
-    pub(crate) fn set_attr_num(el: &JsValue, a: &str, v: f64);
-    #[wasm_bindgen(js_name = "setAttribute")]
-    pub(crate) fn set_attr_bool(el: &JsValue, a: &str, v: bool);
-
     // provided attribute setters ----------------
 
     #[wasm_bindgen(js_name = "setChecked")]
     pub(crate) fn checked(node: &Node, value: bool);
-    #[wasm_bindgen(js_name = "setClassName")]
-    pub(crate) fn class_name(node: &Node, value: &str);
-    #[wasm_bindgen(js_name = "setHref")]
-    pub(crate) fn href(node: &Node, value: &str);
-    #[wasm_bindgen(js_name = "setStyle")]
-    pub(crate) fn style(node: &Node, value: &str);
-    #[wasm_bindgen(js_name = "setValue")]
-    pub(crate) fn value(node: &Node, value: &str);
-    #[wasm_bindgen(js_name = "setValue")]
-    pub(crate) fn value_num(node: &Node, value: f64);
 
     // ----------------
 
@@ -301,6 +326,13 @@ mod test {
     use super::*;
 
     use std::pin::pin;
+
+    #[test]
+    fn boxed() {
+        let data = In::boxed(|p| p.put(42));
+
+        assert_eq!(*data, 42);
+    }
 
     #[test]
     fn pinned() {

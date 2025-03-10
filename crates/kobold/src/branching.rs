@@ -9,7 +9,7 @@
 //! ```compile_fail
 //! # use kobold::prelude::*;
 //! #[component]
-//! fn Conditional(illuminatus: bool) -> impl View {
+//! fn conditional(illuminatus: bool) -> impl View {
 //!     if illuminatus {
 //!         view! { <p>"It was the year when they finally immanentized the Eschaton."</p> }
 //!     } else {
@@ -38,13 +38,14 @@
 //! ```
 //! # use kobold::prelude::*;
 //! #[component(auto_branch)]
-//! fn Conditional(illuminatus: bool) -> impl View {
+//! fn conditional(illuminatus: bool) -> impl View {
 //!     if illuminatus {
 //!         view! { <p>"It was the year when they finally immanentized the Eschaton."</p> }
 //!     } else {
 //!         view! { <blockquote>"It was love at first sight."</blockquote> }
 //!     }
 //! }
+//! # fn main() {}
 //! ```
 //!
 //! This flag is not enabled by default, yet, as there might be situations [`auto_branch`](crate::component#componentauto_branch)
@@ -59,7 +60,7 @@
 //! use kobold::branching::Branch2;
 //!
 //! #[component]
-//! fn Conditional(illuminatus: bool) -> impl View {
+//! fn conditional(illuminatus: bool) -> impl View {
 //!     if illuminatus {
 //!         Branch2::A(view! {
 //!             <p>"It was the year when they finally immanentized the Eschaton."</p>
@@ -70,16 +71,17 @@
 //!         })
 //!     }
 //! }
+//! # fn main() {}
 //! ```
 //!
 //! This is in fact all that the [`auto_branch`](crate::component#componentauto_branch) flag does for you automatically.
 //!
-//! For simple optional renders you can always use the standard library [`Option`](Option):
+//! For simple optional renders you can always use the standard library [`Option`]:
 //!
 //! ```
 //! # use kobold::prelude::*;
 //! #[component]
-//! fn Conditional(illuminatus: bool) -> impl View {
+//! fn conditional(illuminatus: bool) -> impl View {
 //!     if illuminatus {
 //!         Some(view! {
 //!             <p>"It was the year when they finally immanentized the Eschaton."</p>
@@ -88,6 +90,7 @@
 //!         None
 //!     }
 //! }
+//! # fn main() {}
 //! ```
 
 use std::mem::MaybeUninit;

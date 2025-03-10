@@ -121,17 +121,22 @@ impl Display for TagName {
 
 impl Parse for TagName {
     fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
+        let escaped = stream.allow_consume('!').is_some();
+
         let mut ident: Ident = stream.parse()?;
         let mut span = ident.span();
 
-        if !stream.allow((':', Spacing::Joint)) {
-            if let Some(name) = ident.with_str(ElementTag::from_str) {
-                return Ok(TagName::HtmlElement { name, span });
-            }
+        if !escaped {
+            return match ident.with_str(ElementTag::from_str) {
+                Some(name) => return Ok(TagName::HtmlElement { name, span }),
+                None => Err(ParseError::new(
+                    format!("Unknown tag name `{ident}`. Did you mean a component `<!{ident}>`?"),
+                    span,
+                )),
+            };
         }
 
         let mut name = ident.to_string();
-
         let mut path = ident.tokenize();
 
         while let Some(colon) = stream.allow_consume((':', Spacing::Joint)) {

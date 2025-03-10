@@ -14,7 +14,11 @@ use crate::internal::{In, Out};
 use crate::value::{IntoText, Value};
 use crate::{init, Mountable, View};
 
-/// This is a wrapper around a `view` that will prevent updates to it, unless
+mod vstring;
+
+pub use vstring::VString;
+
+/// Create a wrapper around a `view` that will prevent updates to it, unless
 /// the value of `guard` has changed.
 ///
 /// Fencing against updates can be a great optimization that combines well
@@ -31,7 +35,7 @@ use crate::{init, Mountable, View};
 /// }
 ///
 /// #[component]
-/// fn UserRow(user: &User) -> impl View + '_ {
+/// fn user_row(user: &User) -> impl View + '_ {
 ///     fence(user.id, || view! {
 ///         // This row is only re-rendered if `user.id` has changed
 ///         <tr>
@@ -44,6 +48,7 @@ use crate::{init, Mountable, View};
 ///         </tr>
 ///     })
 /// }
+/// # fn main() {}
 /// ```
 pub const fn fence<D, V, F>(guard: D, render: F) -> Fence<D, F>
 where
@@ -57,7 +62,49 @@ where
     }
 }
 
-/// Smart [`View`](View) that guards against unnecessary renders, see [`fence`](fence).
+/// Create a wrapper around a `view` that will prevent updates to it.
+///
+/// This is effectively an unconditional [`fence`].
+///
+/// ```
+/// use kobold::prelude::*;
+/// use kobold::diff::invar;
+///
+/// #[component]
+/// fn tag(label: &'static str) -> impl View {
+///     invar(move || view! {
+///         <span.tag>{ static label }</span>
+///     })
+/// }
+/// # fn main() {}
+/// ```
+pub const fn invar<F, V>(render: F) -> Invar<F>
+where
+    F: FnOnce() -> V,
+    V: View,
+{
+    Invar(render)
+}
+
+/// Smart [`View`] that prevents updates, see [`invar`].
+#[repr(transparent)]
+pub struct Invar<F>(F);
+
+impl<V, F> View for Invar<F>
+where
+    F: FnOnce() -> V,
+    V: View,
+{
+    type Product = V::Product;
+
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        (self.0)().build(p)
+    }
+
+    fn update(self, _: &mut Self::Product) {}
+}
+
+/// Smart [`View`] that guards against unnecessary renders, see [`fence`].
 pub struct Fence<D, F> {
     guard: D,
     inner: F,
@@ -112,6 +159,26 @@ pub trait Diff: Copy {
     fn diff(self, memo: &mut Self::Memo) -> bool;
 }
 
+impl<T> Diff for Option<T>
+where
+    T: Copy + Eq + 'static,
+{
+    type Memo = Self;
+
+    fn into_memo(self) -> Self {
+        self
+    }
+
+    fn diff(self, memo: &mut Self) -> bool {
+        if self != *memo {
+            *memo = self;
+            true
+        } else {
+            false
+        }
+    }
+}
+
 macro_rules! impl_diff_str {
     ($($ty:ty),*) => {
         $(
@@ -161,7 +228,7 @@ macro_rules! impl_diff {
 impl_diff_str!(&str, &String);
 impl_diff!(bool, u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64);
 
-/// Smart [`View`](View) that only updates its content when the reference to T has changed.
+/// Smart [`View`] that only updates its content when the reference to T has changed.
 /// See [`ref`](crate::keywords::ref).
 #[repr(transparent)]
 pub struct Ref<T: ?Sized>(T);
@@ -199,7 +266,7 @@ impl<T: ?Sized> Diff for &Ref<T> {
     }
 }
 
-/// Smart [`View`](View) that never performs diffing and instead always triggers
+/// Smart [`View`] that never performs diffing and instead always triggers
 /// updates.
 ///
 /// See [`use`](crate::keywords::use)
@@ -207,7 +274,7 @@ impl<T: ?Sized> Diff for &Ref<T> {
 #[repr(transparent)]
 pub struct Eager<T>(pub(crate) T);
 
-/// Smart [`View`](View) that never performs diffing and instead never triggers
+/// Smart [`View`] that never performs diffing and instead never triggers
 /// updates.
 ///
 /// See [`static`](crate::keywords::static)
@@ -277,6 +344,20 @@ macro_rules! impl_no_diff {
         impl AsRef<str> for $name<&str> {
             fn as_ref(&self) -> &str {
                 self.0
+            }
+        }
+
+        impl View for $name<String> {
+            type Product = Node;
+
+            fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+                p.put(self.into_text())
+            }
+
+            fn update(self, p: &mut Self::Product) {
+                if $update {
+                    self.0.set_prop(TextContent, p);
+                }
             }
         }
     };

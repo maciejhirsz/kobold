@@ -2,19 +2,12 @@ use gloo_timers::callback::Interval;
 use kobold::prelude::*;
 
 #[component]
-fn Elapsed(seconds: u32) -> impl View {
+fn elapsed(seconds: u32) -> impl View {
     stateful(seconds, |seconds| {
-        bind! {
-            seconds:
-
-            let onclick = move |_| *seconds = 0;
-        }
-
         view! {
             <p>
                 "Elapsed seconds: "{ seconds }" "
-                // `{onclick}` here is shorthand for `onclick={onclick}`
-                <button {onclick}>"Reset"</button>
+                <button onclick={do *seconds = 0}>"Reset"</button>
         }
     })
     .once(|signal| {
@@ -29,6 +22,6 @@ fn Elapsed(seconds: u32) -> impl View {
 
 fn main() {
     kobold::start(view! {
-        <Elapsed seconds={0} />
+        <!elapsed seconds={0}>
     });
 }

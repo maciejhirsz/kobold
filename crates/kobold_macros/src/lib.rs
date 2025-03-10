@@ -13,7 +13,10 @@ extern crate proc_macro2 as tokens;
 
 use proc_macro::TokenStream;
 
+use arrayvec::ArrayString;
+
 mod branching;
+mod class;
 mod dom;
 mod fn_component;
 mod gen;
@@ -59,4 +62,42 @@ pub fn view(body: TokenStream) -> TokenStream {
     // panic!("{out}");
 
     out.into()
+}
+
+#[allow(clippy::let_and_return)]
+#[proc_macro]
+pub fn class(stream: TokenStream) -> TokenStream {
+    let out = unwrap_err!(class::parse(stream.into()));
+
+    out.into()
+}
+
+fn unique() -> ArrayString<8> {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static COUNT: AtomicUsize = AtomicUsize::new(0);
+
+    let mut n = COUNT.fetch_add(1, Ordering::SeqCst);
+
+    pub const ALPHABET: [u8; 62] = *b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
+                                      abcdefghijklmnopqrstuvwxyz\
+                                      0123456789";
+
+    let mut out = ArrayString::new();
+
+    out.push_str("__");
+
+    loop {
+        let byte = ALPHABET[n % 62];
+
+        out.push(byte as char);
+
+        n /= 62;
+
+        if n == 0 {
+            break;
+        }
+    }
+
+    out
 }

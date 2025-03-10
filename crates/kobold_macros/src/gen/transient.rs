@@ -14,7 +14,7 @@ use crate::parse::IdentExt;
 use crate::tokenize::prelude::*;
 
 // JS function name, capacity must fit a `Short`, a hash, and few underscores
-pub type JsFnName = ArrayString<24>;
+pub type JsFnName = ArrayString<8>;
 
 #[derive(Default, Debug)]
 pub struct Transient {
@@ -32,7 +32,7 @@ pub struct Hint {
 
 impl Transient {
     fn is_const(&self) -> bool {
-        let jsfn = match self.js.functions.get(0) {
+        let jsfn = match self.js.functions.first() {
             Some(fun) => fun,
             None => return false,
         };
@@ -160,11 +160,9 @@ impl Tokenize for Transient {
                 .iter()
                 .map(|a| {
                     let mut temp = ArrayString::<24>::new();
-                    let name = a.name;
-                    let _ = match a.abi.and_then(|abi| abi.method()) {
-                        Some(method) => write!(temp, "self.{name}{method}"),
-                        None => write!(temp, "{name}.js()"),
-                    };
+
+                    let _ = write!(temp, "{a}");
+
                     temp
                 })
                 .join(",");
@@ -184,6 +182,7 @@ impl Tokenize for Transient {
                 "\
                 use ::kobold::dom::Mountable as _;\
                 use ::kobold::event::ListenerHandle as _;\
+                use ::kobold::event::IntoListener as _;\
                 use ::kobold::reexport::wasm_bindgen;\
                 ",
                 self.js,
@@ -346,6 +345,19 @@ impl JsArgument {
         JsArgument {
             name,
             abi: Some(abi),
+        }
+    }
+}
+
+impl Display for JsArgument {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = self.name;
+
+        match self.abi {
+            Some(InlineAbi::Bool) => write!(f, "self.{name}.into()"),
+            Some(InlineAbi::Str) => write!(f, "self.{name}.as_ref()"),
+            Some(InlineAbi::Event) => write!(f, "{name}.js_value()"),
+            None => write!(f, "{name}.js()"),
         }
     }
 }

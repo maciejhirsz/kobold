@@ -19,6 +19,9 @@ extern "C" {
 
     #[wasm_bindgen(method, getter)]
     fn target(this: &EventWithTarget) -> HtmlElement;
+
+    #[wasm_bindgen(method, getter, js_name = "currentTarget")]
+    fn current_target(this: &EventWithTarget) -> HtmlElement;
 }
 
 macro_rules! event {
@@ -55,11 +58,19 @@ macro_rules! event {
                 ///
                 /// This method shadows over the [`Event::target`](web_sys::Event::target)
                 /// method provided by `web-sys` and makes it infallible.
-                pub fn target(&self) -> EventTarget<T>
+                pub fn target(&self) -> HtmlElement {
+                    self.event.unchecked_ref::<EventWithTarget>().target().unchecked_into()
+                }
+
+                /// Return a reference to the target element.
+                ///
+                /// This method shadows over the [`Event::target`](web_sys::Event::target)
+                /// method provided by `web-sys` and makes it infallible.
+                pub fn current_target(&self) -> EventTarget<T>
                 where
                     T: JsCast,
                 {
-                    EventTarget(self.event.unchecked_ref::<EventWithTarget>().target().unchecked_into())
+                    EventTarget(self.event.unchecked_ref::<EventWithTarget>().current_target().unchecked_into())
                 }
             }
         )*
@@ -81,6 +92,24 @@ event! {
     KeyboardEvent,
     /// [`web_sys::MouseEvent`](web_sys::MouseEvent)
     MouseEvent,
+}
+
+pub trait IntoListener<E: EventCast> {
+    type Listener: Listener<E>;
+
+    fn into_listener(self) -> Self::Listener;
+}
+
+impl<E, L> IntoListener<E> for L
+where
+    L: Listener<E>,
+    E: EventCast,
+{
+    type Listener = L;
+
+    fn into_listener(self) -> L {
+        self
+    }
 }
 
 pub trait Listener<E>
@@ -120,7 +149,7 @@ pub struct ListenerProduct<F, E> {
 }
 
 pub trait ListenerHandle {
-    fn js(&mut self) -> JsValue;
+    fn js_value(&mut self) -> JsValue;
 }
 
 impl<F, E> ListenerHandle for ListenerProduct<F, E>
@@ -128,7 +157,7 @@ where
     F: FnMut(E) + 'static,
     E: EventCast,
 {
-    fn js(&mut self) -> JsValue {
+    fn js_value(&mut self) -> JsValue {
         let vcall: fn(E, *mut ()) = |e, ptr| unsafe { (*(ptr as *mut F))(e) };
 
         internal::make_event_handler((&mut self.closure) as *mut F as *mut (), vcall as usize)

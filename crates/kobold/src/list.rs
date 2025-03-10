@@ -4,46 +4,37 @@
 
 //! Utilities for rendering lists
 
-use web_sys::Node;
+use std::marker::PhantomData;
 
-use crate::dom::{Anchor, Fragment, FragmentBuilder};
 use crate::internal::{In, Out};
-use crate::{Mountable, View};
+use crate::View;
 
-mod page_list;
+pub mod bounded;
+pub mod unbounded;
 
-use page_list::PageList;
+use bounded::BoundedProduct;
+use unbounded::ListProduct;
+
+/// Zero-sized marker making the [`List`] unbounded: it can grow to arbitrary
+/// size but will require memory allocation.
+pub struct Unbounded;
+
+/// Zero-sized marker making the [`List`] bounded to a max length of `N`:
+/// elements over the limit are ignored and no allocations are made.
+pub struct Bounded<const N: usize>;
 
 /// Wrapper type that implements `View` for iterators, created by the
 /// [`for`](crate::keywords::for) keyword.
 #[repr(transparent)]
-pub struct List<T>(pub(crate) T);
+pub struct List<T, B = Unbounded>(T, PhantomData<B>);
 
-pub struct ListProduct<P: Mountable> {
-    list: PageList<AutoUnmount<P>>,
-    fragment: FragmentBuilder,
-}
-
-struct AutoUnmount<P: Mountable>(P);
-
-impl<P> Drop for AutoUnmount<P>
-where
-    P: Mountable,
-{
-    fn drop(&mut self) {
-        self.0.unmount();
+impl<T> List<T> {
+    pub const fn new(item: T) -> Self {
+        List(item, PhantomData)
     }
-}
 
-impl<P> Anchor for ListProduct<P>
-where
-    P: Mountable,
-{
-    type Js = Node;
-    type Target = Fragment;
-
-    fn anchor(&self) -> &Fragment {
-        &self.fragment
+    pub const fn new_bounded<const N: usize>(item: T) -> List<T, Bounded<N>> {
+        List(item, PhantomData)
     }
 }
 
@@ -55,32 +46,27 @@ where
     type Product = ListProduct<<T::Item as View>::Product>;
 
     fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
-        let fragment = FragmentBuilder::new();
-
-        let list = PageList::build(self.0, |view, b| {
-            let built = view.build(unsafe { b.cast() });
-
-            fragment.append(built.js());
-
-            unsafe { built.cast() }
-        });
-
-        p.put(ListProduct { list, fragment })
+        ListProduct::build(self.0.into_iter(), p)
     }
 
     fn update(self, p: &mut Self::Product) {
-        let mut new = self.0.into_iter();
-        let mut old = p.list.cursor();
+        p.update(self.0.into_iter());
+    }
+}
 
-        old.zip_each(&mut new, |old, new| new.update(&mut old.0));
+impl<T, const N: usize> View for List<T, Bounded<N>>
+where
+    T: IntoIterator,
+    <T as IntoIterator>::Item: View,
+{
+    type Product = BoundedProduct<<T::Item as View>::Product, N>;
 
-        old.truncate_rest().extend(new, |view, b| {
-            let built = view.build(unsafe { b.cast() });
+    fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
+        BoundedProduct::build(self.0.into_iter(), p)
+    }
 
-            p.fragment.append(built.js());
-
-            unsafe { built.cast() }
-        });
+    fn update(self, p: &mut Self::Product) {
+        p.update(self.0.into_iter());
     }
 }
 
@@ -88,11 +74,11 @@ impl<V: View> View for Vec<V> {
     type Product = ListProduct<V::Product>;
 
     fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
-        List(self).build(p)
+        List::new(self).build(p)
     }
 
     fn update(self, p: &mut Self::Product) {
-        List(self).update(p);
+        List::new(self).update(p);
     }
 }
 
@@ -103,22 +89,22 @@ where
     type Product = ListProduct<<&'a V as View>::Product>;
 
     fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
-        List(self).build(p)
+        List::new(self).build(p)
     }
 
     fn update(self, p: &mut Self::Product) {
-        List(self).update(p)
+        List::new(self).update(p)
     }
 }
 
 impl<V: View, const N: usize> View for [V; N] {
-    type Product = ListProduct<V::Product>;
+    type Product = BoundedProduct<V::Product, N>;
 
     fn build(self, p: In<Self::Product>) -> Out<Self::Product> {
-        List(self).build(p)
+        List::new_bounded(self).build(p)
     }
 
     fn update(self, p: &mut Self::Product) {
-        List(self).update(p)
+        List::new_bounded(self).update(p)
     }
 }

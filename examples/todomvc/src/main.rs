@@ -1,78 +1,64 @@
 use kobold::prelude::*;
 use web_sys::HtmlInputElement as InputElement;
 
-mod filter;
 mod state;
 
-use filter::Filter;
 use state::*;
 
-#[component]
-fn App() -> impl View {
-    stateful(State::default, |state| {
-        let hidden = class!("hidden" if state.entries.is_empty());
+fn app(state: &Hook<State>) -> impl View + '_ {
+    let hidden = class!("hidden" if state.entries.is_empty());
 
-        let active_count = state.count_active();
-        let completed_hidden = class!("hidden" if state.entries.len() == active_count);
+    let active_count = state.count_active();
+    let completed_hidden = class!("hidden" if state.entries.len() == active_count);
 
-        bind! { state:
-            let clear = move |_| state.clear();
-        }
-
-        view! {
-            <div.todomvc-wrapper>
-                <section.todoapp>
-                    <header.header>
-                        <h1>"todos"</h1>
-                        <EntryInput {state} />
-                    </header>
-                    <section .main.{hidden}>
-                        <ToggleAll {active_count} {state} />
-                        <ul.todo-list>
-                            {
-                                for state
-                                    .filtered_entries()
-                                    .map(move |(idx, entry)| view! { <EntryView {idx} {entry} {state} /> })
-                            }
-                    </section>
-                    <footer.footer.{hidden}>
-                        <span.todo-count>
-                            <strong>{ active_count }</strong>
-                            {
-                                ref match active_count {
-                                    1 => " item left",
-                                    _ => " items left",
-                                }
-                            }
-                        </span>
-                        <ul.filters>
-                            <FilterView filter={Filter::All} {state} />
-                            <FilterView filter={Filter::Active} {state} />
-                            <FilterView filter={Filter::Completed} {state} />
-                        </ul>
-                        <button.clear-completed.{completed_hidden} onclick={clear}> "Clear completed"
+    view! {
+        <div.todomvc-wrapper>
+            <section.todoapp>
+                <header.header>
+                    <h1>"todos"</h1>
+                    <!entry_input {state}>
+                </header>
+                <section.main.{hidden}>
+                    <!toggle_all {active_count} {state}>
+                    <ul.todo-list>
+                        {
+                            for state
+                                .filtered_entries()
+                                .map(move |(idx, entry)| view! { <!entry {idx} {entry} {state}> })
+                        }
                 </section>
-                <footer.info>
-                    <p> "Double-click to edit a todo"
-                    <p> "Written by "<a href="https://maciej.codes/" target="_blank">"Maciej Hirsz"</a>
-                    <p> "Part of "<a href="http://todomvc.com/" target="_blank">"TodoMVC"</a>
-        }
-    })
+                <footer.footer.{hidden}>
+                    <span.todo-count>
+                        <strong>{ active_count }</strong>
+                        {
+                            ref match active_count {
+                                1 => " item left",
+                                _ => " items left",
+                            }
+                        }
+                    </span>
+                    <ul.filters>
+                        <!filter by={Filter::All} {state}>
+                        <!filter by={Filter::Active} {state}>
+                        <!filter by={Filter::Completed} {state}>
+                    </ul>
+                    <button.clear-completed.{completed_hidden} onclick={do state.clear()}> "Clear completed"
+            </section>
+            <footer.info>
+                <p> "Double-click to edit a todo"
+                <p> "Written by "<a href="https://maciej.codes/" target="_blank">"Maciej Hirsz"</a>
+                <p> "Part of "<a href="http://todomvc.com/" target="_blank">"TodoMVC"</a>
+    }
 }
 
 #[component]
-fn EntryInput(state: &Hook<State>) -> impl View + '_ {
-    bind! {
-        state:
+fn entry_input(state: &Hook<State>) -> impl View + '_ {
+    let onchange = event!(|state, e: Event<InputElement>| {
+        let input = e.current_target();
+        state.add(input.value());
 
-        let onchange = move |event: Event<InputElement>| {
-            let input = event.target();
-            let value = input.value();
-
-            input.set_value("");
-            state.add(value);
-        };
-    }
+        input.set_value("");
+    });
 
     view! {
         <input.new-todo placeholder="What needs to be done?" {onchange}>
@@ -80,88 +66,71 @@ fn EntryInput(state: &Hook<State>) -> impl View + '_ {
 }
 
 #[component]
-fn ToggleAll(active_count: usize, state: &Hook<State>) -> impl View + '_ {
-    bind! { state:
-        let onclick = move |_| state.set_all(active_count != 0);
-    }
-
+fn toggle_all(active_count: usize, state: &Hook<State>) -> impl View + '_ {
     view! {
-        <input #toggle-all.toggle-all type="checkbox" checked={active_count == 0} {onclick}>
-        <label for="toggle-all" />
+        <input #toggle-all.toggle-all
+            type="checkbox"
+            checked={active_count == 0}
+            onclick={do state.set_all(active_count != 0)}
+        >
+        <label for="toggle-all">
     }
 }
 
 #[component]
-pub fn EntryView<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl View + 'a {
+fn entry<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl View + 'a {
     let input = entry.editing.then(move || {
-        bind! {
-            state:
+        let onkeypress = event!(move |state, e: KeyboardEvent<InputElement>| {
+            if e.key() == "Enter" {
+                state.update(idx, e.current_target().value());
 
-            let onkeypress = move |event: KeyboardEvent<InputElement>| {
-                if event.key() == "Enter" {
-                    state.update(idx, event.target().value());
-
-                    Then::Render
-                } else {
-                    Then::Stop
-                }
-            };
-
-            let onblur = move |event: Event<InputElement>| state.update(idx, event.target().value());
-        }
+                Then::Render
+            } else {
+                Then::Stop
+            }
+        });
+        let onblur = event!(move |state, e: Event<InputElement>| {
+            state.update(idx, e.current_target().value());
+        });
 
         view! {
             <input.edit
                 type="text"
                 value={static &entry.description}
-                onmouseover={|event| event.target().focus()}
+                onmouseover={|event| event.current_target().focus()}
                 {onkeypress}
                 {onblur}
             >
         }
     });
 
-    bind! {
-        state:
-
-        let onchange = move |_| state.toggle(idx);
-        let edit = move |_| state.edit_entry(idx);
-        let remove = move |_| state.remove(idx);
-    }
     let editing = class!("editing" if entry.editing);
     let completed = class!("completed" if entry.completed);
 
     view! {
         <li.todo.{editing}.{completed}>
             <div.view>
-                <input.toggle type="checkbox" checked={entry.completed} {onchange}>
-                <label ondblclick={edit} >
+                <input.toggle type="checkbox" checked={entry.completed} onchange={do state.toggle(idx)}>
+                <label ondblclick={do state.edit_entry(idx)} >
                     { ref entry.description }
                 </label>
-                <button.destroy onclick={remove} />
+                <button.destroy onclick={do state.remove(idx)}>
             </div>
             { input }
     }
 }
 
 #[component]
-fn FilterView(filter: Filter, state: &Hook<State>) -> impl View + '_ {
-    let selected = state.filter;
-    let class = class!("selected" if selected == filter);
-
-    bind! {
-        state:
-
-        let onclick = move |_| state.filter = filter;
-    }
+fn filter(by: Filter, state: &Hook<State>) -> impl View + '_ {
+    let class = class!("selected" if state.filter == by);
 
     view! {
-        <li><a {class} {onclick} href={static filter.href()}> { static filter.label() }
+        <li>
+            <a {class} onclick={do state.filter = by} href={static by.href()}>
+                { static by.label() }
     }
 }
 
 fn main() {
-    kobold::start(view! {
-        <App />
-    });
+    kobold::start(stateful(State::default, app));
 }

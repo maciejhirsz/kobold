@@ -7,10 +7,10 @@ mod state;
 use state::{Editing, State, Text};
 
 #[component]
-fn Editor() -> impl View {
+fn editor() -> impl View {
     stateful(State::mock, |state| {
         let onload = state.bind_async(|state, event: Event<InputElement>| async move {
-            let file = match event.target().files().and_then(|list| list.get(0)) {
+            let file = match event.current_target().files().and_then(|list| list.get(0)) {
                 Some(file) => file,
                 None => return,
             };
@@ -22,19 +22,15 @@ fn Editor() -> impl View {
             }
         });
 
-        bind! {
-            state:
+        let onkeydown = event!(move |state, e: KeyboardEvent<_>| {
+            if matches!(e.key().as_str(), "Esc" | "Escape") {
+                state.editing = Editing::None;
 
-            let onkeydown = move |event: KeyboardEvent<_>| {
-                if matches!(event.key().as_str(), "Esc" | "Escape") {
-                    state.editing = Editing::None;
-
-                    Then::Render
-                } else {
-                    Then::Stop
-                }
-            };
-        }
+                Then::Render
+            } else {
+                Then::Stop
+            }
+        });
 
         view! {
             <input type="file" accept="text/csv" onchange={onload}>
@@ -43,16 +39,14 @@ fn Editor() -> impl View {
                 <thead>
                     <tr>
                     {
-                        for state.columns().map(|col| view! { <Head {col} {state} /> })
+                        for state.columns().map(|col| head(col, state))
                     }
                 <tbody>
                 {
                     for state.rows().map(move |row| view! {
                         <tr>
                         {
-                            for state.columns().map(move |col| view! {
-                                <Cell {col} {row} {state} />
-                            })
+                            for state.columns().map(move |col| cell(col, row, state))
                         }
                     })
                 }
@@ -61,12 +55,12 @@ fn Editor() -> impl View {
 }
 
 #[component(auto_branch)]
-fn Head(col: usize, state: &Hook<State>) -> impl View + '_ {
+fn head(col: usize, state: &Hook<State>) -> impl View + '_ {
     let value = state.source.get_text(&state.columns[col]);
 
     if state.editing == (Editing::Column { col }) {
         let onchange = state.bind(move |state, e: Event<InputElement>| {
-            state.columns[col] = Text::Owned(e.target().value().into());
+            state.columns[col] = Text::Owned(e.current_target().value().into());
             state.editing = Editing::None;
         });
 
@@ -83,24 +77,20 @@ fn Head(col: usize, state: &Hook<State>) -> impl View + '_ {
 }
 
 #[component(auto_branch)]
-fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
+fn cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
     let value = state.source.get_text(&state.rows[row][col]);
 
     if state.editing == (Editing::Cell { row, col }) {
-        bind! {
-            state:
-
-            let onchange = move |e: Event<InputElement>| {
-                state.rows[row][col] = Text::Owned(e.target().value().into());
-                state.editing = Editing::None;
-            };
-        }
+        let onchange = event!(move |state, e: Event<InputElement>| {
+            state.rows[row][col] = Text::Owned(e.current_target().value().into());
+            state.editing = Editing::None;
+        });
 
         let mut selected = false;
 
         let onmouseenter = move |e: MouseEvent<InputElement>| {
             if !selected {
-                let input = e.target();
+                let input = e.current_target();
                 input.focus();
                 input.select();
                 selected = true;
@@ -121,6 +111,6 @@ fn Cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
 
 fn main() {
     kobold::start(view! {
-        <Editor />
+        <!editor>
     });
 }

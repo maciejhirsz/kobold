@@ -26,6 +26,17 @@ pub struct ProductHandler<S, P, F> {
     _state: PhantomData<S>,
 }
 
+#[cfg(test)]
+impl<S, P, F> ProductHandler<S, P, F> {
+    pub(crate) fn mock(updater: F, product: P) -> Self {
+        ProductHandler {
+            updater,
+            product,
+            _state: PhantomData,
+        }
+    }
+}
+
 impl<S, P, F> ProductHandler<S, P, F> {
     pub fn build<V>(updater: F, view: V, p: In<Self>) -> Out<Self>
     where

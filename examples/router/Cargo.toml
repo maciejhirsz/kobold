@@ -1,0 +1,18 @@
+[package]
+name = "router"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+kobold = { path = "../../crates/kobold" }
+kobold_router = { path = "../../crates/kobold_router" }
+wasm-bindgen = "0.2.84"
+web-sys = { version = "0.3.69", features = [
+    "Document",
+    "HtmlInputElement",
+    "console",
+    "Window",
+    "Location",
+    "History",
+] }

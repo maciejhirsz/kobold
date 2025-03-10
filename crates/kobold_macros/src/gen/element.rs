@@ -49,28 +49,21 @@ impl IntoGenerator for HtmlElement {
             var,
             code: String::new(),
             args: Vec::new(),
-            hoisted: false, // None, // self.classes.iter().any(CssValue::is_expression),
+            hoisted: false,
         };
 
-        match self.classes.len() {
-            0 => (),
-            1 => match self.classes.remove(0) {
+        match (self.classes.len(), el.tag.namespace().is_none()) {
+            (0, _) => (),
+            (1, true) => match self.classes.remove(0) {
                 CssValue::Literal(class) => writeln!(el, "{var}.className={class};"),
                 CssValue::Expression(expr) => {
                     el.hoisted = true;
 
                     let attr = Attr {
                         name: "ClassName",
-                        abi: Some(InlineAbi::Str),
+                        abi: None,
                     };
-                    let class = gen
-                        .add_field(expr.stream)
-                        .attr(el.var, attr, attr.prop())
-                        .name;
-
-                    el.args.push(JsArgument::with_abi(class, InlineAbi::Str));
-
-                    writeln!(el, "{var}.className={class};");
+                    gen.add_field(expr.stream).attr(el.var, attr, attr.prop());
                 }
             },
             _ => {
@@ -88,20 +81,13 @@ impl IntoGenerator for HtmlElement {
 
                 let attr = Attr {
                     name: "Class",
-                    abi: Some(InlineAbi::Str),
+                    abi: None,
                 };
 
                 for class in self.classes {
                     if let CssValue::Expression(expr) = class {
                         el.hoisted = true;
-                        let class = gen
-                            .add_field(expr.stream)
-                            .attr(el.var, attr, attr.prop())
-                            .name;
-
-                        el.args.push(JsArgument::with_abi(class, InlineAbi::Str));
-
-                        writeln!(el, "{class} && {var}.classList.add({class});");
+                        gen.add_field(expr.stream).attr(el.var, attr, attr.prop());
                     }
                 }
             }
@@ -112,6 +98,7 @@ impl IntoGenerator for HtmlElement {
 
             match value {
                 AttributeValue::Literal(value) => {
+                    let name = attribute_name(&name.label);
                     writeln!(el, "{var}.setAttribute(\"{name}\",{value});");
                 }
                 AttributeValue::Boolean(value) => {
@@ -134,7 +121,7 @@ impl IntoGenerator for HtmlElement {
                                 expr.stream,
                             )
                         } else {
-                            expr.stream
+                            (expr.stream, ".into_listener()").tokenize()
                         };
 
                         let value = gen.add_field(coerce).event(event, el.typ).name;
@@ -148,6 +135,7 @@ impl IntoGenerator for HtmlElement {
                         el.args.push(JsArgument::with_abi(value, InlineAbi::Event))
                     }
                     AttributeType::Provided(attr) => {
+                        let name = attribute_name(&name.label);
                         el.hoisted = true;
 
                         let value = gen
@@ -220,14 +208,6 @@ impl InlineAbi {
         }
     }
 
-    pub fn method(self) -> Option<&'static str> {
-        match self {
-            InlineAbi::Bool => Some(".into()"),
-            InlineAbi::Str => Some(".as_ref()"),
-            InlineAbi::Event => None,
-        }
-    }
-
     pub fn bound(self) -> &'static str {
         match self {
             InlineAbi::Bool => "+ Into<bool> + Copy",
@@ -286,6 +266,14 @@ fn is_inline_closure(out: &mut TokenStream) -> bool {
     is_closure
 }
 
+fn attribute_name(attr: &str) -> &str {
+    match attr {
+        "html" => "innerHTML",
+        "view_box" => "viewBox",
+        name => name,
+    }
+}
+
 fn attribute_type(attr: &str) -> AttributeType {
     if attr.starts_with("on") && attr.len() > 2 {
         return AttributeType::Event(event_js_type(&attr[2..]));
@@ -298,6 +286,10 @@ fn attribute_type(attr: &str) -> AttributeType {
         },
         "href" => Attr {
             name: "Href",
+            abi: Some(InlineAbi::Str),
+        },
+        "html" => Attr {
+            name: "InnerHtml",
             abi: Some(InlineAbi::Str),
         },
         "style" => Attr {

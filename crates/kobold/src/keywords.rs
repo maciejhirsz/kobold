@@ -5,17 +5,17 @@
 //! Keyword handles for `{ ... }` expressions in the [`view!`](crate::view) macro.
 
 use crate::diff::{Eager, Ref, Static};
-use crate::list::List;
+use crate::list::{Bounded, List};
 use crate::View;
 
-/// `{ for ... }`: turn an [`IntoIterator`](IntoIterator) type into a [`View`](View).
+/// `{ for ... }`: turn an [`IntoIterator`] type into a [`View`].
 ///
 /// ```
 /// # use kobold::prelude::*;
 /// view! {
 ///     <h1>"Integers 1 to 10:"</h1>
 ///     <ul>
-///     { for (1..=10).map(|n| view! { <li>{ n }</li> }) }
+///     { for (1..=10).map(|n| view! { <li>{ n } }) }
 ///     </ul>
 /// }
 /// # ;
@@ -25,7 +25,32 @@ where
     T: IntoIterator,
     T::Item: View,
 {
-    List(iterator)
+    List::new(iterator)
+}
+
+/// `{ for<N> ... }`: turn an [`IntoIterator`] type into a [`View`],
+/// bounded to max length of `N`.
+///
+/// This should be used only for small values of `N`.
+///
+/// # Performance
+///
+/// The main advantage in using `for<N>` over regular `for` is that the
+/// bounded variant of a [`List`] doesn't need to allocate as the max size is fixed
+/// and known at compile time.
+///
+/// ```
+/// # use kobold::prelude::*;
+/// view! {
+///     <h1>"Integers 1 to 10:"</h1>
+///     <ul>
+///     { for<10> (1..=10).map(|n| view! { <li>{ n } }) }
+///     </ul>
+/// }
+/// # ;
+/// ```
+pub const fn for_bounded<T, const N: usize>(iterator: T) -> List<T, Bounded<N>> {
+    List::new_bounded(iterator)
 }
 
 /// `{ ref ... }`: diff this value by its reference address.
@@ -42,7 +67,7 @@ where
 /// }
 ///
 /// #[component]
-/// fn UserRow(user: &User) -> impl View + '_ {
+/// fn user_row(user: &User) -> impl View + '_ {
 ///     view! {
 ///         <tr>
 ///             // If `name` and `email` are always sent to the UI as
@@ -53,6 +78,7 @@ where
 ///         </tr>
 ///     }
 /// }
+/// # fn main() {}
 /// ```
 pub const fn r#ref(value: &str) -> &Ref<str> {
     unsafe { &*(value as *const _ as *const Ref<str>) }
@@ -69,3 +95,6 @@ pub const fn r#use<T>(value: T) -> Eager<T> {
 pub const fn r#static<T>(value: T) -> Static<T> {
     Static(value)
 }
+
+/// `{ do ... }` is an alias for [`{ event!(...) }`](../macro.event.html)
+pub use crate::event as r#do;

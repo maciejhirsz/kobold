@@ -6,7 +6,7 @@ use kobold::prelude::*;
     // Make `age` an optional parameter, use the `Default` value
     age?,
 )]
-fn Greeter<'a>(name: &'a str, age: Option<u32>) -> impl View + 'a {
+fn greeter<'a>(name: &'a str, age: Option<u32>) -> impl View + 'a {
     let age = age.map(|age| view!(", you are "{ age }" years old"));
 
     view! {
@@ -17,10 +17,10 @@ fn Greeter<'a>(name: &'a str, age: Option<u32>) -> impl View + 'a {
 fn main() {
     kobold::start(view! {
         // Hello Kobold
-        <Greeter />
+        <!greeter>
         // Hello Alice
-        <Greeter name="Alice" />
+        <!greeter name="Alice">
         // Hello Bob, you are 42 years old
-        <Greeter name="Bob" age={42} />
+        <!greeter name="Bob" age={42}>
     });
 }
