@@ -9,9 +9,10 @@ rustup default "$MIRI_NIGHTLY"
 rustup component add miri
 cargo miri setup
 
-# cd crates/kobold
-
 cd examples/npm_lib
+
+npm install
+yarn run esbuild
 # rustup update
 # PATH=$HOME/.cargo/bin:$PATH
 rustup target add wasm32-unknown-unknown --toolchain nightly
