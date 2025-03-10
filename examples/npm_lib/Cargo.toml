@@ -9,7 +9,7 @@ path = "src/main.rs"
 
 [dependencies]
 gloo-console = "0.3.0"
-kobold = { version = "0.8.1", path = "../../crates/kobold" }
+kobold = { path = "../../crates/kobold" }
 js-sys = "0.3.77"
 log = "0.4.26"
 wasm-bindgen = "0.2.100"
