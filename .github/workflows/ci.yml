@@ -14,8 +14,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: cargo check --features serde
-      - run: cargo fmt --check
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Run cargo check and fmt
+        run: ci/checkfmt.sh
 
   miri:
     runs-on: ubuntu-latest
