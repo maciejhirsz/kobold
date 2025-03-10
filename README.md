@@ -61,7 +61,7 @@ Everything here is statically typed and the macro doesn't delete any information
 token stream, so the Rust compiler can tell you when you've made a mistake:
 
 ```text
-error[E0560]: struct `Hello` has no field named `nam`
+error[E0560]: struct `hello` has no field named `nam`
   --> examples/hello_world/src/main.rs:12:16
    |
 12 |         <!hello nam="Kobold">

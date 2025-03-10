@@ -24,7 +24,7 @@ impl State {
 
 async fn onclick_pjs_process(state: Signal<State>, event: MouseEvent<HtmlElement>) {
     let res = js::browser_js::run_npm_lib().await;
-        
+
     let hash = match res.ok().and_then(|value| value.as_string()) {
         Some(hash) => hash,
         None => panic!("error fetching from API"),
@@ -34,7 +34,7 @@ async fn onclick_pjs_process(state: Signal<State>, event: MouseEvent<HtmlElement
 }
 
 #[component]
-fn NpmLib() -> impl View {
+fn npm_lib() -> impl View {
     stateful(State::new, |state| {
         let onclick_pjs = state
             .bind_async(|state, event: MouseEvent<HtmlElement>| onclick_pjs_process(state, event));
@@ -49,6 +49,6 @@ fn NpmLib() -> impl View {
 
 fn main() {
     kobold::start(view! {
-        <NpmLib />
+        <!npm_lib>
     });
 }
