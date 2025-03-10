@@ -1,16 +1,27 @@
 #!/bin/sh
 set -e
 
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-. $HOME/.cargo/env
-rustup toolchain install nightly
-rustup default stable
-rustup update
-rustup update nightly
-rustup target add wasm32-unknown-unknown
-rustup target add wasm32-unknown-unknown --toolchain nightly
-
+MIRI_NIGHTLY=nightly-$(curl -s https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/miri)
+echo "Installing latest nightly with Miri: $MIRI_NIGHTLY"
 rustup set profile minimal
+rustup default "$MIRI_NIGHTLY"
+
+rustup component add miri
+cargo miri setup
+
+# cd crates/kobold
+# MIRIFLAGS='-Zmiri-strict-provenance' cargo miri test
+
+# curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+# . $HOME/.cargo/env
+# rustup toolchain install nightly
+# rustup default stable
+# rustup update
+# rustup update nightly
+# rustup target add wasm32-unknown-unknown
+# rustup target add wasm32-unknown-unknown --toolchain nightly
+
+# rustup set profile minimal
 
 cd examples/npm_lib
 
@@ -25,5 +36,5 @@ RUST_LOG=debug trunk --config ./ build
 cargo install wasm-bindgen-cli --vers "0.2.100"
 cargo +nightly build --package kobold_npm_lib_example --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
 
-cargo check --features serde
-cargo fmt --check
+MIRIFLAGS='-Zmiri-strict-provenance' cargo miri check --features serde
+MIRIFLAGS='-Zmiri-strict-provenance' cargo miri fmt --check

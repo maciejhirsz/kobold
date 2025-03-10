@@ -36,5 +36,8 @@ RUST_LOG=debug trunk --config ./ build
 # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
 cargo install wasm-bindgen-cli --vers "0.2.100"
 
+echo "current dir is:"
+echo $PWD
+
 # MIRIFLAGS='-Zmiri-strict-provenance' cargo +nightly miri test --package kobold_npm_lib_example --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
-cargo +nightly test --package kobold_npm_lib_example --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
+cargo +nightly test --package kobold_npm_lib_example --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile
