@@ -29,6 +29,7 @@ npm install -g yarn
 yarn
 yarn run esbuild
 
+rustup target add wasm32-unknown-unknown
 rustup target add wasm32-unknown-unknown --toolchain nightly
 cargo install --locked trunk
 RUST_LOG=debug trunk --config ./ build

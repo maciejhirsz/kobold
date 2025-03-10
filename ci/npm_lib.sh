@@ -28,6 +28,7 @@ yarn
 yarn run esbuild
 # rustup update
 # PATH=$HOME/.cargo/bin:$PATH
+rustup target add wasm32-unknown-unknown
 rustup target add wasm32-unknown-unknown --toolchain nightly
 cargo install --locked trunk
 
