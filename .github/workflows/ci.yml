@@ -42,5 +42,5 @@ jobs:
             override: true
       - uses: actions-rs/cargo@v1
         with:
-          command: test
-          args: --verbose
+          toolchain: nightly
+      - run: cargo +nightly test --check--manifest-path ./Cargo.toml --package kobold_npm_lib_example --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
