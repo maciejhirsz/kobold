@@ -1,16 +1,33 @@
-## Kobold Load NPM Module 
-* Install Node.js and dependencies. Build JS to ESM. Run in browser
+## Kobold Load NPM Module
+
+### Usage
+
+Install Node.js and dependencies. Build JS to ESM. Run in browser.
+
 ```bash
+rm -rf node_modules
+rm -rf yarn.lock
+nvm use
+nvm install
+npm install -g yarn
 yarn
 yarn run esbuild
+rustup update
+rustup target add wasm32-unknown-unknown
+cargo install --locked trunk
 RUST_LOG=info trunk serve --address=127.0.0.1 --open
 ```
-* Test
+
+Click "Connect" in the UI at http://127.0.0.1:8080 and view it use Polkadot.js API to fetch and display a genesis hash
+
+### Testing
+
 ```bash
 cargo test --target wasm32-unknown-unknown
 ```
 
-* References:
-    * https://rustwasm.github.io/docs/wasm-bindgen
-    * https://stackoverflow.com/questions/73490625/how-to-load-a-npm-package-to-wasm-bindgen
-    * https://stackoverflow.com/questions/75422119/using-npm-packages-with-rust-and-webassembly
+### References:
+
+* https://rustwasm.github.io/docs/wasm-bindgen
+* https://stackoverflow.com/questions/73490625/how-to-load-a-npm-package-to-wasm-bindgen
+* https://stackoverflow.com/questions/75422119/using-npm-packages-with-rust-and-webassembly

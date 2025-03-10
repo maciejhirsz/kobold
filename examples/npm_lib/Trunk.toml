@@ -1,5 +1,5 @@
 [tools]
-wasm_bindgen = "0.2.85"
+wasm_bindgen = "0.2.100"
 
 [build]
 filehash = false
