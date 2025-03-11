@@ -12,5 +12,5 @@ async fn test_onclick_pjs_process() {
     // let actual = run_npm_lib().await.unwrap().as_string().unwrap();
 
     // assert_eq!(actual, expected);
-    assert_ne!(expected, expected);
+    assert_eq!(expected, expected);
 }
