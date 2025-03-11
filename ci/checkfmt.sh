@@ -29,6 +29,9 @@ npm install -g yarn
 yarn
 yarn run esbuild
 
+rustup component add rustfmt
+rustup component add rustfmt --toolchain nightly
+
 rustup target add wasm32-unknown-unknown
 rustup target add wasm32-unknown-unknown --toolchain nightly
 cargo install --locked trunk
