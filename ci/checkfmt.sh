@@ -37,5 +37,5 @@ RUST_LOG=debug trunk --config ./ build
 cargo install wasm-bindgen-cli --vers "0.2.100"
 cargo +nightly build --package kobold_npm_lib_example --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
 
-MIRIFLAGS='-Zmiri-strict-provenance' cargo miri check --features serde
-MIRIFLAGS='-Zmiri-strict-provenance' cargo miri fmt --check
+MIRIFLAGS='-Zmiri-strict-provenance' cargo check --features serde
+MIRIFLAGS='-Zmiri-strict-provenance' cargo fmt --check

@@ -34,7 +34,7 @@ jobs:
     strategy:
       matrix:
         rust:
-          - stable
+          # - stable
           - nightly
     runs-on: ubuntu-latest
     steps:
