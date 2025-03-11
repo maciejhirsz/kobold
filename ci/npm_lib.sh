@@ -1,24 +1,24 @@
 #!/bin/sh
 set -e
 
-# curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-# . $HOME/.cargo/env
-# rustup toolchain install nightly
-# rustup default stable
-# rustup update
-# rustup update nightly
-# rustup target add wasm32-unknown-unknown
-# rustup target add wasm32-unknown-unknown --toolchain nightly
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+. $HOME/.cargo/env
+rustup toolchain install nightly
+rustup default stable
+rustup update
+rustup update nightly
+rustup target add wasm32-unknown-unknown
+rustup target add wasm32-unknown-unknown --toolchain nightly
 
-# rustup set profile minimal
-
-MIRI_NIGHTLY=nightly-$(curl -s https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/miri)
-echo "Installing latest nightly with Miri: $MIRI_NIGHTLY"
 rustup set profile minimal
-rustup default "$MIRI_NIGHTLY"
 
-rustup component add miri
-cargo miri setup
+# MIRI_NIGHTLY=nightly-$(curl -s https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/miri)
+# echo "Installing latest nightly with Miri: $MIRI_NIGHTLY"
+# rustup set profile minimal
+# rustup default "$MIRI_NIGHTLY"
+
+# rustup component add miri
+# cargo miri setup
 
 cd examples/npm_lib
 
@@ -26,8 +26,7 @@ cd examples/npm_lib
 npm install -g yarn
 yarn
 yarn run esbuild
-# rustup update
-# PATH=$HOME/.cargo/bin:$PATH
+
 rustup target add wasm32-unknown-unknown
 rustup target add wasm32-unknown-unknown --toolchain nightly
 cargo install --locked trunk
@@ -40,5 +39,5 @@ cargo install wasm-bindgen-cli --vers "0.2.100"
 echo "current dir is:"
 echo $PWD
 
-MIRIFLAGS='-Zmiri-strict-provenance' cargo +nightly miri test --package kobold_npm_lib_example --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
-# cargo +nightly test --package kobold_npm_lib_example --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile
+# MIRIFLAGS='-Zmiri-strict-provenance' cargo +nightly miri test --package kobold_npm_lib_example --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
+cargo +nightly test --package kobold_npm_lib_example --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile
