@@ -2,8 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use wasm_bindgen::prelude::*;
 use gloo_console::log;
+use wasm_bindgen::prelude::*;
 
 use crate::js::interfaces::browser_js_spec_npm_lib as connect;
 
