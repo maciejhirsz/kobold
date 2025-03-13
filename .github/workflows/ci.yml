@@ -49,11 +49,6 @@ jobs:
 
   miri:
     needs: [checkfmt]
-    strategy:
-      matrix:
-        rust:
-          # - stable
-          - nightly
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -63,7 +58,6 @@ jobs:
       - name: Setup Rust
         uses: ./.github/actions/rust-setup
         with:
-          # toolchain: ${{ matrix.rust }}
           toolchain: nightly
       - name: Setup miri
         run: |
@@ -71,7 +65,6 @@ jobs:
           echo "Installing latest nightly with Miri: $MIRI_NIGHTLY"
           rustup set profile minimal
           rustup default "$MIRI_NIGHTLY"
-
           rustup component add miri
           cargo miri setup
       - name: Run miri test
@@ -82,11 +75,6 @@ jobs:
 
   tests:
     needs: [checkfmt, miri]
-    strategy:
-      matrix:
-        rust:
-          #- stable
-          - nightly
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -96,7 +84,6 @@ jobs:
       - name: Setup Rust
         uses: ./.github/actions/rust-setup
         with:
-          # toolchain: ${{ matrix.rust }}
           toolchain: nightly
       - name: Test in package npm_lib
         working-directory: ./examples/npm_lib
@@ -106,9 +93,20 @@ jobs:
           npm install -g yarn
           yarn
           yarn run esbuild
-          cargo install --locked trunk
+
+          # Source the retry script
+          source ../../.github/actions/retry-script/retry.sh
+
+          # Install trunk with retries (10 attempts)
+          retry 10 cargo install --locked trunk
+
           RUST_LOG=debug trunk --config ./ build
+
           # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
-          cargo install wasm-bindgen-cli --vers "0.2.100"
-          cargo clean
-          cargo +nightly test --package kobold_npm_lib_example --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile
+          retry 10 cargo install wasm-bindgen-cli --vers "0.2.100"
+
+          # Install wasm-pack for running wasm tests
+          curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+          # Run wasm tests specifically
+          wasm-pack test --node
