@@ -1,0 +1,26 @@
+name: Rust Setup Action
+description: Sets up Rust toolchain with specified version and configures components
+
+inputs:
+  toolchain:
+    description: 'Rust toolchain version to use'
+    required: true
+    default: 'stable'
+
+runs:
+  using: composite
+  steps:
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ inputs.toolchain }}
+        target: wasm32-unknown-unknown
+        override: true
+    - name: Configure Rust components
+      shell: bash
+      run: |
+        rustup set profile minimal
+        rustup component add rustfmt
+        rustup component add rustfmt --toolchain nightly
+        rustup target add wasm32-unknown-unknown
+        rustup target add wasm32-unknown-unknown --toolchain nightly

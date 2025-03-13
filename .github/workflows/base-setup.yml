@@ -1,0 +1,31 @@
+name: 🧪 Base Setup
+on:
+  workflow_call:
+    outputs:
+      node_path:
+        description: "Path to Node.js installation"
+        value: ${{ jobs.setup.outputs.node_path }}
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      node_path: ${{ steps.setup_env.outputs.node_path }}
+    steps:
+      - name: Check out a copy of the repository
+        uses: actions/checkout@v4
+      - name: Update environment and install dependencies
+        id: setup_env
+        run: |
+          apt-get update
+          apt-get upgrade -y
+          apt-get install -y build-essential pkg-config libssl-dev unzip curl wget ca-certificates gnupg dialog
+          # Install Node.js 22.x
+          mkdir -p /etc/apt/keyrings
+          curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+          echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
+          apt-get update
+          apt-get install -y nodejs
+          echo "node_path=/usr/bin/node" >> $GITHUB_OUTPUT
+          export DEBIAN_FRONTEND=noninteractive
+          export TZ=Australia/Sydney
