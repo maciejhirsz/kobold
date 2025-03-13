@@ -294,13 +294,13 @@ docker exec --user root -it maciejhirsz-kobold /bin/bash
 https://nektosact.com/usage/index.html#workflows
 ```sh
 # checkfmt
-act --container-options \"--privileged\" --workflows '.github/workflows/ci.yml' --job 'checkfmt' --platform ubuntu-latest=ubuntu:latest --watch
+act --container-options "--privileged" --workflows '.github/workflows/ci.yml' --job 'checkfmt' --platform ubuntu-latest=ubuntu:latest --env DEBIAN_FRONTEND=noninteractive --env TZ=Australia/Sydney --container-architecture linux/amd64 --watch
 
 # miri
-act --container-options \"--privileged\" --workflows '.github/workflows/ci.yml' --job 'miri' --platform ubuntu-latest=ubuntu:latest --watch
+act --container-options "--privileged" --workflows '.github/workflows/ci.yml' --job 'miri' --platform ubuntu-latest=ubuntu:latest --env DEBIAN_FRONTEND=noninteractive --env TZ=Australia/Sydney --container-architecture linux/amd64 --watch
 
 # tests
-act --container-options \"--privileged\" --workflows '.github/workflows/ci.yml' --job 'tests' --platform ubuntu-latest=ubuntu:latest --watch
+act --container-options "--privileged" --workflows '.github/workflows/ci.yml' --job 'tests' --platform ubuntu-latest=ubuntu:latest --env DEBIAN_FRONTEND=noninteractive --env TZ=Australia/Sydney --container-architecture linux/amd64 --watch
 ```
 
 * Note: Default image and other options can be changed manually in ~/.actrc (please refer to https://github.com/nektos/act#configuration for additional information about file structure)
