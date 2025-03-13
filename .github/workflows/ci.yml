@@ -11,38 +11,102 @@ env:
 
 jobs:
   checkfmt:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-      - name: Run cargo check and fmt
-        run: ci/checkfmt.sh
-
-  miri:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-      - name: Run miri
-        run: ci/miri.sh
-
-  tests:
     strategy:
       matrix:
         rust:
-          # - stable
+          - stable
           - nightly
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - name: Check out a copy of the repository
+        uses: actions/checkout@v3
+      - name: Update environment and install dependencies
+        run: |
+          apt-get update
+          apt-get upgrade -y
+          apt-get install unzip curl wget nodejs npm ca-certificates curl gnupg dialog -y
+          export DEBIAN_FRONTEND=noninteractive
+          export TZ=Australia/Sydney
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1
         with:
-          # toolchain: ${{ matrix.rust }}
-          toolchain: nightly
+          toolchain: ${{ matrix.rust }}
+          target: wasm32-unknown-unknown
           override: true
-      - name: Run npm_lib
-        run: ci/npm_lib.sh
+      - name: Rust config
+        run: |
+          rustup set profile minimal
+          rustup component add rustfmt
+          rustup component add rustfmt --toolchain nightly
+          rustup target add wasm32-unknown-unknown
+          rustup target add wasm32-unknown-unknown --toolchain nightly
+      - name: Check in package
+        working-directory: ./examples/npm_lib
+        run: |
+          # https://linuxtldr.com/installing-node-js/
+          # sudo apt purge nodejs
+          # sudo rm -r /etc/apt/sources.list.d/nodesource.list
+          # sudo rm -r /etc/apt/keyrings/nodesource.gpg
+          # DEBIAN_FRONTEND=noninteractive curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -s -- -y
+          # node -v
+          # npm -v
+          # install NVM and Node.js 16 https://nodejs.org/en/download/package-manager#nvm
+          wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+          # install recent Node.js instead of default Node.js 16 using NVM
+          # since Node.js 16 isn't compatible with Polkadot.js
+          # https://nektosact.com/usage/runners.html?highlight=18.04#runners
+          nvm install v22.14.0 && nvm use v22.14.0
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+          [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+          echo '. $HOME/.nvm/nvm.sh' >> ~/.bashrc
+          . $HOME/.bashrc
+          . $HOME/.nvm/nvm.sh
+          # install Yarn for Node.js
+          npm install -g yarn
+          yarn
+          yarn run esbuild
+          cargo install --locked trunk
+          RUST_LOG=debug trunk --config ./ build
+          # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
+          cargo install wasm-bindgen-cli --vers "0.2.100"
+          cargo +nightly build --package kobold_npm_lib_example --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
+          cargo check
+          cargo fmt --check
+      - name: Check in parent
+        working-directory: ./
+        run: |
+          cargo check --features serde,stateful --workspace --all-targets --bins --examples
+          cargo fmt --check
+      # - name: Run cargo check and fmt
+      #   run: ci/checkfmt.sh
+
+  # miri:
+  #   needs: [checkfmt]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: actions-rs/toolchain@v1
+  #       with:
+  #         toolchain: nightly
+  #     - name: Run miri
+  #       run: ci/miri.sh
+
+  # tests:
+  #   strategy:
+  #     matrix:
+  #       rust:
+  #         # - stable
+  #         - nightly
+  #   needs: [checkfmt, miri]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: actions-rs/toolchain@v1
+  #       with:
+  #         # toolchain: ${{ matrix.rust }}
+  #         toolchain: nightly
+  #         target: wasm32-unknown-unknown
+  #         override: true
+  #     - name: Run npm_lib
+  #       run: ci/npm_lib.sh

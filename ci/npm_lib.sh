@@ -1,6 +1,10 @@
 #!/bin/sh
 set -e
 
+apt-get update
+apt-get upgrade -y
+apt-get install unzip curl wget nodejs npm ca-certificates curl gnupg -y
+
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 . $HOME/.cargo/env
 rustup toolchain install nightly
