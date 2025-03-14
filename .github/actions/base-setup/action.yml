@@ -57,6 +57,3 @@ runs:
         sudo mkdir -p /usr/lib/node_modules
         sudo chown -R $USER:$(id -gn) /usr/lib/node_modules
         sudo npm install -g yarn
-
-        # Install wasm-pack with proper permissions
-        curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sudo sh

@@ -24,3 +24,9 @@ runs:
         rustup component add rustfmt --toolchain nightly
         rustup target add wasm32-unknown-unknown
         rustup target add wasm32-unknown-unknown --toolchain nightly
+
+        # Source the retry script
+        source ../../../.github/actions/retry-script/retry.sh
+
+        # Install wasm-pack after Rust is set up for running Wasm tests
+        retry 10 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sudo sh
