@@ -7,6 +7,10 @@ edition = "2021"
 name = "main"
 path = "src/main.rs"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
 [dependencies]
 gloo-console = "0.3.0"
 kobold = { path = "../../crates/kobold" }
@@ -19,5 +23,5 @@ wasm-bindgen-test = "0.3.50"
 [dependencies.web-sys]
 version = "0.3.77"
 features = [
-	"HtmlInputElement",
+    "HtmlInputElement",
 ]

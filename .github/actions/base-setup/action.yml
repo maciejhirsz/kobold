@@ -1,6 +1,11 @@
 name: Base Setup Action
 description: Sets up the environment with Node.js and other dependencies
 
+# inputs:
+#   github-token:
+#     description: 'GitHub token for Node.js setup'
+#     required: true
+
 runs:
   using: composite
   steps:
@@ -9,7 +14,15 @@ runs:
       shell: bash
       run: |
         apt-get update && apt-get install sudo -y
-    - name: Update environment and install dependencies
+
+    # - name: Setup Node.js
+    #   uses: actions/setup-node@v4
+    #   with:
+    #     node-version: '22.x'
+    #     registry-url: 'https://registry.npmjs.org'
+    #     token: ${{ inputs.github-token }}
+    
+    - name: Configure system
       shell: bash
       run: |
         # Set noninteractive installation
@@ -24,13 +37,18 @@ runs:
         echo 'tzdata tzdata/Areas select Australia' | sudo debconf-set-selections
         echo 'tzdata tzdata/Zones/Australia select Sydney' | sudo debconf-set-selections
 
+        # Install system dependencies
         sudo apt-get update
         sudo apt-get upgrade -y
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential pkg-config libssl-dev unzip curl wget ca-certificates gnupg dialog tzdata
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential pkg-config \
+        libssl-dev unzip curl wget ca-certificates gnupg dialog tzdata
 
         # Install Node.js 22.x
         mkdir -p /etc/apt/keyrings
-        curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
-        echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list
+        curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+          | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] \
+          https://deb.nodesource.com/node_22.x nodistro main" \
+          | sudo tee /etc/apt/sources.list.d/nodesource.list
         sudo apt-get update
         sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs

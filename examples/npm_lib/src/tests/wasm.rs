@@ -1,8 +1,4 @@
-use js_sys::Promise;
-use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::{future_to_promise, JsFuture};
 use wasm_bindgen_test::*;
-
 use crate::js::browser_js::run_npm_lib;
 
 #[wasm_bindgen_test]

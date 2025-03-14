@@ -6,9 +6,7 @@ use web_sys::HtmlElement;
 
 use kobold::prelude::*;
 
-mod js;
-
-mod tests;
+pub mod js;
 
 struct State {
     hash: String,
@@ -18,8 +16,8 @@ impl State {
     fn new() -> Self {
         State {
             hash: "0x0".to_owned(),
-        }
     }
+}
 }
 
 async fn onclick_pjs_process(state: Signal<State>, event: MouseEvent<HtmlElement>) {

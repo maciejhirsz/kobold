@@ -22,6 +22,8 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup environment
         uses: ./.github/actions/base-setup
+        # with:
+        #   github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Setup Rust
         uses: ./.github/actions/rust-setup
         with:
@@ -36,9 +38,11 @@ jobs:
           yarn run esbuild
           cargo install --locked trunk
           RUST_LOG=debug trunk --config ./ build
-          # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
+          # Note: The `--vers "0.2.100"` must match the version of
+          # `wasm-bindgen` in Cargo.toml file
           cargo install wasm-bindgen-cli --vers "0.2.100"
-          cargo +nightly build --package kobold_npm_lib_example --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
+          cargo +nightly build --package kobold_npm_lib_example \
+            --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
           cargo check
           cargo fmt --check
       - name: Check in parent
@@ -48,20 +52,24 @@ jobs:
           cargo fmt --check
 
   miri:
-    needs: [checkfmt]
+    # needs: [checkfmt]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Setup environment
         uses: ./.github/actions/base-setup
+        # with:
+        #   github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Setup Rust
         uses: ./.github/actions/rust-setup
         with:
           toolchain: nightly
       - name: Setup miri
         run: |
-          MIRI_NIGHTLY=nightly-$(curl -s https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/miri)
+          # Source the retry script
+          source ./.github/actions/retry-script/retry.sh
+          MIRI_NIGHTLY=nightly-$(retry 10 curl -s https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/miri)
           echo "Installing latest nightly with Miri: $MIRI_NIGHTLY"
           rustup set profile minimal
           rustup default "$MIRI_NIGHTLY"
@@ -74,13 +82,15 @@ jobs:
           MIRIFLAGS='-Zmiri-strict-provenance' cargo miri test
 
   tests:
-    needs: [checkfmt, miri]
+    # needs: [checkfmt, miri]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Setup environment
         uses: ./.github/actions/base-setup
+        # with:
+        #   github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Setup Rust
         uses: ./.github/actions/rust-setup
         with:
@@ -106,7 +116,7 @@ jobs:
           retry 10 cargo install wasm-bindgen-cli --vers "0.2.100"
 
           # Install wasm-pack for running wasm tests
-          curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+          retry 10 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
           # Run wasm tests specifically
           wasm-pack test --node
