@@ -44,7 +44,7 @@ runs:
         libssl-dev unzip curl wget ca-certificates gnupg dialog tzdata
 
         # Install Node.js 22.x
-        mkdir -p /etc/apt/keyrings
+        sudo mkdir -p /etc/apt/keyrings
         curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
           | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
         echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] \
@@ -52,3 +52,11 @@ runs:
           | sudo tee /etc/apt/sources.list.d/nodesource.list
         sudo apt-get update
         sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
+
+        # Install global npm packages with proper permissions
+        sudo mkdir -p /usr/lib/node_modules
+        sudo chown -R $USER:$(id -gn) /usr/lib/node_modules
+        sudo npm install -g yarn
+
+        # Install wasm-pack with proper permissions
+        curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sudo sh

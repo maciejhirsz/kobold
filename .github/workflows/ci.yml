@@ -33,9 +33,8 @@ jobs:
         run: |
           # Install Yarn for Node.js
           export PATH="/usr/bin:$PATH"  # Ensure system binaries are in PATH
-          npm install -g yarn
-          yarn
-          yarn run esbuild
+          sudo yarn
+          sudo yarn run esbuild
           cargo install --locked trunk
           RUST_LOG=debug trunk --config ./ build
           # Note: The `--vers "0.2.100"` must match the version of
@@ -100,9 +99,8 @@ jobs:
         run: |
           # Install Yarn for Node.js
           export PATH="/usr/bin:$PATH"  # Ensure system binaries are in PATH
-          npm install -g yarn
-          yarn
-          yarn run esbuild
+          sudo yarn
+          sudo yarn run esbuild
 
           # Source the retry script
           source ../../.github/actions/retry-script/retry.sh
@@ -116,7 +114,7 @@ jobs:
           retry 10 cargo install wasm-bindgen-cli --vers "0.2.100"
 
           # Install wasm-pack for running wasm tests
-          retry 10 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+          retry 10 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sudo sh
 
           # Run wasm tests specifically
           wasm-pack test --node
