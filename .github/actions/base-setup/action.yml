@@ -57,3 +57,15 @@ runs:
         sudo mkdir -p /usr/lib/node_modules
         sudo chown -R $USER:$(id -gn) /usr/lib/node_modules
         sudo npm install -g yarn
+
+        # Install rustup with retries
+        source ./.github/actions/retry-script/retry.sh
+        retry 10 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sudo sh -s -- -y --profile minimal
+        
+        # Add cargo to PATH and source rustup
+        source $HOME/.cargo/env
+        
+        # Add cargo environment to GITHUB_ENV for subsequent steps
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        echo "CARGO_HOME=$HOME/.cargo" >> $GITHUB_ENV
+        echo "RUSTUP_HOME=$HOME/.rustup" >> $GITHUB_ENV

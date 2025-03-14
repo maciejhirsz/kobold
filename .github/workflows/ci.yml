@@ -8,6 +8,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  RUST_LOG: debug
 
 jobs:
   checkfmt:
@@ -22,6 +23,8 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup environment
         uses: ./.github/actions/base-setup
+        # with:
+        #   github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Setup Rust
         uses: ./.github/actions/rust-setup
         with:
@@ -49,13 +52,15 @@ jobs:
           cargo fmt --check
 
   miri:
-    needs: [checkfmt]
+    # needs: [checkfmt]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Setup environment
         uses: ./.github/actions/base-setup
+        # with:
+        #   github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Setup Rust
         uses: ./.github/actions/rust-setup
         with:

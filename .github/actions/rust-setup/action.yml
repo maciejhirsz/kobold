@@ -10,24 +10,67 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install Rust toolchain
-      uses: actions-rs/toolchain@v1
+    - name: Configure rustup
+      shell: bash
+      run: |
+        # Source cargo environment
+        source $HOME/.cargo/env
+        
+        # Verify rustup installation
+        if ! command -v rustup &> /dev/null; then
+          echo "Error: rustup not found. Please ensure base-setup completed successfully."
+          exit 1
+        fi
+        
+        # Set minimal profile
+        rustup set profile minimal
+
+    - name: Install Rust toolchain (stable)
+      uses: dtolnay/rust-toolchain@master
       with:
-        toolchain: ${{ inputs.toolchain }}
-        target: wasm32-unknown-unknown
-        override: true
-    - name: Configure Rust components
+        toolchain: stable
+        targets: wasm32-unknown-unknown
+        components: rustfmt
+
+    - name: Install Rust toolchain (nightly)
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: nightly
+        targets: wasm32-unknown-unknown
+        components: rustfmt
+
+    - name: Set default toolchain
+      shell: bash
+      run: |
+        source $HOME/.cargo/env
+        rustup default ${{ inputs.toolchain }}
+
+    - name: Cache cargo dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Configure additional components
       working-directory: ./
       shell: bash
       run: |
-        rustup set profile minimal
-        rustup component add rustfmt
-        rustup component add rustfmt --toolchain nightly
-        rustup target add wasm32-unknown-unknown
-        rustup target add wasm32-unknown-unknown --toolchain nightly
-
-        # Source the retry script
+        # Source cargo environment and retry script
+        source $HOME/.cargo/env
         source ./.github/actions/retry-script/retry.sh
 
-        # Install wasm-pack after Rust is set up for running Wasm tests
-        retry 10 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sudo sh
+        # Download and install pre-built wasm-pack binary
+        retry 10 curl -L https://github.com/rustwasm/wasm-pack/releases/download/v0.12.1/wasm-pack-v0.12.1-x86_64-unknown-linux-musl.tar.gz | sudo tar -xz
+        sudo mv wasm-pack-*/wasm-pack /usr/local/bin/
+        sudo chmod +x /usr/local/bin/wasm-pack
+        
+        # Verify wasm-pack installation
+        if ! command -v wasm-pack &> /dev/null; then
+          echo "Error: wasm-pack installation failed"
+          exit 1
+        fi
