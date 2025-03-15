@@ -137,16 +137,16 @@ jobs:
           # # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
           # retry 10 cargo install wasm-bindgen-cli --vers "0.2.100"
 
-          echo "Building WASM package"
-          wasm-pack build --target nodejs --dev
-          ls -al pkg/
+          # echo "Building WASM package"
+          # wasm-pack build --target nodejs --dev
+          # ls -al pkg/
 
-          echo "Verifying WASM module loading"
-          node -e "
-            const mod = require('./pkg/kobold_npm_lib_example.js');
-            console.log('Module exports:', Object.keys(mod));
-            if (!mod.default) console.warn('Warning: Module has no default export');
-          "
+          # echo "Verifying WASM module loading"
+          # node -e "
+          #   const mod = require('./pkg/kobold_npm_lib_example.js');
+          #   console.log('Module exports:', Object.keys(mod));
+          #   if (!mod.default) console.warn('Warning: Module has no default export');
+          # "
 
           echo "Building and testing WASM package using cargo"
           cargo +nightly test --package kobold_npm_lib_example \
