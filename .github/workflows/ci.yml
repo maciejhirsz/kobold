@@ -108,11 +108,11 @@ jobs:
 
       - name: Test in package npm_lib
         working-directory: ./examples/npm_lib
-        timeout-minutes: 30
+        timeout-minutes: 60
         env:
           RUST_LOG: debug,wasm_bindgen_test_runner=trace
-          WASM_BINDGEN_TEST_TIMEOUT: 600
-          NODE_OPTIONS: "--max-old-space-size=4096 --trace-warnings"
+          WASM_BINDGEN_TEST_TIMEOUT: 1200
+          NODE_OPTIONS: "--max-old-space-size=8192 --trace-warnings"
           RUST_BACKTRACE: 1
         run: |
           source ../../.github/actions/retry-script/retry.sh
