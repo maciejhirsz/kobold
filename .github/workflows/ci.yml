@@ -134,4 +134,4 @@ jobs:
           echo "Running WASM tests"
 
           # Run wasm tests specifically
-          wasm-pack test --node
+          wasm-pack test --node --release && sleep 2
