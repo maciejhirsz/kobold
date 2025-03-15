@@ -149,9 +149,9 @@ jobs:
           #   if (!mod.default) console.warn('Warning: Module has no default export');
           # "
 
-          # echo "Building and testing WASM package using cargo"
-          # cargo +nightly test --package kobold_npm_lib_example \
-          #   --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
+          echo "Building and testing WASM package using cargo"
+          cargo +nightly test --package kobold_npm_lib_example \
+            --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
 
           # echo "Building and testing WASM package with wasm-pack"
           # echo "Node.js version:"
