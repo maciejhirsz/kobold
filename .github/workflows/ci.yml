@@ -149,9 +149,9 @@ jobs:
           #   if (!mod.default) console.warn('Warning: Module has no default export');
           # "
 
-          echo "Building and testing WASM package using cargo"
-          cargo +nightly test --package kobold_npm_lib_example \
-            --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
+          # echo "Building and testing WASM package using cargo"
+          # cargo +nightly test --package kobold_npm_lib_example \
+          #   --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
 
           # echo "Building and testing WASM package with wasm-pack"
           # echo "Node.js version:"
@@ -164,13 +164,13 @@ jobs:
 
           # echo "Building and testing WASM package using wasm-pack"
           # wasm-pack test --node --release && sleep 2
-          # wasm-pack test --node || {
-          #   TEST_EXIT=$?
-          #   echo "Test failed with exit code: $TEST_EXIT"
-          #   echo "Node.js processes:"
-          #   ps aux | grep node || true
-          #   exit $TEST_EXIT
-          # }
+          wasm-pack test --node || {
+            TEST_EXIT=$?
+            echo "Test failed with exit code: $TEST_EXIT"
+            echo "Node.js processes:"
+            ps aux | grep node || true
+            exit $TEST_EXIT
+          }
 
           # echo "Running WASM tests with diagnostics"
           # # Use timeout command for more granular control
