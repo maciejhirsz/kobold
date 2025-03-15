@@ -90,11 +90,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # - name: Setup Node.js
-      #   uses: actions/setup-node@v4
-      #   with:
-      #     node-version: '22.x'
-
       - name: Setup environment
         uses: ./.github/actions/base-setup
         # with:
@@ -106,10 +101,10 @@ jobs:
           target: wasm32-unknown-unknown
 
       - name: Install wasm-pack
-        working-directory: ./
         run: |
+          source $HOME/.cargo/env
           source ./.github/actions/retry-script/retry.sh
-          retry 10 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sudo sh
+          retry 10 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sudosh
 
       - name: Test in package npm_lib
         working-directory: ./examples/npm_lib
