@@ -8,7 +8,9 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  RUST_LOG: debug
+  RUST_LOG: debug,wasm_bindgen_test_runner=trace
+  RUST_BACKTRACE: full
+  NODE_OPTIONS: "--max-old-space-size=4096"
 
 jobs:
   checkfmt:
@@ -47,7 +49,6 @@ jobs:
           cargo fmt --check
       - name: Check in parent
         working-directory: ./
-        shell: bash
         run: |
           cargo check --features serde,stateful --workspace --all-targets --bins --examples
           cargo fmt --check
@@ -66,14 +67,12 @@ jobs:
         uses: ./.github/actions/rust-setup
         with:
           toolchain: nightly
-      - name: Install Miri
+      - name: Setup Miri
         working-directory: ./
-        shell: bash
         run: |
           # Source the retry script
           source ./.github/actions/retry-script/retry.sh
           MIRI_NIGHTLY=nightly-$(retry 10 curl -s https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/miri)
-
           echo "Installing latest nightly with Miri: $MIRI_NIGHTLY"
           rustup set profile minimal
           rustup default "$MIRI_NIGHTLY"
@@ -81,7 +80,6 @@ jobs:
           cargo miri setup
       - name: Run Miri tests
         working-directory: ./crates/kobold
-        shell: bash
         run: |
           MIRIFLAGS='-Zmiri-strict-provenance' cargo miri test
 
@@ -91,6 +89,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # - name: Setup Node.js
+      #   uses: actions/setup-node@v4
+      #   with:
+      #     node-version: '22.x'
+
       - name: Setup environment
         uses: ./.github/actions/base-setup
         # with:
@@ -99,39 +103,87 @@ jobs:
         uses: ./.github/actions/rust-setup
         with:
           toolchain: nightly
+          target: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        working-directory: ./
+        run: |
+          source ./.github/actions/retry-script/retry.sh
+          retry 10 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sudo sh
+
       - name: Test in package npm_lib
         working-directory: ./examples/npm_lib
-        shell: bash
+        timeout-minutes: 10
+        env:
+          RUST_LOG: debug,wasm_bindgen_test_runner=trace
+          WASM_BINDGEN_TEST_TIMEOUT: 120
+          NODE_OPTIONS: "--max-old-space-size=4096 --trace-warnings"
         run: |
-          # Source retry script
           source ../../.github/actions/retry-script/retry.sh
 
-          # Install wasm-bindgen-cli with retries
-          # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
-          retry 10 cargo install wasm-bindgen-cli --vers "0.2.100"
-
-          # Install Yarn for Node.js
           export PATH="/usr/bin:$PATH"  # Ensure system binaries are in PATH
+          echo "Installing JavaScript dependencies with Yarn"
+          sudo yarn install --frozen-lockfile
 
-          echo "Installing dependencies with Yarn"
-
-          sudo yarn
-          sudo mkdir -p output  # Ensure output directory exists
-
-          echo "Running ESBuild"
+          echo "Building JavaScript module with ESBuild"
+          sudo mkdir -p output
+          sudo chown -R $(id -u):$(id -g) .
 
           sudo yarn run esbuild
+          ls -al output/
 
-          echo "Installing Trunk"
-
-          # Install trunk with retries
+          echo "Installing Trunk with retries"
           retry 10 cargo install --locked trunk
 
           echo "Building using Trunk"
-
           RUST_LOG=debug trunk --config ./ build
 
-          echo "Running WASM tests"
+          echo "Installing wasm-bindgen-cli with retries"
+          # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
+          retry 10 cargo install wasm-bindgen-cli --vers "0.2.100"
 
-          # Run wasm tests specifically
-          wasm-pack test --node --release && sleep 2
+          echo "Building wasm package"
+          wasm-pack build --target nodejs --dev
+          ls -al pkg/
+
+          echo "Verifying WASM module loading"
+          node -e "
+            const mod = require('./pkg/kobold_npm_lib_example.js');
+            console.log('Module exports:', Object.keys(mod));
+            if (!mod.default) console.warn('Warning: Module has no default export');
+          "
+
+          cargo +nightly test --package kobold_npm_lib_example \
+            --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
+
+          # # Run WASM tests
+          # wasm-pack test --node --release && sleep 2
+
+          # echo "Running WASM tests with diagnostics"
+          # # Use timeout command for more granular control
+          # /usr/bin/timeout -k 30s 150s wasm-pack test --node --headless -- \
+          #   --test-threads=1 \
+          #   --nocapture \
+          #   --color always || {
+          #   TEST_EXIT=$?
+          #   echo "Test process exited with code: $TEST_EXIT"
+
+          #   if [ $TEST_EXIT -eq 124 ] || [ $TEST_EXIT -eq 137 ]; then
+          #     echo "Test timed out. Collecting diagnostic information..."
+          #     # Print Node.js process info
+          #     ps aux | grep node
+          #     # Check system resources
+          #     free -h
+          #     vmstat 1 5
+          #     # Dump Node.js heap if any node process is running
+          #     for pid in $(pgrep node); do
+          #       echo "Attempting to get heap dump from Node process $pid"
+          #       node --prof-process "/proc/$pid/status" || true
+          #     done
+          #     echo "Diagnostic information collection complete"
+          #     exit 1
+          #   else
+          #     echo "Test failed with exit code: $TEST_EXIT"
+          #     exit $TEST_EXIT
+          #   fi
+          # }
