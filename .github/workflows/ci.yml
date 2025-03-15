@@ -131,8 +131,8 @@ jobs:
           echo "Installing Trunk with retries"
           retry 10 cargo install --locked trunk
 
-          # echo "Building using Trunk"
-          # RUST_LOG=debug trunk --config ./ build
+          echo "Building using Trunk"
+          trunk build --config ./ --log debug
 
           # echo "Installing wasm-bindgen-cli with retries"
           # # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
