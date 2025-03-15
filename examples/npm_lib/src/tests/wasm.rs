@@ -1,5 +1,5 @@
-use wasm_bindgen_test::*;
 use crate::js::browser_js::run_npm_lib;
+use wasm_bindgen_test::*;
 
 #[wasm_bindgen_test]
 async fn test_onclick_pjs_process() {

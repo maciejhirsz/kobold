@@ -18,7 +18,6 @@ impl State {
             hash: "0x0".to_owned(),
     }
 }
-}
 
 async fn onclick_pjs_process(state: Signal<State>, event: MouseEvent<HtmlElement>) {
     let res = js::browser_js::run_npm_lib().await;
