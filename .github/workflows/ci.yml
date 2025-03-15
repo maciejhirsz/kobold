@@ -40,6 +40,9 @@ jobs:
           sudo yarn run esbuild
           cargo install --locked trunk
           RUST_LOG=debug trunk --config ./ build
+          # # Note: The `--vers "0.2.100"` must match the version of
+          # # `wasm-bindgen` in Cargo.toml file
+          # cargo install wasm-bindgen-cli --vers "0.2.100"
           cargo +nightly build --package kobold_npm_lib_example \
             --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
           cargo check
@@ -134,7 +137,7 @@ jobs:
           # # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
           # retry 10 cargo install wasm-bindgen-cli --vers "0.2.100"
 
-          echo "Building wasm package"
+          echo "Building WASM package"
           wasm-pack build --target nodejs --dev
           ls -al pkg/
 
@@ -145,12 +148,13 @@ jobs:
             if (!mod.default) console.warn('Warning: Module has no default export');
           "
 
+          echo "Building and testing WASM package using cargo"
           cargo +nightly test --package kobold_npm_lib_example \
             --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
 
-          # # Run WASM tests
+          # echo "Building and testing WASM package using wasm-pack"
           # wasm-pack test --node --release && sleep 2
-          wasm-pack test --node
+          # wasm-pack test --node
 
           # echo "Running WASM tests with diagnostics"
           # # Use timeout command for more granular control

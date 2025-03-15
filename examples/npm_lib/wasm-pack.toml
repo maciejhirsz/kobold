@@ -1,10 +1,3 @@
-[wasm-bindgen]
-debug = true
-
-[package]
-name = "kobold_npm_lib_example"
-version = "0.1.0"
-
 [test]
 chrome = false
 firefox = false
