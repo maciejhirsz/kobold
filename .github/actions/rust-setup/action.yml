@@ -68,6 +68,10 @@ runs:
         retry 10 curl -L https://github.com/rustwasm/wasm-pack/releases/download/v0.12.1/wasm-pack-v0.12.1-x86_64-unknown-linux-musl.tar.gz | sudo tar -xz
         sudo mv wasm-pack-*/wasm-pack /usr/local/bin/
         sudo chmod +x /usr/local/bin/wasm-pack
+
+        echo "Installing wasm-bindgen-cli with retries"
+        # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
+        retry 10 cargo install wasm-bindgen-cli --vers "0.2.100"
         
         # Verify wasm-pack installation
         if ! command -v wasm-pack &> /dev/null; then
