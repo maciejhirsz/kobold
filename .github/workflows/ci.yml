@@ -47,6 +47,7 @@ jobs:
           cargo fmt --check
       - name: Check in parent
         working-directory: ./
+        shell: bash
         run: |
           cargo check --features serde,stateful --workspace --all-targets --bins --examples
           cargo fmt --check
@@ -65,20 +66,23 @@ jobs:
         uses: ./.github/actions/rust-setup
         with:
           toolchain: nightly
-      - name: Setup miri
+      - name: Install Miri
+        working-directory: ./
+        shell: bash
         run: |
           # Source the retry script
           source ./.github/actions/retry-script/retry.sh
           MIRI_NIGHTLY=nightly-$(retry 10 curl -s https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/miri)
+
           echo "Installing latest nightly with Miri: $MIRI_NIGHTLY"
           rustup set profile minimal
           rustup default "$MIRI_NIGHTLY"
           rustup component add miri
           cargo miri setup
-      - name: Run miri test
+      - name: Run Miri tests
         working-directory: ./crates/kobold
+        shell: bash
         run: |
-          cargo miri test
           MIRIFLAGS='-Zmiri-strict-provenance' cargo miri test
 
   tests:
@@ -97,22 +101,25 @@ jobs:
           toolchain: nightly
       - name: Test in package npm_lib
         working-directory: ./examples/npm_lib
+        shell: bash
         run: |
+          # Source retry script
+          source ../../.github/actions/retry-script/retry.sh
+
+          # Install wasm-bindgen-cli with retries
+          # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
+          retry 10 cargo install wasm-bindgen-cli --vers "0.2.100"
+
           # Install Yarn for Node.js
           export PATH="/usr/bin:$PATH"  # Ensure system binaries are in PATH
           sudo yarn
+          sudo mkdir -p output  # Ensure output directory exists
           sudo yarn run esbuild
 
-          # Source the retry script
-          source ../../.github/actions/retry-script/retry.sh
-
-          # Install trunk with retries (10 attempts)
+          # Install trunk with retries
           retry 10 cargo install --locked trunk
 
           RUST_LOG=debug trunk --config ./ build
-
-          # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
-          retry 10 cargo install wasm-bindgen-cli --vers "0.2.100"
 
           # Run wasm tests specifically
           wasm-pack test --node
