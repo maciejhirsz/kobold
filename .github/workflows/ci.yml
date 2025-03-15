@@ -104,7 +104,7 @@ jobs:
         run: |
           source $HOME/.cargo/env
           source ./.github/actions/retry-script/retry.sh
-          retry 10 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sudosh
+          retry 10 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sudo sh
 
       - name: Test in package npm_lib
         working-directory: ./examples/npm_lib
