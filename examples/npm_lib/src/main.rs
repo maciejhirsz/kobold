@@ -16,6 +16,7 @@ impl State {
     fn new() -> Self {
         State {
             hash: "0x0".to_owned(),
+        }
     }
 }
 
