@@ -73,16 +73,16 @@ runs:
         cargo +nightly --version
         rustup show
 
-    - name: Cache cargo dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-
+    # - name: Cache cargo dependencies
+    #   uses: actions/cache@v4
+    #   with:
+    #     path: |
+    #       ~/.cargo/registry
+    #       ~/.cargo/git
+    #       target
+    #     key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    #     restore-keys: |
+    #       ${{ runner.os }}-cargo-
 
     - name: Configure WASM tools
       working-directory: ./
