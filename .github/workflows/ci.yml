@@ -234,7 +234,7 @@ jobs:
           # retry 10 cargo install wasm-bindgen-cli --vers "0.2.100"
 
           echo "Building WASM package"
-          wasm-pack build --target nodejs --dev
+          wasm-pack build --target nodejs --dev --verbose
           ls -al pkg/
 
           # echo "Verifying WASM module loading"
