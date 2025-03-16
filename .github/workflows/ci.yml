@@ -44,7 +44,7 @@ jobs:
         run: echo "::set-output name=dir::$(yarn config get cacheFolder)"
 
       - name: Cache Yarn dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
@@ -52,7 +52,7 @@ jobs:
             ${{ runner.os }}-yarn-
 
       - name: Cache NPM dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: '~/.npm'
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
@@ -167,7 +167,7 @@ jobs:
         run: echo "::set-output name=dir::$(yarn config get cacheFolder)"
 
       - name: Cache Yarn dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
@@ -175,7 +175,7 @@ jobs:
             ${{ runner.os }}-yarn-
 
       - name: Cache NPM dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: '~/.npm'
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
