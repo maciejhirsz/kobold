@@ -226,15 +226,16 @@ jobs:
           NODE_OPTIONS: "--max-old-space-size=8192 --trace-warnings"
           RUST_BACKTRACE: 1
         run: |
+          echo "Source environment and retry script"
           source ../../.github/actions/retry-script/retry.sh
 
           # echo "Installing wasm-bindgen-cli with retries"
           # # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
           # retry 10 cargo install wasm-bindgen-cli --vers "0.2.100"
 
-          # echo "Building WASM package"
-          # wasm-pack build --target nodejs --dev
-          # ls -al pkg/
+          echo "Building WASM package"
+          wasm-pack build --target nodejs --dev
+          ls -al pkg/
 
           # echo "Verifying WASM module loading"
           # node -e "
