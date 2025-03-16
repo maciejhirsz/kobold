@@ -5,7 +5,12 @@ inputs:
   toolchain:
     description: 'Rust toolchain version to use'
     required: true
-    default: 'stable'
+    # default: 'stable'
+    default: 1.81.0
+  targets:
+    description: 'Target architectures to install'
+    required: false
+    default: 'wasm32-unknown-unknown'
 
 runs:
   using: composite
@@ -25,25 +30,47 @@ runs:
         # Set minimal profile
         rustup set profile minimal
 
-    - name: Install Rust toolchain (stable)
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: stable
-        targets: wasm32-unknown-unknown
-        components: rustfmt
+    # - name: Install Rust toolchain (stable)
+    #   uses: dtolnay/rust-toolchain@master
+    #   with:
+    #     toolchain: stable
+    #     targets: wasm32-unknown-unknown
+    #     components: rustfmt
 
-    - name: Install Rust toolchain (nightly)
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: nightly
-        targets: wasm32-unknown-unknown
-        components: rustfmt
+    # - name: Install Rust toolchain (nightly)
+    #   uses: dtolnay/rust-toolchain@master
+    #   with:
+    #     toolchain: nightly
+    #     targets: wasm32-unknown-unknown
+    #     components: rustfmt
+
+    # - name: Install Rust toolchain
+    #   uses: dtolnay/rust-toolchain@1.81.0
+    #   with:
+    #     # toolchain: nightly
+    #     targets: wasm32-unknown-unknown
+    #     components: rustfmt
 
     - name: Set default toolchain
       shell: bash
       run: |
         source $HOME/.cargo/env
+        rustup install ${{ inputs.toolchain }}
         rustup default ${{ inputs.toolchain }}
+        rustup target add ${{ inputs.targets }}
+        rustup component add rustfmt
+        rustc --version
+        rustup show
+
+    - name: Install nightly toolchain
+      shell: bash
+      run: |
+        source $HOME/.cargo/env
+        rustup toolchain install nightly
+        rustup target add wasm32-unknown-unknown --toolchain nightly
+        rustup component add rustfmt --toolchain nightly
+        cargo +nightly --version
+        rustup show
 
     - name: Cache cargo dependencies
       uses: actions/cache@v3
@@ -56,7 +83,7 @@ runs:
         restore-keys: |
           ${{ runner.os }}-cargo-
 
-    - name: Configure additional components
+    - name: Configure WASM tools
       working-directory: ./
       shell: bash
       run: |
@@ -78,3 +105,7 @@ runs:
           echo "Error: wasm-pack installation failed"
           exit 1
         fi
+        
+        # Show installed tools versions
+        wasm-pack --version
+        wasm-bindgen --version
