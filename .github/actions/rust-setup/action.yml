@@ -57,8 +57,7 @@ runs:
         source $HOME/.cargo/env
         rustup install ${{ inputs.toolchain }}
         rustup default ${{ inputs.toolchain }}
-        rustup target add ${{ inputs.targets }}
-        rustup component add rustfmt
+        rustup override set ${{ inputs.toolchain }}
         rustc --version
         rustup show
 
@@ -106,6 +105,7 @@ runs:
           exit 1
         fi
         
-        # Show installed tools versions
+        echo "Verify tools are available from rust-setup"
         wasm-pack --version
         wasm-bindgen --version
+        rustup show

@@ -233,8 +233,8 @@ jobs:
           # retry 10 cargo install wasm-bindgen-cli --vers "0.2.100"
 
           # echo "Building WASM package"
-          # wasm-pack build --target nodejs --dev
-          # ls -al pkg/
+          wasm-pack build --target nodejs --dev
+          ls -al pkg/
 
           # echo "Verifying WASM module loading"
           # node -e "
@@ -247,14 +247,14 @@ jobs:
           # cargo +nightly test --package kobold_npm_lib_example \
           #   --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
 
-          # echo "Building and testing WASM package with wasm-pack"
-          # echo "Node.js version:"
-          # node --version
-          # echo "wasm-pack version:"
-          # wasm-pack --version
-          # echo "System resources:"
-          # free -h || true
-          # vmstat 1 1 || true
+          echo "Building and testing WASM package with wasm-pack"
+          echo "Node.js version:"
+          node --version
+          echo "wasm-pack version:"
+          wasm-pack --version
+          echo "System resources:"
+          free -h || true
+          vmstat 1 1 || true
 
           # echo "Building and testing WASM package using wasm-pack"
           # wasm-pack test --node --release && sleep 2
@@ -272,11 +272,13 @@ jobs:
           #   fi
           # }
 
+          echo "Running wasm-pack tests with nightly"
+
           # Create a temporary file for output
           OUTPUT_FILE=$(mktemp)
 
           # Start wasm-pack in the background and capture its PID
-          wasm-pack test --node --release > "$OUTPUT_FILE" 2>&1 &
+          RUSTUP_TOOLCHAIN=nightly wasm-pack test --node --release > "$OUTPUT_FILE" 2>&1 &
           TEST_PID=$!
 
           # Maximum wait time in seconds
