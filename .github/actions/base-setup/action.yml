@@ -58,6 +58,30 @@ runs:
         sudo chown -R $USER:$(id -gn) /usr/lib/node_modules
         sudo npm install -g yarn
 
+        # Script to try to resolve error `invalid type: map, expected a string` when running `wasm-pack build`
+        # https://github.com/rustwasm/wasm-pack/issues/1420#issuecomment-2585397056
+        #
+        # This script approach is a workaround for the "invalid type: map, expected a string" error
+        # that can occur when running `wasm-pack build`, where the error typically happens due to
+        # race conditions when multiple wasm-pack processes try to access the same configuration
+        # files simultaneously.
+        #
+        # The script creates a mutex using flock on a lock file (wasm-pack-lock) in the XDG runtime directory,
+        # and then executes the actual wasm-pack binary from your Cargo installation. By placing this script
+        # earlier in the $PATH, any calls to wasm-pack will use the wrapper instead of the original binary.
+        #
+        # It effectively serializes all wasm-pack calls through the lock file, preventing the race condition
+        # that causes the map/string type error. The tradeoff is that concurrent builds will execute sequentially,
+        # which might impact performance in heavily parallelized build environments.
+        #
+        # The directory containing the script must appear before ~/.cargo/bin in $PATH, the order of which may be
+        # checked by running `echo $PATH`. 
+
+        sudo mv ./.github/actions/wasm-pack-script/wasm-pack-script.sh /usr/local/bin/wasm-pack
+        sudo chmod +x /usr/local/bin/wasm-pack
+        echo 'export PATH="$PATH:/usr/local/bin"' >> ~/.bashrc
+        source $HOME/.bashrc
+
         # Install rustup with retries
         source ./.github/actions/retry-script/retry.sh
         retry 10 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sudo sh -s -- -y --profile minimal
@@ -69,3 +93,6 @@ runs:
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
         echo "CARGO_HOME=$HOME/.cargo" >> $GITHUB_ENV
         echo "RUSTUP_HOME=$HOME/.rustup" >> $GITHUB_ENV
+
+        # Check order of $PATH
+        echo $PATH

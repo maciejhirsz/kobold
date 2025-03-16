@@ -92,14 +92,6 @@ runs:
         source $HOME/.cargo/env
         source ./.github/actions/retry-script/retry.sh
 
-        # try to resolve error `invalid type: map, expected a string` when running `wasm-pack build`
-        # https://github.com/rustwasm/wasm-pack/issues/1420#issuecomment-2585397056
-        sudo mkdir -p $HOME/temp
-        sudo cp ./.github/actions/wasm-pack-script/wasm-pack-script.sh $HOME/temp
-        echo 'export PATH="$PATH:$HOME/temp"' >> ~/.bashrc
-        source $HOME/.bashrc
-        # source $HOME/temp/wasm-pack-script.sh
-
         # Download and install pre-built wasm-pack binary
         retry 10 curl -L https://github.com/rustwasm/wasm-pack/releases/download/v0.12.1/wasm-pack-v0.12.1-x86_64-unknown-linux-musl.tar.gz | sudo tar -xz
         sudo mv wasm-pack-*/wasm-pack /usr/local/bin/
