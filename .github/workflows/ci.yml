@@ -230,6 +230,8 @@ jobs:
           source ../../.github/actions/retry-script/retry.sh
 
           retry 10 curl https://wasmtime.dev/install.sh -sSf | bash
+          ls -al $HOME/.wasmtime/bin/
+          find $HOME/ -name wasmtime
           sudo chmod +x $HOME/.wasmtime/bin/wasmtime
           echo 'export PATH="$PATH:$HOME/.wasmtime/bin"' >> ~/.bashrc
           source $HOME/.bashrc
