@@ -233,9 +233,9 @@ jobs:
           # # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
           # retry 10 cargo install wasm-bindgen-cli --vers "0.2.100"
 
-          echo "Building WASM package"
-          wasm-pack build --target nodejs --dev --verbose
-          ls -al pkg/
+          # echo "Building WASM package"
+          # wasm-pack build --target nodejs --dev --verbose
+          # ls -al pkg/
 
           # echo "Verifying WASM module loading"
           # node -e "
@@ -244,18 +244,18 @@ jobs:
           #   if (!mod.default) console.warn('Warning: Module has no default export');
           # "
 
-          # echo "Building and testing WASM package using cargo"
-          # cargo +nightly test --package kobold_npm_lib_example \
-          #   --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
+          echo "Building and testing WASM package using cargo"
+          cargo +nightly test --package kobold_npm_lib_example \
+            --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
 
-          # echo "Building and testing WASM package with wasm-pack"
-          # echo "Node.js version:"
-          # node --version
-          # echo "wasm-pack version:"
-          # wasm-pack --version
-          # echo "System resources:"
-          # free -h || true
-          # vmstat 1 1 || true
+          echo "Building and testing WASM package with wasm-pack"
+          echo "Node.js version:"
+          node --version
+          echo "wasm-pack version:"
+          wasm-pack --version
+          echo "System resources:"
+          free -h || true
+          vmstat 1 1 || true
 
           # echo "Building and testing WASM package using wasm-pack"
           # wasm-pack test --node --release && sleep 2
