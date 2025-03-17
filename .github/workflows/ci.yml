@@ -229,7 +229,12 @@ jobs:
           echo "Source environment and retry script"
           source ../../.github/actions/retry-script/retry.sh
 
-          curl https://wasmtime.dev/install.sh -sSf | sudo bash
+          retry 10 curl https://wasmtime.dev/install.sh -sSf | sudo bash
+          sudo mv wasmtime $HOME/.wasmtime
+          sudo chmod +x $HOME/.wasmtime
+          echo 'export PATH="$PATH:$HOME/.wasmtime"' >> ~/.bashrc
+          source $HOME/.bashrc
+
           # Build your WASM module
           cargo build --target wasm32-unknown-unknown
           # Run with wasmtime
