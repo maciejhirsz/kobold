@@ -97,4 +97,5 @@ runs:
         echo "RUSTUP_HOME=$HOME/.rustup" >> $GITHUB_ENV
 
         # Check order of $PATH
+        echo "Check order of PATH"
         echo $PATH
