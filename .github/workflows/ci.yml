@@ -233,9 +233,9 @@ jobs:
           # ls -al $HOME/.wasmtime/bin/
           # find $HOME/ -name wasmtime
           # sudo chmod +x $HOME/.wasmtime/bin/wasmtime
-          # echo 'export PATH="$PATH:$HOME/.wasmtime/bin"' >> ~/.bashrc
-          # source $HOME/.bashrc
-          # cat ~/.bashrc
+          # echo 'export PATH="$PATH:$HOME/.wasmtime/bin"' >> ~/.profile
+          # source $HOME/.profile
+          # cat ~/.profile
 
           # # Build your WASM module
           # cargo build --target wasm32-unknown-unknown

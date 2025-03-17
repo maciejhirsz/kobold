@@ -83,8 +83,8 @@ runs:
         # Ensure that the highest priority part of the PATH variable is at the start, not the end.
         # Note: It doesn't appear to work, but maybe because /usr/local/bin was already in PATH but not at the
         # highest priority part, so we'll store it in its own folder and add that to the PATH
-        echo 'export PATH="/var/tmp/wasm:$PATH"' >> ~/.bashrc
-        source $HOME/.bashrc
+        echo 'export PATH="/var/tmp/wasm:$PATH"' >> $HOME/.profile
+        source $HOME/.profile
 
         # Install rustup with retries
         source ./.github/actions/retry-script/retry.sh
