@@ -78,10 +78,11 @@ runs:
         # checked by running `echo $PATH`. 
 
         # Note: It doesn't appear to work
-        # sudo mv ./.github/actions/wasm-pack-script/wasm-pack-script.sh /usr/local/bin/wasm-pack
-        # sudo chmod +x /usr/local/bin/wasm-pack
-        # echo 'export PATH="$PATH:/usr/local/bin"' >> ~/.bashrc
-        # source $HOME/.bashrc
+        sudo mv ./.github/actions/wasm-pack-script/wasm-pack-script.sh /usr/local/bin/wasm-pack
+        sudo chmod +x /usr/local/bin/wasm-pack
+        # Ensure that the highest priority part of the PATH variable is at the start, not the end.
+        echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.bashrc
+        source $HOME/.bashrc
 
         # Install rustup with retries
         source ./.github/actions/retry-script/retry.sh
