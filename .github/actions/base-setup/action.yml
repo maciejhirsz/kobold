@@ -21,10 +21,6 @@ runs:
     #     node-version: '22.x'
     #     registry-url: 'https://registry.npmjs.org'
     #     token: ${{ inputs.github-token }}
-    
-    - name: Set custom PATH
-      run: |
-        echo "PATH=/var/tmp/wasm:$PATH" >> $GITHUB_ENV
 
     - name: Configure system
       shell: bash
@@ -92,6 +88,10 @@ runs:
 
         # Add wasm-pack commad to GITHUB_ENV for subsequent steps
         # echo 'export PATH="/var/tmp/wasm:$PATH"' >> $GITHUB_PATH
+
+        echo "/var/tmp/wasm" > $GITHUB_PATH.new
+        cat $GITHUB_PATH >> $GITHUB_PATH.new
+        mv $GITHUB_PATH.new $GITHUB_PATH
 
         # Install rustup with retries
         source ./.github/actions/retry-script/retry.sh
