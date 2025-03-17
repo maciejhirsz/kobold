@@ -84,6 +84,7 @@ runs:
         # Note: It doesn't appear to work, but maybe because /usr/local/bin was already in PATH but not at the
         # highest priority part, so we'll store it in its own folder and add that to the PATH
         echo 'export PATH="/var/tmp/wasm:$PATH"' >> $HOME/.profile
+        export PATH="/var/tmp/wasm:$PATH"
         source $HOME/.profile
 
         # Install rustup with retries
