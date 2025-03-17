@@ -229,8 +229,6 @@ jobs:
           echo "Source environment and retry script"
           source ../../.github/actions/retry-script/retry.sh
 
-          export PATH="/var/tmp/wasm:$PATH"
-
           # retry 10 curl https://wasmtime.dev/install.sh -sSf | bash
           # ls -al $HOME/.wasmtime/bin/
           # find $HOME/ -name wasmtime
