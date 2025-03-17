@@ -37,27 +37,6 @@ runs:
         echo 'tzdata tzdata/Areas select Australia' | sudo debconf-set-selections
         echo 'tzdata tzdata/Zones/Australia select Sydney' | sudo debconf-set-selections
 
-        # Install system dependencies
-        sudo apt-get update
-        sudo apt-get upgrade -y
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential pkg-config \
-        libssl-dev unzip curl wget ca-certificates gnupg dialog tzdata
-
-        # Install Node.js 22.x
-        sudo mkdir -p /etc/apt/keyrings
-        curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
-          | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
-        echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] \
-          https://deb.nodesource.com/node_22.x nodistro main" \
-          | sudo tee /etc/apt/sources.list.d/nodesource.list
-        sudo apt-get update
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
-
-        # Install global npm packages with proper permissions
-        sudo mkdir -p /usr/lib/node_modules
-        sudo chown -R $USER:$(id -gn) /usr/lib/node_modules
-        sudo npm install -g yarn
-
         # Script to try to resolve error `invalid type: map, expected a string` when running `wasm-pack build`
         # https://github.com/rustwasm/wasm-pack/issues/1420#issuecomment-2585397056
         #
@@ -80,6 +59,7 @@ runs:
         sudo mkdir -p /var/tmp/wasm
         sudo mv ./.github/actions/wasm-pack-script/wasm-pack-script.sh /var/tmp/wasm/wasm-pack
         sudo chmod +x /var/tmp/wasm/wasm-pack
+
         # Ensure that the highest priority part of the PATH variable is at the start, not the end.
         # Note: It doesn't appear to work, but maybe because /usr/local/bin was already in PATH but not at the
         # highest priority part, so we'll store it in its own folder and add that to the PATH
@@ -89,9 +69,31 @@ runs:
         # Add wasm-pack commad to GITHUB_ENV for subsequent steps
         # echo 'export PATH="/var/tmp/wasm:$PATH"' >> $GITHUB_PATH
 
+        # Can't get it to work. `/etc/skel/.cargo/bin:` always seems to be before
         echo "/var/tmp/wasm" > $GITHUB_PATH.new
         cat $GITHUB_PATH >> $GITHUB_PATH.new
         mv $GITHUB_PATH.new $GITHUB_PATH
+
+        # Install system dependencies
+        sudo apt-get update
+        sudo apt-get upgrade -y
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential pkg-config \
+        libssl-dev unzip curl wget ca-certificates gnupg dialog tzdata
+
+        # Install Node.js 22.x
+        sudo mkdir -p /etc/apt/keyrings
+        curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+          | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] \
+          https://deb.nodesource.com/node_22.x nodistro main" \
+          | sudo tee /etc/apt/sources.list.d/nodesource.list
+        sudo apt-get update
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
+
+        # Install global npm packages with proper permissions
+        sudo mkdir -p /usr/lib/node_modules
+        sudo chown -R $USER:$(id -gn) /usr/lib/node_modules
+        sudo npm install -g yarn
 
         # Install rustup with retries
         source ./.github/actions/retry-script/retry.sh
