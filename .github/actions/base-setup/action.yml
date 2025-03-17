@@ -77,11 +77,13 @@ runs:
         # The directory containing the script must appear before ~/.cargo/bin in $PATH, the order of which may be
         # checked by running `echo $PATH`. 
 
-        # Note: It doesn't appear to work
-        sudo mv ./.github/actions/wasm-pack-script/wasm-pack-script.sh /usr/local/bin/wasm-pack
-        sudo chmod +x /usr/local/bin/wasm-pack
+        sudo mkdir -p /var/tmp/wasm
+        sudo mv ./.github/actions/wasm-pack-script/wasm-pack-script.sh /var/tmp/wasm/wasm-pack
+        sudo chmod +x /var/tmp/wasm/wasm-pack
         # Ensure that the highest priority part of the PATH variable is at the start, not the end.
-        echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.bashrc
+        # Note: It doesn't appear to work, but maybe because /usr/local/bin was already in PATH but not at the
+        # highest priority part, so we'll store it in its own folder and add that to the PATH
+        echo 'export PATH="/var/tmp/wasm:$PATH"' >> ~/.bashrc
         source $HOME/.bashrc
 
         # Install rustup with retries
