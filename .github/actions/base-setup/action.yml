@@ -67,7 +67,7 @@ runs:
         source $HOME/.profile
 
         # Add wasm-pack commad to GITHUB_ENV for subsequent steps
-        # echo 'export PATH="/var/tmp/wasm:$PATH"' >> $GITHUB_PATH
+        echo 'export PATH="/var/tmp/wasm:$PATH"' >> $GITHUB_ENV
 
         # Can't get it to work. `/etc/skel/.cargo/bin:` always seems to be before
         # echo "/var/tmp/wasm" > $GITHUB_PATH.new
