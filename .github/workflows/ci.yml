@@ -243,10 +243,10 @@ jobs:
           cargo build --target wasm32-unknown-unknown
 
           echo "find kobold_npm_lib_example"
-          find $HOME/ -name kobold_npm_lib_example
+          find $HOME/ -name kobold
 
           echo "find kobold_npm_lib_example current"
-          find . -name kobold_npm_lib_example
+          find . -name kobold
 
           # Run with wasmtime
           $HOME/.wasmtime/bin/wasmtime run \
