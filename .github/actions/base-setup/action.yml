@@ -70,9 +70,9 @@ runs:
         # echo 'export PATH="/var/tmp/wasm:$PATH"' >> $GITHUB_PATH
 
         # Can't get it to work. `/etc/skel/.cargo/bin:` always seems to be before
-        echo "/var/tmp/wasm" > $GITHUB_PATH.new
-        cat $GITHUB_PATH >> $GITHUB_PATH.new
-        mv $GITHUB_PATH.new $GITHUB_PATH
+        # echo "/var/tmp/wasm" > $GITHUB_PATH.new
+        # cat $GITHUB_PATH >> $GITHUB_PATH.new
+        # mv $GITHUB_PATH.new $GITHUB_PATH
 
         # Install system dependencies
         sudo apt-get update
