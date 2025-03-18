@@ -244,7 +244,7 @@ jobs:
 
           echo "Installing wasm-bindgen-cli with retries"
           # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
-          retry 10 cargo install -f wasm-bindgen-cli --version "$(cargo pkgid wasm-bindgen | cut -d# -f2 | cut -d: -f2)"
+          retry 10 cargo install -f wasm-bindgen-cli --version $(cargo pkgid wasm-bindgen | grep -o '@.*' | sed 's/@//')
 
           wasm-bindgen --target bundler --out-dir ./pkg ./target/wasm32-unknown-unknown/debug/kobold_npm_lib_example.wasm
 
