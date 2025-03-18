@@ -244,7 +244,7 @@ jobs:
           # Run with wasmtime
           $HOME/.wasmtime/bin/wasmtime run \
             --dir=./ \
-            --debug debug-info=y,address-map=y,logging=y, log-to-files=y \
+            --debug debug-info=y,address-map=y,logging=y,log-to-files=y \
             target/wasm32-unknown-unknown/debug/kobold_npm_lib_example.wasm
 
           # echo "Installing wasm-bindgen-cli with retries"
