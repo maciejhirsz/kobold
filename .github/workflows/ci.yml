@@ -242,20 +242,11 @@ jobs:
           # Build your WASM module
           cargo build --target wasm32-unknown-unknown --target-dir ./target/
 
-          ls -al ./target/wasm32-unknown-unknown/debug/
-          ls -al ./target/debug
-
-          echo "find kobold_npm_lib_example"
-          find $HOME/ -name kobold
-
-          echo "find kobold_npm_lib_example current"
-          find . -name kobold
-
           # Run with wasmtime
           $HOME/.wasmtime/bin/wasmtime run \
             --dir=./ \
             --debug debug-info=y,address-map=y,logging=y,log-to-files=y \
-            ./target/wasm32-unknown-unknown/debug/main.wasm
+            ./target/wasm32-unknown-unknown/debug/kobold_npm_lib_example.wasm
 
           # echo "Installing wasm-bindgen-cli with retries"
           # # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
