@@ -229,29 +229,31 @@ jobs:
           echo "Source environment and retry script"
           source ../../.github/actions/retry-script/retry.sh
 
-          # retry 10 curl https://wasmtime.dev/install.sh -sSf | bash
-          # ls -al $HOME/.wasmtime/bin/
-          # find $HOME/ -name wasmtime
-          # sudo chmod +x $HOME/.wasmtime/bin/wasmtime
-          # echo 'export PATH="$PATH:$HOME/.wasmtime/bin"' >> ~/.profile
-          # source $HOME/.profile
-          # cat ~/.profile
+          retry 10 curl https://wasmtime.dev/install.sh -sSf | bash
+          ls -al $HOME/.wasmtime/bin/
+          find $HOME/ -name wasmtime
+          sudo chmod +x $HOME/.wasmtime/bin/wasmtime
+          echo 'export PATH="$PATH:$HOME/.wasmtime/bin"' >> ~/.profile
+          source $HOME/.profile
+          cat ~/.profile
 
-          # # Build your WASM module
-          # cargo build --target wasm32-unknown-unknown
-          # # Run with wasmtime
-          # $HOME/.wasmtime/bin/wasmtime run \
-          #   --dir=./ \
-          #   --debug debug-info=y,address-map=y,logging=y, log-to-files=y \
-          #   target/wasm32-unknown-unknown/debug/kobold_npm_lib_example.wasm
+          echo 'export PATH="$PATH:$HOME/.wasmtime/bin"' >> $GITHUB_ENV
+
+          # Build your WASM module
+          cargo build --target wasm32-unknown-unknown
+          # Run with wasmtime
+          $HOME/.wasmtime/bin/wasmtime run \
+            --dir=./ \
+            --debug debug-info=y,address-map=y,logging=y, log-to-files=y \
+            target/wasm32-unknown-unknown/debug/kobold_npm_lib_example.wasm
 
           # echo "Installing wasm-bindgen-cli with retries"
           # # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
           # retry 10 cargo install wasm-bindgen-cli --vers "0.2.100"
 
-          echo "Building WASM package"
-          wasm-pack build --target nodejs --dev --verbose
-          ls -al pkg/
+          # echo "Building WASM package"
+          # wasm-pack build --target nodejs --dev --verbose
+          # ls -al pkg/
 
           # echo "Verifying WASM module loading"
           # node -e "

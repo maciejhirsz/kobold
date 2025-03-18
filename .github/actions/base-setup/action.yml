@@ -56,18 +56,19 @@ runs:
         # The directory containing the script must appear before ~/.cargo/bin in $PATH, the order of which may be
         # checked by running `echo $PATH`. 
 
-        sudo mkdir -p /var/tmp/wasm
-        sudo mv ./.github/actions/wasm-pack-script/wasm-pack-script.sh /var/tmp/wasm/wasm-pack
-        sudo chmod +x /var/tmp/wasm/wasm-pack
+        # sudo mkdir -p /var/tmp/wasm
+        # sudo mv ./.github/actions/wasm-pack-script/wasm-pack-script.sh /var/tmp/wasm/wasm-pack
+        # sudo chmod +x /var/tmp/wasm/wasm-pack
 
         # Ensure that the highest priority part of the PATH variable is at the start, not the end.
         # Note: It doesn't appear to work, but maybe because /usr/local/bin was already in PATH but not at the
         # highest priority part, so we'll store it in its own folder and add that to the PATH
-        echo 'export PATH="/var/tmp/wasm:$PATH"' >> $HOME/.profile
-        source $HOME/.profile
+        # echo 'export PATH="/var/tmp/wasm:$PATH"' >> $HOME/.profile
+        # source $HOME/.profile
 
         # Add wasm-pack commad to GITHUB_ENV for subsequent steps
-        echo 'export PATH="/var/tmp/wasm:$PATH"' >> $GITHUB_ENV
+        # Can't get this to work. `/etc/skel/.cargo/bin:` always seems to be before
+        # echo 'export PATH="/var/tmp/wasm:$PATH"' >> $GITHUB_ENV
 
         # Can't get it to work. `/etc/skel/.cargo/bin:` always seems to be before
         # echo "/var/tmp/wasm" > $GITHUB_PATH.new
@@ -108,5 +109,5 @@ runs:
         echo "RUSTUP_HOME=$HOME/.rustup" >> $GITHUB_ENV
 
         # Check order of $PATH
-        echo "Check order of PATH"
-        echo $PATH
+        # echo "Check order of PATH"
+        # echo $PATH
