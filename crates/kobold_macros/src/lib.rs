@@ -18,7 +18,7 @@ mod branching;
 mod class;
 mod dom;
 mod fn_component;
-mod gen;
+mod gener;
 mod itertools;
 mod parse;
 mod syntax;
@@ -54,7 +54,7 @@ pub fn view(body: TokenStream) -> TokenStream {
 
     // panic!("{nodes:#?}");
 
-    let transient = gen::generate(nodes);
+    let transient = gener::generate(nodes);
 
     let out = transient.tokenize();
 

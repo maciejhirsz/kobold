@@ -7,8 +7,8 @@ use std::hash::{Hash, Hasher};
 use std::mem::ManuallyDrop;
 use std::ops::{Deref, DerefMut};
 
-use crate::diff::{Diff, Fence};
 use crate::View;
+use crate::diff::{Diff, Fence};
 
 pub struct Ver<T> {
     inner: T,

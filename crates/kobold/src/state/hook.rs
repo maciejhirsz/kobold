@@ -12,7 +12,7 @@ use wasm_bindgen::JsValue;
 
 use crate::event::{EventCast, Listener, ListenerHandle};
 use crate::runtime::{EventContext, EventId, Then, Trigger};
-use crate::{internal, View};
+use crate::{View, internal};
 
 pub struct Signal<S> {
     // _sid: StateId,

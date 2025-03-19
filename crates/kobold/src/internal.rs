@@ -85,7 +85,7 @@ pub(crate) fn obj(node: &Node) -> &UnsafeNode {
 }
 
 mod hidden {
-    use crate::runtime::{trigger, EventId};
+    use crate::runtime::{EventId, trigger};
 
     use super::wasm_bindgen;
 

@@ -5,7 +5,7 @@
 use std::fmt::Write;
 
 use crate::dom::Node;
-use crate::gen::{DomNode, Generator, IntoGenerator, JsArgument, Short};
+use crate::gener::{DomNode, Generator, IntoGenerator, JsArgument, Short};
 
 pub struct JsFragment {
     /// Variable name of the fragment, such as `e0`
@@ -19,15 +19,15 @@ pub struct JsFragment {
 }
 
 impl IntoGenerator for Vec<Node> {
-    fn into_gen(self, gen: &mut Generator) -> DomNode {
+    fn into_generator(self, gener: &mut Generator) -> DomNode {
         assert!(!self.is_empty());
 
-        let var = gen.names.next_el();
+        let var = gener.names.next_el();
 
         let mut code = format!("let {var}=document.createDocumentFragment();\n");
         let mut args = Vec::new();
 
-        let append = append(gen, &mut code, &mut args, self);
+        let append = append(gener, &mut code, &mut args, self);
         let _ = writeln!(code, "{var}.{append};");
         let _ = writeln!(code, "return {var};");
 
@@ -36,7 +36,7 @@ impl IntoGenerator for Vec<Node> {
 }
 
 pub fn append(
-    gen: &mut Generator,
+    gener: &mut Generator,
     js: &mut String,
     args: &mut Vec<JsArgument>,
     children: Vec<Node>,
@@ -44,7 +44,7 @@ pub fn append(
     let mut append = String::from("append(");
 
     for child in children {
-        let dom_node = child.into_gen(gen);
+        let dom_node = child.into_generator(gener);
 
         match dom_node {
             DomNode::Variable(value) => {
@@ -60,7 +60,7 @@ pub fn append(
             DomNode::Element(el) => {
                 let var = el.var;
                 if el.hoisted {
-                    gen.hoist(DomNode::Element(el));
+                    gener.hoist(DomNode::Element(el));
 
                     args.push(JsArgument::new(var));
                 } else {

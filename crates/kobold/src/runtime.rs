@@ -6,7 +6,7 @@ use std::cell::Cell;
 
 use web_sys::Event;
 
-use crate::{internal, Mountable, View};
+use crate::{Mountable, View, internal};
 
 mod ctx;
 

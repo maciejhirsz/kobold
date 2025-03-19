@@ -24,7 +24,7 @@ pub fn parse<T: Parse>(stream: TokenStream) -> Result<T, ParseError> {
 pub type ParseStream = std::iter::Peekable<tokens::token_stream::IntoIter>;
 
 pub mod prelude {
-    pub use super::{parse, IdentExt, IteratorExt, TokenTreeExt};
+    pub use super::{IdentExt, IteratorExt, TokenTreeExt, parse};
     pub use super::{IdentPat, IntoSpan, Lit, Parse, ParseError, ParseStream};
 }
 

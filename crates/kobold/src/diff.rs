@@ -194,7 +194,9 @@ macro_rules! impl_diff_val {
 }
 
 impl_diff_str!(&str, &String);
-impl_diff_val!(bool, u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64);
+impl_diff_val!(
+    bool, u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64
+);
 
 /// Smart [`View`] that never performs diffing and instead always triggers
 /// updates.

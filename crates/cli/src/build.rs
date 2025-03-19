@@ -2,17 +2,17 @@ use std::borrow::Cow;
 use std::fmt::{self, Debug, Display};
 use std::fs;
 use std::io;
-use std::path::{absolute, Path, PathBuf};
+use std::path::{Path, PathBuf, absolute};
 use std::process::Command;
 use std::time::Instant;
 
 use leb128::write::unsigned as leb128_write;
 use lol_html::html_content::{ContentType, Element};
-use lol_html::{element, rewrite_str, RewriteStrSettings};
+use lol_html::{RewriteStrSettings, element, rewrite_str};
 use wasmparser::BinaryReaderError;
 
 use crate::log;
-use crate::manifest::{manifest, Manifest, Package};
+use crate::manifest::{Manifest, Package, manifest};
 use crate::report::{Error, ErrorExt, Report};
 use crate::{Build, When};
 

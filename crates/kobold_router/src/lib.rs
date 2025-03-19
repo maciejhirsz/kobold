@@ -5,7 +5,7 @@ use kobold::internal::In;
 use kobold::prelude::*;
 
 use matchit::Match;
-use wasm_bindgen::{closure::Closure, JsCast, JsValue, UnwrapThrowExt};
+use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt, closure::Closure};
 
 mod internal;
 

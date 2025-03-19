@@ -4,11 +4,11 @@
 
 use web_sys::Node;
 
+use crate::View;
 use crate::diff::{Diff, Ver};
 use crate::dom::{Anchor, Property, TextContent};
 use crate::internal;
 use crate::runtime::Trigger;
-use crate::View;
 
 /// Value that can be set as a property on DOM node
 pub trait Value<P>: IntoText {
@@ -163,7 +163,9 @@ macro_rules! impl_text_view {
 }
 
 impl_text_view!(&str, &String, &Ver<String>);
-impl_text_view!(bool, u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64);
+impl_text_view!(
+    bool, u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64
+);
 
 impl<'a> View for &&'a str {
     type Product = <&'a str as View>::Product;
@@ -195,4 +197,6 @@ macro_rules! impl_ref_view {
     };
 }
 
-impl_ref_view!(bool, u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64);
+impl_ref_view!(
+    bool, u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64
+);

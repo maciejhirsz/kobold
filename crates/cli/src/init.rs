@@ -2,9 +2,9 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
+use crate::Init;
 use crate::log;
 use crate::report::{Error, ErrorExt, Report};
-use crate::Init;
 
 pub fn init(init: &Init) -> Report<()> {
     log::creating!("kobold package");
@@ -29,7 +29,7 @@ pub fn init(init: &Init) -> Report<()> {
                 return Err(Error::message(format!(
                     "cannot auto-detect package name from path \"{}\"; use --name to override",
                     path.display(),
-                )))
+                )));
             }
         },
     };

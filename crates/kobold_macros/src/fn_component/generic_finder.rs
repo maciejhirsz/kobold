@@ -57,9 +57,9 @@ impl Parse for GenericFinder {
         stream.next();
 
         loop {
-            let gen = stream.parse()?;
+            let generic = stream.parse()?;
 
-            out.push((false, gen));
+            out.push((false, generic));
 
             if stream.allow_consume('>').is_some() {
                 break;
@@ -74,11 +74,11 @@ impl GenericFinder {
     pub fn in_type(&mut self, ty: &TokenStream) -> impl Iterator<Item = &Generic> {
         self.find_inner(ty.clone());
 
-        self.generics.iter_mut().filter_map(|(m, gen)| {
+        self.generics.iter_mut().filter_map(|(m, generic)| {
             if *m {
                 *m = false;
 
-                Some(&*gen)
+                Some(&*generic)
             } else {
                 None
             }
@@ -98,8 +98,8 @@ impl GenericFinder {
                 TokenTree::Group(group) => self.find_inner(group.stream()),
                 TokenTree::Ident(ident) => {
                     ident.with_str(|ident| {
-                        for (m, gen) in self.generics.iter_mut() {
-                            *m |= match (lifetime, gen) {
+                        for (m, generic) in self.generics.iter_mut() {
+                            *m |= match (lifetime, generic) {
                                 (true, Generic::Lifetime(lt)) => &**lt == ident,
                                 (false, Generic::Type(ty)) => &**ty == ident,
                                 _ => false,
