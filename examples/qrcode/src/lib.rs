@@ -6,7 +6,7 @@ use kobold_qr::qr;
 fn app() -> impl View {
     let data = state!("Enter something");
 
-    let onkeyup = event!(|data, e: KeyboardEvent<HtmlTextAreaElement>| {
+    let onkeyup = event!(|data, e: &KeyboardEvent<HtmlTextAreaElement>| {
         *data = e.current_target().value();
     });
 

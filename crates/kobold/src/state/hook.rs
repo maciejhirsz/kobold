@@ -20,7 +20,7 @@ pub struct Signal<S> {
 }
 
 impl<S> Signal<S> {
-    pub(crate) fn new(hook: &Hook<S>) -> Self {
+    pub(crate) fn new(_: &Hook<S>) -> Self {
         Signal {
             // _sid: hook.sid,
             _state: PhantomData,
