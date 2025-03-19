@@ -12,8 +12,8 @@ repository = "https://github.com/maciejhirsz/kobold"
 documentation = "https://docs.rs/kobold"
 
 [dependencies]
-wasm-bindgen = "0.2.92"
-wasm-bindgen-futures = "0.4.34"
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
 itoa = "1.0.6"
 kobold_macros = { version = "0.10.0", path = "../kobold_macros" }
 console_error_panic_hook = "0.1.7"
@@ -23,22 +23,22 @@ serde = { version = "1", optional = true }
 [dependencies.web-sys]
 version = "0.3"
 features = [
-  "Document",
-  "DomStringMap",
-  "Element",
-  "Event",
-  "MouseEvent",
-  "KeyboardEvent",
-  "HtmlElement",
-  "HtmlCanvasElement",
-  "HtmlInputElement",
-  "HtmlOptionElement",
-  "HtmlSelectElement",
-  "HtmlLinkElement",
-  "HtmlTextAreaElement",
-  "Node",
-  "Text",
-  "Window",
+    "Document",
+    "DomStringMap",
+    "Element",
+    "Event",
+    "MouseEvent",
+    "KeyboardEvent",
+    "HtmlElement",
+    "HtmlCanvasElement",
+    "HtmlInputElement",
+    "HtmlOptionElement",
+    "HtmlSelectElement",
+    "HtmlLinkElement",
+    "HtmlTextAreaElement",
+    "Node",
+    "Text",
+    "Window",
 ]
 
 [package.metadata.docs.rs]
