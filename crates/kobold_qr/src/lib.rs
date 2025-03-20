@@ -42,7 +42,7 @@ impl Default for Ecl {
     size?: 200,
     ecl?,
 )]
-pub fn qr(data: &str, size: usize, ecl: Ecl) -> impl View + '_ {
+pub fn qr(data: &str, size: usize, ecl: Ecl) -> impl View {
     fence(data, move || {
         let qr = QRBuilder::new(data).ecl(ecl.into()).build().ok()?;
         let pixel = ((size / qr.size) + 1) * 2;

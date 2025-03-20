@@ -36,7 +36,7 @@ pub use ver::Ver;
 /// }
 ///
 /// #[component]
-/// fn user_row(user: &User) -> impl View + '_ {
+/// fn user_row(user: &User) -> impl View {
 ///     fence(user.id, || view! {
 ///         // This row is only re-rendered if `user.id` has changed
 ///         <tr>

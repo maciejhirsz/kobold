@@ -30,7 +30,7 @@ fn id_listing(id: Option<usize>) -> impl View + 'static {
 }
 
 #[component]
-fn router_example<'a>(state: &'a Hook<State>, route_number: &'a str) -> impl View + 'a {
+fn router_example(state: &Hook<State>, route_number: &str) -> impl View {
     let onchange = event!(|state, e: Event<HtmlInputElement>| {
         let input = e.current_target();
         match input.value().parse::<usize>() {
@@ -56,7 +56,7 @@ fn router_example<'a>(state: &'a Hook<State>, route_number: &'a str) -> impl Vie
     }
 }
 
-fn route_one(state: &Hook<State>) -> impl View + '_ {
+fn route_one(state: &Hook<State>) -> impl View {
     view! {
         <div>
             <!router_example route_number="one" state={state}>
@@ -64,7 +64,7 @@ fn route_one(state: &Hook<State>) -> impl View + '_ {
     }
 }
 
-fn route_two(state: &Hook<State>) -> impl View + '_ {
+fn route_two(state: &Hook<State>) -> impl View {
     view! {
         <div>
             <!router_example route_number="two" state={state}>

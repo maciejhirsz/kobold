@@ -141,7 +141,7 @@ impl Params<'_> {
 
 #[component(class?: "")]
 // Creates a link needed for routing with kobold_router
-pub fn link<'a>(route: &'a str, class: &'a str, children: impl View + 'a) -> impl View + 'a {
+pub fn link(route: &str, class: &str, children: impl View) -> impl View {
     let route = String::from(route);
     // TODO Not sure if clone is the best solution, but also need the route for the href tag for browser decoration
     let href = route.clone();

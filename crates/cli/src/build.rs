@@ -426,7 +426,7 @@ struct Paths<'path> {
 struct Dist<'path>(&'path Path);
 
 impl Dist<'_> {
-    fn embed_path(self, path: &Path) -> impl Display + use<'_> {
+    fn embed_path(self, path: &Path) -> impl Display {
         struct Show<'path>(&'path Path);
 
         impl Display for Show<'_> {
