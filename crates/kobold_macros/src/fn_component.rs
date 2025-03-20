@@ -441,7 +441,7 @@ impl Tokenize for FnComponent {
 }
 
 impl Argument {
-    fn ty(&self) -> impl Tokenize + '_ {
+    fn ty(&self) -> impl Tokenize {
         tok_fn(|stream| {
             if self.default.is_some() {
                 stream.write("impl ::kobold::maybe::Maybe<");
@@ -455,11 +455,11 @@ impl Argument {
         })
     }
 
-    fn name(&self) -> impl Tokenize + '_ {
+    fn name(&self) -> impl Tokenize {
         (&self.name, ',')
     }
 
-    fn generic(&self) -> impl Tokenize + '_ {
+    fn generic(&self) -> impl Tokenize {
         (&self.name, "= ::kobold::maybe::Undefined,")
     }
 
@@ -468,7 +468,7 @@ impl Argument {
         finder: Option<&mut GenericFinder>,
         pos: usize,
         args: &'a [Argument],
-    ) -> impl Tokenize + 'a {
+    ) -> impl Tokenize + use<'a> {
         let mut ret_generics = TokenStream::new();
         let mut body = TokenStream::new();
 
@@ -520,7 +520,7 @@ impl Argument {
         )
     }
 
-    fn maybe(&self) -> impl Tokenize + '_ {
+    fn maybe(&self) -> impl Tokenize {
         tok_fn(|stream| {
             if let Some(value) = &self.default {
                 stream.write(("let", &self.name, "=", &self.name));
@@ -533,11 +533,11 @@ impl Argument {
         })
     }
 
-    fn default(&self) -> impl Tokenize + '_ {
+    fn default(&self) -> impl Tokenize {
         (&self.name, ": ::kobold::maybe::Undefined,")
     }
 
-    fn field(&self) -> impl Tokenize + '_ {
+    fn field(&self) -> impl Tokenize {
         (&self.name, ':', &self.name, ',')
     }
 }

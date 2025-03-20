@@ -1,10 +1,10 @@
 [package]
 name = "kobold_hello_world_example"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-kobold = { path = "../../crates/kobold", features=["rlsf"] }
+kobold = { path = "../../crates/kobold", features = ["rlsf"] }

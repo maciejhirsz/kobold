@@ -5,7 +5,7 @@
 use tokens::TokenStream;
 
 use crate::dom::{Component, Property};
-use crate::gen::{DomNode, Field, Generator, IntoGenerator, TokenStreamExt};
+use crate::gener::{DomNode, Field, Generator, IntoGenerator, TokenStreamExt};
 use crate::tokenize::prelude::*;
 
 impl Component {
@@ -27,7 +27,7 @@ impl Component {
         }
 
         if let Some(children) = self.children {
-            let children = crate::gen::generate(children);
+            let children = crate::gener::generate(children);
 
             params.write(('.', call("children", children)));
         }
@@ -37,11 +37,11 @@ impl Component {
 }
 
 impl IntoGenerator for Component {
-    fn into_gen(self, gen: &mut Generator) -> DomNode {
-        let name = gen.names.next();
+    fn into_generator(self, gener: &mut Generator) -> DomNode {
+        let name = gener.names.next();
         let value = self.into_expression();
 
-        gen.out.fields.push(Field::new(name, value));
+        gener.out.fields.push(Field::new(name, value));
 
         DomNode::Variable(name)
     }

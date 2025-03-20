@@ -7,7 +7,7 @@ use std::fmt::{Arguments, Write};
 use tokens::{Literal, TokenStream};
 
 use crate::dom::{Attribute, AttributeValue, CssValue, ElementTag, HtmlElement};
-use crate::gen::{append, DomNode, Generator, IntoGenerator, JsArgument, Short};
+use crate::gener::{DomNode, Generator, IntoGenerator, JsArgument, Short, append};
 use crate::itertools::IteratorExt as _;
 use crate::parse::IteratorExt as _;
 use crate::tokenize::prelude::*;
@@ -39,8 +39,8 @@ impl JsElement {
 }
 
 impl IntoGenerator for HtmlElement {
-    fn into_gen(mut self, gen: &mut Generator) -> DomNode {
-        let var = gen.names.next_el();
+    fn into_generator(mut self, gener: &mut Generator) -> DomNode {
+        let var = gener.names.next_el();
         let typ = element_js_type(&self.name);
 
         let mut el = JsElement {
@@ -63,7 +63,7 @@ impl IntoGenerator for HtmlElement {
                         name: "ClassName",
                         abi: None,
                     };
-                    gen.add_field(expr.stream).attr(el.var, attr, attr.prop());
+                    gener.add_field(expr.stream).attr(el.var, attr, attr.prop());
                 }
             },
             _ => {
@@ -87,7 +87,7 @@ impl IntoGenerator for HtmlElement {
                 for class in self.classes {
                     if let CssValue::Expression(expr) = class {
                         el.hoisted = true;
-                        gen.add_field(expr.stream).attr(el.var, attr, attr.prop());
+                        gener.add_field(expr.stream).attr(el.var, attr, attr.prop());
                     }
                 }
             }
@@ -124,7 +124,7 @@ impl IntoGenerator for HtmlElement {
                             expr.stream
                         };
 
-                        let value = gen.add_field(coerce).event(event, el.typ).name;
+                        let value = gener.add_field(coerce).event(event, el.typ).name;
 
                         writeln!(
                             el,
@@ -138,7 +138,7 @@ impl IntoGenerator for HtmlElement {
                         let name = attribute_name(&name.label);
                         el.hoisted = true;
 
-                        let value = gen
+                        let value = gener
                             .add_field(expr.stream)
                             .attr(var, *attr, attr.prop())
                             .name;
@@ -154,7 +154,7 @@ impl IntoGenerator for HtmlElement {
                         let prop = (Literal::string(&name.label), ".into()").tokenize();
                         let attr = Attr::new("&AttributeName");
 
-                        gen.add_field(expr.stream).attr(var, attr, prop);
+                        gener.add_field(expr.stream).attr(var, attr, prop);
                     }
                 },
             };
@@ -163,7 +163,7 @@ impl IntoGenerator for HtmlElement {
                 AttributeType::Event(event) => {
                     let target = el.typ;
 
-                    gen.add_hint(
+                    gener.add_hint(
                         name.ident,
                         format_args!(
                             "impl Fn(\
@@ -175,16 +175,16 @@ impl IntoGenerator for HtmlElement {
                     );
                 }
                 AttributeType::Provided(attr) => {
-                    gen.add_attr_hint(name.ident, "", attr.name);
+                    gener.add_attr_hint(name.ident, "", attr.name);
                 }
                 AttributeType::Unknown => {
-                    gen.add_attr_hint(name.ident, "&'static", "AttributeName");
+                    gener.add_attr_hint(name.ident, "&'static", "AttributeName");
                 }
             }
         }
 
         if let Some(children) = self.children {
-            let append = append(gen, &mut el.code, &mut el.args, children);
+            let append = append(gener, &mut el.code, &mut el.args, children);
             writeln!(el, "{var}.{append};");
         }
 

@@ -55,11 +55,11 @@ fn editor() -> impl View {
 }
 
 #[component(auto_branch)]
-fn head(col: usize, state: &Hook<State>) -> impl View + '_ {
+fn head(col: usize, state: &Hook<State>) -> impl View {
     let value = state.source.get_text(&state.columns[col]);
 
     if state.editing == (Editing::Column { col }) {
-        let onchange = state.bind(move |state, e: Event<InputElement>| {
+        let onchange = state.bind(move |state, e: &Event<InputElement>| {
             state.columns[col] = Text::Owned(e.current_target().value().into());
             state.editing = Editing::None;
         });
@@ -77,18 +77,18 @@ fn head(col: usize, state: &Hook<State>) -> impl View + '_ {
 }
 
 #[component(auto_branch)]
-fn cell(col: usize, row: usize, state: &Hook<State>) -> impl View + '_ {
+fn cell(col: usize, row: usize, state: &Hook<State>) -> impl View {
     let value = state.source.get_text(&state.rows[row][col]);
 
     if state.editing == (Editing::Cell { row, col }) {
-        let onchange = event!(move |state, e: Event<InputElement>| {
+        let onchange = event!(move |state, e: &Event<InputElement>| {
             state.rows[row][col] = Text::Owned(e.current_target().value().into());
             state.editing = Editing::None;
         });
 
         let mut selected = false;
 
-        let onmouseenter = move |e: MouseEvent<InputElement>| {
+        let onmouseenter = move |e: &MouseEvent<InputElement>| {
             if !selected {
                 let input = e.current_target();
                 input.focus();

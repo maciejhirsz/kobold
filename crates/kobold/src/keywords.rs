@@ -4,9 +4,9 @@
 
 //! Keyword handles for `{ ... }` expressions in the [`view!`](crate::view) macro.
 
+use crate::View;
 use crate::diff::{Eager, Static};
 use crate::list::{Bounded, List};
-use crate::View;
 
 /// `{ for ... }`: turn an [`IntoIterator`] type into a [`View`].
 ///

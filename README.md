@@ -41,7 +41,7 @@ Components in **Kobold** are created by annotating a _render function_ with a `#
 use kobold::prelude::*;
 
 #[component]
-fn hello(name: &str) -> impl View + '_ {
+fn hello(name: &str) -> impl View {
     view! {
         <h1>"Hello "{ name }"!"</h1>
     }

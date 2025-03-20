@@ -18,7 +18,7 @@ mod fragment;
 mod transient;
 
 pub use element::JsElement;
-pub use fragment::{append, JsFragment};
+pub use fragment::{JsFragment, append};
 pub use transient::{Anchor, Field, FieldKind, Hint, Transient};
 pub use transient::{JsArgument, JsFnName, JsFunction, JsString};
 
@@ -33,16 +33,16 @@ pub enum DomNode {
 }
 
 pub fn generate(mut nodes: Vec<Node>) -> Transient {
-    let mut gen = Generator::default();
+    let mut gener = Generator::default();
 
     let dom_node = if nodes.len() == 1 {
-        nodes.remove(0).into_gen(&mut gen)
+        nodes.remove(0).into_generator(&mut gener)
     } else {
-        nodes.into_gen(&mut gen)
+        nodes.into_generator(&mut gener)
     };
 
-    gen.hoist(dom_node);
-    gen.out
+    gener.hoist(dom_node);
+    gener.out
 }
 
 #[derive(Default)]
@@ -139,12 +139,12 @@ impl Generator {
 }
 
 trait IntoGenerator {
-    fn into_gen(self, gen: &mut Generator) -> DomNode;
+    fn into_generator(self, gener: &mut Generator) -> DomNode;
 }
 
 impl IntoGenerator for Expression {
-    fn into_gen(self, gen: &mut Generator) -> DomNode {
-        let field = gen.add_field(self.stream);
+    fn into_generator(self, gener: &mut Generator) -> DomNode {
+        let field = gener.add_field(self.stream);
 
         if self.is_static {
             field.kind = FieldKind::StaticView;
@@ -155,11 +155,11 @@ impl IntoGenerator for Expression {
 }
 
 impl IntoGenerator for Node {
-    fn into_gen(self, gen: &mut Generator) -> DomNode {
+    fn into_generator(self, gener: &mut Generator) -> DomNode {
         match self {
-            Node::Component(component) => component.into_gen(gen),
-            Node::HtmlElement(element) => element.into_gen(gen),
-            Node::Expression(expr) => expr.into_gen(gen),
+            Node::Component(component) => component.into_generator(gener),
+            Node::HtmlElement(element) => element.into_generator(gener),
+            Node::Expression(expr) => expr.into_generator(gener),
             Node::Text(lit) => DomNode::TextNode(JsString(lit)),
         }
     }

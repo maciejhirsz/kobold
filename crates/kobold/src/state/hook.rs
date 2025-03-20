@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// use std::future::Future;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
@@ -12,7 +11,7 @@ use wasm_bindgen::JsValue;
 
 use crate::event::{EventCast, Listener, ListenerHandle};
 use crate::runtime::{EventContext, EventId, Then, Trigger};
-use crate::{internal, View};
+use crate::{View, internal};
 
 pub struct Signal<S> {
     // _sid: StateId,
@@ -20,7 +19,7 @@ pub struct Signal<S> {
 }
 
 impl<S> Signal<S> {
-    pub(crate) fn new(hook: &Hook<S>) -> Self {
+    pub(crate) fn new(_: &Hook<S>) -> Self {
         Signal {
             // _sid: hook.sid,
             _state: PhantomData,

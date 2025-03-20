@@ -1,23 +1,18 @@
 [package]
 name = "kobold_csv_editor_example"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-compact_str = "0.7.0"
-gloo-console = "0.2.3"
+compact_str = "0.9.0"
+gloo-console = "0.3.0"
 kobold = { path = "../../crates/kobold" }
 logos = "0.12.1"
-wasm-bindgen-futures = "0.4.34"
+wasm-bindgen-futures.workspace = true
 
 [dependencies.web-sys]
-version = "0.3.61"
-features = [
-	"console",
-	"HtmlInputElement",
-	"File",
-	"FileList",
-]
+version = "0.3"
+features = ["console", "HtmlInputElement", "File", "FileList"]

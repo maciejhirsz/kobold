@@ -57,7 +57,8 @@ where
     T: 'static,
     U: ContextState,
 {
-    type Borrow<'b> = (&'b mut Hook<T>, U::Borrow<'b>)
+    type Borrow<'b>
+        = (&'b mut Hook<T>, U::Borrow<'b>)
     where
         Self: 'b;
 
@@ -115,7 +116,8 @@ impl<'a, T> EventContext for EventCtx<'a, T>
 where
     T: ContextState,
 {
-    type Attached<'b, S> = EventCtx<'b, (&'b mut Hook<S>, T::Borrow<'b>)>
+    type Attached<'b, S>
+        = EventCtx<'b, (&'b mut Hook<S>, T::Borrow<'b>)>
     where
         S: 'static,
         Self: 'b;

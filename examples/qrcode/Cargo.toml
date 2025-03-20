@@ -1,7 +1,7 @@
 [package]
 name = "kobold_qrcode_example"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [lib]
 crate-type = ["cdylib"]
@@ -12,6 +12,4 @@ kobold_qr = { path = "../../crates/kobold_qr" }
 
 [dependencies.web-sys]
 version = "0.3"
-features = [
-  "HtmlInputElement",
-]
+features = ["HtmlInputElement"]

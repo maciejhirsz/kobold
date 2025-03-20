@@ -6,7 +6,7 @@ use std::cell::Cell;
 
 use web_sys::Event;
 
-use crate::{internal, Mountable, View};
+use crate::{Mountable, View, internal};
 
 mod ctx;
 
@@ -116,6 +116,7 @@ pub(crate) fn trigger(eid: EventId, event: Event) {
     }
 }
 
+#[expect(dead_code)]
 pub(crate) fn lock_update<F, R>(f: F)
 where
     F: FnOnce() -> R,

@@ -2,20 +2,18 @@
 name = "kobold_qr"
 version = "0.9.0"
 authors = ["Maciej Hirsz <hello@maciej.codes>"]
-edition = "2021"
+edition = "2024"
+rust-version = "1.85"
 license = "MPL-2.0"
 readme = "../../README.md"
 keywords = ["web", "wasm", "javascript", "qr"]
 description = "QR code component for Kobold"
 
 [dependencies]
-fast_qr = { version = "0.12.1" }
+fast_qr = { version = "0.12.7" }
 kobold = { version = "0.10.0", path = "../kobold" }
-wasm-bindgen = "0.2.84"
+wasm-bindgen.workspace = true
 
 [dependencies.web-sys]
 version = "0.3"
-features = [
-  "CanvasRenderingContext2d",
-  "HtmlCanvasElement",
-]
+features = ["CanvasRenderingContext2d", "HtmlCanvasElement"]

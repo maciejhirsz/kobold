@@ -11,8 +11,8 @@ use tokens::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream
 use crate::parse::ParseStream;
 
 pub mod prelude {
-    pub use super::{block, call, each, group, ident, string, tok_fn};
     pub use super::{TokenStreamExt, Tokenize};
+    pub use super::{block, call, each, group, ident, string, tok_fn};
 }
 
 pub fn group(delim: char, tokens: impl Tokenize) -> Group {

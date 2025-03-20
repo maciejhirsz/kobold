@@ -170,7 +170,9 @@ macro_rules! impl_attribute_view {
 }
 
 impl_attribute_view!(&str, &String, &Ver<String>);
-impl_attribute_view!(u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64);
+impl_attribute_view!(
+    u8, u16, u32, u64, u128, usize, isize, i8, i16, i32, i64, i128, f32, f64
+);
 
 #[inline]
 fn debug_test_class(class: &str) {

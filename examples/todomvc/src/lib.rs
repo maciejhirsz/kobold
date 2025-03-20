@@ -54,7 +54,7 @@ fn app() -> impl View {
 }
 
 #[component]
-fn entry_input(state: &Hook<State>) -> impl View + '_ {
+fn entry_input(state: &Hook<State>) -> impl View {
     let onchange = event!(|state, e: &Event<InputElement>| {
         let input = e.current_target();
         state.add(input.value());
@@ -68,7 +68,7 @@ fn entry_input(state: &Hook<State>) -> impl View + '_ {
 }
 
 #[component]
-fn toggle_all(active_count: usize, state: &Hook<State>) -> impl View + '_ {
+fn toggle_all(active_count: usize, state: &Hook<State>) -> impl View {
     view! {
         <input #toggle-all.toggle-all
             type="checkbox"
@@ -80,7 +80,7 @@ fn toggle_all(active_count: usize, state: &Hook<State>) -> impl View + '_ {
 }
 
 #[component]
-fn entry<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl View + 'a {
+fn entry(idx: usize, entry: &Entry, state: &Hook<State>) -> impl View {
     let input = entry.editing.then(move || {
         let onkeypress = event!(move |state, e: &KeyboardEvent<InputElement>| {
             if e.key() == "Enter" {
@@ -123,7 +123,7 @@ fn entry<'a>(idx: usize, entry: &'a Entry, state: &'a Hook<State>) -> impl View 
 }
 
 #[component]
-fn filter(by: Filter, state: &Hook<State>) -> impl View + '_ {
+fn filter(by: Filter, state: &Hook<State>) -> impl View {
     let class = class!("selected" if state.filter == by);
 
     view! {

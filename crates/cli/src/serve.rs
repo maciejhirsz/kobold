@@ -1,13 +1,12 @@
 use std::convert::Infallible;
 use std::fmt::Display;
-use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-use futures_lite::{future, stream, Stream, StreamExt};
+use futures_lite::{Stream, StreamExt, future, stream};
 use http_body_util::{Either, StreamBody};
 use hyper::body::{Bytes, Frame};
 use hyper::header::{self, HeaderValue};
@@ -23,10 +22,10 @@ use tower_async::{Service, ServiceBuilder};
 use tower_async_http::compression::CompressionLayer;
 use tower_async_http::services::ServeDir;
 
-use crate::build::{build, BuildInfo};
+use crate::Serve;
+use crate::build::{BuildInfo, build};
 use crate::log;
 use crate::report::{Error, ErrorExt, Report};
-use crate::Serve;
 
 pub fn serve(s: &Serve) -> Report<()> {
     let BuildInfo { dist_path, .. } = build(&s.build)?;
@@ -292,7 +291,7 @@ struct Events<S> {
 impl<S> Events<S> {
     fn event_stream(&self) -> EventStream {
         let subscriber = self.updates.subscribe();
-        let stream = stream::unfold(subscriber, |mut subscriber| async {
+        let stream = stream::unfold(subscriber, async |mut subscriber| {
             let ping = async {
                 tokio::time::sleep(Duration::from_secs(15)).await;
                 const { Some(Bytes::from_static(b":\n\n")) }

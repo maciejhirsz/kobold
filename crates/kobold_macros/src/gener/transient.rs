@@ -7,8 +7,8 @@ use std::fmt::{self, Debug, Display, Write};
 use arrayvec::ArrayString;
 use tokens::{Ident, Literal, TokenStream};
 
-use crate::gen::element::{Attr, InlineAbi};
-use crate::gen::Short;
+use crate::gener::Short;
+use crate::gener::element::{Attr, InlineAbi};
 use crate::itertools::IteratorExt;
 use crate::parse::IdentExt;
 use crate::tokenize::prelude::*;

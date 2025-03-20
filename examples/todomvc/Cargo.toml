@@ -1,19 +1,16 @@
 [package]
 name = "kobold_todomvc_example"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 kobold = { path = "../../crates/kobold" }
-gloo-storage = "0.2.1"
-wasm-bindgen = "0.2.84"
+gloo-storage = "0.3.0"
+wasm-bindgen.workspace = true
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies.web-sys]
 version = "0.3"
-features = [
-  "Document",
-  "HtmlInputElement",
-]
+features = ["Document", "HtmlInputElement"]

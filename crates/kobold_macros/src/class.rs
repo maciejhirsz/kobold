@@ -4,10 +4,10 @@
 
 use std::hash::{Hash, Hasher};
 
-use crate::gen::JsFnName;
+use crate::TokenStreamExt;
+use crate::gener::JsFnName;
 use crate::parse::prelude::*;
 use crate::tokenize::prelude::*;
-use crate::TokenStreamExt;
 use tokens::TokenStream;
 
 pub fn parse(stream: TokenStream) -> Result<TokenStream, ParseError> {
