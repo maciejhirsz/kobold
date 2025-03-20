@@ -3,6 +3,7 @@ name = "kobold_router"
 version = "0.1.0"
 authors = ["Bailey Townsend"]
 edition = "2024"
+rust-version = "1.85"
 license = "MPL-2.0"
 readme = "../../README.md"
 keywords = ["web", "wasm", "router", "kobold"]

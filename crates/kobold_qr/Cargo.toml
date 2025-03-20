@@ -3,6 +3,7 @@ name = "kobold_qr"
 version = "0.9.0"
 authors = ["Maciej Hirsz <hello@maciej.codes>"]
 edition = "2024"
+rust-version = "1.85"
 license = "MPL-2.0"
 readme = "../../README.md"
 keywords = ["web", "wasm", "javascript", "qr"]

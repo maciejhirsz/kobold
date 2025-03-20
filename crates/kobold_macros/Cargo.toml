@@ -3,6 +3,7 @@ name = "kobold_macros"
 version = "0.10.0"
 authors = ["Maciej Hirsz <hello@maciej.codes>"]
 edition = "2024"
+rust-version = "1.85"
 license = "MPL-2.0"
 readme = "../../README.md"
 keywords = ["web", "wasm", "javascript"]
