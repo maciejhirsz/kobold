@@ -92,10 +92,30 @@ runs:
         source $HOME/.cargo/env
         source ./.github/actions/retry-script/retry.sh
 
-        # Download and install pre-built wasm-pack binary
-        retry 10 curl -L https://github.com/rustwasm/wasm-pack/releases/download/v0.12.1/wasm-pack-v0.12.1-x86_64-unknown-linux-musl.tar.gz | sudo tar -xz
-        sudo mv wasm-pack-*/wasm-pack /usr/local/bin/
+        # Download the specific branch as a zip file
+        retry 10 curl -L https://github.com/ZabelTech/wasm-pack/archive/refs/heads/correctly-parse-package_json.zip -o wasm-pack-custom.zip
+
+        # Extract and switch directory
+        unzip wasm-pack-custom.zip
+        cd wasm-pack-correctly-parse-package_json
+
+        # Build the binary (this will take a moment)
+        cargo build --release
+
+        # Move the binary to your local bin
+        sudo mv target/release/wasm-pack /usr/local/bin/
+
+        # Make it executable
         sudo chmod +x /usr/local/bin/wasm-pack
+
+        # Clean up
+        cd ../
+        rm -rf wasm-pack-custom.zip wasm-pack-correctly-parse-package_json
+
+        # # Download and install pre-built wasm-pack binary
+        # retry 10 curl -L https://github.com/rustwasm/wasm-pack/releases/download/v0.12.1/wasm-pack-v0.12.1-x86_64-unknown-linux-musl.tar.gz | sudo tar -xz
+        # sudo mv wasm-pack-*/wasm-pack /usr/local/bin/
+        # sudo chmod +x /usr/local/bin/wasm-pack
 
         echo "Installing wasm-bindgen-cli with retries"
         # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
