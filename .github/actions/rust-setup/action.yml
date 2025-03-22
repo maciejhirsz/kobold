@@ -85,7 +85,7 @@ runs:
     #       ${{ runner.os }}-cargo-
 
     - name: Configure WASM tools
-      working-directory: $HOME
+      working-directory: process.env['RUNNER_TEMP']
       shell: bash
       run: |
         # Source cargo environment and retry script
