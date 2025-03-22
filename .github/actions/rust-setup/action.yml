@@ -93,11 +93,13 @@ runs:
 
         sudo mkdir -p /var/tmp/wasm
         cd /var/tmp/wasm
+        sudo chown -R $USER:$(id -gn) /var/tmp/wasm
 
         # Download the specific branch as a zip file
         retry 10 curl -L https://github.com/ZabelTech/wasm-pack/archive/refs/heads/correctly-parse-package_json.zip -o wasm-pack-custom.zip
 
         # Extract and switch directory
+        chmod +x wasm-pack-custom.zip
         unzip wasm-pack-custom.zip
         cd wasm-pack-correctly-parse-package_json
 
