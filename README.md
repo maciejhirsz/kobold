@@ -61,7 +61,7 @@ Everything here is statically typed and the macro doesn't delete any information
 token stream, so the Rust compiler can tell you when you've made a mistake:
 
 ```text
-error[E0560]: struct `Hello` has no field named `nam`
+error[E0560]: struct `hello` has no field named `nam`
   --> examples/hello_world/src/main.rs:12:16
    |
 12 |         <!hello nam="Kobold">
@@ -267,6 +267,62 @@ cd examples/todomvc
 
 ## Run with trunk
 trunk serve
+```
+
+## Local Continuous Integration
+
+### Github Actions using Act in a Docker container 
+
+* Install [Docker](https://docs.docker.com/get-docker/)
+* Build Docker container from image
+```sh
+export DOCKER_DEFAULT_PLATFORM=linux/amd64
+./docker/build.sh
+```
+
+* Run Docker container
+```sh
+./docker/run.sh
+```
+
+* Enter shell of Docker container
+```sh
+docker exec --user root -it maciejhirsz-kobold /bin/bash
+```
+
+* Run within Docker container all jobs named 'checkfmt', 'miri', and 'tests' in Github Actions locally using Act
+https://nektosact.com/usage/index.html#workflows
+```sh
+# checkfmt
+act --container-options "--privileged" --workflows '.github/workflows/ci.yml' --job 'checkfmt' --platform ubuntu-latest=ubuntu:latest --env DEBIAN_FRONTEND=noninteractive --env TZ=Australia/Sydney --container-architecture linux/amd64 --watch
+
+# miri
+act --container-options "--privileged" --workflows '.github/workflows/ci.yml' --job 'miri' --platform ubuntu-latest=ubuntu:latest --env DEBIAN_FRONTEND=noninteractive --env TZ=Australia/Sydney --container-architecture linux/amd64 --watch
+
+# tests
+act --container-options "--privileged" --workflows '.github/workflows/ci.yml' --job 'tests' --platform ubuntu-latest=ubuntu:latest --env DEBIAN_FRONTEND=noninteractive --env TZ=Australia/Sydney --container-architecture linux/amd64 --watch
+```
+
+* Note: Default image and other options can be changed manually in ~/.actrc (please refer to https://github.com/nektos/act#configuration for additional information about file structure)
+
+* Remove Docker images and container 
+```sh
+docker rmi -f maciejhirsz/kobold:latest
+docker rmi -f maciejhirsz/kobold:v0.1
+docker stop maciejhirsz-kobold
+docker rm maciejhirsz-kobold
+```
+
+#### Troubleshooting
+
+* Show docker url for the engine running with docker-desktop, point docker-compose to the engine running with the desktop UI
+  * https://nektosact.com/usage/custom_engine.html
+  * https://nektosact.com/missing_functionality/docker_context.html
+
+```sh
+docker context list
+export DOCKER_HOST="unix:///var/run/docker.sock"
+source ~/.bashrc
 ```
 
 ## Acknowledgements

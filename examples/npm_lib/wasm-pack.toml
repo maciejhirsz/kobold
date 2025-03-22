@@ -1,0 +1,5 @@
+[test]
+chrome = false
+firefox = false
+headless = true
+node = true

@@ -1,0 +1,113 @@
+name: Base Setup Action
+description: Sets up the environment with Node.js and other dependencies
+
+# inputs:
+#   github-token:
+#     description: 'GitHub token for Node.js setup'
+#     required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install Act dependencies
+      if: ${{ env.ACT }}
+      shell: bash
+      run: |
+        apt-get update && apt-get install sudo -y
+
+    # - name: Setup Node.js
+    #   uses: actions/setup-node@v4
+    #   with:
+    #     node-version: '22.x'
+    #     registry-url: 'https://registry.npmjs.org'
+    #     token: ${{ inputs.github-token }}
+
+    - name: Configure system
+      shell: bash
+      run: |
+        # Set noninteractive installation
+        export DEBIAN_FRONTEND=noninteractive
+        export TZ=Australia/Sydney
+
+        # Pre-configure tzdata to avoid prompts
+        sudo ln -fs /usr/share/zoneinfo/Australia/Sydney /etc/localtime
+        echo "Australia/Sydney" | sudo tee /etc/timezone
+
+        # Pre-accept tzdata license
+        echo 'tzdata tzdata/Areas select Australia' | sudo debconf-set-selections
+        echo 'tzdata tzdata/Zones/Australia select Sydney' | sudo debconf-set-selections
+
+        # Script to try to resolve error `invalid type: map, expected a string` when running `wasm-pack build`
+        # https://github.com/rustwasm/wasm-pack/issues/1420#issuecomment-2585397056
+        #
+        # This script approach is a workaround for the "invalid type: map, expected a string" error
+        # that can occur when running `wasm-pack build`, where the error typically happens due to
+        # race conditions when multiple wasm-pack processes try to access the same configuration
+        # files simultaneously.
+        #
+        # The script creates a mutex using flock on a lock file (wasm-pack-lock) in the XDG runtime directory,
+        # and then executes the actual wasm-pack binary from your Cargo installation. By placing this script
+        # earlier in the $PATH, any calls to wasm-pack will use the wrapper instead of the original binary.
+        #
+        # It effectively serializes all wasm-pack calls through the lock file, preventing the race condition
+        # that causes the map/string type error. The tradeoff is that concurrent builds will execute sequentially,
+        # which might impact performance in heavily parallelized build environments.
+        #
+        # The directory containing the script must appear before ~/.cargo/bin in $PATH, the order of which may be
+        # checked by running `echo $PATH`. 
+
+        # sudo mkdir -p /var/tmp/wasm
+        # sudo mv ./.github/actions/wasm-pack-script/wasm-pack-script.sh /var/tmp/wasm/wasm-pack
+        # sudo chmod +x /var/tmp/wasm/wasm-pack
+
+        # Ensure that the highest priority part of the PATH variable is at the start, not the end.
+        # Note: It doesn't appear to work, but maybe because /usr/local/bin was already in PATH but not at the
+        # highest priority part, so we'll store it in its own folder and add that to the PATH
+        # echo 'export PATH="/var/tmp/wasm:$PATH"' >> $HOME/.profile
+        # source $HOME/.profile
+
+        # Add wasm-pack commad to GITHUB_ENV for subsequent steps
+        # Can't get this to work. `/etc/skel/.cargo/bin:` always seems to be before
+        # echo 'export PATH="/var/tmp/wasm:$PATH"' >> $GITHUB_ENV
+
+        # Can't get it to work. `/etc/skel/.cargo/bin:` always seems to be before
+        # echo "/var/tmp/wasm" > $GITHUB_PATH.new
+        # cat $GITHUB_PATH >> $GITHUB_PATH.new
+        # mv $GITHUB_PATH.new $GITHUB_PATH
+
+        # Install system dependencies
+        sudo apt-get update
+        sudo apt-get upgrade -y
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential pkg-config \
+        libssl-dev unzip curl wget ca-certificates gnupg dialog tzdata
+
+        # Install Node.js 22.x
+        sudo mkdir -p /etc/apt/keyrings
+        curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+          | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] \
+          https://deb.nodesource.com/node_22.x nodistro main" \
+          | sudo tee /etc/apt/sources.list.d/nodesource.list
+        sudo apt-get update
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
+
+        # Install global npm packages with proper permissions
+        sudo mkdir -p /usr/lib/node_modules
+        sudo chown -R $USER:$(id -gn) /usr/lib/node_modules
+        sudo npm install -g yarn
+
+        # Install rustup with retries
+        source ./.github/actions/retry-script/retry.sh
+        retry 10 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sudo sh -s -- -y --profile minimal
+        
+        # Add cargo to PATH and source rustup
+        source $HOME/.cargo/env
+        
+        # Add cargo environment to GITHUB_ENV for subsequent steps
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        echo "CARGO_HOME=$HOME/.cargo" >> $GITHUB_ENV
+        echo "RUSTUP_HOME=$HOME/.rustup" >> $GITHUB_ENV
+
+        # Check order of $PATH
+        # echo "Check order of PATH"
+        # echo $PATH

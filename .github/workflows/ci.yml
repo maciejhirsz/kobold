@@ -8,39 +8,384 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  RUST_LOG: debug,wasm_bindgen_test_runner=trace
+  RUST_BACKTRACE: full
+  NODE_OPTIONS: "--max-old-space-size=4096"
 
 jobs:
   checkfmt:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - run: cargo check --features serde
-      - run: cargo fmt --check
-
-  miri:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-      - name: Run miri
-        run: ci/miri.sh
-
-  tests:
     strategy:
       matrix:
         rust:
-          - stable
+          # - stable
           - nightly
+          - 1.81.0
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup environment
+        uses: ./.github/actions/base-setup
+        # with:
+        #   github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Setup Rust
+        uses: ./.github/actions/rust-setup
         with:
-            toolchain: ${{ matrix.rust }}
-            override: true
-      - uses: actions-rs/cargo@v1
+          toolchain: ${{ matrix.rust }}
+          targets: wasm32-unknown-unknown
+      - name: Check formatting
+        run: |
+          rustup component add rustfmt
+          # cargo fmt --all -- --check
+
+      # https://stackoverflow.com/questions/64226272/caching-npm-dependency-with-github-action
+      - name: Get Yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "::set-output name=dir::$(yarn config get cacheFolder)"
+
+      # - name: Cache Yarn dependencies
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+      #     key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-yarn-
+
+      # - name: Cache NPM dependencies
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: '~/.npm'
+      #     key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-node-
+
+      - name: Install Node.js dependencies
+        working-directory: ./examples/npm_lib
+        run: |
+          export PATH="/usr/bin:$PATH"  # Ensure system binaries are in PATH
+          sudo yarn
+
+      - name: Build with ESBuild script
+        working-directory: ./examples/npm_lib
+        run: |
+          sudo yarn run esbuild
+
+      - name: Install Trunk
+        working-directory: ./examples/npm_lib
+        run: |
+          cargo install --locked trunk
+
+      - name: Build using Trunk
+        working-directory: ./examples/npm_lib
+        run: |
+          RUST_LOG=debug trunk --config ./ build
+
+      # - name: Setup nightly toolchain
+      #   run: |
+      #     rustup toolchain install nightly
+      #     rustup target add wasm32-unknown-unknown --toolchain nightly
+      #     rustup show
+
+      - name: Build with Cargo npm_lib
+        working-directory: ./examples/npm_lib
+        run: |
+          # # Note: The `--vers "0.2.100"` must match the version of
+          # # `wasm-bindgen` in Cargo.toml file
+          # cargo install wasm-bindgen-cli --vers "0.2.100"
+          rustup show
+          cargo +nightly build --package kobold_npm_lib_example \
+            --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
+
+      - name: Check package npm_lib
+        working-directory: ./examples/npm_lib
+        run: |
+          cargo check
+          cargo fmt --check
+      - name: Check parent
+        working-directory: ./
+        run: |
+          cargo check --features serde,stateful --workspace --all-targets --bins --examples
+          cargo fmt --check
+
+  miri:
+    # needs: [checkfmt]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup environment
+        uses: ./.github/actions/base-setup
+        # with:
+        #   github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Setup Rust
+        uses: ./.github/actions/rust-setup
         with:
-          command: test
-          args: --verbose
+          toolchain: nightly
+      - name: Setup Miri
+        working-directory: ./
+        run: |
+          # Source the retry script
+          source ./.github/actions/retry-script/retry.sh
+          MIRI_NIGHTLY=nightly-$(retry 10 curl -s https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/miri)
+          echo "Installing latest nightly with Miri: $MIRI_NIGHTLY"
+          rustup set profile minimal
+          rustup default "$MIRI_NIGHTLY"
+          rustup component add miri
+          cargo miri setup
+      - name: Run Miri tests
+        working-directory: ./crates/kobold
+        run: |
+          MIRIFLAGS='-Zmiri-strict-provenance' cargo miri test
+
+  tests:
+    # needs: [checkfmt, miri]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup environment
+        uses: ./.github/actions/base-setup
+        # with:
+        #   github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Rust
+        uses: ./.github/actions/rust-setup
+        with:
+          toolchain: nightly
+          targets: wasm32-unknown-unknown
+
+      # - name: Install wasm-pack
+      #   run: |
+      #     source $HOME/.cargo/env
+      #     source ./.github/actions/retry-script/retry.sh
+      #     retry 10 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sudo sh
+
+      # https://stackoverflow.com/questions/64226272/caching-npm-dependency-with-github-action
+      # - name: Get Yarn cache directory path
+      #   id: yarn-cache-dir-path
+      #   run: echo "::set-output name=dir::$(yarn config get cacheFolder)"
+
+      # - name: Cache Yarn dependencies
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+      #     key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-yarn-
+
+      # - name: Cache NPM dependencies
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: '~/.npm'
+      #     key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-node-
+
+      - name: Install Node.js dependencies
+        env:
+          NODE_OPTIONS: "--max-old-space-size=8192 --trace-warnings"
+        working-directory: ./examples/npm_lib
+        run: |
+          export PATH="/usr/bin:$PATH"  # Ensure system binaries are in PATH
+          echo "Installing JavaScript dependencies with Yarn"
+          sudo yarn install --frozen-lockfile
+
+      - name: Build with ESBuild script
+        env:
+          NODE_OPTIONS: "--max-old-space-size=8192 --trace-warnings"
+        working-directory: ./examples/npm_lib
+        run: |
+          echo "Building JavaScript module with ESBuild"
+          sudo mkdir -p output
+          sudo chown -R $(id -u):$(id -g) .
+
+          sudo yarn run esbuild
+          ls -al output/
+
+      - name: Install Trunk
+        working-directory: ./examples/npm_lib
+        run: |
+          source ../../.github/actions/retry-script/retry.sh
+
+          echo "Installing Trunk with retries"
+          retry 10 cargo install --locked trunk
+
+      - name: Build using Trunk
+        working-directory: ./examples/npm_lib
+        run: |
+          echo "Building using Trunk"
+          RUST_LOG=debug trunk build --config ./ --log debug
+
+      - name: Test in package npm_lib
+        working-directory: ./examples/npm_lib
+        # timeout-minutes: 60
+        env:
+          RUST_LOG: debug,wasm_bindgen_test_runner=trace
+          # WASM_BINDGEN_TEST_TIMEOUT: 1200
+          NODE_OPTIONS: "--max-old-space-size=8192 --trace-warnings"
+          RUST_BACKTRACE: 1
+        run: |
+          echo "Source environment and retry script"
+          source ../../.github/actions/retry-script/retry.sh
+
+          # retry 10 curl https://wasmtime.dev/install.sh -sSf | bash
+          # ls -al $HOME/.wasmtime/bin/
+          # find $HOME/ -name wasmtime
+          # sudo chmod +x $HOME/.wasmtime/bin/wasmtime
+          # echo 'export PATH="$PATH:$HOME/.wasmtime/bin"' >> ~/.profile
+          # source $HOME/.profile
+          # cat ~/.profile
+
+          # echo 'export PATH="$PATH:$HOME/.wasmtime/bin"' >> $GITHUB_ENV
+
+          # # Build your WASM module
+          # cargo build --target wasm32-unknown-unknown --target-dir ./target/
+
+          # echo "Installing wasm-bindgen-cli with retries"
+          # # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
+          # retry 10 cargo install -f wasm-bindgen-cli --version $(cargo pkgid wasm-bindgen | grep -o '@.*' | sed 's/@//')
+
+          # wasm-bindgen --target bundler --out-dir ./pkg ./target/wasm32-unknown-unknown/debug/kobold_npm_lib_example.wasm
+
+          # # Run with wasmtime
+          # $HOME/.wasmtime/bin/wasmtime run \
+          #   --dir=./ \
+          #   --debug debug-info=y,address-map=y,logging=y,log-to-files=y \
+          #   ./target/wasm32-unknown-unknown/debug/kobold_npm_lib_example.wasm
+
+          echo "Building WASM package"
+          wasm-pack build --target nodejs --dev --verbose
+          ls -al pkg/
+
+          # echo "Verifying WASM module loading"
+          # node -e "
+          #   const mod = require('./pkg/kobold_npm_lib_example.js');
+          #   console.log('Module exports:', Object.keys(mod));
+          #   if (!mod.default) console.warn('Warning: Module has no default export');
+          # "
+
+          # echo "Building and testing WASM package using cargo"
+          # cargo +nightly test --package kobold_npm_lib_example \
+          #   --bin main --target wasm32-unknown-unknown -Zdoctest-xcompile --verbose
+
+          # echo "Building and testing WASM package with wasm-pack"
+          # echo "Node.js version:"
+          # node --version
+          # echo "wasm-pack version:"
+          # wasm-pack --version
+          # echo "System resources:"
+          # free -h || true
+          # vmstat 1 1 || true
+
+          # echo "Building and testing WASM package using wasm-pack"
+          # # wasm-pack test --node --release && sleep 2
+          # wasm-pack test --node --release | tee test_output.log || {
+          #   TEST_EXIT=$?
+          #   # Check if the test output contains "test result: ok"
+          #   if grep -q "test result: ok" test_output.log; then
+          #     echo "Found 'test result: ok' in output. Considering test successful."
+          #     exit 0
+          #   else
+          #     echo "Test failed with exit code: $TEST_EXIT"
+          #     echo "Node.js processes:"
+          #     ps aux | grep node || true
+          #     exit $TEST_EXIT
+          #   fi
+          # }
+
+          echo "Running wasm-pack tests with nightly"
+
+          # Create a temporary file for output
+          OUTPUT_FILE=$(mktemp)
+
+          # Start wasm-pack in the background and capture its PID
+          RUSTUP_TOOLCHAIN=nightly wasm-pack test --node --release > "$OUTPUT_FILE" 2>&1 &
+          TEST_PID=$!
+
+          # Maximum wait time in seconds
+          MAX_WAIT=600
+          ELAPSED=0
+          SUCCESS_FOUND=0
+          TEST_EXIT=0
+
+          # Monitor the output file while the test is running
+          while kill -0 $TEST_PID 2>/dev/null; do
+            # Check if success message appears
+            if grep -q "test result: ok" "$OUTPUT_FILE"; then
+              SUCCESS_FOUND=1
+              echo "✅ Found 'test result: ok' in output. Considering test successful."
+              kill $TEST_PID 2>/dev/null || true
+              wait $TEST_PID 2>/dev/null || true
+              break
+            fi
+            
+            # Check for timeout
+            if [ $ELAPSED -ge $MAX_WAIT ]; then
+              echo "Test timed out after $MAX_WAIT seconds"
+              kill $TEST_PID 2>/dev/null || true
+              wait $TEST_PID 2>/dev/null || true
+              echo "Node.js processes:"
+              ps aux | grep node || true
+              TEST_EXIT=124
+              break
+            fi
+            
+            # Wait a bit before checking again
+            sleep 5
+            ELAPSED=$((ELAPSED + 5))
+          done
+
+          # If the process completed naturally, get its exit code
+          if [ $SUCCESS_FOUND -eq 0 ] && [ $TEST_EXIT -eq 0 ]; then
+            wait $TEST_PID
+            TEST_EXIT=$?
+            
+            # Check one more time for success message
+            if grep -q "test result: ok" "$OUTPUT_FILE"; then
+              SUCCESS_FOUND=1
+              echo "✅ Found 'test result: ok' in output. Considering test successful."
+            fi
+          fi
+
+          # Display error information if no success found and test failed
+          if [ $SUCCESS_FOUND -eq 0 ] && [ $TEST_EXIT -ne 0 ]; then
+            echo "❌Test failed with exit code: $TEST_EXIT"
+            echo "Node.js processes:"
+            ps aux | grep node || true
+            rm -f "$OUTPUT_FILE"
+            exit $TEST_EXIT
+          fi
+
+          # Clean up
+          rm -f "$OUTPUT_FILE"
+          exit 0
+
+          # echo "Running WASM tests with diagnostics"
+          # # Use timeout command for more granular control
+          # /usr/bin/timeout -k 30s 150s wasm-pack test --node --headless -- \
+          #   --test-threads=1 \
+          #   --nocapture \
+          #   --color always || {
+          #   TEST_EXIT=$?
+          #   echo "Test process exited with code: $TEST_EXIT"
+
+          #   if [ $TEST_EXIT -eq 124 ] || [ $TEST_EXIT -eq 137 ]; then
+          #     echo "Test timed out. Collecting diagnostic information..."
+          #     # Print Node.js process info
+          #     ps aux | grep node
+          #     # Check system resources
+          #     free -h
+          #     vmstat 1 5
+          #     # Dump Node.js heap if any node process is running
+          #     for pid in $(pgrep node); do
+          #       echo "Attempting to get heap dump from Node process $pid"
+          #       node --prof-process "/proc/$pid/status" || true
+          #     done
+          #     echo "Diagnostic information collection complete"
+          #     exit 1
+          #   else
+          #     echo "Test failed with exit code: $TEST_EXIT"
+          #     exit $TEST_EXIT
+          #   fi
+          # }

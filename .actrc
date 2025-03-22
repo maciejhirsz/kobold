@@ -1,0 +1,3 @@
+# --privileged
+# --container-architecture=linux/amd64
+# -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04

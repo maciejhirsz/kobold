@@ -1,0 +1,13 @@
+{
+  "scripts": {
+    "esbuild": "node esbuild.js"
+  },
+  "dependencies": {
+    "@polkadot/api": "^15.8.1",
+    "@polkadot/types": "^15.8.1",
+    "@polkadot/rpc-provider": "^15.8.1",
+    "esbuild": "^0.25.1",
+    "yarn": "^1.22.22"
+  },
+  "type": "module"
+}

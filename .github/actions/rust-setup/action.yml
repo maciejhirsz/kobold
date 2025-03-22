@@ -1,0 +1,137 @@
+name: Rust Setup Action
+description: Sets up Rust toolchain with specified version and configures components
+
+inputs:
+  toolchain:
+    description: 'Rust toolchain version to use'
+    required: true
+    # default: 'stable'
+    default: 1.81.0
+  targets:
+    description: 'Target architectures to install'
+    required: false
+    default: 'wasm32-unknown-unknown'
+
+runs:
+  using: composite
+  steps:
+    - name: Configure rustup
+      shell: bash
+      run: |
+        # Source cargo environment
+        source $HOME/.cargo/env
+        
+        # Verify rustup installation
+        if ! command -v rustup &> /dev/null; then
+          echo "Error: rustup not found. Please ensure base-setup completed successfully."
+          exit 1
+        fi
+        
+        # Set minimal profile
+        rustup set profile minimal
+
+    # - name: Install Rust toolchain (stable)
+    #   uses: dtolnay/rust-toolchain@master
+    #   with:
+    #     toolchain: stable
+    #     targets: wasm32-unknown-unknown
+    #     components: rustfmt
+
+    # - name: Install Rust toolchain (nightly)
+    #   uses: dtolnay/rust-toolchain@master
+    #   with:
+    #     toolchain: nightly
+    #     targets: wasm32-unknown-unknown
+    #     components: rustfmt
+
+    # - name: Install Rust toolchain
+    #   uses: dtolnay/rust-toolchain@1.81.0
+    #   with:
+    #     # toolchain: nightly
+    #     targets: wasm32-unknown-unknown
+    #     components: rustfmt
+
+    - name: Set default toolchain
+      shell: bash
+      run: |
+        source $HOME/.cargo/env
+        rustup install ${{ inputs.toolchain }}
+        rustup default ${{ inputs.toolchain }}
+        rustup target add ${{ inputs.targets }}
+        rustup component add rustfmt
+        rustup override set ${{ inputs.toolchain }}
+        rustc --version
+        rustup show
+
+    - name: Install nightly toolchain
+      shell: bash
+      run: |
+        source $HOME/.cargo/env
+        rustup toolchain install nightly
+        rustup target add wasm32-unknown-unknown --toolchain nightly
+        rustup component add rustfmt --toolchain nightly
+        cargo +nightly --version
+        rustup show
+
+    # - name: Cache cargo dependencies
+    #   uses: actions/cache@v4
+    #   with:
+    #     path: |
+    #       ~/.cargo/registry
+    #       ~/.cargo/git
+    #       target
+    #     key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    #     restore-keys: |
+    #       ${{ runner.os }}-cargo-
+
+    - name: Configure WASM tools
+      shell: bash
+      run: |
+        # Source cargo environment and retry script
+        source $HOME/.cargo/env
+        source ./.github/actions/retry-script/retry.sh
+
+        sudo mkdir -p /var/tmp/wasm
+        cd /var/tmp/wasm
+        sudo chown -R $USER:$(id -gn) /var/tmp/wasm
+
+        # Download the specific branch as a zip file
+        retry 10 curl -L https://github.com/ZabelTech/wasm-pack/archive/refs/heads/correctly-parse-package_json.zip -o wasm-pack-custom.zip
+
+        # Extract and switch directory
+        chmod +x wasm-pack-custom.zip
+        unzip wasm-pack-custom.zip
+        cd wasm-pack-correctly-parse-package_json
+
+        # Build the binary (this will take a moment)
+        cargo build --release
+
+        # Move the binary to your local bin
+        sudo mv target/release/wasm-pack /usr/local/bin/
+
+        # Make it executable
+        sudo chmod +x /usr/local/bin/wasm-pack
+
+        # Clean up
+        cd ../
+        rm -rf wasm-pack-custom.zip wasm-pack-correctly-parse-package_json
+
+        # # Download and install pre-built wasm-pack binary
+        # retry 10 curl -L https://github.com/rustwasm/wasm-pack/releases/download/v0.12.1/wasm-pack-v0.12.1-x86_64-unknown-linux-musl.tar.gz | sudo tar -xz
+        # sudo mv wasm-pack-*/wasm-pack /usr/local/bin/
+        # sudo chmod +x /usr/local/bin/wasm-pack
+
+        echo "Installing wasm-bindgen-cli with retries"
+        # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
+        retry 10 cargo install wasm-bindgen-cli --vers "0.2.100"
+        
+        # Verify wasm-pack installation
+        if ! command -v wasm-pack &> /dev/null; then
+          echo "Error: wasm-pack installation failed"
+          exit 1
+        fi
+        
+        echo "Verify tools are available from rust-setup"
+        wasm-pack --version
+        wasm-bindgen --version
+        rustup show
