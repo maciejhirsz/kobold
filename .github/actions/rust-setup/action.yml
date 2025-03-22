@@ -84,30 +84,30 @@ runs:
     #     restore-keys: |
     #       ${{ runner.os }}-cargo-
 
-    # - name: Configure WASM tools
-    #   working-directory: ./
-    #   shell: bash
-    #   run: |
-    #     # Source cargo environment and retry script
-    #     source $HOME/.cargo/env
-    #     source ./.github/actions/retry-script/retry.sh
+    - name: Configure WASM tools
+      working-directory: ./
+      shell: bash
+      run: |
+        # Source cargo environment and retry script
+        source $HOME/.cargo/env
+        source ./.github/actions/retry-script/retry.sh
 
-    #     # Download and install pre-built wasm-pack binary
-    #     retry 10 curl -L https://github.com/rustwasm/wasm-pack/releases/download/v0.12.1/wasm-pack-v0.12.1-x86_64-unknown-linux-musl.tar.gz | sudo tar -xz
-    #     sudo mv wasm-pack-*/wasm-pack /usr/local/bin/
-    #     sudo chmod +x /usr/local/bin/wasm-pack
+        # Download and install pre-built wasm-pack binary
+        retry 10 curl -L https://github.com/rustwasm/wasm-pack/releases/download/v0.12.1/wasm-pack-v0.12.1-x86_64-unknown-linux-musl.tar.gz | sudo tar -xz
+        sudo mv wasm-pack-*/wasm-pack /usr/local/bin/
+        sudo chmod +x /usr/local/bin/wasm-pack
 
-    #     echo "Installing wasm-bindgen-cli with retries"
-    #     # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
-    #     retry 10 cargo install wasm-bindgen-cli --vers "0.2.100"
+        echo "Installing wasm-bindgen-cli with retries"
+        # Note: The `--vers "0.2.100"` must match the version of `wasm-bindgen` in Cargo.toml file
+        retry 10 cargo install wasm-bindgen-cli --vers "0.2.100"
         
-    #     # Verify wasm-pack installation
-    #     if ! command -v wasm-pack &> /dev/null; then
-    #       echo "Error: wasm-pack installation failed"
-    #       exit 1
-    #     fi
+        # Verify wasm-pack installation
+        if ! command -v wasm-pack &> /dev/null; then
+          echo "Error: wasm-pack installation failed"
+          exit 1
+        fi
         
-    #     echo "Verify tools are available from rust-setup"
-    #     wasm-pack --version
-    #     wasm-bindgen --version
-    #     rustup show
+        echo "Verify tools are available from rust-setup"
+        wasm-pack --version
+        wasm-bindgen --version
+        rustup show
