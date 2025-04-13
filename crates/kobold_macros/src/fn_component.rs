@@ -338,10 +338,21 @@ impl Parse for Function {
 impl Parse for Argument {
     fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
         let name = stream.parse()?;
+        let mut angle_depth = 0i32;
 
         stream.expect(':')?;
 
-        let ty = stream.take_while(|token| !token.is(',')).collect();
+        let ty = stream
+            .take_while(|token| {
+                if token.is('<') {
+                    angle_depth += 1;
+                } else if token.is('>') {
+                    angle_depth -= 1;
+                }
+
+                !token.is(',') || angle_depth != 0
+            })
+            .collect();
 
         Ok(Argument {
             name,
