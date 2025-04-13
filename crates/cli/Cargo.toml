@@ -19,7 +19,7 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.5.4", features = ["derive"] }
-crossterm = { version = "0.28.1", default-features = false }
+crossterm = { version = "0.28.1", default-features = false, features = ["windows"] }
 futures-lite = "2.5.0"
 http-body-util = "0.1.2"
 hyper = { version = "1.5.1", features = ["http1", "server"] }
