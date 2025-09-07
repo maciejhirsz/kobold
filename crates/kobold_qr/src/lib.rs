@@ -1,13 +1,12 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+use std::fmt::Write;
 
 use kobold::prelude::*;
-use wasm_bindgen::prelude::*;
 
 use fast_qr::qr::QRBuilder;
 use kobold::diff::fence;
-use web_sys::CanvasRenderingContext2d;
 
 /// Error Correction Coding has 4 levels
 pub enum Ecl {
@@ -45,41 +44,48 @@ impl Default for Ecl {
 pub fn qr(data: &str, size: usize, ecl: Ecl) -> impl View {
     fence(data, move || {
         let qr = QRBuilder::new(data).ecl(ecl.into()).build().ok()?;
-        let pixel = ((size / qr.size) + 1) * 2;
-        let pixels = qr.size * pixel;
+
+        let viewbox = format!("0 0 {} {}", qr.size, qr.size);
         let style = format!("width: {size}px; height: {size}px;");
+
+        // Most QR codes will generate a path with density of ~2.5 bytes per module,
+        // allocating 4 bytes per module should be more than sufficient.
+        let mut path = String::with_capacity(qr.data.len() * 4);
+
+        for (y, row) in qr.data.chunks_exact(qr.size).enumerate() {
+            let row = &mut row.iter();
+
+            // Find first filled module
+            let Some(x) = row.position(|m| m.value()) else {
+                continue;
+            };
+
+            // Move to the new line
+            let _ = write!(&mut path, "M{x} {y}");
+
+            loop {
+                // Draw a recangle for all continous modules
+                let width = row.take_while(|m| m.value()).count() + 1;
+
+                let _ = write!(&mut path, "v1h{width}v-1");
+
+                // Skip empty modules
+                let Some(empty) = row.position(|m| m.value()) else {
+                    break;
+                };
+
+                // Note: we are drawing a line here (`hN`) instead of moving (`mN 0`) to
+                //       save some bytes, this is fine as long as we don't render line stroke.
+                let _ = write!(&mut path, "h{}", empty + 1);
+            }
+        }
 
         Some(
             view! {
-                <canvas width={pixels} height={pixels} {style} />
+                <svg viewBox={viewbox} {style}>
+                    <path d={path} fill="currentColor">
+                </svg>
             }
-            .on_render(move |canvas| {
-                let ctx = match canvas.get_context("2d") {
-                    Ok(Some(ctx)) => ctx.unchecked_into::<CanvasRenderingContext2d>(),
-                    _ => return,
-                };
-
-                ctx.clear_rect(0., 0., pixels as f64, pixels as f64);
-
-                for (y, row) in qr.data.chunks(qr.size).take(qr.size).enumerate() {
-                    let mut row = row.iter().enumerate();
-
-                    while let Some((x, m)) = row.next() {
-                        if !m.value() {
-                            continue;
-                        }
-
-                        let w = 1 + (&mut row).take_while(|(_, m)| m.value()).count();
-
-                        ctx.fill_rect(
-                            (x * pixel) as f64,
-                            (y * pixel) as f64,
-                            (w * pixel) as f64,
-                            pixel as f64,
-                        )
-                    }
-                }
-            }),
         )
     })
 }
