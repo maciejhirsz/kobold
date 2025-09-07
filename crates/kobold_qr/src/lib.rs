@@ -3,9 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 use std::fmt::Write;
 
-use kobold::prelude::*;
+use fast_qr::Module;
+use fast_qr::qr::QRBuilder;
 
-use fast_qr::{Module, qr::QRBuilder};
+use kobold::prelude::*;
 use kobold::diff::fence;
 
 /// Error Correction Coding has 4 levels
