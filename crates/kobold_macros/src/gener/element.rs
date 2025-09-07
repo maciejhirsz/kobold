@@ -149,9 +149,10 @@ impl IntoGenerator for HtmlElement {
                         }
                     }
                     AttributeType::Unknown => {
+                        let name = attribute_name(&name.label);
                         el.hoisted = true;
 
-                        let prop = (Literal::string(&name.label), ".into()").tokenize();
+                        let prop = (Literal::string(name), ".into()").tokenize();
                         let attr = Attr::new("&AttributeName");
 
                         gener.add_field(expr.stream).attr(var, attr, prop);
