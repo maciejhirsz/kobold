@@ -32,7 +32,7 @@ where
 }
 
 pub trait IteratorExt: Iterator + Sized {
-    fn join(self, sep: &str) -> Join<Self> {
+    fn join(self, sep: &str) -> Join<'_, Self> {
         Join {
             iter: UnsafeCell::new(self),
             sep,
