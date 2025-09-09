@@ -14,6 +14,10 @@ use ctx::EventCtx;
 
 pub use ctx::EventContext;
 
+/// 0 is reserved for popstate events so links can be triggered
+/// without having to pass any context.
+pub(crate) const POPSTATE_EID: EventId = EventId(0);
+
 struct RuntimeData<P, U> {
     product: P,
     update: U,
@@ -56,7 +60,7 @@ impl From<()> for Then {
 }
 
 thread_local! {
-    static EVENT_ID: Cell<u32> = const { Cell::new(0) };
+    static EVENT_ID: Cell<u32> = const { Cell::new(1) };
 
     static INIT: Cell<bool> = const { Cell::new(false) };
 

@@ -83,6 +83,12 @@ mod sealed {
             e
         }
     }
+
+    impl EventCast for () {
+        fn cast_from(_: &web_sys::Event) -> &Self {
+            &()
+        }
+    }
 }
 
 pub(crate) use sealed::EventCast;

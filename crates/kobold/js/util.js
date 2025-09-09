@@ -42,3 +42,5 @@ export function replaceClass(n,o,v) { n.classList.replace(o,v); }
 export function toggleClass(n,c,v) { n.classList.toggle(c,v); }
 
 export function makeEventHandler(eid) { return (e) => wasmBindings.koboldTrigger(eid,e); }
+export function handlePopState() { window.onpopstate = makeEventHandler(0); }
+export function getPath() { return document.location.pathname; }

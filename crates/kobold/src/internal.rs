@@ -137,4 +137,8 @@ extern "C" {
 
     #[wasm_bindgen(js_name = "makeEventHandler")]
     pub(crate) fn make_event_handler(eid: u32) -> JsValue;
+    #[wasm_bindgen(js_name = "handlePopState")]
+    pub(crate) fn handle_pop_state();
+    #[wasm_bindgen(js_name = "getPath")]
+    pub(crate) fn get_path() -> String;
 }

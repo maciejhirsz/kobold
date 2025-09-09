@@ -368,6 +368,7 @@ pub mod internal;
 pub mod keywords;
 pub mod list;
 pub mod maybe;
+pub mod path;
 pub mod runtime;
 
 mod value;
