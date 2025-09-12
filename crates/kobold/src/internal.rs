@@ -93,6 +93,12 @@ mod hidden {
     pub fn kobold_trigger(eid: u32, event: web_sys::Event) {
         trigger(EventId(eid), event);
     }
+
+    #[wasm_bindgen(js_name = "koboldLink")]
+    pub fn kobold_link(event: web_sys::Event) {
+        super::push_state(&event);
+        trigger(EventId(0), event);
+    }
 }
 
 #[wasm_bindgen(module = "/js/util.js")]
@@ -137,8 +143,10 @@ extern "C" {
 
     #[wasm_bindgen(js_name = "makeEventHandler")]
     pub(crate) fn make_event_handler(eid: u32) -> JsValue;
-    #[wasm_bindgen(js_name = "handlePopState")]
-    pub(crate) fn handle_pop_state();
+    #[wasm_bindgen(js_name = "popState")]
+    pub(crate) fn pop_state();
+    #[wasm_bindgen(js_name = "pushState")]
+    pub(crate) fn push_state(e: &JsValue);
     #[wasm_bindgen(js_name = "getPath")]
     pub(crate) fn get_path() -> String;
 }

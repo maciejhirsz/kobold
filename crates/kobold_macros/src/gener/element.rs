@@ -97,6 +97,10 @@ impl IntoGenerator for HtmlElement {
             let attr_type = attribute_type(&name.label);
 
             match value {
+                AttributeValue::Literal(value) if name.label == "link" => {
+                    writeln!(el, "{var}.href={value};");
+                    writeln!(el, "{var}.onclick=e=>wasmBindings.koboldLink(e);")
+                }
                 AttributeValue::Literal(value) => {
                     let name = attribute_name(&name.label);
                     writeln!(el, "{var}.setAttribute(\"{name}\",{value});");
@@ -133,6 +137,22 @@ impl IntoGenerator for HtmlElement {
                         );
 
                         el.args.push(JsArgument::with_abi(value, InlineAbi::Event))
+                    }
+                    AttributeType::Link => {
+                        el.hoisted = true;
+
+                        let attr = Attr {
+                            name: "href",
+                            abi: Some(InlineAbi::Str),
+                        };
+
+                        let value = gener
+                            .add_field(expr.stream)
+                            .attr(var, attr, attr.prop())
+                            .name;
+
+                        writeln!(el, "{var}.href={value};");
+                        writeln!(el, "{var}.onclick=e=>wasmBindings.koboldLink(e);")
                     }
                     AttributeType::Provided(attr) => {
                         let name = attribute_name(&name.label);
@@ -178,6 +198,9 @@ impl IntoGenerator for HtmlElement {
                 AttributeType::Provided(attr) => {
                     gener.add_attr_hint(name.ident, "", attr.name);
                 }
+                AttributeType::Link => {
+                    gener.add_attr_hint(name.ident, "", "Href");
+                }
                 AttributeType::Unknown => {
                     gener.add_attr_hint(name.ident, "&'static", "AttributeName");
                 }
@@ -222,6 +245,7 @@ impl InlineAbi {
 enum AttributeType {
     Provided(Attr),
     Event(&'static str),
+    Link,
     Unknown,
 }
 
@@ -301,6 +325,7 @@ fn attribute_type(attr: &str) -> AttributeType {
             name: "Value",
             abi: None,
         },
+        "link" => return AttributeType::Link,
         _ => return AttributeType::Unknown,
     };
 

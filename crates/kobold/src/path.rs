@@ -17,7 +17,7 @@ pub struct PopStateProduct<P> {
     product: P,
 }
 
-pub fn popstate<F, V>(render: F) -> PopState<F>
+pub fn pop_state<F, V>(render: F) -> PopState<F>
 where
     F: Fn(&str) -> V,
     V: View,
@@ -36,7 +36,7 @@ where
         let path = get_path();
         let view = (self.render)(&path);
 
-        crate::internal::handle_pop_state();
+        crate::internal::pop_state();
 
         PopStateProduct {
             path,

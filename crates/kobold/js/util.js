@@ -42,5 +42,6 @@ export function replaceClass(n,o,v) { n.classList.replace(o,v); }
 export function toggleClass(n,c,v) { n.classList.toggle(c,v); }
 
 export function makeEventHandler(eid) { return (e) => wasmBindings.koboldTrigger(eid,e); }
-export function handlePopState() { window.onpopstate = makeEventHandler(0); }
+export function popState() { window.onpopstate = makeEventHandler(0); }
+export function pushState(e) { e.preventDefault(); history.pushState(null,'',e.currentTarget.href); }
 export function getPath() { return document.location.pathname; }
