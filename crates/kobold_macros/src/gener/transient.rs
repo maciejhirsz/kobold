@@ -429,7 +429,7 @@ impl Debug for Field {
                 write!(f, "{name} <Listener<{event}<{target}>>>: {value}")
             }
             FieldKind::Attribute { attr, .. } => {
-                write!(f, "{name} <Attribute<{}>>: {value}", attr.name)
+                write!(f, "{name} <Attribute<{}>>: {value}", attr.hint)
             }
         }
     }

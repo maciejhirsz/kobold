@@ -60,7 +60,7 @@ impl IntoGenerator for HtmlElement {
                     el.hoisted = true;
 
                     let attr = Attr {
-                        name: "ClassName",
+                        hint: "ClassName",
                         abi: None,
                     };
                     gener.add_field(expr.stream).attr(el.var, attr, attr.prop());
@@ -80,7 +80,7 @@ impl IntoGenerator for HtmlElement {
                 }
 
                 let attr = Attr {
-                    name: "Class",
+                    hint: "Class",
                     abi: None,
                 };
 
@@ -94,22 +94,29 @@ impl IntoGenerator for HtmlElement {
         }
 
         for Attribute { name, value } in self.attributes {
-            let attr_type = attribute_type(&name.label);
+            let handler = attribute_handler(&name.label);
 
             match value {
-                AttributeValue::Literal(value) if name.label == "link" => {
-                    writeln!(el, "{var}.href={value};");
-                    writeln!(el, "{var}.onclick=e=>wasmBindings.koboldLink(e);")
-                }
-                AttributeValue::Literal(value) => {
-                    let name = attribute_name(&name.label);
-                    writeln!(el, "{var}.setAttribute(\"{name}\",{value});");
-                }
+                AttributeValue::Literal(value) => match handler {
+                    AttributeHandler::Event { name, .. } => {
+                        writeln!(el, "{var}.addEventListener(\"{name}\",{value});");
+                    }
+                    AttributeHandler::Link => {
+                        writeln!(el, "{var}.href={value};");
+                        writeln!(el, "{var}.onclick=e=>wasmBindings.koboldLink(e);")
+                    }
+                    AttributeHandler::Prop { name, .. } => {
+                        writeln!(el, "{var}.{name}={value};");
+                    }
+                    AttributeHandler::SetAttribute { name } => {
+                        writeln!(el, "{var}.setAttribute(\"{name}\",{value});");
+                    }
+                },
                 AttributeValue::Boolean(value) => {
                     writeln!(el, "{var}.{name}={value};");
                 }
-                AttributeValue::Expression(mut expr) => match &attr_type {
-                    AttributeType::Event(event) => {
+                AttributeValue::Expression(mut expr) => match &handler {
+                    AttributeHandler::Event { name, event } => {
                         let target = el.typ;
 
                         let coerce = if is_inline_closure(&mut expr.stream) {
@@ -130,19 +137,15 @@ impl IntoGenerator for HtmlElement {
 
                         let value = gener.add_field(coerce).event(event, el.typ).name;
 
-                        writeln!(
-                            el,
-                            "{var}.addEventListener(\"{}\",{value});",
-                            &name.label[2..]
-                        );
+                        writeln!(el, "{var}.addEventListener(\"{name}\",{value});");
 
                         el.args.push(JsArgument::with_abi(value, InlineAbi::Event))
                     }
-                    AttributeType::Link => {
+                    AttributeHandler::Link => {
                         el.hoisted = true;
 
                         let attr = Attr {
-                            name: "href",
+                            hint: "Href",
                             abi: Some(InlineAbi::Str),
                         };
 
@@ -154,8 +157,7 @@ impl IntoGenerator for HtmlElement {
                         writeln!(el, "{var}.href={value};");
                         writeln!(el, "{var}.onclick=e=>wasmBindings.koboldLink(e);")
                     }
-                    AttributeType::Provided(attr) => {
-                        let name = attribute_name(&name.label);
+                    AttributeHandler::Prop { name, attr } => {
                         el.hoisted = true;
 
                         let value = gener
@@ -168,8 +170,7 @@ impl IntoGenerator for HtmlElement {
                             el.args.push(JsArgument::with_abi(value, abi))
                         }
                     }
-                    AttributeType::Unknown => {
-                        let name = attribute_name(&name.label);
+                    AttributeHandler::SetAttribute { name } => {
                         el.hoisted = true;
 
                         let prop = (Literal::string(name), ".into()").tokenize();
@@ -180,8 +181,8 @@ impl IntoGenerator for HtmlElement {
                 },
             };
 
-            match attr_type {
-                AttributeType::Event(event) => {
+            match handler {
+                AttributeHandler::Event { event, .. } => {
                     let target = el.typ;
 
                     gener.add_hint(
@@ -195,13 +196,13 @@ impl IntoGenerator for HtmlElement {
                         ),
                     );
                 }
-                AttributeType::Provided(attr) => {
-                    gener.add_attr_hint(name.ident, "", attr.name);
+                AttributeHandler::Prop { attr, .. } => {
+                    gener.add_attr_hint(name.ident, "", attr.hint);
                 }
-                AttributeType::Link => {
+                AttributeHandler::Link => {
                     gener.add_attr_hint(name.ident, "", "Href");
                 }
-                AttributeType::Unknown => {
+                AttributeHandler::SetAttribute { .. } => {
                     gener.add_attr_hint(name.ident, "&'static", "AttributeName");
                 }
             }
@@ -241,35 +242,27 @@ impl InlineAbi {
     }
 }
 
-#[derive(Clone, Copy)]
-enum AttributeType {
-    Provided(Attr),
-    Event(&'static str),
-    Link,
-    Unknown,
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct Attr {
-    pub name: &'static str,
+    pub hint: &'static str,
     pub abi: Option<InlineAbi>,
 }
 
 impl Attr {
-    const fn new(name: &'static str) -> Self {
-        Attr { name, abi: None }
+    const fn new(hint: &'static str) -> Self {
+        Attr { hint, abi: None }
     }
 
     pub fn as_parts(&self) -> (&str, &str) {
-        if self.name.starts_with('&') {
-            ("&'static ", &self.name[1..])
+        if self.hint.starts_with('&') {
+            ("&'static ", &self.hint[1..])
         } else {
-            ("", self.name)
+            ("", self.hint)
         }
     }
 
     fn prop(&self) -> TokenStream {
-        format_args!("::kobold::attribute::{}", self.name).tokenize()
+        format_args!("::kobold::attribute::{}", self.hint).tokenize()
     }
 }
 
@@ -291,45 +284,71 @@ fn is_inline_closure(out: &mut TokenStream) -> bool {
     is_closure
 }
 
-fn attribute_name(attr: &str) -> &str {
-    match attr {
-        "html" => "innerHTML",
-        "view_box" => "viewBox",
-        name => name,
-    }
+#[derive(Clone, Copy)]
+enum AttributeHandler<'name> {
+    /// Use default `el.setAttribute(name, value);`
+    SetAttribute { name: &'name str },
+    /// Use as a prop `el.name = value;`
+    Prop { name: &'name str, attr: Attr },
+    /// Set as an event listener `el.addEventListener(name, value);`
+    Event {
+        name: &'name str,
+        event: &'static str,
+    },
+    /// This is a link and needs its own special case
+    Link,
 }
 
-fn attribute_type(attr: &str) -> AttributeType {
-    if attr.starts_with("on") && attr.len() > 2 {
-        return AttributeType::Event(event_js_type(&attr[2..]));
+fn attribute_handler(name: &str) -> AttributeHandler<'_> {
+    if name.starts_with("on") && name.len() > 2 {
+        let name = &name[2..];
+
+        return AttributeHandler::Event {
+            name,
+            event: event_js_type(name),
+        };
     }
 
-    let attr = match attr {
-        "checked" => Attr {
-            name: "Checked",
-            abi: Some(InlineAbi::Bool),
+    match name {
+        "link" => AttributeHandler::Link,
+        "view_box" => AttributeHandler::SetAttribute { name: "viewBox" },
+        "checked" => AttributeHandler::Prop {
+            name,
+            attr: Attr {
+                hint: "Checked",
+                abi: Some(InlineAbi::Bool),
+            },
         },
-        "href" => Attr {
-            name: "Href",
-            abi: Some(InlineAbi::Str),
+        "href" => AttributeHandler::Prop {
+            name,
+            attr: Attr {
+                hint: "Href",
+                abi: Some(InlineAbi::Str),
+            },
         },
-        "html" => Attr {
-            name: "InnerHtml",
-            abi: Some(InlineAbi::Str),
+        "html" => AttributeHandler::Prop {
+            name: "innerHTML",
+            attr: Attr {
+                hint: "InnerHtml",
+                abi: Some(InlineAbi::Str),
+            },
         },
-        "style" => Attr {
-            name: "Style",
-            abi: Some(InlineAbi::Str),
+        "style" => AttributeHandler::Prop {
+            name,
+            attr: Attr {
+                hint: "Style",
+                abi: Some(InlineAbi::Str),
+            },
         },
-        "value" => Attr {
-            name: "Value",
-            abi: None,
+        "value" => AttributeHandler::Prop {
+            name,
+            attr: Attr {
+                hint: "Value",
+                abi: None,
+            },
         },
-        "link" => return AttributeType::Link,
-        _ => return AttributeType::Unknown,
-    };
-
-    AttributeType::Provided(attr)
+        name => AttributeHandler::SetAttribute { name },
+    }
 }
 
 #[rustfmt::skip]
