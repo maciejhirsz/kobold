@@ -6,8 +6,8 @@ use std::fmt::Write;
 use fast_qr::Module;
 use fast_qr::qr::QRBuilder;
 
-use kobold::prelude::*;
 use kobold::diff::fence;
+use kobold::prelude::*;
 
 /// Error Correction Coding has 4 levels
 pub enum Ecl {

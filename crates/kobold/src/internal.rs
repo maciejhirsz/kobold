@@ -112,6 +112,9 @@ extern "C" {
     #[wasm_bindgen(js_name = createTextNode)]
     pub(crate) fn text_node_bool(t: bool) -> Node;
 
+    #[wasm_bindgen(js_name = "delegateEvent")]
+    pub(crate) fn delegate_event(kind: i32);
+
     #[wasm_bindgen(js_name = "emptyNode")]
     pub(crate) fn empty_node() -> Node;
     #[wasm_bindgen(js_name = "fragment")]

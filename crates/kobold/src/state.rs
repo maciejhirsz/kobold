@@ -13,7 +13,7 @@
 //!
 use wasm_bindgen::JsValue;
 
-use crate::runtime::{EventContext, Then, Trigger};
+use crate::runtime::{EventContext, Then, Trigger, UsedEvents};
 use crate::{Mountable, View};
 
 mod hook;
@@ -89,6 +89,8 @@ where
     S: 'static,
     P: Mountable,
 {
+    const EVENTS: UsedEvents = P::EVENTS;
+
     type Js = P::Js;
 
     fn js(&self) -> &JsValue {
@@ -146,6 +148,8 @@ where
     StatefulProduct<S, P>: Mountable,
     D: 'static,
 {
+    const EVENTS: UsedEvents = <StatefulProduct<S, P> as Mountable>::EVENTS;
+
     type Js = <StatefulProduct<S, P> as Mountable>::Js;
 
     fn js(&self) -> &JsValue {

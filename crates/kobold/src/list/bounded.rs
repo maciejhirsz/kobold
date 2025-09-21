@@ -8,7 +8,7 @@ use std::ops::{Deref, DerefMut};
 use web_sys::Node;
 
 use crate::dom::{Anchor, Fragment, FragmentBuilder};
-use crate::runtime::{EventContext, Then, Trigger};
+use crate::runtime::{EventContext, Then, Trigger, UsedEvents};
 use crate::{Mountable, View};
 
 pub struct BoundedProduct<P: Mountable, const N: usize> {
@@ -99,6 +99,8 @@ impl<P, const N: usize> Anchor for BoundedProduct<P, N>
 where
     P: Mountable,
 {
+    const EVENTS: UsedEvents = P::EVENTS;
+
     type Js = Node;
     type Target = Fragment;
 

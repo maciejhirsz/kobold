@@ -9,10 +9,12 @@ use web_sys::Event;
 use crate::{Mountable, View, internal};
 
 mod ctx;
+mod event;
 
 use ctx::EventCtx;
 
 pub use ctx::EventContext;
+pub use event::{EventKind, UsedEvents};
 
 /// 0 is reserved for popstate events so links can be triggered
 /// without having to pass any context.
@@ -99,6 +101,9 @@ where
     INIT.set(true);
 
     init_panic_hook();
+
+    // Hook up delegated event handlers for all event kinds used by the app
+    V::Product::EVENTS.delegate();
 
     let runtime = Box::new(RuntimeData {
         product: render().build(),

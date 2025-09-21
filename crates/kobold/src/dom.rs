@@ -10,10 +10,12 @@ use wasm_bindgen::{JsCast, JsValue};
 use web_sys::Node;
 
 use crate::internal;
-use crate::runtime::Trigger;
+use crate::runtime::{Trigger, UsedEvents};
 
 /// A type that can be mounted in the DOM
 pub trait Mountable: Trigger + 'static {
+    const EVENTS: UsedEvents;
+
     /// The concrete `web-sys` type representing the root of this
     /// product, most often [`HtmlElement`](web_sys::HtmlElement).
     type Js: JsCast;
@@ -31,6 +33,8 @@ pub trait Mountable: Trigger + 'static {
 /// A light-weight [`Deref`]-like trait that
 /// auto-implements `Mountable` by proxying it to another type.
 pub trait Anchor {
+    const EVENTS: UsedEvents;
+
     type Js: JsCast;
     type Target: Mountable;
 
@@ -42,6 +46,8 @@ where
     T: Anchor + Trigger + 'static,
     T::Target: Mountable,
 {
+    const EVENTS: UsedEvents = T::EVENTS;
+
     type Js = T::Js;
 
     fn js(&self) -> &JsValue {
@@ -132,6 +138,8 @@ impl Deref for FragmentBuilder {
 }
 
 impl Mountable for Node {
+    const EVENTS: UsedEvents = UsedEvents::empty();
+
     type Js = Node;
 
     fn js(&self) -> &JsValue {
@@ -148,6 +156,8 @@ impl Mountable for Node {
 }
 
 impl Mountable for Fragment {
+    const EVENTS: UsedEvents = UsedEvents::empty();
+
     type Js = Node;
 
     fn js(&self) -> &JsValue {

@@ -8,7 +8,7 @@ use crate::View;
 use crate::diff::{Diff, Ver};
 use crate::dom::{Anchor, Property, TextContent};
 use crate::internal;
-use crate::runtime::Trigger;
+use crate::runtime::{Trigger, UsedEvents};
 
 /// Value that can be set as a property on DOM node
 pub trait Value<P>: IntoText {
@@ -65,6 +65,8 @@ pub struct TextProduct<M> {
 }
 
 impl<M> Anchor for TextProduct<M> {
+    const EVENTS: UsedEvents = UsedEvents::empty();
+
     type Js = web_sys::Text;
     type Target = Node;
 
