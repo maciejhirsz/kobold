@@ -100,7 +100,7 @@ use web_sys::Node;
 
 use crate::dom::Anchor;
 use crate::internal::empty_node;
-use crate::runtime::{EventContext, Then, Trigger};
+use crate::runtime::{EventContext, Then, Trigger, UsedEvents};
 use crate::{Mountable, View};
 
 macro_rules! branch {
@@ -149,6 +149,11 @@ macro_rules! branch {
                 $var: Mountable,
             )*
         {
+            const EVENTS: UsedEvents = UsedEvents::empty()
+            $(
+                .combine($var::EVENTS)
+            )*;
+
             type Js = Node;
 
             fn js(&self) -> &JsValue {
@@ -207,6 +212,8 @@ pub struct EmptyNode(Node);
 pub struct Empty;
 
 impl Anchor for EmptyNode {
+    const EVENTS: UsedEvents = UsedEvents::empty();
+
     type Js = Node;
     type Target = Node;
 

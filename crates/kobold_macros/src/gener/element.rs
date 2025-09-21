@@ -103,7 +103,8 @@ impl IntoGenerator for HtmlElement {
                     }
                     AttributeHandler::Link => {
                         writeln!(el, "{var}.href={value};");
-                        writeln!(el, "{var}.onclick=e=>wasmBindings.koboldLink(e);")
+                        writeln!(el, "{var}[$_koboldSym[0]]=0;")
+                        // writeln!(el, "{var}.onclick=e=>wasmBindings.koboldLink(e);")
                     }
                     AttributeHandler::Prop { name, .. } => {
                         writeln!(el, "{var}.{name}={value};");

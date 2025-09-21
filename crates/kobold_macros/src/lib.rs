@@ -17,6 +17,7 @@ use proc_macro::TokenStream;
 mod branching;
 mod class;
 mod dom;
+mod event;
 mod fn_component;
 mod gener;
 mod itertools;

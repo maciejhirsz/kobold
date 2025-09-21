@@ -4,8 +4,8 @@
 use wasm_bindgen::JsValue;
 
 use crate::internal::get_path;
-use crate::runtime::POPSTATE_EID;
 use crate::runtime::{EventContext, Then, Trigger};
+use crate::runtime::{POPSTATE_EID, UsedEvents};
 use crate::{Mountable, View};
 
 pub struct PopState<F> {
@@ -55,6 +55,8 @@ impl<P> Mountable for PopStateProduct<P>
 where
     P: Mountable,
 {
+    const EVENTS: UsedEvents = P::EVENTS;
+
     type Js = P::Js;
 
     fn js(&self) -> &JsValue {

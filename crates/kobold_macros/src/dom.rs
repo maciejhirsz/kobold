@@ -4,6 +4,7 @@
 
 use tokens::{Delimiter, Ident, Literal, Span, TokenStream, TokenTree};
 
+use crate::event::EventKind;
 use crate::parse::prelude::*;
 use crate::syntax::CssLabel;
 use crate::tokenize::prelude::*;
@@ -53,6 +54,7 @@ pub struct HtmlElement {
     pub name: ElementTag,
     pub span: Span,
     pub classes: Vec<CssValue>,
+    pub events: Vec<Event>,
     pub attributes: Vec<Attribute>,
     pub children: Option<Vec<Node>>,
 }
@@ -73,6 +75,13 @@ pub enum CssValue {
 pub struct Attribute {
     pub name: CssLabel,
     pub value: AttributeValue,
+}
+
+#[derive(Debug)]
+pub struct Event {
+    pub name: CssLabel,
+    pub kind: EventKind,
+    pub value: Expression,
 }
 
 #[derive(Debug)]
@@ -153,6 +162,7 @@ impl Node {
             TagName::HtmlElement { name, span } => {
                 let mut content = tag.content.parse_stream();
                 let mut classes = Vec::new();
+                let mut events = Vec::new();
                 let mut attributes = Vec::new();
 
                 loop {
@@ -177,7 +187,27 @@ impl Node {
                 while !content.end() {
                     let attr: Attribute = content.parse()?;
 
-                    if attr.name.label == "class" {
+                    if attr.name.label.starts_with("on") {
+                        let span = attr.name.ident.span();
+                        let kind = EventKind::try_from(&attr.name.label[2..])
+                            .map_err(|()| ParseError::new("Unknown event", span))?;
+
+                        let value = match attr.value {
+                            AttributeValue::Literal(_) | AttributeValue::Boolean(_) => {
+                                return Err(ParseError::new(
+                                    "Event handler value must be an expression",
+                                    span,
+                                ));
+                            }
+                            AttributeValue::Expression(expr) => expr,
+                        };
+
+                        events.push(Event {
+                            name: attr.name,
+                            kind,
+                            value,
+                        })
+                    } else if attr.name.label == "class" {
                         classes.push(CssValue::try_from(attr.value)?);
                     } else {
                         attributes.push(attr);
@@ -193,6 +223,7 @@ impl Node {
                     name,
                     span,
                     classes,
+                    events,
                     attributes,
                     children,
                 }));
