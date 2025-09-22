@@ -377,7 +377,7 @@ impl Display for JsArgument {
         match self.abi {
             Some(InlineAbi::Bool) => write!(f, "self.{name}.into()"),
             Some(InlineAbi::Str) => write!(f, "self.{name}.as_ref()"),
-            Some(InlineAbi::Event) => write!(f, "{name}.js_value()"),
+            Some(InlineAbi::Event) => write!(f, "{name}.event_key()"),
             None => write!(f, "{name}.js()"),
         }
     }

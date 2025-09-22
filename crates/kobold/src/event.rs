@@ -8,10 +8,9 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 
 use wasm_bindgen::prelude::wasm_bindgen;
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::JsCast;
 use web_sys::{HtmlElement, HtmlInputElement};
 
-use crate::internal;
 use crate::runtime::{EventContext, EventId, Then, Trigger};
 
 #[wasm_bindgen]
@@ -141,7 +140,7 @@ pub struct ListenerProduct<F, E> {
 }
 
 pub trait ListenerHandle: Trigger {
-    fn js_value(&mut self) -> JsValue;
+    fn event_key(&mut self) -> u32;
 }
 
 impl<F, E> ListenerHandle for ListenerProduct<F, E>
@@ -149,8 +148,8 @@ where
     F: Fn(&E) + 'static,
     E: EventCast,
 {
-    fn js_value(&mut self) -> JsValue {
-        internal::make_event_handler(self.eid.0)
+    fn event_key(&mut self) -> u32 {
+        self.eid.0
     }
 }
 

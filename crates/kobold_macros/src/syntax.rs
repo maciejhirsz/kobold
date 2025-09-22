@@ -5,6 +5,7 @@
 //! `Parse` logic for different syntax elements
 
 use std::fmt::{self, Display, Write};
+use std::ops::{Deref, DerefMut};
 
 use tokens::{Ident, Literal, TokenStream};
 
@@ -60,20 +61,34 @@ impl Tokenize for Generics {
 
 /// CSS-style label, matches sequences of identifiers with dashes allowed.
 #[derive(Debug)]
-pub struct CssLabel {
+pub struct Label {
     /// Complete label with dashes
     pub label: String,
     /// Last ident in label
     pub ident: Ident,
 }
 
-impl Display for CssLabel {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.label)
+impl Deref for Label {
+    type Target = String;
+
+    fn deref(&self) -> &Self::Target {
+        &self.label
     }
 }
 
-impl Parse for CssLabel {
+impl DerefMut for Label {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.label
+    }
+}
+
+impl Display for Label {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self)
+    }
+}
+
+impl Parse for Label {
     fn parse(stream: &mut ParseStream) -> Result<Self, ParseError> {
         let mut ident: Ident = stream.parse()?;
         let mut label = String::new();
@@ -88,13 +103,13 @@ impl Parse for CssLabel {
             write!(&mut label, "-{ident}").unwrap();
         }
 
-        Ok(CssLabel { label, ident })
+        Ok(Label { label, ident })
     }
 }
 
-impl CssLabel {
+impl Label {
     pub fn into_literal(self) -> Literal {
-        let mut lit = string(&self.label);
+        let mut lit = string(&self);
 
         // Keep resolution to literal, but change location
         lit.set_span(lit.span().located_at(self.ident.span()));

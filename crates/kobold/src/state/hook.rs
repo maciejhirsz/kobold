@@ -6,12 +6,11 @@ use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
 
-use wasm_bindgen::JsValue;
 // use wasm_bindgen_futures::spawn_local;
 
+use crate::View;
 use crate::event::{EventCast, Listener, ListenerHandle};
 use crate::runtime::{EventContext, EventId, Then, Trigger};
-use crate::{View, internal};
 
 pub struct Signal<S> {
     // _sid: StateId,
@@ -193,8 +192,8 @@ where
     F: Fn(&mut S, &E) -> O + 'static,
     O: Into<Then>,
 {
-    fn js_value(&mut self) -> JsValue {
-        internal::make_event_handler(self.eid.0)
+    fn event_key(&mut self) -> u32 {
+        self.eid.0
     }
 }
 
