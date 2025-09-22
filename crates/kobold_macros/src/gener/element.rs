@@ -120,6 +120,8 @@ impl IntoGenerator for HtmlElement {
                 value.stream
             };
 
+            gener.add_used_event(kind);
+
             let value = gener.add_field(coerce).event(event, el.typ).name;
 
             writeln!(el, "{var}[$_koboldSym[{}]]={value};", kind as usize);
@@ -146,6 +148,7 @@ impl IntoGenerator for HtmlElement {
                     AttributeHandler::Link => {
                         writeln!(el, "{var}.href={value};");
                         writeln!(el, "{var}[$_koboldSym[{}]]=0;", EventKind::Click as usize);
+                        gener.add_used_event(EventKind::Click);
                     }
                     AttributeHandler::Prop { name, .. } => {
                         writeln!(el, "{var}.{name}={value};");
@@ -173,6 +176,7 @@ impl IntoGenerator for HtmlElement {
 
                         writeln!(el, "{var}.href={value};");
                         writeln!(el, "{var}[$_koboldSym[{}]]=0;", EventKind::Click as usize);
+                        gener.add_used_event(EventKind::Click);
                     }
                     AttributeHandler::Prop { name, attr } => {
                         el.hoisted = true;

@@ -9,6 +9,7 @@ use arrayvec::ArrayString;
 use tokens::{Ident, TokenStream};
 
 use crate::dom::{Expression, Node};
+use crate::event::EventKind;
 use crate::itertools::IteratorExt;
 use crate::tokenize::prelude::*;
 
@@ -57,6 +58,13 @@ impl Generator {
 
         self.out.fields.push(Field::new(name, value));
         self.out.fields.last_mut().unwrap()
+    }
+
+    fn add_used_event(&mut self, kind: EventKind) {
+        // A more robust de-duping here is likely an overkill
+        if !self.out.events.contains(&kind) {
+            self.out.events.push(kind);
+        }
     }
 
     fn add_hint(&mut self, name: Ident, typ: impl Tokenize) {

@@ -7,6 +7,7 @@ use std::fmt::{self, Debug, Display, Write};
 use arrayvec::ArrayString;
 use tokens::{Ident, Literal, TokenStream};
 
+use crate::event::EventKind;
 use crate::gener::Short;
 use crate::gener::element::{Attr, InlineAbi};
 use crate::itertools::IteratorExt;
@@ -20,6 +21,7 @@ pub type JsFnName = ArrayString<24>;
 pub struct Transient {
     pub js: JsModule,
     pub hints: Vec<Hint>,
+    pub events: Vec<EventKind>,
     pub fields: Vec<Field>,
     pub els: Vec<Short>,
 }
@@ -133,6 +135,17 @@ impl Tokenize for Transient {
         let mut product_generics = String::new();
         let mut product_generics_bounds = String::new();
 
+        let mut anchor_bounds = String::new();
+        let mut anchor_events = String::new();
+
+        for kind in self.events.iter() {
+            let _ = write!(
+                anchor_events,
+                ".used(::kobold::runtime::EventKind::{})",
+                kind.as_variant()
+            );
+        }
+
         for field in self.fields.iter() {
             let typ = field.make_type();
 
@@ -155,6 +168,11 @@ impl Tokenize for Transient {
 
             if let FieldKind::View { .. } | FieldKind::Event { .. } = field.kind {
                 let _ = write!(trigger_bounds, "{typ}: ::kobold::runtime::Trigger,");
+            }
+
+            if let FieldKind::View { .. } = field.kind {
+                let _ = write!(anchor_events, ".combine({typ}::EVENTS)");
+                let _ = write!(anchor_bounds, "{typ}: ::kobold::dom::Mountable,");
             }
         }
 
@@ -217,6 +235,7 @@ impl Tokenize for Transient {
                     \
                     impl<{product_generics}> ::kobold::dom::Anchor for TransientProduct<{product_generics}> \
                     where \
+                        {anchor_bounds}\
                         Self: 'static,\
                     ",
                 ),
@@ -226,7 +245,8 @@ impl Tokenize for Transient {
                 anchor_js_type,
                 ";",
                 format_args!("\
-                    const EVENTS: ::kobold::runtime::UsedEvents = ::kobold::runtime::UsedEvents::empty();\
+                    const EVENTS: ::kobold::runtime::UsedEvents = ::kobold::runtime::UsedEvents::empty()\
+                        {anchor_events};\
                     \
                     type Target = {anchor_type};\
                     \
