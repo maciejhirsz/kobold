@@ -172,7 +172,7 @@ impl IntoGenerator for HtmlElement {
                             .name;
 
                         writeln!(el, "{var}.href={value};");
-                        writeln!(el, "{var}.onclick=e=>wasmBindings.koboldLink(e);")
+                        writeln!(el, "{var}[$_koboldSym[{}]]=0;", EventKind::Click as usize);
                     }
                     AttributeHandler::Prop { name, attr } => {
                         el.hoisted = true;
