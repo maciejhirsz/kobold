@@ -42,12 +42,19 @@ export function delegateEvent(i) {
 	document.body.addEventListener(event, e => {
 		let probe = e.target;
 
-		while !Object.hasOwn(probe, symbol) {
+		while (!Object.hasOwn(probe, symbol)) {
 			probe = probe.parentElement;
 
 			if (probe == null) {
 				return;
 			}
+		}
+
+		e.__delegateTarget = probe;
+
+		if (probe[symbol] === 0) {
+			history.pushState(null,'', probe.href);
+			e.preventDefault();
 		}
 
 		wasmBindings.koboldTrigger(probe[symbol], e);
@@ -88,6 +95,5 @@ export function removeClass(n,v) { n.classList.remove(v); }
 export function replaceClass(n,o,v) { n.classList.replace(o,v); }
 export function toggleClass(n,c,v) { n.classList.toggle(c,v); }
 
-export function popState() { window.onpopstate = makeEventHandler(0); }
-export function pushState(e) { e.preventDefault(); history.pushState(null,'',e.currentTarget.href); }
+export function popState() { window.onpopstate = (e) => wasmBindings.koboldTrigger(0, e); }
 export function getPath() { return document.location.pathname; }

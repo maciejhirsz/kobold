@@ -59,6 +59,9 @@ impl UsedEvents {
     }
 
     pub(crate) fn delegate(self) {
+        delegate_event(0);
+        delegate_event(15);
+
         for i in 0..EventKind::COUNT {
             if self.0 & (1 << i) > 0 {
                 delegate_event(i as _);
