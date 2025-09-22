@@ -226,8 +226,10 @@ impl Tokenize for Transient {
                 anchor_js_type,
                 ";",
                 format_args!("\
-                    type Target = {anchor_type};
-
+                    const EVENTS: ::kobold::runtime::UsedEvents = ::kobold::runtime::UsedEvents::empty();\
+                    \
+                    type Target = {anchor_type};\
+                    \
                     fn anchor(&self) -> &Self::Target {{\
                         &self.e0\
                     }}\

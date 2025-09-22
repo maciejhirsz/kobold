@@ -93,8 +93,6 @@ impl Parse for Label {
         let mut ident: Ident = stream.parse()?;
         let mut label = String::new();
 
-        // let span = ident.span();
-
         write!(&mut label, "{ident}").unwrap();
 
         while stream.allow_consume('-').is_some() {

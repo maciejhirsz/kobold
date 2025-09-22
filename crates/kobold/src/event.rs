@@ -20,7 +20,7 @@ extern "C" {
     #[wasm_bindgen(method, getter)]
     fn target(this: &EventWithTarget) -> HtmlElement;
 
-    #[wasm_bindgen(method, getter, js_name = "currentTarget")]
+    #[wasm_bindgen(method, getter, js_name = "__delegateTarget")]
     fn current_target(this: &EventWithTarget) -> HtmlElement;
 }
 
@@ -65,7 +65,7 @@ macro_rules! event {
                 where
                     T: JsCast,
                 {
-                    EventTarget(self.event.unchecked_ref::<EventWithTarget>().current_target().unchecked_into())
+                    EventTarget(self.event.unchecked_ref::<EventWithTarget>().target().unchecked_into())
                 }
             }
         )*
