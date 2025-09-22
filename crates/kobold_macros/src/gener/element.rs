@@ -6,7 +6,8 @@ use std::fmt::{Arguments, Write};
 
 use tokens::{Literal, TokenStream};
 
-use crate::dom::{Attribute, AttributeValue, CssValue, ElementTag, HtmlElement};
+use crate::dom::{Attribute, AttributeValue, CssValue, ElementTag, Event, HtmlElement};
+use crate::event::EventKind;
 use crate::gener::{DomNode, Generator, IntoGenerator, JsArgument, Short, append};
 use crate::itertools::IteratorExt as _;
 use crate::parse::IteratorExt as _;
@@ -93,18 +94,58 @@ impl IntoGenerator for HtmlElement {
             }
         }
 
+        for event in self.events {
+            let Event {
+                name,
+                kind,
+                mut value,
+            } = event;
+
+            let target = el.typ;
+            let event = event_js_type(&name);
+
+            let coerce = if is_inline_closure(&mut value.stream) {
+                call(
+                    format_args!(
+                        "::kobold::internal::fn_type_hint::<\
+                        ::kobold::event::{event}<\
+                            ::kobold::reexport::web_sys::{target}\
+                        >,\
+                        _,\
+                    >"
+                    ),
+                    value.stream,
+                )
+            } else {
+                value.stream
+            };
+
+            let value = gener.add_field(coerce).event(event, el.typ).name;
+
+            writeln!(el, "{var}[$_koboldSym[{}]]={value};", kind as usize);
+
+            el.args.push(JsArgument::with_abi(value, InlineAbi::Event));
+
+            gener.add_hint(
+                name.ident,
+                format_args!(
+                    "impl Fn(\
+                        &::kobold::event::{event}<\
+                            ::kobold::reexport::web_sys::{target}\
+                        >\
+                    ) + 'static"
+                ),
+            );
+        }
+
         for Attribute { name, value } in self.attributes {
-            let handler = attribute_handler(&name.label);
+            let handler = attribute_handler(&name);
 
             match value {
                 AttributeValue::Literal(value) => match handler {
-                    AttributeHandler::Event { name, .. } => {
-                        writeln!(el, "{var}.addEventListener(\"{name}\",{value});");
-                    }
                     AttributeHandler::Link => {
                         writeln!(el, "{var}.href={value};");
-                        writeln!(el, "{var}[$_koboldSym[0]]=0;")
-                        // writeln!(el, "{var}.onclick=e=>wasmBindings.koboldLink(e);")
+                        writeln!(el, "{var}[$_koboldSym[{}]]=0;", EventKind::Click as usize);
                     }
                     AttributeHandler::Prop { name, .. } => {
                         writeln!(el, "{var}.{name}={value};");
@@ -116,32 +157,7 @@ impl IntoGenerator for HtmlElement {
                 AttributeValue::Boolean(value) => {
                     writeln!(el, "{var}.{name}={value};");
                 }
-                AttributeValue::Expression(mut expr) => match &handler {
-                    AttributeHandler::Event { name, event } => {
-                        let target = el.typ;
-
-                        let coerce = if is_inline_closure(&mut expr.stream) {
-                            call(
-                                format_args!(
-                                    "::kobold::internal::fn_type_hint::<\
-                                    ::kobold::event::{event}<\
-                                        ::kobold::reexport::web_sys::{target}\
-                                    >,\
-                                    _,\
-                                >"
-                                ),
-                                expr.stream,
-                            )
-                        } else {
-                            expr.stream
-                        };
-
-                        let value = gener.add_field(coerce).event(event, el.typ).name;
-
-                        writeln!(el, "{var}.addEventListener(\"{name}\",{value});");
-
-                        el.args.push(JsArgument::with_abi(value, InlineAbi::Event))
-                    }
+                AttributeValue::Expression(expr) => match &handler {
                     AttributeHandler::Link => {
                         el.hoisted = true;
 
@@ -183,20 +199,6 @@ impl IntoGenerator for HtmlElement {
             };
 
             match handler {
-                AttributeHandler::Event { event, .. } => {
-                    let target = el.typ;
-
-                    gener.add_hint(
-                        name.ident,
-                        format_args!(
-                            "impl Fn(\
-                                &::kobold::event::{event}<\
-                                    ::kobold::reexport::web_sys::{target}\
-                                >\
-                            ) + 'static"
-                        ),
-                    );
-                }
                 AttributeHandler::Prop { attr, .. } => {
                     gener.add_attr_hint(name.ident, "", attr.hint);
                 }
@@ -230,7 +232,7 @@ impl InlineAbi {
         match self {
             InlineAbi::Bool => "bool",
             InlineAbi::Str => "&str",
-            InlineAbi::Event => "wasm_bindgen::JsValue",
+            InlineAbi::Event => "u32",
         }
     }
 
@@ -291,25 +293,11 @@ enum AttributeHandler<'name> {
     SetAttribute { name: &'name str },
     /// Use as a prop `el.name = value;`
     Prop { name: &'name str, attr: Attr },
-    /// Set as an event listener `el.addEventListener(name, value);`
-    Event {
-        name: &'name str,
-        event: &'static str,
-    },
     /// This is a link and needs its own special case
     Link,
 }
 
 fn attribute_handler(name: &str) -> AttributeHandler<'_> {
-    if name.starts_with("on") && name.len() > 2 {
-        let name = &name[2..];
-
-        return AttributeHandler::Event {
-            name,
-            event: event_js_type(name),
-        };
-    }
-
     match name {
         "link" => AttributeHandler::Link,
         "view_box" => AttributeHandler::SetAttribute { name: "viewBox" },

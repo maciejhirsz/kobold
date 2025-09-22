@@ -6,7 +6,7 @@ use tokens::{Delimiter, Ident, Literal, Span, TokenStream, TokenTree};
 
 use crate::event::EventKind;
 use crate::parse::prelude::*;
-use crate::syntax::CssLabel;
+use crate::syntax::Label;
 use crate::tokenize::prelude::*;
 
 mod els;
@@ -73,13 +73,13 @@ pub enum CssValue {
 
 #[derive(Debug)]
 pub struct Attribute {
-    pub name: CssLabel,
+    pub name: Label,
     pub value: AttributeValue,
 }
 
 #[derive(Debug)]
 pub struct Event {
-    pub name: CssLabel,
+    pub name: Label,
     pub kind: EventKind,
     pub value: Expression,
 }
@@ -169,7 +169,7 @@ impl Node {
                     if content.allow_consume('.').is_some() {
                         classes.push(content.parse()?);
                     } else if let Some(hash) = content.allow_consume('#') {
-                        let name = CssLabel {
+                        let name = Label {
                             label: "id".into(),
                             ident: Ident::new("id", hash.span()),
                         };
@@ -187,9 +187,9 @@ impl Node {
                 while !content.end() {
                     let attr: Attribute = content.parse()?;
 
-                    if attr.name.label.starts_with("on") {
+                    if attr.name.starts_with("on") {
                         let span = attr.name.ident.span();
-                        let kind = EventKind::try_from(&attr.name.label[2..])
+                        let kind = EventKind::try_from(&attr.name[2..])
                             .map_err(|()| ParseError::new("Unknown event", span))?;
 
                         let value = match attr.value {
@@ -202,11 +202,11 @@ impl Node {
                             AttributeValue::Expression(expr) => expr,
                         };
 
-                        events.push(Event {
-                            name: attr.name,
-                            kind,
-                            value,
-                        })
+                        let mut name = attr.name;
+
+                        name.replace_range(..2, "");
+
+                        events.push(Event { name, kind, value });
                     } else if attr.name.label == "class" {
                         classes.push(CssValue::try_from(attr.value)?);
                     } else {
@@ -341,7 +341,7 @@ impl Parse for CssValue {
             return Ok(CssValue::Expression(Expression::try_from(expr)?));
         }
 
-        let css_label: CssLabel = stream
+        let css_label: Label = stream
             .parse()
             .map_err(|err| err.msg("Expected identifier or an {expression}"))?;
 
