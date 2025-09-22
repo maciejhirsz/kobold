@@ -5,7 +5,7 @@
 use std::fmt::{self, Debug};
 
 // Must be kept in sync with kobold::runtime::event
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum EventKind {
     Click,
     DblClick,
