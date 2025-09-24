@@ -3,9 +3,12 @@ name = "router"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+crate-type = ["cdylib"]
+
 [dependencies]
 kobold = { path = "../../crates/kobold" }
-kobold_router = { path = "../../crates/kobold_router" }
+# kobold_router = { path = "../../crates/kobold_router" }
 wasm-bindgen.workspace = true
 
 [dependencies.web-sys]
