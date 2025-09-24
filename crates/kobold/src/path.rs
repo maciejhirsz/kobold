@@ -1,11 +1,10 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
-use wasm_bindgen::JsValue;
-
+use crate::dom::Anchor;
 use crate::internal::get_path;
 use crate::runtime::{EventContext, Then, Trigger};
-use crate::runtime::{POPSTATE_EID, UsedEvents};
+use crate::runtime::POPSTATE_EID;
 use crate::{Mountable, View};
 
 pub struct PopState<F> {
@@ -51,24 +50,15 @@ where
     }
 }
 
-impl<P> Mountable for PopStateProduct<P>
+impl<P> Anchor for PopStateProduct<P>
 where
     P: Mountable,
 {
-    const EVENTS: UsedEvents = P::EVENTS;
-
     type Js = P::Js;
+    type Target = P;
 
-    fn js(&self) -> &JsValue {
-        self.product.js()
-    }
-
-    fn unmount(&self) {
-        self.product.unmount()
-    }
-
-    fn replace_with(&self, new: &JsValue) {
-        self.product.replace_with(new);
+    fn anchor(&self) -> &Self::Target {
+        &self.product
     }
 }
 

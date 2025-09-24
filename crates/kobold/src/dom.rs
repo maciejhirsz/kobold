@@ -14,6 +14,7 @@ use crate::runtime::{Trigger, UsedEvents};
 
 /// A type that can be mounted in the DOM
 pub trait Mountable: Trigger + 'static {
+    /// Total set of event handers required to be initalized.
     const EVENTS: UsedEvents;
 
     /// The concrete `web-sys` type representing the root of this
@@ -33,8 +34,10 @@ pub trait Mountable: Trigger + 'static {
 /// A light-weight [`Deref`]-like trait that
 /// auto-implements `Mountable` by proxying it to another type.
 pub trait Anchor {
-    const EVENTS: UsedEvents;
+    /// See [`Mountable::EVENTS`].
+    const EVENTS: UsedEvents = Self::Target::EVENTS;
 
+    /// See [`Mountable::Js`].
     type Js: JsCast;
     type Target: Mountable;
 

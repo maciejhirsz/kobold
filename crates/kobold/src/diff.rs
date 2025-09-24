@@ -11,7 +11,7 @@ use web_sys::Node;
 
 use crate::attribute::Attribute;
 use crate::dom::{Anchor, TextContent};
-use crate::runtime::{EventContext, Then, Trigger, UsedEvents};
+use crate::runtime::{EventContext, Then, Trigger};
 use crate::value::{IntoText, Value};
 use crate::{Mountable, View};
 
@@ -95,8 +95,6 @@ impl<D, P> Anchor for Fence<D, P>
 where
     P: Mountable,
 {
-    const EVENTS: UsedEvents = P::EVENTS;
-
     type Js = P::Js;
     type Target = P;
 

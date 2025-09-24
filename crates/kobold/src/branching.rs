@@ -212,8 +212,6 @@ pub struct EmptyNode(Node);
 pub struct Empty;
 
 impl Anchor for EmptyNode {
-    const EVENTS: UsedEvents = UsedEvents::empty();
-
     type Js = Node;
     type Target = Node;
 
