@@ -97,3 +97,4 @@ export function toggleClass(n,c,v) { n.classList.toggle(c,v); }
 
 export function popState() { window.onpopstate = (e) => wasmBindings.koboldTrigger(0, e); }
 export function getPath() { return document.location.pathname; }
+export function setPath(p) { history.pushState(null,'',p); }

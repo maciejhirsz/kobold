@@ -3,8 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 use crate::dom::Anchor;
 use crate::internal::get_path;
-use crate::runtime::{EventContext, Then, Trigger};
 use crate::runtime::POPSTATE_EID;
+use crate::runtime::{EventContext, Then, Trigger};
 use crate::{Mountable, View};
 
 pub struct PopState<F> {
@@ -14,6 +14,10 @@ pub struct PopState<F> {
 pub struct PopStateProduct<P> {
     path: String,
     product: P,
+}
+
+pub fn set_path(path: &str) {
+    crate::internal::set_path(path);
 }
 
 pub fn pop_state<F, V>(render: F) -> PopState<F>

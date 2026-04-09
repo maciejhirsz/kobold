@@ -142,4 +142,6 @@ extern "C" {
     pub(crate) fn pop_state();
     #[wasm_bindgen(js_name = "getPath")]
     pub(crate) fn get_path() -> String;
+    #[wasm_bindgen(js_name = "setPath")]
+    pub(crate) fn set_path(path: &str);
 }
