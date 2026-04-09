@@ -20,7 +20,7 @@ use tokio::net::TcpListener;
 use tokio::sync::{broadcast, mpsc, oneshot};
 use tower_async::{Service, ServiceBuilder};
 use tower_async_http::compression::CompressionLayer;
-use tower_async_http::services::ServeDir;
+use tower_async_http::services::{ServeDir, ServeFile};
 
 use crate::Serve;
 use crate::build::{BuildInfo, build};
@@ -194,10 +194,12 @@ async fn start_server(s: &Serve, dist_path: &Path, updates: Updates) -> Report<I
 
     log::starting!("development server at http://{}:{}", s.address, s.port);
 
+    let index = dist_path.join("index.html");
+
     let serve = {
         let files = ServiceBuilder::new()
             .layer(CompressionLayer::new())
-            .service(ServeDir::new(dist_path));
+            .service(ServeDir::new(dist_path).fallback(ServeFile::new(index)));
 
         let serve = ServiceBuilder::new().layer_fn(Logger).service(Events {
             path: "/kobold-events",
