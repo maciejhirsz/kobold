@@ -8,10 +8,9 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 
 use wasm_bindgen::prelude::wasm_bindgen;
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::JsCast;
 use web_sys::{HtmlElement, HtmlInputElement};
 
-use crate::internal;
 use crate::runtime::{EventContext, EventId, Then, Trigger};
 
 #[wasm_bindgen]
@@ -21,7 +20,7 @@ extern "C" {
     #[wasm_bindgen(method, getter)]
     fn target(this: &EventWithTarget) -> HtmlElement;
 
-    #[wasm_bindgen(method, getter, js_name = "currentTarget")]
+    #[wasm_bindgen(method, getter, js_name = "__delegateTarget")]
     fn current_target(this: &EventWithTarget) -> HtmlElement;
 }
 
@@ -66,7 +65,7 @@ macro_rules! event {
                 where
                     T: JsCast,
                 {
-                    EventTarget(self.event.unchecked_ref::<EventWithTarget>().current_target().unchecked_into())
+                    EventTarget(self.event.unchecked_ref::<EventWithTarget>().target().unchecked_into())
                 }
             }
         )*
@@ -81,6 +80,12 @@ mod sealed {
     impl EventCast for web_sys::Event {
         fn cast_from(e: &web_sys::Event) -> &Self {
             e
+        }
+    }
+
+    impl EventCast for () {
+        fn cast_from(_: &web_sys::Event) -> &Self {
+            &()
         }
     }
 }
@@ -135,7 +140,7 @@ pub struct ListenerProduct<F, E> {
 }
 
 pub trait ListenerHandle: Trigger {
-    fn js_value(&mut self) -> JsValue;
+    fn event_key(&mut self) -> u32;
 }
 
 impl<F, E> ListenerHandle for ListenerProduct<F, E>
@@ -143,8 +148,8 @@ where
     F: Fn(&E) + 'static,
     E: EventCast,
 {
-    fn js_value(&mut self) -> JsValue {
-        internal::make_event_handler(self.eid.0)
+    fn event_key(&mut self) -> u32 {
+        self.eid.0
     }
 }
 

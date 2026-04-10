@@ -1,10 +1,64 @@
-const fragmentDecorators = new WeakMap();
+// Must be kept in sync with runtime::events
+const events = [
+	"click",
+	"dblclick",
+	"pointerdown",
+	"pointerup",
+	"pointermove",
+	"pointerover",
+	"pointerout",
+	"pointercancel",
+	"contextmenu",
+	"wheel",
+	"touchstart",
+	"touchmove",
+	"touchend",
+	"touchcancel",
+	"keydown",
+	"keyup",
+	"focusin",
+	"focusout",
+	"change",
+	"reset",
+	"invalid",
+	"beforeinput",
+	"select",
+];
+
+const eventSymbols = window.$_koboldSym = Array(23);
+
+const fragmentDecorators = Symbol();
 
 export function appendBody(n) {
 	document.body.appendChild(n);
 }
 export function createTextNode(t) {
 	return document.createTextNode(t);
+}
+export function delegateEvent(i) {
+	let event = events[i];
+	let symbol = eventSymbols[i] = Symbol(event);
+
+	document.body.addEventListener(event, e => {
+		let probe = e.target;
+
+		while (!Object.hasOwn(probe, symbol)) {
+			probe = probe.parentElement;
+
+			if (probe == null) {
+				return;
+			}
+		}
+
+		e.__delegateTarget = probe;
+
+		if (probe[symbol] === 0) {
+			history.pushState(null,'', probe.href);
+			e.preventDefault();
+		}
+
+		wasmBindings.koboldTrigger(probe[symbol], e);
+	});
 }
 
 export function emptyNode() { return document.createTextNode(""); }
@@ -15,19 +69,19 @@ export function fragment()
 	return f;
 };
 export function fragmentDecorate(f) {
-	fragmentDecorators.set(f, [f.firstChild, f.lastChild]);
+	f[fragmentDecorators] = [f.firstChild, f.lastChild];
 	return f.lastChild;
 }
 export function fragmentUnmount(f)
 {
-	let [b, e] = fragmentDecorators.get(f);
+	let [b, e] = f[fragmentDecorators];
 	while (b.nextSibling !== e) f.appendChild(b.nextSibling);
 	f.appendChild(e);
 	f.insertBefore(b, f.firstChild);
 }
 export function fragmentReplace(f,n)
 {
-	let [b, e] = fragmentDecorators.get(f);
+	let [b, e] = f[fragmentDecorators];
 	while (b.nextSibling !== e) f.appendChild(b.nextSibling);
 	b.replaceWith(n);
 	f.appendChild(e);
@@ -41,4 +95,6 @@ export function removeClass(n,v) { n.classList.remove(v); }
 export function replaceClass(n,o,v) { n.classList.replace(o,v); }
 export function toggleClass(n,c,v) { n.classList.toggle(c,v); }
 
-export function makeEventHandler(eid) { return (e) => wasmBindings.koboldTrigger(eid,e); }
+export function popState() { window.onpopstate = (e) => wasmBindings.koboldTrigger(0, e); }
+export function getPath() { return document.location.pathname; }
+export function setPath(p) { history.replaceState(null,'',p); }

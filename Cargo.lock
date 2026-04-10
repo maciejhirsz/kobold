@@ -969,7 +969,7 @@ dependencies = [
 
 [[package]]
 name = "kobold_qr"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "fast_qr",
  "kobold",
@@ -1950,6 +1950,15 @@ checksum = "93411e420bcd1a75ddd1dc3caf18c23155eda2c090631a85af21ba19e97093b5"
 dependencies = [
  "smallvec",
  "str_indices",
+]
+
+[[package]]
+name = "router"
+version = "0.1.0"
+dependencies = [
+ "kobold",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]

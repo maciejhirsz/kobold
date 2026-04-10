@@ -9,10 +9,16 @@ use web_sys::Event;
 use crate::{Mountable, View, internal};
 
 mod ctx;
+mod event;
 
 use ctx::EventCtx;
 
 pub use ctx::EventContext;
+pub use event::{EventKind, UsedEvents};
+
+/// 0 is reserved for popstate events so links can be triggered
+/// without having to pass any context.
+pub(crate) const POPSTATE_EID: EventId = EventId(0);
 
 struct RuntimeData<P, U> {
     product: P,
@@ -56,7 +62,7 @@ impl From<()> for Then {
 }
 
 thread_local! {
-    static EVENT_ID: Cell<u32> = const { Cell::new(0) };
+    static EVENT_ID: Cell<u32> = const { Cell::new(1) };
 
     static INIT: Cell<bool> = const { Cell::new(false) };
 
@@ -95,6 +101,9 @@ where
     INIT.set(true);
 
     init_panic_hook();
+
+    // Hook up delegated event handlers for all event kinds used by the app
+    V::Product::EVENTS.delegate();
 
     let runtime = Box::new(RuntimeData {
         product: render().build(),

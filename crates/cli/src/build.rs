@@ -16,7 +16,7 @@ use crate::manifest::{Manifest, Package, manifest};
 use crate::report::{Error, ErrorExt, Report};
 use crate::{Build, When};
 
-pub fn build(b: &Build) -> Report<BuildInfo> {
+pub fn build(b: &Build) -> Report<BuildInfo<'_>> {
     let Manifest {
         package:
             Package {
@@ -152,7 +152,7 @@ fn optimize_wasm(file: &Path) -> Report<()> {
         .arg(file)
         .arg("-o")
         .arg(file)
-        .args(["--enable-simd", "--low-memory-unused"])
+        .args(["--enable-simd", "--enable-bulk-memory", "--low-memory-unused"])
         .spawn()
         .message("failed to run wasm-opt")?
         .wait()

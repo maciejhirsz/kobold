@@ -11,8 +11,7 @@
 //! could ever do is render itself once. To get around this the [`stateful`] function can
 //! be used to create views that have ownership over some arbitrary mutable state.
 //!
-use wasm_bindgen::JsValue;
-
+use crate::dom::Anchor;
 use crate::runtime::{EventContext, Then, Trigger};
 use crate::{Mountable, View};
 
@@ -84,23 +83,16 @@ where
     }
 }
 
-impl<S, P> Mountable for StatefulProduct<S, P>
+impl<S, P> Anchor for StatefulProduct<S, P>
 where
     S: 'static,
     P: Mountable,
 {
     type Js = P::Js;
+    type Target = P;
 
-    fn js(&self) -> &JsValue {
-        self.product.js()
-    }
-
-    fn unmount(&self) {
-        self.product.unmount()
-    }
-
-    fn replace_with(&self, new: &JsValue) {
-        self.product.replace_with(new);
+    fn anchor(&self) -> &Self::Target {
+        &self.product
     }
 }
 
@@ -141,23 +133,16 @@ pub struct OnceProduct<S, P, D> {
     _no_drop: D,
 }
 
-impl<S, P, D> Mountable for OnceProduct<S, P, D>
+impl<S, P, D> Anchor for OnceProduct<S, P, D>
 where
     StatefulProduct<S, P>: Mountable,
     D: 'static,
 {
     type Js = <StatefulProduct<S, P> as Mountable>::Js;
+    type Target = StatefulProduct<S, P>;
 
-    fn js(&self) -> &JsValue {
-        self.inner.js()
-    }
-
-    fn unmount(&self) {
-        self.inner.unmount()
-    }
-
-    fn replace_with(&self, new: &JsValue) {
-        self.inner.replace_with(new);
+    fn anchor(&self) -> &Self::Target {
+        &self.inner
     }
 }
 

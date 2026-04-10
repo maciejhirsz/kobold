@@ -106,6 +106,9 @@ extern "C" {
     #[wasm_bindgen(js_name = createTextNode)]
     pub(crate) fn text_node_bool(t: bool) -> Node;
 
+    #[wasm_bindgen(js_name = "delegateEvent")]
+    pub(crate) fn delegate_event(kind: i32);
+
     #[wasm_bindgen(js_name = "emptyNode")]
     pub(crate) fn empty_node() -> Node;
     #[wasm_bindgen(js_name = "fragment")]
@@ -135,6 +138,10 @@ extern "C" {
 
     // ----------------
 
-    #[wasm_bindgen(js_name = "makeEventHandler")]
-    pub(crate) fn make_event_handler(eid: u32) -> JsValue;
+    #[wasm_bindgen(js_name = "popState")]
+    pub(crate) fn pop_state();
+    #[wasm_bindgen(js_name = "getPath")]
+    pub(crate) fn get_path() -> String;
+    #[wasm_bindgen(js_name = "setPath")]
+    pub(crate) fn set_path(path: &str);
 }
